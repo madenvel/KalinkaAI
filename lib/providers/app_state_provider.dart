@@ -109,3 +109,17 @@ final volumeStateProvider = Provider(
 final playbackModeProvider = Provider(
   (ref) => ref.watch(playQueueStateStoreProvider.select((s) => s.playbackMode)),
 );
+
+// Queue expansion state
+class QueueExpansionNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+  void expand() => state = true;
+  void collapse() => state = false;
+}
+
+final queueExpansionProvider = NotifierProvider<QueueExpansionNotifier, bool>(
+  QueueExpansionNotifier.new,
+);
