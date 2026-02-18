@@ -42,6 +42,9 @@ sealed class QueueCommand with _$QueueCommand {
     bool? repeatAll,
   }) = SetPlaybackModeCommand;
 
+  const factory QueueCommand.move({required int from, required int to}) =
+      MoveCommand;
+
   factory QueueCommand.fromJson(Map<String, dynamic> json) =>
       _$QueueCommandFromJson(json);
 }

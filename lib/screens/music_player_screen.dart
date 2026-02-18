@@ -1,26 +1,75 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:kai/providers/app_state_provider.dart';
+import '../widgets/album_art_background.dart';
 import '../widgets/playbar.dart';
 import '../widgets/expandable_queue.dart';
-import '../providers/url_resolver.dart';
+import '../widgets/search_bar.dart';
+import '../widgets/side_panel.dart';
 
-class MusicPlayerScreen extends ConsumerWidget {
+class MusicPlayerScreen extends StatelessWidget {
   const MusicPlayerScreen({super.key});
 
+  static const _tabletBreakpoint = 900.0;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= _tabletBreakpoint) {
+            return _buildTabletLayout(context);
+          }
+          return _buildPhoneLayout(context);
+        },
+      ),
+    );
+  }
+
+  Widget _buildPhoneLayout(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Main content layer: background + playbar
-          Column(
+    return Stack(
+      children: [
+        // Main content layer: background + playbar
+        Column(
+          children: [
+            // Main content area
+            const Expanded(child: AlbumArtBackground()),
+            // Playbar at bottom with color extending beyond safe area
+            Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+              ),
+              child: SafeArea(top: false, child: const Playbar()),
+            ),
+          ],
+        ),
+        // Search bar overlay: positioned at top
+        const Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: ExpandableSearchBar(),
+        ),
+        // Queue overlay: slides up from bottom, covers everything including playbar
+        const Positioned.fill(child: ExpandableQueue()),
+      ],
+    );
+  }
+
+  Widget _buildTabletLayout(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        // Left panel: album art + playbar (always visible)
+        Expanded(
+          flex: 1,
+          child: Column(
             children: [
-              // Main content area
-              Expanded(child: _buildBackgroundContent(theme, ref)),
-              // Playbar at bottom with color extending beyond safe area
+              const Expanded(child: AlbumArtBackground()),
               Container(
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest,
@@ -32,70 +81,15 @@ class MusicPlayerScreen extends ConsumerWidget {
               ),
             ],
           ),
-          // Queue overlay: slides up from bottom, covers everything including playbar
-          const Positioned.fill(child: ExpandableQueue()),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBackgroundContent(ThemeData theme, WidgetRef ref) {
-    final queueState = ref.watch(playerStateProvider);
-    final currentTrack = queueState.currentTrack;
-    final urlResolver = ref.read(urlResolverProvider);
-
-    final imageUrl =
-        currentTrack?.album?.image?.large ??
-        currentTrack?.album?.image?.small ??
-        currentTrack?.album?.image?.thumbnail;
-    final resolvedImageUrl = imageUrl != null
-        ? urlResolver.abs(imageUrl)
-        : null;
-
-    return SafeArea(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: AspectRatio(
-            aspectRatio: 1.0,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: resolvedImageUrl != null
-                    ? Image.network(
-                        resolvedImageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildPlaceholder(theme);
-                        },
-                      )
-                    : _buildPlaceholder(theme),
-              ),
-            ),
-          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildPlaceholder(ThemeData theme) {
-    return Container(
-      color: theme.colorScheme.surfaceContainerHighest,
-      child: Icon(
-        Icons.album,
-        size: 120,
-        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-      ),
+        // Divider
+        VerticalDivider(width: 1, thickness: 1),
+        // Right panel: tabbed search/queue
+        Expanded(
+          flex: 1,
+          child: SafeArea(child: const SidePanel()),
+        ),
+      ],
     );
   }
 }

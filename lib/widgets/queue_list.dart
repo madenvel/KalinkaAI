@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../providers/app_state_provider.dart';
+import '../providers/kalinka_player_api_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/playback_time_provider.dart';
 import '../providers/url_resolver.dart';
 import '../data_model/kalinka_ws_api.dart';
+import '../utils/playback_utils.dart';
 
 /// Queue list item
 class QueueListItem extends ConsumerWidget {
@@ -75,7 +77,7 @@ class QueueListItem extends ConsumerWidget {
         // Show context menu
         showModalBottomSheet(
           context: context,
-          builder: (context) => Container(
+          builder: (sheetContext) => Container(
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -84,8 +86,8 @@ class QueueListItem extends ConsumerWidget {
                   leading: const Icon(Icons.delete_outline),
                   title: const Text('Remove from queue'),
                   onTap: () {
-                    Navigator.pop(context);
-                    // Mock - would remove track
+                    Navigator.pop(sheetContext);
+                    ref.read(kalinkaProxyProvider).remove(index);
                   },
                 ),
               ],
@@ -175,30 +177,11 @@ class QueueListItem extends ConsumerWidget {
                 // Play/pause button for current track, duration for others
                 if (isCurrentTrack)
                   IconButton(
-                    icon: Icon(
-                      playerState == PlayerStateType.playing
-                          ? Icons.pause_circle_filled
-                          : playerState == PlayerStateType.buffering
-                          ? Icons.hourglass_bottom
-                          : Icons.play_circle_filled,
-                      size: 36,
-                    ),
+                    icon: Icon(playPauseFilledIcon(playerState), size: 36),
                     color: theme.colorScheme.primary,
-                    onPressed: playerState == PlayerStateType.buffering
+                    onPressed: isPlayPauseDisabled(playerState)
                         ? null
-                        : () {
-                            if (playerState == PlayerStateType.stopped) {
-                              api.sendQueueCommand(const QueueCommand.play());
-                            } else if (playerState == PlayerStateType.paused) {
-                              api.sendQueueCommand(
-                                const QueueCommand.pause(paused: false),
-                              );
-                            } else if (playerState == PlayerStateType.playing) {
-                              api.sendQueueCommand(
-                                const QueueCommand.pause(paused: true),
-                              );
-                            }
-                          },
+                        : () => sendPlayPauseCommand(ref, playerState),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
@@ -211,6 +194,16 @@ class QueueListItem extends ConsumerWidget {
                     _formatDuration(track.duration * 1000),
                     style: theme.textTheme.bodySmall,
                   ),
+                const SizedBox(width: 4),
+                // Drag handle for reordering
+                ReorderableDragStartListener(
+                  index: index,
+                  child: Icon(
+                    Icons.drag_handle,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             ),
           ),
@@ -224,55 +217,6 @@ class QueueListItem extends ConsumerWidget {
                 theme.colorScheme.primary,
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Queue header with actions
-class QueueHeader extends ConsumerWidget {
-  const QueueHeader({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final queueState = ref.watch(playQueueStateStoreProvider);
-    final api = ref.read(kalinkaWsApiProvider);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Text(
-            'Queue (${queueState.trackList.length})',
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: Icon(
-              queueState.playbackMode.shuffle
-                  ? Icons.shuffle_on_outlined
-                  : Icons.shuffle,
-              size: 20,
-            ),
-            onPressed: () {
-              api.sendQueueCommand(
-                QueueCommand.setPlaybackMode(
-                  shuffle: !queueState.playbackMode.shuffle,
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.clear_all, size: 20),
-            onPressed: () {
-              // Mock clear queue
-            },
-          ),
         ],
       ),
     );

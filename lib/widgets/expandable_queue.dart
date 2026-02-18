@@ -1,7 +1,9 @@
+import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'queue_list.dart';
+import 'dismissible_queue_item.dart';
 import '../providers/app_state_provider.dart';
+import '../providers/kalinka_player_api_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../data_model/kalinka_ws_api.dart';
 
@@ -143,7 +145,28 @@ class _ExpandableQueueState extends ConsumerState<ExpandableQueue>
                     // Clear button
                     TextButton.icon(
                       onPressed: () {
-                        // TODO: Implement clear queue
+                        showDialog(
+                          context: context,
+                          builder: (dialogContext) => AlertDialog(
+                            title: const Text('Clear Queue'),
+                            content: const Text(
+                              'Remove all tracks from the queue?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(dialogContext),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.pop(dialogContext);
+                                  ref.read(kalinkaProxyProvider).clear();
+                                },
+                                child: const Text('Clear'),
+                              ),
+                            ],
+                          ),
+                        );
                       },
                       icon: const Icon(Icons.clear_all, size: 18),
                       label: const Text('Clear'),
@@ -182,12 +205,46 @@ class _ExpandableQueueState extends ConsumerState<ExpandableQueue>
                     ).createShader(bounds);
                   },
                   blendMode: BlendMode.dstIn,
-                  child: ListView.builder(
+                  child: ReorderableListView.builder(
                     itemCount: trackList.length,
+                    onReorder: (oldIndex, newIndex) async {
+                      if (newIndex > oldIndex) newIndex--;
+                      if (oldIndex == newIndex) return;
+                      ref
+                          .read(playQueueStateStoreProvider.notifier)
+                          .optimisticallyReorder(oldIndex, newIndex);
+                      try {
+                        await ref
+                            .read(kalinkaProxyProvider)
+                            .move(oldIndex, newIndex);
+                      } catch (e) {
+                        ref
+                            .read(playQueueStateStoreProvider.notifier)
+                            .optimisticallyReorder(newIndex, oldIndex);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to reorder: $e')),
+                          );
+                        }
+                      }
+                    },
+                    proxyDecorator: (child, index, animation) {
+                      return AnimatedBuilder(
+                        animation: animation,
+                        builder: (context, child) => Material(
+                          elevation: lerpDouble(0, 6, animation.value)!,
+                          color: Colors.transparent,
+                          shadowColor: Colors.black.withValues(alpha: 0.4),
+                          child: child,
+                        ),
+                        child: child,
+                      );
+                    },
                     itemBuilder: (context, index) {
                       final track = trackList[index];
                       final isCurrentTrack = index == currentIndex;
-                      return QueueListItem(
+                      return DismissibleQueueItem(
+                        key: ValueKey('queue_${track.id}_$index'),
                         track: track,
                         index: index,
                         isCurrentTrack: isCurrentTrack,

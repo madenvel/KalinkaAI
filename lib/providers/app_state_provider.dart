@@ -49,6 +49,13 @@ class PlayQueueStateStore extends Notifier<PlayQueueState> {
 
     return state;
   }
+
+  void optimisticallyReorder(int oldIndex, int newIndex) {
+    final list = [...state.trackList];
+    final item = list.removeAt(oldIndex);
+    list.insert(newIndex, item);
+    state = state.copyWith(trackList: list, seq: state.seq);
+  }
 }
 
 class ExtDeviceStateStore extends Notifier<ExtDeviceState> {

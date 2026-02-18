@@ -89,3 +89,16 @@ Map<String, dynamic> _$SetPlaybackModeCommandToJson(
   'repeat_all': instance.repeatAll,
   'command': instance.$type,
 };
+
+MoveCommand _$MoveCommandFromJson(Map<String, dynamic> json) => MoveCommand(
+  from: (json['from'] as num).toInt(),
+  to: (json['to'] as num).toInt(),
+  $type: json['command'] as String?,
+);
+
+Map<String, dynamic> _$MoveCommandToJson(MoveCommand instance) =>
+    <String, dynamic>{
+      'from': instance.from,
+      'to': instance.to,
+      'command': instance.$type,
+    };

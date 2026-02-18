@@ -5,6 +5,9 @@ import '../data_model/kalinka_ws_api.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/playback_time_provider.dart';
+import '../providers/url_resolver.dart';
+import '../providers/search_state_provider.dart';
+import '../utils/playback_utils.dart';
 
 /// Pinned playbar header with controls
 class Playbar extends ConsumerStatefulWidget {
@@ -14,10 +17,13 @@ class Playbar extends ConsumerStatefulWidget {
   ConsumerState<Playbar> createState() => _PlaybarState();
 }
 
-class _PlaybarState extends ConsumerState<Playbar> {
+class _PlaybarState extends ConsumerState<Playbar>
+    with SingleTickerProviderStateMixin {
   bool _isSeeking = false;
   double _seekProgress = 0.0;
   int _seekPositionMs = 0;
+  late AnimationController _collapseController;
+  late Animation<double> _collapseAnimation;
 
   String _formatTime(int milliseconds) {
     final seconds = milliseconds ~/ 1000;
@@ -29,6 +35,15 @@ class _PlaybarState extends ConsumerState<Playbar> {
   @override
   void initState() {
     super.initState();
+
+    _collapseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _collapseAnimation = CurvedAnimation(
+      parent: _collapseController,
+      curve: Curves.easeInOut,
+    );
 
     ref.listenManual(playerStateProvider, (previous, next) {
       // Reset seeking state when playback state changes
@@ -42,8 +57,57 @@ class _PlaybarState extends ConsumerState<Playbar> {
   }
 
   @override
+  void dispose() {
+    _collapseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final searchState = ref.watch(searchStateProvider);
+    final isSearchExpanded = searchState.isExpanded;
+
+    // Sync animation with search expansion state
+    if (isSearchExpanded) {
+      _collapseController.forward();
+    } else {
+      _collapseController.reverse();
+    }
+
+    return AnimatedBuilder(
+      animation: _collapseAnimation,
+      builder: (context, child) {
+        final collapseProgress = _collapseAnimation.value;
+        final isFullyCollapsed = collapseProgress == 1.0;
+        final isFullyExpanded = collapseProgress == 0.0;
+
+        if (isFullyCollapsed) {
+          return _buildCompactPlaybar(context, theme);
+        }
+
+        if (isFullyExpanded) {
+          return _buildFullPlaybar(context, theme);
+        }
+
+        // During animation, cross-fade between full and compact
+        return Stack(
+          children: [
+            Opacity(
+              opacity: 1.0 - collapseProgress,
+              child: _buildFullPlaybar(context, theme),
+            ),
+            Opacity(
+              opacity: collapseProgress,
+              child: _buildCompactPlaybar(context, theme),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildFullPlaybar(BuildContext context, ThemeData theme) {
     final queueState = ref.watch(playQueueStateStoreProvider);
     final playbackState = queueState.playbackState;
     final currentTrack = playbackState.currentTrack;
@@ -180,28 +244,12 @@ class _PlaybarState extends ConsumerState<Playbar> {
                 // Play/pause button (larger)
                 IconButton(
                   icon: Icon(
-                    playerState == PlayerStateType.playing
-                        ? Icons.pause
-                        : playerState == PlayerStateType.buffering
-                        ? Icons.hourglass_bottom
-                        : Icons.play_arrow,
+                    playPauseIcon(playerState),
                     size: 42,
                   ),
-                  onPressed: playerState == PlayerStateType.buffering
-                      ? null // Disable button while buffering
-                      : () {
-                          if (playerState == PlayerStateType.stopped) {
-                            api.sendQueueCommand(const QueueCommand.play());
-                          } else if (playerState == PlayerStateType.paused) {
-                            api.sendQueueCommand(
-                              const QueueCommand.pause(paused: false),
-                            );
-                          } else if (playerState == PlayerStateType.playing) {
-                            api.sendQueueCommand(
-                              const QueueCommand.pause(paused: true),
-                            );
-                          }
-                        },
+                  onPressed: isPlayPauseDisabled(playerState)
+                      ? null
+                      : () => sendPlayPauseCommand(ref, playerState),
                 ),
                 // Next button
                 IconButton(
@@ -290,6 +338,121 @@ class _PlaybarState extends ConsumerState<Playbar> {
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactPlaybar(BuildContext context, ThemeData theme) {
+    final queueState = ref.watch(playQueueStateStoreProvider);
+    final playbackState = queueState.playbackState;
+    final currentTrack = playbackState.currentTrack;
+    final playbackTimeMs = ref.watch(playbackTimeMsProvider);
+    final urlResolver = ref.read(urlResolverProvider);
+
+    final playerState = playbackState.state;
+    final durationMs = (currentTrack?.duration ?? 0) * 1000;
+    final progress = durationMs > 0
+        ? (playbackTimeMs / durationMs).clamp(0.0, 1.0)
+        : 0.0;
+
+    final imageUrl =
+        currentTrack?.album?.image?.thumbnail ??
+        currentTrack?.album?.image?.small;
+    final resolvedImageUrl = imageUrl != null
+        ? urlResolver.abs(imageUrl)
+        : null;
+
+    return Material(
+      color: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                // Album cover (48x48)
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: resolvedImageUrl != null
+                        ? Image.network(
+                            resolvedImageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Icon(
+                                Icons.album,
+                                size: 24,
+                                color: theme.colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.3),
+                              );
+                            },
+                          )
+                        : Icon(
+                            Icons.album,
+                            size: 24,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.3),
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Track info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        currentTrack?.title ?? 'No track',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        currentTrack?.performer?.name ?? '—',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Play/pause button
+                IconButton(
+                  icon: Icon(
+                    playPauseIcon(playerState),
+                    size: 28,
+                  ),
+                  onPressed: isPlayPauseDisabled(playerState)
+                      ? null
+                      : () => sendPlayPauseCommand(ref, playerState),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            // Non-interactive progress bar
+            LinearProgressIndicator(
+              value: progress,
+              minHeight: 2,
+              backgroundColor: theme.colorScheme.outline.withValues(alpha: 0.3),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                theme.colorScheme.primary,
+              ),
             ),
           ],
         ),

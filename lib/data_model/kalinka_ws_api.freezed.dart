@@ -390,6 +390,10 @@ QueueCommand _$QueueCommandFromJson(
           return SetPlaybackModeCommand.fromJson(
             json
           );
+                case 'move':
+          return MoveCommand.fromJson(
+            json
+          );
         
           default:
             throw CheckedFromJsonException(
@@ -448,7 +452,7 @@ extension QueueCommandPatterns on QueueCommand {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( PlayCommand value)?  play,TResult Function( PauseCommand value)?  pause,TResult Function( NextCommand value)?  next,TResult Function( PrevCommand value)?  prev,TResult Function( StopCommand value)?  stop,TResult Function( SeekCommand value)?  seek,TResult Function( SetPlaybackModeCommand value)?  setPlaybackMode,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( PlayCommand value)?  play,TResult Function( PauseCommand value)?  pause,TResult Function( NextCommand value)?  next,TResult Function( PrevCommand value)?  prev,TResult Function( StopCommand value)?  stop,TResult Function( SeekCommand value)?  seek,TResult Function( SetPlaybackModeCommand value)?  setPlaybackMode,TResult Function( MoveCommand value)?  move,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case PlayCommand() when play != null:
@@ -458,7 +462,8 @@ return next(_that);case PrevCommand() when prev != null:
 return prev(_that);case StopCommand() when stop != null:
 return stop(_that);case SeekCommand() when seek != null:
 return seek(_that);case SetPlaybackModeCommand() when setPlaybackMode != null:
-return setPlaybackMode(_that);case _:
+return setPlaybackMode(_that);case MoveCommand() when move != null:
+return move(_that);case _:
   return orElse();
 
 }
@@ -476,7 +481,7 @@ return setPlaybackMode(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( PlayCommand value)  play,required TResult Function( PauseCommand value)  pause,required TResult Function( NextCommand value)  next,required TResult Function( PrevCommand value)  prev,required TResult Function( StopCommand value)  stop,required TResult Function( SeekCommand value)  seek,required TResult Function( SetPlaybackModeCommand value)  setPlaybackMode,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( PlayCommand value)  play,required TResult Function( PauseCommand value)  pause,required TResult Function( NextCommand value)  next,required TResult Function( PrevCommand value)  prev,required TResult Function( StopCommand value)  stop,required TResult Function( SeekCommand value)  seek,required TResult Function( SetPlaybackModeCommand value)  setPlaybackMode,required TResult Function( MoveCommand value)  move,}){
 final _that = this;
 switch (_that) {
 case PlayCommand():
@@ -486,7 +491,8 @@ return next(_that);case PrevCommand():
 return prev(_that);case StopCommand():
 return stop(_that);case SeekCommand():
 return seek(_that);case SetPlaybackModeCommand():
-return setPlaybackMode(_that);}
+return setPlaybackMode(_that);case MoveCommand():
+return move(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
 ///
@@ -500,7 +506,7 @@ return setPlaybackMode(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( PlayCommand value)?  play,TResult? Function( PauseCommand value)?  pause,TResult? Function( NextCommand value)?  next,TResult? Function( PrevCommand value)?  prev,TResult? Function( StopCommand value)?  stop,TResult? Function( SeekCommand value)?  seek,TResult? Function( SetPlaybackModeCommand value)?  setPlaybackMode,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( PlayCommand value)?  play,TResult? Function( PauseCommand value)?  pause,TResult? Function( NextCommand value)?  next,TResult? Function( PrevCommand value)?  prev,TResult? Function( StopCommand value)?  stop,TResult? Function( SeekCommand value)?  seek,TResult? Function( SetPlaybackModeCommand value)?  setPlaybackMode,TResult? Function( MoveCommand value)?  move,}){
 final _that = this;
 switch (_that) {
 case PlayCommand() when play != null:
@@ -510,7 +516,8 @@ return next(_that);case PrevCommand() when prev != null:
 return prev(_that);case StopCommand() when stop != null:
 return stop(_that);case SeekCommand() when seek != null:
 return seek(_that);case SetPlaybackModeCommand() when setPlaybackMode != null:
-return setPlaybackMode(_that);case _:
+return setPlaybackMode(_that);case MoveCommand() when move != null:
+return move(_that);case _:
   return null;
 
 }
@@ -527,7 +534,7 @@ return setPlaybackMode(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( int? index)?  play,TResult Function( bool paused)?  pause,TResult Function()?  next,TResult Function()?  prev,TResult Function()?  stop,TResult Function( int positionMs)?  seek,TResult Function( bool? shuffle,  bool? repeatSingle,  bool? repeatAll)?  setPlaybackMode,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( int? index)?  play,TResult Function( bool paused)?  pause,TResult Function()?  next,TResult Function()?  prev,TResult Function()?  stop,TResult Function( int positionMs)?  seek,TResult Function( bool? shuffle,  bool? repeatSingle,  bool? repeatAll)?  setPlaybackMode,TResult Function( int from,  int to)?  move,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case PlayCommand() when play != null:
 return play(_that.index);case PauseCommand() when pause != null:
@@ -536,7 +543,8 @@ return next();case PrevCommand() when prev != null:
 return prev();case StopCommand() when stop != null:
 return stop();case SeekCommand() when seek != null:
 return seek(_that.positionMs);case SetPlaybackModeCommand() when setPlaybackMode != null:
-return setPlaybackMode(_that.shuffle,_that.repeatSingle,_that.repeatAll);case _:
+return setPlaybackMode(_that.shuffle,_that.repeatSingle,_that.repeatAll);case MoveCommand() when move != null:
+return move(_that.from,_that.to);case _:
   return orElse();
 
 }
@@ -554,7 +562,7 @@ return setPlaybackMode(_that.shuffle,_that.repeatSingle,_that.repeatAll);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( int? index)  play,required TResult Function( bool paused)  pause,required TResult Function()  next,required TResult Function()  prev,required TResult Function()  stop,required TResult Function( int positionMs)  seek,required TResult Function( bool? shuffle,  bool? repeatSingle,  bool? repeatAll)  setPlaybackMode,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( int? index)  play,required TResult Function( bool paused)  pause,required TResult Function()  next,required TResult Function()  prev,required TResult Function()  stop,required TResult Function( int positionMs)  seek,required TResult Function( bool? shuffle,  bool? repeatSingle,  bool? repeatAll)  setPlaybackMode,required TResult Function( int from,  int to)  move,}) {final _that = this;
 switch (_that) {
 case PlayCommand():
 return play(_that.index);case PauseCommand():
@@ -563,7 +571,8 @@ return next();case PrevCommand():
 return prev();case StopCommand():
 return stop();case SeekCommand():
 return seek(_that.positionMs);case SetPlaybackModeCommand():
-return setPlaybackMode(_that.shuffle,_that.repeatSingle,_that.repeatAll);}
+return setPlaybackMode(_that.shuffle,_that.repeatSingle,_that.repeatAll);case MoveCommand():
+return move(_that.from,_that.to);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -577,7 +586,7 @@ return setPlaybackMode(_that.shuffle,_that.repeatSingle,_that.repeatAll);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( int? index)?  play,TResult? Function( bool paused)?  pause,TResult? Function()?  next,TResult? Function()?  prev,TResult? Function()?  stop,TResult? Function( int positionMs)?  seek,TResult? Function( bool? shuffle,  bool? repeatSingle,  bool? repeatAll)?  setPlaybackMode,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( int? index)?  play,TResult? Function( bool paused)?  pause,TResult? Function()?  next,TResult? Function()?  prev,TResult? Function()?  stop,TResult? Function( int positionMs)?  seek,TResult? Function( bool? shuffle,  bool? repeatSingle,  bool? repeatAll)?  setPlaybackMode,TResult? Function( int from,  int to)?  move,}) {final _that = this;
 switch (_that) {
 case PlayCommand() when play != null:
 return play(_that.index);case PauseCommand() when pause != null:
@@ -586,7 +595,8 @@ return next();case PrevCommand() when prev != null:
 return prev();case StopCommand() when stop != null:
 return stop();case SeekCommand() when seek != null:
 return seek(_that.positionMs);case SetPlaybackModeCommand() when setPlaybackMode != null:
-return setPlaybackMode(_that.shuffle,_that.repeatSingle,_that.repeatAll);case _:
+return setPlaybackMode(_that.shuffle,_that.repeatSingle,_that.repeatAll);case MoveCommand() when move != null:
+return move(_that.from,_that.to);case _:
   return null;
 
 }
@@ -1001,6 +1011,81 @@ shuffle: freezed == shuffle ? _self.shuffle : shuffle // ignore: cast_nullable_t
 as bool?,repeatSingle: freezed == repeatSingle ? _self.repeatSingle : repeatSingle // ignore: cast_nullable_to_non_nullable
 as bool?,repeatAll: freezed == repeatAll ? _self.repeatAll : repeatAll // ignore: cast_nullable_to_non_nullable
 as bool?,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class MoveCommand extends QueueCommand {
+  const MoveCommand({required this.from, required this.to, final  String? $type}): $type = $type ?? 'move',super._();
+  factory MoveCommand.fromJson(Map<String, dynamic> json) => _$MoveCommandFromJson(json);
+
+ final  int from;
+ final  int to;
+
+@JsonKey(name: 'command')
+final String $type;
+
+
+/// Create a copy of QueueCommand
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$MoveCommandCopyWith<MoveCommand> get copyWith => _$MoveCommandCopyWithImpl<MoveCommand>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$MoveCommandToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MoveCommand&&(identical(other.from, from) || other.from == from)&&(identical(other.to, to) || other.to == to));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,from,to);
+
+@override
+String toString() {
+  return 'QueueCommand.move(from: $from, to: $to)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $MoveCommandCopyWith<$Res> implements $QueueCommandCopyWith<$Res> {
+  factory $MoveCommandCopyWith(MoveCommand value, $Res Function(MoveCommand) _then) = _$MoveCommandCopyWithImpl;
+@useResult
+$Res call({
+ int from, int to
+});
+
+
+
+
+}
+/// @nodoc
+class _$MoveCommandCopyWithImpl<$Res>
+    implements $MoveCommandCopyWith<$Res> {
+  _$MoveCommandCopyWithImpl(this._self, this._then);
+
+  final MoveCommand _self;
+  final $Res Function(MoveCommand) _then;
+
+/// Create a copy of QueueCommand
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? from = null,Object? to = null,}) {
+  return _then(MoveCommand(
+from: null == from ? _self.from : from // ignore: cast_nullable_to_non_nullable
+as int,to: null == to ? _self.to : to // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 
