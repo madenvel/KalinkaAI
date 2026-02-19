@@ -23,6 +23,9 @@ class CachedSearchResult {
       DateTime.now().difference(timestamp).inMinutes >= _cacheTtlMinutes;
 }
 
+/// Interaction mode for the + button
+enum InteractionMode { contextMenu, instantAppend }
+
 /// Search state containing expansion, query, and results
 class SearchState {
   final bool isExpanded;
@@ -31,6 +34,10 @@ class SearchState {
   final Map<SearchType, BrowseItemsList>? searchResults;
   final List<BrowseItemsList>? browseRecommendations;
   final String? error;
+  final String? expandedAlbumId;
+  final String? artistPreviewId;
+  final bool tracksExpanded;
+  final InteractionMode interactionMode;
 
   const SearchState({
     this.isExpanded = false,
@@ -39,7 +46,16 @@ class SearchState {
     this.searchResults,
     this.browseRecommendations,
     this.error,
+    this.expandedAlbumId,
+    this.artistPreviewId,
+    this.tracksExpanded = false,
+    this.interactionMode = InteractionMode.instantAppend,
   });
+
+  int get totalResultCount {
+    if (searchResults == null) return 0;
+    return searchResults!.values.fold(0, (sum, list) => sum + list.items.length);
+  }
 
   SearchState copyWith({
     bool? isExpanded,
@@ -48,6 +64,12 @@ class SearchState {
     Map<SearchType, BrowseItemsList>? searchResults,
     List<BrowseItemsList>? browseRecommendations,
     String? error,
+    String? expandedAlbumId,
+    String? artistPreviewId,
+    bool? tracksExpanded,
+    InteractionMode? interactionMode,
+    bool clearExpandedAlbum = false,
+    bool clearArtistPreview = false,
   }) {
     return SearchState(
       isExpanded: isExpanded ?? this.isExpanded,
@@ -57,6 +79,12 @@ class SearchState {
       browseRecommendations:
           browseRecommendations ?? this.browseRecommendations,
       error: error ?? this.error,
+      expandedAlbumId:
+          clearExpandedAlbum ? null : (expandedAlbumId ?? this.expandedAlbumId),
+      artistPreviewId:
+          clearArtistPreview ? null : (artistPreviewId ?? this.artistPreviewId),
+      tracksExpanded: tracksExpanded ?? this.tracksExpanded,
+      interactionMode: interactionMode ?? this.interactionMode,
     );
   }
 }
@@ -65,6 +93,7 @@ class SearchState {
 class SearchStateNotifier extends Notifier<SearchState> {
   late SharedPreferences _prefs;
   final Map<String, CachedSearchResult> _cache = {};
+  Timer? _debounceTimer;
 
   @override
   SearchState build() {
@@ -114,9 +143,23 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
   void setQuery(String query) {
     state = state.copyWith(query: query, error: null);
+    _debounceTimer?.cancel();
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
+    // If cached results exist, show them immediately
+    final cached = _cache[trimmed];
+    if (cached != null && !cached.isExpired) {
+      state = state.copyWith(searchResults: cached.results, isLoading: false);
+      return;
+    }
+    // Otherwise, debounce a search
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      performSearch();
+    });
   }
 
   Future<void> performSearch() async {
+    _debounceTimer?.cancel();
     if (state.query.trim().isEmpty) return;
 
     final query = state.query.trim();
@@ -228,7 +271,49 @@ class SearchStateNotifier extends Notifier<SearchState> {
     }
   }
 
+  void expandAlbum(String albumId) {
+    state = state.copyWith(
+      expandedAlbumId: albumId,
+      clearArtistPreview: true,
+    );
+  }
+
+  void collapseAlbum() {
+    state = state.copyWith(clearExpandedAlbum: true);
+  }
+
+  void previewArtist(String artistId) {
+    state = state.copyWith(
+      artistPreviewId: artistId,
+      clearExpandedAlbum: true,
+    );
+  }
+
+  void collapseArtistPreview() {
+    state = state.copyWith(clearArtistPreview: true);
+  }
+
+  void toggleTracksExpanded() {
+    state = state.copyWith(tracksExpanded: !state.tracksExpanded);
+  }
+
+  void cycleInteractionMode() {
+    final next = state.interactionMode == InteractionMode.instantAppend
+        ? InteractionMode.contextMenu
+        : InteractionMode.instantAppend;
+    state = state.copyWith(interactionMode: next);
+  }
+
+  void resetExpansions() {
+    state = state.copyWith(
+      clearExpandedAlbum: true,
+      clearArtistPreview: true,
+      tracksExpanded: false,
+    );
+  }
+
   void clearSearch() {
+    _debounceTimer?.cancel();
     state = state.copyWith(query: '', searchResults: null, error: null);
     _loadBrowseRecommendations();
   }

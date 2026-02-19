@@ -5,7 +5,9 @@ import '../data_model/data_model.dart';
 import '../providers/browse_navigation_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/url_resolver.dart';
+import '../theme/app_theme.dart';
 import 'path_bar.dart';
+import 'procedural_album_art.dart';
 
 /// Displays a section of browse items: collage preview -> expanded list ->
 /// inline drill-down with PathBar. Replaces SectionCollage.
@@ -157,7 +159,7 @@ class _BrowseListState extends ConsumerState<BrowseList> {
       aspectRatio: 1.0,
       child: Container(
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
+          color: KalinkaColors.inputSurface,
           borderRadius: BorderRadius.circular(12),
         ),
         child: ClipRRect(
@@ -191,12 +193,8 @@ class _BrowseListState extends ConsumerState<BrowseList> {
 
   Widget _buildPlaceholder(ThemeData theme) {
     return Container(
-      color: theme.colorScheme.surfaceContainerHigh,
-      child: Icon(
-        Icons.album,
-        size: 40,
-        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-      ),
+      color: KalinkaColors.inputSurface,
+      child: const Icon(Icons.album, size: 40, color: Color(0x4D98989A)),
     );
   }
 
@@ -274,31 +272,23 @@ class _BrowseListState extends ConsumerState<BrowseList> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(4),
+                  color: KalinkaColors.inputSurface,
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(6),
                   child: resolvedImageUrl != null
                       ? Image.network(
                           resolvedImageUrl,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
-                            return Icon(
-                              Icons.album,
-                              size: 24,
-                              color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.3),
+                            return ProceduralAlbumArt(
+                              trackId: item.id,
+                              size: 48,
                             );
                           },
                         )
-                      : Icon(
-                          Icons.album,
-                          size: 24,
-                          color: theme.colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.3,
-                          ),
-                        ),
+                      : ProceduralAlbumArt(trackId: item.id, size: 48),
                 ),
               ),
             const SizedBox(width: 12),
@@ -337,13 +327,15 @@ class _BrowseListState extends ConsumerState<BrowseList> {
                 ),
               if (item.canAdd && !item.canBrowse)
                 IconButton(
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add_circle_outline),
+                  color: KalinkaColors.gold,
                   onPressed: () => _addToQueue(item),
                   tooltip: 'Add to queue',
                 ),
               if (item.canAdd && item.canBrowse)
                 IconButton(
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add_circle_outline),
+                  color: KalinkaColors.gold,
                   onPressed: () => _addToQueue(item),
                   tooltip: 'Add to queue',
                   visualDensity: VisualDensity.compact,

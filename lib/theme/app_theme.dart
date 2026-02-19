@@ -1,53 +1,273 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-/// Hi-Fi grayscale Material 3 theme
+/// Kalinka color palette — viburnum-inspired dark theme
+class KalinkaColors {
+  KalinkaColors._();
+
+  // Background hierarchy
+  static const background = Color(0xFF0A0A0D);
+  static const headerSurface = Color(0xFF111116);
+  static const miniPlayerSurface = Color(0xFF16161B);
+  static const inputSurface = Color(0xFF1C1C22);
+
+  // Accent colors
+  static const accent = Color(0xFFC23B5C);
+  static const gold = Color(0xFFE8C87A);
+
+  // Text
+  static const textPrimary = Color(0xFFE5E5E7);
+  static const textSecondary = Color(0xFF98989A);
+
+  // Borders
+  static const borderDefault = Color(0x12FFFFFF); // rgba(255,255,255,0.07)
+  static const borderElevated = Color(0x21FFFFFF); // rgba(255,255,255,0.13)
+
+  // Secondary surfaces
+  static const pillSurface = Color(0xFF222228);
+
+  // Semantic
+  static const deleteRed = Color(0xFFE53935);
+  static const confirmGreen = Color(0xFF4ADE80);
+
+  // Gradient for progress bars
+  static const progressGradient = LinearGradient(colors: [accent, gold]);
+}
+
+/// Kalinka text styles using IBM Plex Mono and Playfair Display
+class KalinkaTextStyles {
+  KalinkaTextStyles._();
+
+  // Queue items
+  static TextStyle queueItemTitle = GoogleFonts.ibmPlexMono(
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    color: KalinkaColors.textPrimary,
+  );
+
+  static TextStyle queueItemArtist = GoogleFonts.ibmPlexMono(
+    fontSize: 10,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle queueItemIndex = GoogleFonts.ibmPlexMono(
+    fontSize: 12,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle queueItemDuration = GoogleFonts.ibmPlexMono(
+    fontSize: 11,
+    color: KalinkaColors.textSecondary,
+  );
+
+  // Mini player
+  static TextStyle miniPlayerTitle = GoogleFonts.ibmPlexMono(
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: KalinkaColors.textPrimary,
+  );
+
+  static TextStyle miniPlayerArtist = GoogleFonts.ibmPlexMono(
+    fontSize: 10,
+    color: KalinkaColors.textSecondary,
+  );
+
+  // Expanded player
+  static TextStyle expandedTitle = GoogleFonts.playfairDisplay(
+    fontSize: 26,
+    fontStyle: FontStyle.italic,
+    color: KalinkaColors.textPrimary,
+  );
+
+  static TextStyle expandedArtist = GoogleFonts.ibmPlexMono(
+    fontSize: 12,
+    color: KalinkaColors.textSecondary,
+  );
+
+  // Labels
+  static TextStyle nowPlayingLabel = GoogleFonts.ibmPlexMono(
+    fontSize: 10,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 2.0,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle formatBadge = GoogleFonts.ibmPlexMono(
+    fontSize: 9,
+    fontWeight: FontWeight.w500,
+    color: KalinkaColors.accent,
+  );
+
+  static TextStyle sectionHeader = GoogleFonts.ibmPlexMono(
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 1.0,
+    color: KalinkaColors.textSecondary,
+  );
+
+  // Search
+  static TextStyle searchPlaceholder = GoogleFonts.ibmPlexMono(
+    fontSize: 13,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle aiBadge = GoogleFonts.ibmPlexMono(
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    color: KalinkaColors.accent,
+  );
+
+  static TextStyle aiPlaylistName = GoogleFonts.playfairDisplay(
+    fontSize: 16,
+    fontStyle: FontStyle.italic,
+    color: KalinkaColors.textPrimary,
+  );
+
+  static TextStyle searchTab = GoogleFonts.ibmPlexMono(
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+  );
+
+  // Search results
+  static TextStyle resultCountHint = GoogleFonts.ibmPlexMono(
+    fontSize: 9,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 1.5,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle sectionLabel = GoogleFonts.ibmPlexMono(
+    fontSize: 9,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 1.5,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle trackRowTitle = GoogleFonts.ibmPlexMono(
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    color: KalinkaColors.textPrimary,
+  );
+
+  static TextStyle trackRowSubtitle = GoogleFonts.ibmPlexMono(
+    fontSize: 10,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle cardTitle = GoogleFonts.ibmPlexMono(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: KalinkaColors.textPrimary,
+  );
+
+  static TextStyle tagPill = GoogleFonts.ibmPlexMono(
+    fontSize: 8.5,
+    fontWeight: FontWeight.w500,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle showMoreLabel = GoogleFonts.ibmPlexMono(
+    fontSize: 10,
+    fontWeight: FontWeight.w600,
+    color: KalinkaColors.accent,
+  );
+
+  static TextStyle aiCardLabel = GoogleFonts.ibmPlexMono(
+    fontSize: 9,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 1.5,
+    color: KalinkaColors.accent,
+  );
+
+  static TextStyle aiTrackChip = GoogleFonts.ibmPlexMono(
+    fontSize: 11,
+    color: KalinkaColors.textPrimary,
+  );
+
+  static TextStyle aiTrackChipDuration = GoogleFonts.ibmPlexMono(
+    fontSize: 9,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle browseButtonLabel = GoogleFonts.ibmPlexMono(
+    fontSize: 9,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 1.0,
+    color: KalinkaColors.accent,
+  );
+
+  static TextStyle batchBarLabel = GoogleFonts.ibmPlexMono(
+    fontSize: 9,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 1.5,
+    color: KalinkaColors.textSecondary,
+  );
+
+  // Time
+  static TextStyle timeLabel = GoogleFonts.ibmPlexMono(
+    fontSize: 11,
+    color: KalinkaColors.textSecondary,
+  );
+}
+
+/// App-wide Material theme
 class AppTheme {
   static ThemeData dark() {
-    const charcoal = Color(0xFF1C1C1E);
-    const surface = Color(0xFF2C2C2E);
-    const outline = Color(0xFF48484A);
-    const textPrimary = Color(0xFFE5E5E7);
-    const textSecondary = Color(0xFF98989A);
+    final baseTextTheme = GoogleFonts.ibmPlexMonoTextTheme(
+      ThemeData.dark().textTheme,
+    );
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: const ColorScheme.dark(
-        surface: charcoal,
-        surfaceContainerHighest: surface,
-        onSurface: textPrimary,
-        onSurfaceVariant: textSecondary,
-        outline: outline,
-        outlineVariant: outline,
-        primary: textPrimary,
-        onPrimary: charcoal,
+        surface: KalinkaColors.background,
+        surfaceContainerHighest: KalinkaColors.inputSurface,
+        onSurface: KalinkaColors.textPrimary,
+        onSurfaceVariant: KalinkaColors.textSecondary,
+        outline: KalinkaColors.borderDefault,
+        outlineVariant: KalinkaColors.borderElevated,
+        primary: KalinkaColors.accent,
+        onPrimary: KalinkaColors.textPrimary,
+        secondary: KalinkaColors.gold,
+        onSecondary: KalinkaColors.background,
       ),
-      scaffoldBackgroundColor: charcoal,
+      scaffoldBackgroundColor: KalinkaColors.background,
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
-      textTheme: const TextTheme(
-        titleMedium: TextStyle(
+      textTheme: baseTextTheme.copyWith(
+        titleMedium: GoogleFonts.ibmPlexMono(
           fontSize: 15,
           fontWeight: FontWeight.w500,
-          color: textPrimary,
+          color: KalinkaColors.textPrimary,
           letterSpacing: -0.2,
         ),
-        bodyMedium: TextStyle(
+        bodyMedium: GoogleFonts.ibmPlexMono(
           fontSize: 14,
-          color: textSecondary,
+          color: KalinkaColors.textSecondary,
           letterSpacing: -0.1,
         ),
-        bodySmall: TextStyle(
+        bodySmall: GoogleFonts.ibmPlexMono(
           fontSize: 12,
-          color: textSecondary,
+          color: KalinkaColors.textSecondary,
           letterSpacing: -0.1,
         ),
       ),
-      iconTheme: const IconThemeData(color: textPrimary, size: 24),
+      iconTheme: const IconThemeData(
+        color: KalinkaColors.textPrimary,
+        size: 24,
+      ),
       dividerTheme: const DividerThemeData(
-        color: outline,
+        color: KalinkaColors.borderDefault,
         thickness: 1,
         space: 1,
+      ),
+      sliderTheme: SliderThemeData(
+        activeTrackColor: KalinkaColors.accent,
+        inactiveTrackColor: KalinkaColors.borderElevated,
+        thumbColor: Colors.white,
+        overlayColor: KalinkaColors.accent.withValues(alpha: 0.2),
+        trackHeight: 3,
       ),
     );
   }

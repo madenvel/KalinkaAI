@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/tablet_panel_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../data_model/kalinka_ws_api.dart';
+import '../theme/app_theme.dart';
 import 'search_content.dart';
-import 'dismissible_queue_item.dart';
-import 'dart:ui' show lerpDouble;
+import 'queue_item_row.dart';
+import 'swipe_reveal_item.dart';
 
 /// Tabbed side panel for tablet layout.
 /// Shows Search or Queue content, inline (no overlays).
@@ -22,6 +24,7 @@ class SidePanel extends ConsumerStatefulWidget {
 class _SidePanelState extends ConsumerState<SidePanel> {
   late TextEditingController _textController;
   late FocusNode _focusNode;
+  int _revealedIndex = -1;
 
   @override
   void initState() {
@@ -39,7 +42,6 @@ class _SidePanelState extends ConsumerState<SidePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final activePanel = ref.watch(tabletPanelProvider);
     final searchState = ref.watch(searchStateProvider);
 
@@ -56,7 +58,6 @@ class _SidePanelState extends ConsumerState<SidePanel> {
           child: Row(
             children: [
               _buildTab(
-                theme,
                 'Search',
                 Icons.search,
                 activePanel == TabletPanel.search,
@@ -64,7 +65,6 @@ class _SidePanelState extends ConsumerState<SidePanel> {
               ),
               const SizedBox(width: 8),
               _buildTab(
-                theme,
                 'Queue',
                 Icons.queue_music,
                 activePanel == TabletPanel.queue,
@@ -77,31 +77,31 @@ class _SidePanelState extends ConsumerState<SidePanel> {
         // Content
         Expanded(
           child: activePanel == TabletPanel.search
-              ? _buildSearchPanel(theme, searchState)
-              : _buildQueuePanel(theme),
+              ? _buildSearchPanel(searchState)
+              : _buildQueuePanel(),
         ),
       ],
     );
   }
 
   Widget _buildTab(
-    ThemeData theme,
     String label,
     IconData icon,
     bool isActive,
     VoidCallback onTap,
   ) {
     return Expanded(
-      child: InkWell(
+      child: GestureDetector(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: isActive
-                ? theme.colorScheme.primaryContainer
-                : Colors.transparent,
+            border: Border(
+              bottom: BorderSide(
+                color: isActive ? KalinkaColors.accent : Colors.transparent,
+                width: 2,
+              ),
+            ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -110,17 +110,18 @@ class _SidePanelState extends ConsumerState<SidePanel> {
                 icon,
                 size: 18,
                 color: isActive
-                    ? theme.colorScheme.onPrimaryContainer
-                    : theme.colorScheme.onSurfaceVariant,
+                    ? KalinkaColors.accent
+                    : KalinkaColors.textSecondary,
               ),
               const SizedBox(width: 6),
               Text(
                 label,
-                style: theme.textTheme.labelLarge?.copyWith(
+                style: GoogleFonts.ibmPlexMono(
+                  fontSize: 12,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                   color: isActive
-                      ? theme.colorScheme.onPrimaryContainer
-                      : theme.colorScheme.onSurfaceVariant,
-                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                      ? KalinkaColors.accent
+                      : KalinkaColors.textSecondary,
                 ),
               ),
             ],
@@ -130,64 +131,81 @@ class _SidePanelState extends ConsumerState<SidePanel> {
     );
   }
 
-  Widget _buildSearchPanel(ThemeData theme, SearchState searchState) {
+  Widget _buildSearchPanel(SearchState searchState) {
     return Column(
       children: [
         // Inline search bar
         Padding(
           padding: const EdgeInsets.all(8),
-          child: TextField(
-            controller: _textController,
-            focusNode: _focusNode,
-            onChanged: (value) {
-              ref.read(searchStateProvider.notifier).setQuery(value);
-            },
-            onSubmitted: (value) {
-              if (value.trim().isNotEmpty) {
-                ref.read(searchStateProvider.notifier).performSearch();
-              }
-            },
-            decoration: InputDecoration(
-              hintText: 'Search music...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: searchState.query.isNotEmpty
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _textController.clear();
-                            ref
-                                .read(searchStateProvider.notifier)
-                                .clearSearch();
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.search),
-                          onPressed: () {
-                            ref
-                                .read(searchStateProvider.notifier)
-                                .performSearch();
-                          },
-                          style: IconButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primaryContainer,
-                            foregroundColor:
-                                theme.colorScheme.onPrimaryContainer,
-                          ),
-                        ),
-                      ],
-                    )
-                  : null,
-              filled: true,
-              fillColor: theme.colorScheme.surfaceContainerHighest,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(24),
-                borderSide: BorderSide.none,
+          child: Container(
+            decoration: BoxDecoration(
+              color: KalinkaColors.inputSurface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: KalinkaColors.accent.withValues(alpha: 0.5),
+                width: 1,
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
+            ),
+            child: TextField(
+              controller: _textController,
+              focusNode: _focusNode,
+              style: GoogleFonts.ibmPlexMono(
+                fontSize: 13,
+                color: KalinkaColors.textPrimary,
+              ),
+              onChanged: (value) {
+                ref.read(searchStateProvider.notifier).setQuery(value);
+              },
+              onSubmitted: (value) {
+                if (value.trim().isNotEmpty) {
+                  ref.read(searchStateProvider.notifier).performSearch();
+                }
+              },
+              decoration: InputDecoration(
+                hintText: 'Search music\u2026',
+                hintStyle: KalinkaTextStyles.searchPlaceholder,
+                prefixIcon: const Icon(
+                  Icons.search,
+                  color: KalinkaColors.accent,
+                  size: 20,
+                ),
+                suffixIcon: searchState.query.isNotEmpty
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.clear,
+                              size: 18,
+                              color: KalinkaColors.textSecondary,
+                            ),
+                            onPressed: () {
+                              _textController.clear();
+                              ref
+                                  .read(searchStateProvider.notifier)
+                                  .clearSearch();
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.search,
+                              size: 18,
+                              color: KalinkaColors.accent,
+                            ),
+                            onPressed: () {
+                              ref
+                                  .read(searchStateProvider.notifier)
+                                  .performSearch();
+                            },
+                          ),
+                        ],
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
               ),
             ),
           ),
@@ -198,7 +216,7 @@ class _SidePanelState extends ConsumerState<SidePanel> {
     );
   }
 
-  Widget _buildQueuePanel(ThemeData theme) {
+  Widget _buildQueuePanel() {
     final queueState = ref.watch(playQueueStateStoreProvider);
     final trackList = queueState.trackList;
     final currentIndex = queueState.playbackState.index ?? 0;
@@ -227,11 +245,14 @@ class _SidePanelState extends ConsumerState<SidePanel> {
                   );
                 },
                 icon: Icon(Icons.shuffle, size: 18),
-                label: const Text('Shuffle'),
+                label: Text(
+                  'Shuffle',
+                  style: GoogleFonts.ibmPlexMono(fontSize: 11),
+                ),
                 style: TextButton.styleFrom(
                   foregroundColor: isShuffle
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurfaceVariant,
+                      ? KalinkaColors.gold
+                      : KalinkaColors.textSecondary,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -270,11 +291,12 @@ class _SidePanelState extends ConsumerState<SidePanel> {
                       : isRepeatAll
                       ? 'Repeat All'
                       : 'Repeat',
+                  style: GoogleFonts.ibmPlexMono(fontSize: 11),
                 ),
                 style: TextButton.styleFrom(
                   foregroundColor: (isRepeatAll || isRepeatOne)
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurfaceVariant,
+                      ? KalinkaColors.accent
+                      : KalinkaColors.textSecondary,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -305,8 +327,12 @@ class _SidePanelState extends ConsumerState<SidePanel> {
                   );
                 },
                 icon: const Icon(Icons.clear_all, size: 18),
-                label: const Text('Clear'),
+                label: Text(
+                  'Clear',
+                  style: GoogleFonts.ibmPlexMono(fontSize: 11),
+                ),
                 style: TextButton.styleFrom(
+                  foregroundColor: KalinkaColors.textSecondary,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -317,47 +343,50 @@ class _SidePanelState extends ConsumerState<SidePanel> {
         ),
         // Queue list
         Expanded(
-          child: ReorderableListView.builder(
+          child: ListView.builder(
             itemCount: trackList.length,
-            onReorder: (oldIndex, newIndex) async {
-              if (newIndex > oldIndex) newIndex--;
-              if (oldIndex == newIndex) return;
-              ref
-                  .read(playQueueStateStoreProvider.notifier)
-                  .optimisticallyReorder(oldIndex, newIndex);
-              try {
-                await ref.read(kalinkaProxyProvider).move(oldIndex, newIndex);
-              } catch (e) {
-                ref
-                    .read(playQueueStateStoreProvider.notifier)
-                    .optimisticallyReorder(newIndex, oldIndex);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to reorder: $e')),
-                  );
-                }
-              }
-            },
-            proxyDecorator: (child, index, animation) {
-              return AnimatedBuilder(
-                animation: animation,
-                builder: (context, child) => Material(
-                  elevation: lerpDouble(0, 6, animation.value)!,
-                  color: Colors.transparent,
-                  shadowColor: Colors.black.withValues(alpha: 0.4),
-                  child: child,
-                ),
-                child: child,
-              );
-            },
             itemBuilder: (context, index) {
               final track = trackList[index];
               final isCurrentTrack = index == currentIndex;
-              return DismissibleQueueItem(
-                key: ValueKey('queue_${track.id}_$index'),
-                track: track,
-                index: index,
-                isCurrentTrack: isCurrentTrack,
+              return SwipeRevealItem(
+                key: ValueKey('sidepanel_queue_${track.id}_$index'),
+                isRevealed: _revealedIndex == index,
+                onReveal: () => setState(() => _revealedIndex = index),
+                onPlayNext: () async {
+                  setState(() => _revealedIndex = -1);
+                  final nextIndex = currentIndex + 1;
+                  if (index != nextIndex && index != currentIndex) {
+                    ref
+                        .read(playQueueStateStoreProvider.notifier)
+                        .optimisticallyReorder(index, nextIndex);
+                    try {
+                      await ref
+                          .read(kalinkaProxyProvider)
+                          .move(index, nextIndex);
+                    } catch (e) {
+                      ref
+                          .read(playQueueStateStoreProvider.notifier)
+                          .optimisticallyReorder(nextIndex, index);
+                    }
+                  }
+                },
+                onDelete: () async {
+                  setState(() => _revealedIndex = -1);
+                  try {
+                    await ref.read(kalinkaProxyProvider).remove(index);
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to remove: $e')),
+                    );
+                  }
+                },
+                child: QueueItemRow(
+                  track: track,
+                  index: index,
+                  displayIndex: index,
+                  isCurrentTrack: isCurrentTrack,
+                ),
               );
             },
           ),

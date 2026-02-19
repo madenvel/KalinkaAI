@@ -1,9 +1,18 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/search_state_provider.dart';
 import '../providers/selection_state_provider.dart';
 import '../data_model/data_model.dart';
+import '../theme/app_theme.dart';
 import 'browse_list.dart';
+import 'search_cards/search_album_row.dart';
+import 'search_cards/search_artist_row.dart';
+import 'search_cards/search_playlist_row.dart';
+import 'search_cards/search_track_row.dart';
+import 'search_cards/section_header.dart';
+import 'search_cards/show_more_row.dart';
 import 'selection_overlay.dart';
 
 const _defaultSuggestions = [
@@ -13,6 +22,7 @@ const _defaultSuggestions = [
   'music for relaxation',
 ];
 
+/// Search content for the tablet side panel (inline, not overlay).
 class SearchContent extends ConsumerWidget {
   const SearchContent({super.key});
 
@@ -31,17 +41,15 @@ class SearchContent extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           child: Text(
             searchState.error!,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.error,
+            style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+              color: KalinkaColors.deleteRed,
             ),
             textAlign: TextAlign.center,
           ),
         ),
       );
     } else if (searchState.searchResults != null) {
-      content = _buildSearchResults(
-        context, ref, searchState.searchResults!, selection,
-      );
+      content = _buildSearchResults(context, ref, searchState);
     } else if (searchState.browseRecommendations != null) {
       content = _buildBrowseRecommendations(
         context,
@@ -55,19 +63,19 @@ class SearchContent extends ConsumerWidget {
     return Stack(
       children: [
         content,
-        const Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: SelectionActionBar(),
-        ),
+        if (selection.isActive)
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SelectionActionBar(),
+          ),
       ],
     );
   }
 
   Widget _buildHistoryAndSuggestions(BuildContext context, WidgetRef ref) {
     final history = ref.read(searchStateProvider.notifier).getSearchHistory();
-    final theme = Theme.of(context);
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -76,17 +84,12 @@ class SearchContent extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Recent searches',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextButton(
-                onPressed: () {
+              Text('RECENT SEARCHES', style: KalinkaTextStyles.sectionLabel),
+              GestureDetector(
+                onTap: () {
                   ref.read(searchStateProvider.notifier).clearHistory();
                 },
-                child: const Text('Clear'),
+                child: Text('CLEAR', style: KalinkaTextStyles.showMoreLabel),
               ),
             ],
           ),
@@ -95,10 +98,8 @@ class SearchContent extends ConsumerWidget {
           const SizedBox(height: 24),
         ],
         Text(
-          history.isEmpty ? 'Suggestions' : 'Try searching for',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          history.isEmpty ? 'SUGGESTIONS' : 'TRY SEARCHING FOR',
+          style: KalinkaTextStyles.sectionLabel,
         ),
         const SizedBox(height: 8),
         ..._defaultSuggestions.map(
@@ -109,8 +110,6 @@ class SearchContent extends ConsumerWidget {
   }
 
   Widget _buildHistoryItem(BuildContext context, WidgetRef ref, String query) {
-    final theme = Theme.of(context);
-
     return InkWell(
       onTap: () {
         ref.read(searchStateProvider.notifier).setQuery(query);
@@ -120,18 +119,12 @@ class SearchContent extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
-            Icon(
-              Icons.history,
-              size: 20,
-              color: theme.colorScheme.onSurfaceVariant,
+            const Icon(Icons.history, size: 18, color: KalinkaColors.textSecondary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(query, style: KalinkaTextStyles.trackRowTitle),
             ),
-            const SizedBox(width: 16),
-            Expanded(child: Text(query, style: theme.textTheme.bodyLarge)),
-            Icon(
-              Icons.north_west,
-              size: 16,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            const Icon(Icons.north_west, size: 14, color: KalinkaColors.textSecondary),
           ],
         ),
       ),
@@ -143,8 +136,6 @@ class SearchContent extends ConsumerWidget {
     WidgetRef ref,
     String suggestion,
   ) {
-    final theme = Theme.of(context);
-
     return InkWell(
       onTap: () {
         ref.read(searchStateProvider.notifier).setQuery(suggestion);
@@ -154,13 +145,11 @@ class SearchContent extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
-            Icon(
-              Icons.search,
-              size: 20,
-              color: theme.colorScheme.onSurfaceVariant,
+            const Icon(Icons.search, size: 18, color: KalinkaColors.textSecondary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(suggestion, style: KalinkaTextStyles.trackRowTitle),
             ),
-            const SizedBox(width: 16),
-            Expanded(child: Text(suggestion, style: theme.textTheme.bodyLarge)),
           ],
         ),
       ),
@@ -188,7 +177,6 @@ class SearchContent extends ConsumerWidget {
         final browseList = recommendations[index];
         if (browseList.items.isEmpty) return const SizedBox.shrink();
 
-        // Group items by sections
         final sections = <BrowseItem>[];
         for (final item in browseList.items) {
           if (item.sections != null && item.sections!.isNotEmpty) {
@@ -214,12 +202,9 @@ class SearchContent extends ConsumerWidget {
   Widget _buildSearchResults(
     BuildContext context,
     WidgetRef ref,
-    Map<SearchType, BrowseItemsList> results,
-    SelectionState selection,
+    SearchState searchState,
   ) {
-    final theme = Theme.of(context);
-
-    // Check if all results are empty
+    final results = searchState.searchResults!;
     final hasResults = results.values.any((list) => list.items.isNotEmpty);
 
     if (!hasResults) {
@@ -232,23 +217,14 @@ class SearchContent extends ConsumerWidget {
               Icon(
                 Icons.search_off,
                 size: 64,
-                color: theme.colorScheme.onSurfaceVariant.withValues(
-                  alpha: 0.5,
-                ),
+                color: KalinkaColors.textSecondary.withValues(alpha: 0.5),
               ),
               const SizedBox(height: 16),
-              Text(
-                'No results found',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text('No results found', style: KalinkaTextStyles.cardTitle),
               const SizedBox(height: 8),
               Text(
                 'Try different keywords',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                style: KalinkaTextStyles.trackRowSubtitle,
               ),
             ],
           ),
@@ -256,69 +232,71 @@ class SearchContent extends ConsumerWidget {
       );
     }
 
-    // Show results in fixed order: tracks, albums, artists, playlists
+    final tracks = results[SearchType.track]?.items ?? [];
+    final albums = results[SearchType.album]?.items ?? [];
+    final artists = results[SearchType.artist]?.items ?? [];
+    final playlists = results[SearchType.playlist]?.items ?? [];
+
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: [
-        _buildSearchSection(
-          context, ref, 'Tracks', results[SearchType.track], selection,
-        ),
-        _buildSearchSection(
-          context, ref, 'Albums', results[SearchType.album], selection,
-        ),
-        _buildSearchSection(
-          context, ref, 'Artists', results[SearchType.artist], selection,
-        ),
-        _buildSearchSection(
-          context, ref, 'Playlists', results[SearchType.playlist], selection,
-        ),
+        // Tracks section
+        if (tracks.isNotEmpty) ...[
+          SectionHeader(
+            label: 'Tracks',
+            count: tracks.length,
+            showDivider: false,
+          ),
+          ..._buildTracksSection(ref, tracks, searchState),
+        ],
+
+        // Albums section
+        if (albums.isNotEmpty) ...[
+          SectionHeader(label: 'Albums', count: albums.length),
+          ...albums.map((item) => SearchAlbumRow(item: item)),
+        ],
+
+        // Artists section
+        if (artists.isNotEmpty) ...[
+          SectionHeader(label: 'Artists', count: artists.length),
+          ...artists.map((item) => SearchArtistRow(item: item)),
+        ],
+
+        // Playlists section
+        if (playlists.isNotEmpty) ...[
+          SectionHeader(label: 'Playlists', count: playlists.length),
+          ...playlists.map((item) => SearchPlaylistRow(item: item)),
+        ],
       ],
     );
   }
 
-  Widget _buildSearchSection(
-    BuildContext context,
+  List<Widget> _buildTracksSection(
     WidgetRef ref,
-    String title,
-    BrowseItemsList? items,
-    SelectionState selection,
+    List<BrowseItem> tracks,
+    SearchState searchState,
   ) {
-    if (items == null || items.items.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    final isExpanded = searchState.tracksExpanded;
+    final displayCount = isExpanded ? tracks.length : min(3, tracks.length);
+    final remaining = tracks.length - 3;
 
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+    return [
+      for (int i = 0; i < displayCount; i++)
+        SearchTrackRow(item: tracks[i]),
+      if (!isExpanded && remaining > 0)
+        ShowMoreRow(
+          remainingCount: remaining,
+          isExpanded: false,
+          onTap: () =>
+              ref.read(searchStateProvider.notifier).toggleTracksExpanded(),
         ),
-        const SizedBox(height: 8),
-        BrowseList(
-          section: BrowseItem(
-            id: 'search-$title',
-            name: title,
-            canBrowse: false,
-            canAdd: false,
-            sections: items.items,
-          ),
-          isSearchResult: true,
-          selectionMode: selection.isActive,
-          selectedIds: selection.selectedIds,
-          onSelectionToggle: (id) {
-            ref.read(selectionStateProvider.notifier).toggle(id);
-          },
-          onSelectionStart: () {
-            // Selection mode is entered via long-press in BrowseList
-          },
+      if (isExpanded && tracks.length > 3)
+        ShowMoreRow(
+          remainingCount: 0,
+          isExpanded: true,
+          onTap: () =>
+              ref.read(searchStateProvider.notifier).toggleTracksExpanded(),
         ),
-        const SizedBox(height: 24),
-      ],
-    );
+    ];
   }
 }
