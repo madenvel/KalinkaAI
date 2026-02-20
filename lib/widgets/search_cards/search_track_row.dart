@@ -11,6 +11,7 @@ import '../../providers/selection_state_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
+import '../source_badge.dart';
 import 'add_context_menu.dart';
 import 'long_press_ring_painter.dart';
 
@@ -284,6 +285,13 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
                           size: 20,
                         ),
                       ),
+                    ),
+                  // Source badge
+                  if (!(selectionMode && isSelected))
+                    Positioned(
+                      bottom: 1,
+                      right: 1,
+                      child: SourceBadge(entityId: widget.item.id),
                     ),
                 ],
               ),

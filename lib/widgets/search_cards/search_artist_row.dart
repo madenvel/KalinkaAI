@@ -12,6 +12,7 @@ import '../../providers/selection_state_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
+import '../source_badge.dart';
 import 'long_press_ring_painter.dart';
 
 const _dimmedColor = Color(0xFF48485A);
@@ -134,30 +135,44 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
             child: Row(
               children: [
                 // Circular avatar 52x52
-                Container(
+                SizedBox(
                   width: 52,
                   height: 52,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        blurRadius: 14,
-                        offset: const Offset(0, 4),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              blurRadius: 14,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: resolvedImageUrl != null
+                              ? Image.network(
+                                  resolvedImageUrl,
+                                  width: 52,
+                                  height: 52,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      ProceduralAlbumArt(trackId: widget.item.id, size: 52),
+                                )
+                              : ProceduralAlbumArt(trackId: widget.item.id, size: 52),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: SourceBadge(entityId: widget.item.id),
                       ),
                     ],
-                  ),
-                  child: ClipOval(
-                    child: resolvedImageUrl != null
-                        ? Image.network(
-                            resolvedImageUrl,
-                            width: 52,
-                            height: 52,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                ProceduralAlbumArt(trackId: widget.item.id, size: 52),
-                          )
-                        : ProceduralAlbumArt(trackId: widget.item.id, size: 52),
                   ),
                 ),
                 const SizedBox(width: 12),

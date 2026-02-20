@@ -6,6 +6,7 @@ import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
 import 'procedural_album_art.dart';
+import 'source_badge.dart';
 
 /// A single queue item row with index, thumbnail, title, artist, and duration.
 class QueueItemRow extends ConsumerWidget {
@@ -62,21 +63,36 @@ class QueueItemRow extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             // Thumbnail 44x44
-            Container(
+            SizedBox(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(6)),
-              clipBehavior: Clip.antiAlias,
-              child: resolvedImageUrl != null
-                  ? Image.network(
-                      resolvedImageUrl,
-                      width: 44,
-                      height: 44,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          ProceduralAlbumArt(trackId: track.id, size: 44),
-                    )
-                  : ProceduralAlbumArt(trackId: track.id, size: 44),
+              child: Stack(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: resolvedImageUrl != null
+                        ? Image.network(
+                            resolvedImageUrl,
+                            width: 44,
+                            height: 44,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                ProceduralAlbumArt(trackId: track.id, size: 44),
+                          )
+                        : ProceduralAlbumArt(trackId: track.id, size: 44),
+                  ),
+                  Positioned(
+                    bottom: 1,
+                    right: 1,
+                    child: SourceBadge(entityId: track.id),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(width: 10),
             // Track info

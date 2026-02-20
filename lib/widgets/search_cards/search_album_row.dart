@@ -12,6 +12,7 @@ import '../../providers/selection_state_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
+import '../source_badge.dart';
 import 'long_press_ring_painter.dart';
 
 /// Album row for search results.
@@ -133,8 +134,9 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
 
     final urlResolver = ref.read(urlResolverProvider);
     final imageUrl = widget.item.image?.small ?? widget.item.image?.thumbnail;
-    final resolvedImageUrl =
-        imageUrl != null ? urlResolver.abs(imageUrl) : null;
+    final resolvedImageUrl = imageUrl != null
+        ? urlResolver.abs(imageUrl)
+        : null;
 
     final subtitleParts = <String>[
       if (artist.isNotEmpty) artist,
@@ -168,8 +170,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
                   : Colors.transparent,
               border: selectionMode && isSelected
                   ? const Border(
-                      left:
-                          BorderSide(color: KalinkaColors.accent, width: 2),
+                      left: BorderSide(color: KalinkaColors.accent, width: 2),
                     )
                   : null,
             ),
@@ -203,9 +204,9 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) =>
                                       ProceduralAlbumArt(
-                                    trackId: widget.item.id,
-                                    size: 56,
-                                  ),
+                                        trackId: widget.item.id,
+                                        size: 56,
+                                      ),
                                 )
                               : ProceduralAlbumArt(
                                   trackId: widget.item.id,
@@ -228,8 +229,9 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
                         Positioned.fill(
                           child: Container(
                             decoration: BoxDecoration(
-                              color: KalinkaColors.accent
-                                  .withValues(alpha: 0.7),
+                              color: KalinkaColors.accent.withValues(
+                                alpha: 0.7,
+                              ),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(
@@ -238,6 +240,13 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
                               size: 24,
                             ),
                           ),
+                        ),
+                      // Source badge
+                      if (!(selectionMode && isSelected))
+                        Positioned(
+                          bottom: 2,
+                          right: 2,
+                          child: SourceBadge(entityId: widget.item.id),
                         ),
                     ],
                   ),
@@ -276,8 +285,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
                             color: KalinkaColors.pillSurface,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child:
-                              Text(genre, style: KalinkaTextStyles.tagPill),
+                          child: Text(genre, style: KalinkaTextStyles.tagPill),
                         ),
                       ],
                     ],
@@ -374,8 +382,7 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(left: 16),
       decoration: const BoxDecoration(
-        border:
-            Border(left: BorderSide(color: KalinkaColors.accent, width: 2)),
+        border: Border(left: BorderSide(color: KalinkaColors.accent, width: 2)),
       ),
       child: tracksAsync.when(
         data: (browseList) {
@@ -472,9 +479,9 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
 
     final selection = ref.watch(selectionStateProvider);
     final selectionMode = selection.isActive;
-    final containerSelected =
-        selection.isContainerSelected(widget.containerId);
-    final trackSelected = containerSelected &&
+    final containerSelected = selection.isContainerSelected(widget.containerId);
+    final trackSelected =
+        containerSelected &&
         selection.isTrackInContainerSelected(
           widget.containerId,
           widget.item.id,

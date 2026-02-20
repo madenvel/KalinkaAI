@@ -11,6 +11,7 @@ import '../../providers/search_state_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
+import '../source_badge.dart';
 import 'long_press_ring_painter.dart';
 
 /// Playlist row for search results.
@@ -235,6 +236,13 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
                               size: 24,
                             ),
                           ),
+                        ),
+                      // Source badge
+                      if (!(selectionMode && isSelected))
+                        Positioned(
+                          bottom: 2,
+                          right: 2,
+                          child: SourceBadge(entityId: widget.item.id),
                         ),
                     ],
                   ),

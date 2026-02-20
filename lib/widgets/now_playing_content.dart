@@ -9,6 +9,7 @@ import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
 import '../utils/playback_utils.dart';
 import 'procedural_album_art.dart';
+import 'source_badge.dart';
 
 /// Core now-playing UI: album art, track info, transport controls, volume.
 /// Used embedded in tablet layout and wrapped with animation in phone overlay.
@@ -169,25 +170,40 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                               style: KalinkaTextStyles.expandedArtist,
                               textAlign: TextAlign.center,
                             ),
-                            // Format badge
-                            if (mimeLabel.isNotEmpty) ...[
+                            // Format + source badges
+                            if (mimeLabel.isNotEmpty ||
+                                currentTrack != null) ...[
                               const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: KalinkaColors.accent,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Text(
-                                  mimeLabel,
-                                  style: KalinkaTextStyles.formatBadge,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (mimeLabel.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: KalinkaColors.accent,
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        mimeLabel,
+                                        style: KalinkaTextStyles.formatBadge,
+                                      ),
+                                    ),
+                                  if (mimeLabel.isNotEmpty &&
+                                      currentTrack != null)
+                                    const SizedBox(width: 6),
+                                  if (currentTrack != null)
+                                    SourceBadge(
+                                      entityId: currentTrack.id,
+                                      style: SourceBadgeStyle.pill,
+                                    ),
+                                ],
                               ),
                             ],
                             const SizedBox(height: 24),

@@ -98,6 +98,12 @@ class KalinkaTextStyles {
     color: KalinkaColors.accent,
   );
 
+  static TextStyle sourceBadgeDot = GoogleFonts.ibmPlexMono(
+    fontSize: 7.5,
+    fontWeight: FontWeight.w700,
+    color: Colors.white,
+  );
+
   static TextStyle sectionHeader = GoogleFonts.ibmPlexMono(
     fontSize: 11,
     fontWeight: FontWeight.w600,
