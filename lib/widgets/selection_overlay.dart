@@ -320,13 +320,3 @@ class MultiSelectBottomBar extends ConsumerWidget {
     }
   }
 }
-
-/// Legacy compatibility — kept for SidePanel which still references it.
-class SelectionActionBar extends ConsumerWidget {
-  const SelectionActionBar({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return const MultiSelectBottomBar();
-  }
-}

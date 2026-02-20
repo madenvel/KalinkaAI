@@ -2,47 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/tablet_panel_provider.dart';
-import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
-import 'search_content.dart';
+import 'completion_strip.dart';
+import 'kalinka_search_bar.dart';
+import 'search_results_feed.dart';
 import 'queue_zone.dart';
 
 /// Tabbed side panel for tablet layout.
 /// Shows Search or Queue content, inline (no overlays).
-class SidePanel extends ConsumerStatefulWidget {
+class SidePanel extends ConsumerWidget {
   const SidePanel({super.key});
 
   @override
-  ConsumerState<SidePanel> createState() => _SidePanelState();
-}
-
-class _SidePanelState extends ConsumerState<SidePanel> {
-  late TextEditingController _textController;
-  late FocusNode _focusNode;
-
-  @override
-  void initState() {
-    super.initState();
-    _textController = TextEditingController();
-    _focusNode = FocusNode();
-  }
-
-  @override
-  void dispose() {
-    _textController.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final activePanel = ref.watch(tabletPanelProvider);
-    final searchState = ref.watch(searchStateProvider);
-
-    // Sync text controller
-    if (_textController.text != searchState.query) {
-      _textController.text = searchState.query;
-    }
 
     return Column(
       children: [
@@ -52,6 +25,7 @@ class _SidePanelState extends ConsumerState<SidePanel> {
           child: Row(
             children: [
               _buildTab(
+                ref,
                 'Search',
                 Icons.search,
                 activePanel == TabletPanel.search,
@@ -59,6 +33,7 @@ class _SidePanelState extends ConsumerState<SidePanel> {
               ),
               const SizedBox(width: 8),
               _buildTab(
+                ref,
                 'Queue',
                 Icons.queue_music,
                 activePanel == TabletPanel.queue,
@@ -71,7 +46,7 @@ class _SidePanelState extends ConsumerState<SidePanel> {
         // Content
         Expanded(
           child: activePanel == TabletPanel.search
-              ? _buildSearchPanel(searchState)
+              ? _buildSearchPanel()
               : const QueueZone(bottomPadding: 0),
         ),
       ],
@@ -79,6 +54,7 @@ class _SidePanelState extends ConsumerState<SidePanel> {
   }
 
   Widget _buildTab(
+    WidgetRef ref,
     String label,
     IconData icon,
     bool isActive,
@@ -125,87 +101,18 @@ class _SidePanelState extends ConsumerState<SidePanel> {
     );
   }
 
-  Widget _buildSearchPanel(SearchState searchState) {
-    return Column(
+  Widget _buildSearchPanel() {
+    return const Column(
       children: [
-        // Inline search bar
+        // Shared search bar (always expanded in tablet mode)
         Padding(
-          padding: const EdgeInsets.all(8),
-          child: Container(
-            decoration: BoxDecoration(
-              color: KalinkaColors.inputSurface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: KalinkaColors.accent.withValues(alpha: 0.5),
-                width: 1,
-              ),
-            ),
-            child: TextField(
-              controller: _textController,
-              focusNode: _focusNode,
-              style: GoogleFonts.ibmPlexMono(
-                fontSize: 13,
-                color: KalinkaColors.textPrimary,
-              ),
-              onChanged: (value) {
-                ref.read(searchStateProvider.notifier).setQuery(value);
-              },
-              onSubmitted: (value) {
-                if (value.trim().isNotEmpty) {
-                  ref.read(searchStateProvider.notifier).performSearch();
-                }
-              },
-              decoration: InputDecoration(
-                hintText: 'Search music\u2026',
-                hintStyle: KalinkaTextStyles.searchPlaceholder,
-                prefixIcon: const Icon(
-                  Icons.search,
-                  color: KalinkaColors.accent,
-                  size: 20,
-                ),
-                suffixIcon: searchState.query.isNotEmpty
-                    ? Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.clear,
-                              size: 18,
-                              color: KalinkaColors.textSecondary,
-                            ),
-                            onPressed: () {
-                              _textController.clear();
-                              ref
-                                  .read(searchStateProvider.notifier)
-                                  .clearSearch();
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.search,
-                              size: 18,
-                              color: KalinkaColors.accent,
-                            ),
-                            onPressed: () {
-                              ref
-                                  .read(searchStateProvider.notifier)
-                                  .performSearch();
-                            },
-                          ),
-                        ],
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 12,
-                ),
-              ),
-            ),
-          ),
+          padding: EdgeInsets.all(8),
+          child: KalinkaSearchBar(alwaysExpanded: true),
         ),
-        // Search content
-        const Expanded(child: SearchContent()),
+        // Pinned completion strip
+        CompletionStrip(),
+        // Shared search results feed (no bottom padding needed in tablet)
+        Expanded(child: SearchResultsFeed(bottomPadding: 0)),
       ],
     );
   }

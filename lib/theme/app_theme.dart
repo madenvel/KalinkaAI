@@ -206,6 +206,36 @@ class KalinkaTextStyles {
     color: KalinkaColors.textPrimary,
   );
 
+  // Completion strip
+  static TextStyle completionText = GoogleFonts.ibmPlexMono(
+    fontSize: 13,
+    color: KalinkaColors.textPrimary,
+  );
+
+  static TextStyle completionMatchHighlight = GoogleFonts.ibmPlexMono(
+    fontSize: 13,
+    color: KalinkaColors.accent,
+  );
+
+  static TextStyle aiCompletionText = GoogleFonts.playfairDisplay(
+    fontSize: 12,
+    fontStyle: FontStyle.italic,
+    color: KalinkaColors.textPrimary,
+  );
+
+  // AI prompt chips (zero-state)
+  static TextStyle aiPromptChipText = GoogleFonts.playfairDisplay(
+    fontSize: 12,
+    fontStyle: FontStyle.italic,
+    color: KalinkaColors.textPrimary,
+  );
+
+  // Clear all link
+  static TextStyle clearAllLink = GoogleFonts.ibmPlexMono(
+    fontSize: 10,
+    color: KalinkaColors.textSecondary,
+  );
+
   static TextStyle batchBarLabel = GoogleFonts.ibmPlexMono(
     fontSize: 9,
     fontWeight: FontWeight.w500,

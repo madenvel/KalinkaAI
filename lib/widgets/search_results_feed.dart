@@ -14,20 +14,19 @@ import 'search_cards/search_track_row.dart';
 import 'search_cards/section_header.dart';
 import 'search_cards/show_more_row.dart';
 import 'selection_overlay.dart';
+import 'zero_state_surface.dart';
 import '../theme/app_theme.dart';
 
-const _defaultSuggestions = [
-  'Miles Davis',
-  'Kind of Blue',
-  'So What',
-  'music for relaxation',
-];
-
-/// Inline search results feed for the phone content zone.
+/// Inline search results feed used in both phone and tablet layouts.
 /// Manages its own ScrollController. Includes skeleton loading,
 /// staggered card entrance animations, and result count hint.
+/// Switches content based on the current search phase.
 class SearchResultsFeed extends ConsumerStatefulWidget {
-  const SearchResultsFeed({super.key});
+  /// Bottom padding for scroll content. Use 100 on phone (mini player clearance),
+  /// 0 on tablet.
+  final double bottomPadding;
+
+  const SearchResultsFeed({super.key, this.bottomPadding = 100});
 
   @override
   ConsumerState<SearchResultsFeed> createState() => _SearchResultsFeedState();
@@ -70,42 +69,62 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
     Widget content;
 
-    if (searchState.isLoading) {
-      content = _buildSkeletonLoading();
-    } else if (searchState.error != null) {
-      content = ListView(
-        controller: _scrollController,
-        children: [
-          const SizedBox(height: 40),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                searchState.error!,
-                style: KalinkaTextStyles.trackRowSubtitle.copyWith(
-                  color: KalinkaColors.deleteRed,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-        ],
-      );
-    } else if (searchState.searchResults != null) {
-      content = _buildResultsFeed(context, ref, searchState);
-    } else if (searchState.browseRecommendations != null) {
-      content = _buildBrowseRecommendations(
-        context,
-        ref,
-        searchState.browseRecommendations!,
-      );
-    } else {
-      content = _buildHistoryAndSuggestions(context, ref);
+    switch (searchState.searchPhase) {
+      case SearchPhase.inactive:
+        // Should not be shown — parent shows QueueZone instead
+        content = const SizedBox.shrink();
+
+      case SearchPhase.activated:
+        // Zero-state surface (history + AI suggestions + library items)
+        content = const ZeroStateSurface();
+
+      case SearchPhase.typing:
+        // Partial results or skeleton while typing
+        if (searchState.isLoading) {
+          content = _buildSkeletonLoading();
+        } else if (searchState.searchResults != null) {
+          content = _buildResultsFeed(context, ref, searchState);
+        } else if (searchState.browseRecommendations != null) {
+          content = _buildBrowseRecommendations(
+            context,
+            ref,
+            searchState.browseRecommendations!,
+          );
+        } else {
+          content = _buildSkeletonLoading();
+        }
+
+      case SearchPhase.results:
+        // Full results
+        if (searchState.isLoading) {
+          content = _buildSkeletonLoading();
+        } else if (searchState.error != null) {
+          content = _buildErrorView(searchState.error!);
+        } else if (searchState.searchResults != null) {
+          content = _buildResultsFeed(context, ref, searchState);
+        } else {
+          content = _buildSkeletonLoading();
+        }
+
+      case SearchPhase.cleared:
+        // Session history only (1-2 items)
+        content = _buildSessionHistory(searchState);
     }
 
     return Stack(
       children: [
-        content,
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeOut,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          child: KeyedSubtree(
+            key: ValueKey(searchState.searchPhase),
+            child: content,
+          ),
+        ),
         if (selection.isActive) ...[
           Positioned(
             top: 0,
@@ -127,10 +146,77 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     );
   }
 
+  Widget _buildErrorView(String error) {
+    return ListView(
+      controller: _scrollController,
+      children: [
+        const SizedBox(height: 40),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              error,
+              style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+                color: KalinkaColors.deleteRed,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSessionHistory(SearchState searchState) {
+    final sessionHistory = searchState.sessionHistory;
+    if (sessionHistory.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return ListView(
+      controller: _scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      children: sessionHistory.take(2).map((query) {
+        return GestureDetector(
+          onTap: () {
+            ref.read(searchStateProvider.notifier).reExecuteQuery(query);
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.access_time,
+                  size: 14,
+                  color: KalinkaColors.textSecondary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    query,
+                    style: KalinkaTextStyles.trackRowTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Icon(
+                  Icons.north_west,
+                  size: 14,
+                  color: KalinkaColors.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildSkeletonLoading() {
     return ListView(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, widget.bottomPadding),
       children: [
         // AI card skeleton (taller, full-width)
         const _ShimmerRow(height: 120, isAiCard: true),
@@ -200,7 +286,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
     return ListView(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+      padding: EdgeInsets.fromLTRB(16, 0, 16, widget.bottomPadding),
       children: [
         // Result count hint
         if (searchState.totalResultCount > 0)
@@ -315,101 +401,6 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
               ref.read(searchStateProvider.notifier).toggleTracksExpanded(),
         ),
     ];
-  }
-
-  Widget _buildHistoryAndSuggestions(BuildContext context, WidgetRef ref) {
-    final history = ref.read(searchStateProvider.notifier).getSearchHistory();
-
-    return ListView(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      children: [
-        if (history.isNotEmpty) ...[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('RECENT SEARCHES', style: KalinkaTextStyles.sectionLabel),
-              GestureDetector(
-                onTap: () {
-                  ref.read(searchStateProvider.notifier).clearHistory();
-                },
-                child: Text('CLEAR', style: KalinkaTextStyles.showMoreLabel),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...history.map((query) => _buildHistoryItem(context, ref, query)),
-          const SizedBox(height: 24),
-        ],
-        Text(
-          history.isEmpty ? 'SUGGESTIONS' : 'TRY SEARCHING FOR',
-          style: KalinkaTextStyles.sectionLabel,
-        ),
-        const SizedBox(height: 8),
-        ..._defaultSuggestions.map(
-          (suggestion) => _buildSuggestionItem(context, ref, suggestion),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHistoryItem(BuildContext context, WidgetRef ref, String query) {
-    return InkWell(
-      onTap: () {
-        ref.read(searchStateProvider.notifier).setQuery(query);
-        ref.read(searchStateProvider.notifier).performSearch();
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.history,
-              size: 18,
-              color: KalinkaColors.textSecondary,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(query, style: KalinkaTextStyles.trackRowTitle),
-            ),
-            const Icon(
-              Icons.north_west,
-              size: 14,
-              color: KalinkaColors.textSecondary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSuggestionItem(
-    BuildContext context,
-    WidgetRef ref,
-    String suggestion,
-  ) {
-    return InkWell(
-      onTap: () {
-        ref.read(searchStateProvider.notifier).setQuery(suggestion);
-        ref.read(searchStateProvider.notifier).performSearch();
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.search,
-              size: 18,
-              color: KalinkaColors.textSecondary,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(suggestion, style: KalinkaTextStyles.trackRowTitle),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _buildBrowseRecommendations(

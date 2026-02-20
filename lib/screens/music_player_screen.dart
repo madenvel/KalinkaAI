@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/completion_strip.dart';
 import '../widgets/expanded_player_overlay.dart';
 import '../widgets/header_zone.dart';
 import '../widgets/mini_player.dart';
@@ -71,26 +72,33 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   }
 
   Widget _buildPhoneLayout(BuildContext context) {
-    final searchActive = ref.watch(
-      searchStateProvider.select((s) => s.searchActive),
-    );
+    final searchState = ref.watch(searchStateProvider);
+    final searchActive = searchState.searchActive;
 
     return PopScope(
       canPop: !searchActive && !_playerOpen,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        if (searchActive) {
-          ref.read(searchStateProvider.notifier).deactivateSearch();
+        final notifier = ref.read(searchStateProvider.notifier);
+        final state = ref.read(searchStateProvider);
+        if (state.query.isNotEmpty) {
+          // Level 1: Clear query (same as ×), stay in search
+          notifier.clearQueryMidSession();
+        } else if (state.searchActive) {
+          // Level 2: Exit search (same as Cancel)
+          notifier.deactivateSearch();
         } else if (_playerOpen) {
           _closePlayer();
         }
       },
       child: Stack(
         children: [
-          // Main content: Header + Content Zone + MiniPlayer
+          // Main content: Header + CompletionStrip + Content Zone + MiniPlayer
           Column(
             children: [
               const HeaderZone(),
+              // Pinned completion strip — only visible during typing
+              const CompletionStrip(),
               Expanded(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
