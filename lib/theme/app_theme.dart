@@ -248,6 +248,82 @@ class KalinkaTextStyles {
     fontSize: 11,
     color: KalinkaColors.textSecondary,
   );
+
+  // Queue management tray
+  static TextStyle trayTitle = GoogleFonts.ibmPlexMono(
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 1.2,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle traySectionLabel = GoogleFonts.ibmPlexMono(
+    fontSize: 8,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 1.8,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle trayRowLabel = GoogleFonts.ibmPlexMono(
+    fontSize: 13,
+    letterSpacing: -0.1,
+    color: KalinkaColors.textPrimary,
+  );
+
+  static TextStyle trayRowSublabel = GoogleFonts.ibmPlexMono(
+    fontSize: 10,
+    color: KalinkaColors.textSecondary,
+  );
+
+  // Queue section headers
+  static TextStyle trackCountBadge = GoogleFonts.ibmPlexMono(
+    fontSize: 9,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle shuffleBadgeText = GoogleFonts.ibmPlexMono(
+    fontSize: 9,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.5,
+    color: KalinkaColors.gold,
+  );
+
+  static TextStyle clearPlayedButton = GoogleFonts.ibmPlexMono(
+    fontSize: 9,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 1.0,
+    color: KalinkaColors.textSecondary,
+  );
+
+  // Empty queue state
+  static TextStyle emptyQueueTitle = GoogleFonts.playfairDisplay(
+    fontSize: 22,
+    fontStyle: FontStyle.italic,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle emptyQueueSubtitle = GoogleFonts.ibmPlexMono(
+    fontSize: 10,
+    letterSpacing: 0.6,
+    color: KalinkaColors.textSecondary,
+  );
+
+  // Confirm dialog
+  static TextStyle dialogTitle = GoogleFonts.playfairDisplay(
+    fontSize: 20,
+    color: KalinkaColors.textPrimary,
+  );
+
+  static TextStyle dialogBody = GoogleFonts.ibmPlexMono(
+    fontSize: 11,
+    height: 1.6,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle dialogButton = GoogleFonts.ibmPlexMono(
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+  );
 }
 
 /// App-wide Material theme
