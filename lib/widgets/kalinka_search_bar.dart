@@ -36,6 +36,7 @@ class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   late AnimationController _clearMicController;
+  late Animation<double> _cancelAnimation;
   bool _isActive = false;
 
   @override
@@ -46,6 +47,10 @@ class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
     _cancelAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
+    );
+    _cancelAnimation = CurvedAnimation(
+      parent: _cancelAnimController,
+      curve: Curves.easeOut,
     );
     _pulseController = AnimationController(
       vsync: this,
@@ -63,6 +68,25 @@ class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
 
     if (widget.alwaysExpanded) {
       _isActive = true;
+      // Ensure the search provider is at least activated in tablet mode,
+      // so SearchResultsFeed shows content instead of SizedBox.shrink().
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final phase = ref.read(searchStateProvider).searchPhase;
+        if (phase == SearchPhase.inactive) {
+          ref.read(searchStateProvider.notifier).activateSearch();
+        }
+      });
+    } else {
+      // Phone mode: deactivate search if it was only auto-activated by
+      // tablet mode (zero-state, no query) so the play queue shows instead.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final phase = ref.read(searchStateProvider).searchPhase;
+        if (phase == SearchPhase.activated) {
+          ref.read(searchStateProvider.notifier).deactivateSearch();
+        }
+      });
     }
 
     final currentQuery = ref.read(searchStateProvider).query;
@@ -321,26 +345,27 @@ class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
   }
 
   Widget _buildCancelButton() {
-    return AnimatedBuilder(
-      animation: _cancelAnimController,
-      builder: (context, child) {
-        final progress = CurvedAnimation(
-          parent: _cancelAnimController,
-          curve: Curves.easeOut,
-        ).value;
-        return Transform.translate(
-          offset: Offset(20 * (1 - progress), 0),
-          child: Opacity(opacity: progress, child: child),
-        );
-      },
-      child: GestureDetector(
-        onTap: () {
-          cancelSearch();
-          widget.onCancel?.call();
+    return SizeTransition(
+      axis: Axis.horizontal,
+      sizeFactor: _cancelAnimation,
+      child: AnimatedBuilder(
+        animation: _cancelAnimation,
+        builder: (context, child) {
+          final progress = _cancelAnimation.value;
+          return Transform.translate(
+            offset: Offset(20 * (1 - progress), 0),
+            child: Opacity(opacity: progress, child: child),
+          );
         },
-        child: Padding(
-          padding: const EdgeInsets.only(left: 12),
-          child: Text('Cancel', style: KalinkaTextStyles.cancelButton),
+        child: GestureDetector(
+          onTap: () {
+            cancelSearch();
+            widget.onCancel?.call();
+          },
+          child: Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Text('Cancel', style: KalinkaTextStyles.cancelButton),
+          ),
         ),
       ),
     );
