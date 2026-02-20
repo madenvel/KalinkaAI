@@ -268,7 +268,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
       }
     }
     state = state.copyWith(
-      searchPhase: SearchPhase.cleared,
+      searchPhase: SearchPhase.activated,
       query: '',
       clearSearchResults: true,
       clearError: true,
