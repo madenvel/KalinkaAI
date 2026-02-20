@@ -23,36 +23,58 @@ const _defaultSuggestions = [
   'music for relaxation',
 ];
 
-/// Search results feed for the phone sheet.
-/// Receives ScrollController from DraggableScrollableSheet.
-class SearchResultsFeed extends ConsumerWidget {
-  final ScrollController scrollController;
-  final DraggableScrollableController? sheetController;
-
-  const SearchResultsFeed({
-    super.key,
-    required this.scrollController,
-    this.sheetController,
-  });
+/// Inline search results feed for the phone content zone.
+/// Manages its own ScrollController. Includes skeleton loading,
+/// staggered card entrance animations, and result count hint.
+class SearchResultsFeed extends ConsumerStatefulWidget {
+  const SearchResultsFeed({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SearchResultsFeed> createState() => _SearchResultsFeedState();
+}
+
+class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
+    with SingleTickerProviderStateMixin {
+  final ScrollController _scrollController = ScrollController();
+  late AnimationController _staggerController;
+  int _previousResultCount = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    _staggerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _staggerController.dispose();
+    super.dispose();
+  }
+
+  void _triggerStagger(int itemCount) {
+    if (itemCount == _previousResultCount) return;
+    _previousResultCount = itemCount;
+    final duration = 200 + (min(itemCount, 20) * 30);
+    _staggerController.duration = Duration(milliseconds: duration);
+    _staggerController.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final searchState = ref.watch(searchStateProvider);
     final selection = ref.watch(selectionStateProvider);
 
     Widget content;
 
     if (searchState.isLoading) {
-      content = ListView(
-        controller: scrollController,
-        children: const [
-          SizedBox(height: 80),
-          Center(child: CircularProgressIndicator()),
-        ],
-      );
+      content = _buildSkeletonLoading();
     } else if (searchState.error != null) {
       content = ListView(
-        controller: scrollController,
+        controller: _scrollController,
         children: [
           const SizedBox(height: 40),
           Center(
@@ -85,11 +107,14 @@ class SearchResultsFeed extends ConsumerWidget {
       children: [
         content,
         if (selection.isActive) ...[
-          const Positioned(
+          Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: MultiSelectTopBar(),
+            child: MultiSelectTopBar(
+              allItemIds: searchState.searchResults?[SearchType.track]?.items
+                  .map((item) => item.id),
+            ),
           ),
           const Positioned(
             bottom: 0,
@@ -97,6 +122,23 @@ class SearchResultsFeed extends ConsumerWidget {
             right: 0,
             child: MultiSelectBottomBar(),
           ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSkeletonLoading() {
+    return ListView(
+      controller: _scrollController,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+      children: [
+        // AI card skeleton (taller, full-width)
+        const _ShimmerRow(height: 120, isAiCard: true),
+        const SizedBox(height: 12),
+        // Track row skeletons
+        for (int i = 0; i < 3; i++) ...[
+          const _ShimmerRow(height: 60, isAiCard: false),
+          const SizedBox(height: 8),
         ],
       ],
     );
@@ -112,7 +154,7 @@ class SearchResultsFeed extends ConsumerWidget {
 
     if (!hasResults) {
       return ListView(
-        controller: scrollController,
+        controller: _scrollController,
         children: [
           const SizedBox(height: 60),
           Center(
@@ -142,12 +184,40 @@ class SearchResultsFeed extends ConsumerWidget {
     final artists = results[SearchType.artist]?.items ?? [];
     final playlists = results[SearchType.playlist]?.items ?? [];
 
+    // Count total items for stagger animation
+    final trackDisplayCount = searchState.tracksExpanded
+        ? tracks.length
+        : min<int>(3, tracks.length);
+    final totalItems =
+        1 + // AI card
+        trackDisplayCount +
+        albums.length +
+        artists.length +
+        playlists.length;
+    _triggerStagger(totalItems);
+
+    int itemIndex = 0;
+
     return ListView(
-      controller: scrollController,
+      controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
       children: [
+        // Result count hint
+        if (searchState.totalResultCount > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              '${searchState.totalResultCount} RESULTS \u00B7 RANKED BY RELEVANCE',
+              style: KalinkaTextStyles.resultCountHint,
+            ),
+          ),
         // AI Suggestion Card (always first when present)
-        const AiSuggestionCard(),
+        _StaggeredItem(
+          index: itemIndex++,
+          controller: _staggerController,
+          totalItems: totalItems,
+          child: const AiSuggestionCard(),
+        ),
         const SizedBox(height: 16),
 
         // Tracks section
@@ -157,34 +227,55 @@ class SearchResultsFeed extends ConsumerWidget {
             count: tracks.length,
             showDivider: false,
           ),
-          ..._buildTracksSection(ref, tracks, searchState),
+          ..._buildTracksSection(
+            ref,
+            tracks,
+            searchState,
+            itemIndex,
+            totalItems,
+          ),
         ],
 
         // Albums section
         if (albums.isNotEmpty) ...[
           SectionHeader(label: 'Albums', count: albums.length),
-          ...albums.map(
-            (item) =>
-                SearchAlbumRow(item: item, sheetController: sheetController),
-          ),
+          ...albums.map((item) {
+            final idx = itemIndex++;
+            return _StaggeredItem(
+              index: idx,
+              controller: _staggerController,
+              totalItems: totalItems,
+              child: SearchAlbumRow(item: item),
+            );
+          }),
         ],
 
         // Artists section
         if (artists.isNotEmpty) ...[
           SectionHeader(label: 'Artists', count: artists.length),
-          ...artists.map(
-            (item) =>
-                SearchArtistRow(item: item, sheetController: sheetController),
-          ),
+          ...artists.map((item) {
+            final idx = itemIndex++;
+            return _StaggeredItem(
+              index: idx,
+              controller: _staggerController,
+              totalItems: totalItems,
+              child: SearchArtistRow(item: item),
+            );
+          }),
         ],
 
         // Playlists section
         if (playlists.isNotEmpty) ...[
           SectionHeader(label: 'Playlists', count: playlists.length),
-          ...playlists.map(
-            (item) =>
-                SearchPlaylistRow(item: item, sheetController: sheetController),
-          ),
+          ...playlists.map((item) {
+            final idx = itemIndex++;
+            return _StaggeredItem(
+              index: idx,
+              controller: _staggerController,
+              totalItems: totalItems,
+              child: SearchPlaylistRow(item: item),
+            );
+          }),
         ],
       ],
     );
@@ -194,6 +285,8 @@ class SearchResultsFeed extends ConsumerWidget {
     WidgetRef ref,
     List<BrowseItem> tracks,
     SearchState searchState,
+    int startIndex,
+    int totalItems,
   ) {
     final isExpanded = searchState.tracksExpanded;
     final displayCount = isExpanded ? tracks.length : min(3, tracks.length);
@@ -201,7 +294,12 @@ class SearchResultsFeed extends ConsumerWidget {
 
     return [
       for (int i = 0; i < displayCount; i++)
-        SearchTrackRow(item: tracks[i], sheetController: sheetController),
+        _StaggeredItem(
+          index: startIndex + i,
+          controller: _staggerController,
+          totalItems: totalItems,
+          child: SearchTrackRow(item: tracks[i]),
+        ),
       if (!isExpanded && remaining > 0)
         ShowMoreRow(
           remainingCount: remaining,
@@ -223,7 +321,7 @@ class SearchResultsFeed extends ConsumerWidget {
     final history = ref.read(searchStateProvider.notifier).getSearchHistory();
 
     return ListView(
-      controller: scrollController,
+      controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: [
         if (history.isNotEmpty) ...[
@@ -321,9 +419,9 @@ class SearchResultsFeed extends ConsumerWidget {
   ) {
     if (recommendations.isEmpty) {
       return ListView(
-        controller: scrollController,
-        children: [
-          const Padding(
+        controller: _scrollController,
+        children: const [
+          Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: Text('No recommendations available')),
           ),
@@ -344,7 +442,7 @@ class SearchResultsFeed extends ConsumerWidget {
     }
 
     return ListView(
-      controller: scrollController,
+      controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: sections.map((section) {
         return Padding(
@@ -352,6 +450,211 @@ class SearchResultsFeed extends ConsumerWidget {
           child: BrowseList(section: section),
         );
       }).toList(),
+    );
+  }
+}
+
+/// Wraps a child widget with staggered fade + slide-up entrance animation.
+class _StaggeredItem extends StatelessWidget {
+  final int index;
+  final AnimationController controller;
+  final int totalItems;
+  final Widget child;
+
+  const _StaggeredItem({
+    required this.index,
+    required this.controller,
+    required this.totalItems,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final clampedTotal = max(1, totalItems);
+    final start = (index * 30 / (200 + clampedTotal * 30)).clamp(0.0, 1.0);
+    final end = ((index * 30 + 200) / (200 + clampedTotal * 30)).clamp(
+      0.0,
+      1.0,
+    );
+
+    final animation = CurvedAnimation(
+      parent: controller,
+      curve: Interval(start, end, curve: Curves.easeOut),
+    );
+
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return Opacity(
+          opacity: animation.value,
+          child: Transform.translate(
+            offset: Offset(0, 8 * (1 - animation.value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}
+
+/// Shimmer skeleton row for loading state.
+class _ShimmerRow extends StatefulWidget {
+  final double height;
+  final bool isAiCard;
+
+  const _ShimmerRow({required this.height, required this.isAiCard});
+
+  @override
+  State<_ShimmerRow> createState() => _ShimmerRowState();
+}
+
+class _ShimmerRowState extends State<_ShimmerRow>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _shimmerController;
+  late Animation<double> _shimmerAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _shimmerAnimation = Tween<double>(begin: 0.4, end: 0.7).animate(
+      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _shimmerAnimation,
+      builder: (context, child) {
+        return Opacity(opacity: _shimmerAnimation.value, child: child);
+      },
+      child: widget.isAiCard ? _buildAiSkeleton() : _buildTrackSkeleton(),
+    );
+  }
+
+  Widget _buildAiSkeleton() {
+    return Container(
+      height: widget.height,
+      decoration: BoxDecoration(
+        color: KalinkaColors.inputSurface,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: KalinkaColors.pillSurface,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 160,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: KalinkaColors.pillSurface,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: 120,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: KalinkaColors.pillSurface,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const Spacer(),
+          Container(
+            height: 28,
+            decoration: BoxDecoration(
+              color: KalinkaColors.pillSurface,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrackSkeleton() {
+    return SizedBox(
+      height: widget.height,
+      child: Row(
+        children: [
+          // Thumbnail placeholder
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: KalinkaColors.inputSurface,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Text placeholders
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  height: 10,
+                  margin: const EdgeInsets.only(right: 60),
+                  decoration: BoxDecoration(
+                    color: KalinkaColors.inputSurface,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: 120,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: KalinkaColors.inputSurface,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Duration placeholder
+          Container(
+            width: 32,
+            height: 8,
+            decoration: BoxDecoration(
+              color: KalinkaColors.inputSurface,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

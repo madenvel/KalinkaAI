@@ -1,26 +1,25 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
 import '../../providers/browse_detail_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_state_provider.dart';
-import '../../providers/url_resolver.dart';
+import '../../providers/selection_state_provider.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
+import 'long_press_ring_painter.dart';
 
 /// Playlist row for search results.
 /// Same structure as Album Row but with 2x2 mosaic grid overlay on art.
+/// Long-press enters multi-select mode.
 class SearchPlaylistRow extends ConsumerStatefulWidget {
   final BrowseItem item;
-  final DraggableScrollableController? sheetController;
 
-  const SearchPlaylistRow({
-    super.key,
-    required this.item,
-    this.sheetController,
-  });
+  const SearchPlaylistRow({super.key, required this.item});
 
   @override
   ConsumerState<SearchPlaylistRow> createState() => _SearchPlaylistRowState();
@@ -29,6 +28,11 @@ class SearchPlaylistRow extends ConsumerStatefulWidget {
 class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
   bool _showAddCheck = false;
   Timer? _resetTimer;
+
+  // Long-press ring animation
+  bool _longPressing = false;
+  double _longPressProgress = 0.0;
+  Timer? _longPressTimer;
 
   Future<void> _addPlaylist() async {
     try {
@@ -65,25 +69,46 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
       searchNotifier.collapseAlbum();
     } else {
       searchNotifier.expandAlbum(widget.item.id);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final controller = widget.sheetController;
-        if (controller != null && controller.isAttached) {
-          final currentSize = controller.size;
-          if (currentSize < 0.65) {
-            controller.animateTo(
-              0.65,
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-            );
-          }
-        }
-      });
     }
+  }
+
+  void _startLongPress() {
+    _longPressing = true;
+    _longPressProgress = 0.0;
+    const tickDuration = Duration(milliseconds: 16);
+    _longPressTimer = Timer.periodic(tickDuration, (timer) {
+      if (!mounted || !_longPressing) {
+        timer.cancel();
+        if (mounted) setState(() => _longPressProgress = 0.0);
+        return;
+      }
+      setState(() {
+        _longPressProgress = min(1.0, _longPressProgress + 16 / 500);
+      });
+      if (_longPressProgress >= 1.0) {
+        timer.cancel();
+        HapticFeedback.mediumImpact();
+        ref
+            .read(selectionStateProvider.notifier)
+            .toggleContainer(widget.item.id);
+        setState(() {
+          _longPressing = false;
+          _longPressProgress = 0.0;
+        });
+      }
+    });
+  }
+
+  void _cancelLongPress() {
+    _longPressing = false;
+    _longPressTimer?.cancel();
+    if (mounted) setState(() => _longPressProgress = 0.0);
   }
 
   @override
   void dispose() {
     _resetTimer?.cancel();
+    _longPressTimer?.cancel();
     super.dispose();
   }
 
@@ -91,6 +116,11 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchStateProvider);
     final isExpanded = searchState.expandedAlbumId == widget.item.id;
+
+    final selection = ref.watch(selectionStateProvider);
+    final selectionMode = selection.isActive;
+    final isSelected = selection.isContainerSelected(widget.item.id);
+    final isPartial = selection.isContainerPartial(widget.item.id);
 
     final playlist = widget.item.playlist;
     final title = playlist?.name ?? widget.item.name ?? 'Unknown';
@@ -107,10 +137,32 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
       children: [
         // Main row
         GestureDetector(
-          onTap: _toggleExpand,
+          onTap: () {
+            if (selectionMode) {
+              ref
+                  .read(selectionStateProvider.notifier)
+                  .toggleContainer(widget.item.id);
+            } else {
+              _toggleExpand();
+            }
+          },
+          onLongPressStart: selectionMode ? null : (_) => _startLongPress(),
+          onLongPressEnd: selectionMode ? null : (_) => _cancelLongPress(),
+          onLongPressCancel: selectionMode ? null : _cancelLongPress,
           behavior: HitTestBehavior.opaque,
-          child: Padding(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
             padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: selectionMode && isSelected
+                  ? KalinkaColors.accent.withValues(alpha: 0.07)
+                  : Colors.transparent,
+              border: selectionMode && isSelected
+                  ? const Border(
+                      left: BorderSide(color: KalinkaColors.accent, width: 2),
+                    )
+                  : null,
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -118,39 +170,73 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
                 SizedBox(
                   width: 56,
                   height: 56,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
+                  child: Stack(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Stack(
-                        children: [
-                          ProceduralAlbumArt(trackId: widget.item.id, size: 56),
-                          // 2x2 mosaic overlay at 25% opacity
-                          Opacity(
-                            opacity: 0.25,
-                            child: GridView.count(
-                              crossAxisCount: 2,
-                              physics: const NeverScrollableScrollPhysics(),
-                              children: List.generate(4, (i) {
-                                return ProceduralAlbumArt(
-                                  trackId: '${widget.item.id}_$i',
-                                  size: 28,
-                                );
-                              }),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Stack(
+                            children: [
+                              ProceduralAlbumArt(
+                                trackId: widget.item.id,
+                                size: 56,
+                              ),
+                              // 2x2 mosaic overlay at 25% opacity
+                              Opacity(
+                                opacity: 0.25,
+                                child: GridView.count(
+                                  crossAxisCount: 2,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  children: List.generate(4, (i) {
+                                    return ProceduralAlbumArt(
+                                      trackId: '${widget.item.id}_$i',
+                                      size: 28,
+                                    );
+                                  }),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Long-press ring
+                      if (_longPressing && _longPressProgress > 0)
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: LongPressRingPainter(
+                              progress: _longPressProgress,
+                              color: KalinkaColors.accent,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      // Selection overlay
+                      if (selectionMode && isSelected)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: KalinkaColors.accent.withValues(
+                                alpha: 0.7,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              isPartial ? Icons.remove : Icons.check,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -161,7 +247,11 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
                     children: [
                       Text(
                         title,
-                        style: KalinkaTextStyles.cardTitle,
+                        style: KalinkaTextStyles.cardTitle.copyWith(
+                          color: selectionMode && isSelected
+                              ? KalinkaColors.accent
+                              : null,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -175,33 +265,37 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
                     ],
                   ),
                 ),
+                const SizedBox(width: 12),
                 // Stacked buttons
                 Column(
                   children: [
-                    GestureDetector(
-                      onTap: _addPlaylist,
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
+                    // Add button (hidden in selection mode)
+                    if (!selectionMode)
+                      GestureDetector(
+                        onTap: _addPlaylist,
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: _showAddCheck
+                                  ? KalinkaColors.confirmGreen
+                                  : KalinkaColors.gold,
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            _showAddCheck ? Icons.check : Icons.add,
+                            size: 14,
                             color: _showAddCheck
                                 ? KalinkaColors.confirmGreen
                                 : KalinkaColors.gold,
-                            width: 1,
                           ),
                         ),
-                        child: Icon(
-                          _showAddCheck ? Icons.check : Icons.add,
-                          size: 14,
-                          color: _showAddCheck
-                              ? KalinkaColors.confirmGreen
-                              : KalinkaColors.gold,
-                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
+                    if (!selectionMode) const SizedBox(height: 4),
+                    // Expand button (always visible)
                     GestureDetector(
                       onTap: _toggleExpand,
                       child: Container(
@@ -265,7 +359,7 @@ class _ExpandedPlaylistTracks extends ConsumerWidget {
         border: Border(left: BorderSide(color: KalinkaColors.accent, width: 2)),
       ),
       child: tracksAsync.when(
-        data: (browseList) => _buildTrackList(browseList.items, ref),
+        data: (browseList) => _buildTrackList(browseList.items),
         loading: () => const Padding(
           padding: EdgeInsets.all(16),
           child: Center(
@@ -287,12 +381,16 @@ class _ExpandedPlaylistTracks extends ConsumerWidget {
     );
   }
 
-  Widget _buildTrackList(List<BrowseItem> items, WidgetRef ref) {
+  Widget _buildTrackList(List<BrowseItem> items) {
     return Column(
       children: items.asMap().entries.map((entry) {
         final index = entry.key;
         final item = entry.value;
-        return _InlinePlaylistTrack(item: item, index: index + 1);
+        return _InlinePlaylistTrack(
+          item: item,
+          index: index + 1,
+          containerId: playlistId,
+        );
       }).toList(),
     );
   }
@@ -301,8 +399,13 @@ class _ExpandedPlaylistTracks extends ConsumerWidget {
 class _InlinePlaylistTrack extends ConsumerStatefulWidget {
   final BrowseItem item;
   final int index;
+  final String containerId;
 
-  const _InlinePlaylistTrack({required this.item, required this.index});
+  const _InlinePlaylistTrack({
+    required this.item,
+    required this.index,
+    required this.containerId,
+  });
 
   @override
   ConsumerState<_InlinePlaylistTrack> createState() =>
@@ -338,56 +441,99 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
     final title = track?.title ?? widget.item.name ?? 'Unknown';
     final duration = _formatDuration(track?.duration);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 24,
-            child: Text(
-              '${widget.index}',
-              style: KalinkaTextStyles.trackRowSubtitle,
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              title,
-              style: KalinkaTextStyles.trackRowTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (duration != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
-            ),
-          GestureDetector(
-            onTap: _addTrack,
-            child: Container(
+    final selection = ref.watch(selectionStateProvider);
+    final selectionMode = selection.isActive;
+    final containerSelected = selection.isContainerSelected(widget.containerId);
+    final trackSelected =
+        containerSelected &&
+        selection.isTrackInContainerSelected(
+          widget.containerId,
+          widget.item.id,
+        );
+
+    return GestureDetector(
+      onTap: selectionMode && containerSelected
+          ? () => ref
+                .read(selectionStateProvider.notifier)
+                .toggleTrackInContainer(widget.containerId, widget.item.id)
+          : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selectionMode && containerSelected && trackSelected
+              ? KalinkaColors.accent.withValues(alpha: 0.05)
+              : Colors.transparent,
+        ),
+        child: Row(
+          children: [
+            // Track number or selection indicator
+            SizedBox(
               width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: _showCheck
-                      ? KalinkaColors.confirmGreen
-                      : KalinkaColors.gold,
-                  width: 1,
+              child: selectionMode && containerSelected
+                  ? Icon(
+                      trackSelected
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      size: 16,
+                      color: trackSelected
+                          ? KalinkaColors.accent
+                          : KalinkaColors.textSecondary,
+                    )
+                  : Text(
+                      '${widget.index}',
+                      style: KalinkaTextStyles.trackRowSubtitle,
+                      textAlign: TextAlign.center,
+                    ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: KalinkaTextStyles.trackRowTitle.copyWith(
+                  color: selectionMode && containerSelected && !trackSelected
+                      ? KalinkaColors.textSecondary
+                      : null,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (!(selectionMode && containerSelected)) ...[
+              if (duration != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(
+                    duration,
+                    style: KalinkaTextStyles.trackRowSubtitle,
+                  ),
+                ),
+              GestureDetector(
+                onTap: _addTrack,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: _showCheck
+                          ? KalinkaColors.confirmGreen
+                          : KalinkaColors.gold,
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(
+                    _showCheck ? Icons.check : Icons.add,
+                    size: 12,
+                    color: _showCheck
+                        ? KalinkaColors.confirmGreen
+                        : KalinkaColors.gold,
+                  ),
                 ),
               ),
-              child: Icon(
-                _showCheck ? Icons.check : Icons.add,
-                size: 12,
-                color: _showCheck
-                    ? KalinkaColors.confirmGreen
-                    : KalinkaColors.gold,
-              ),
-            ),
-          ),
-        ],
+            ],
+          ],
+        ),
       ),
     );
   }

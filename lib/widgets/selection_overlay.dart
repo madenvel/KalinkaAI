@@ -148,7 +148,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    '${selection.count} TRACKS SELECTED',
+                    '${selection.count} ITEMS SELECTED',
                     style: KalinkaTextStyles.batchBarLabel,
                   ),
                 ),
@@ -269,7 +269,8 @@ class MultiSelectBottomBar extends ConsumerWidget {
   ) async {
     try {
       final api = ref.read(kalinkaProxyProvider);
-      await api.add(selection.selectedIds.toList());
+      final ids = ref.read(selectionStateProvider.notifier).resolveIdsForApi();
+      await api.add(ids);
 
       ref.read(selectionStateProvider.notifier).exitSelectionMode();
 
@@ -297,7 +298,8 @@ class MultiSelectBottomBar extends ConsumerWidget {
   ) async {
     try {
       final api = ref.read(kalinkaProxyProvider);
-      await api.add(selection.selectedIds.toList());
+      final ids = ref.read(selectionStateProvider.notifier).resolveIdsForApi();
+      await api.add(ids);
 
       ref.read(selectionStateProvider.notifier).exitSelectionMode();
 

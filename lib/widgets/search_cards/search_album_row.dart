@@ -1,24 +1,28 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
 import '../../providers/browse_detail_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_state_provider.dart';
+import '../../providers/selection_state_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
+import 'long_press_ring_painter.dart';
 
 /// Album row for search results.
 /// 56x56 thumbnail, title/artist/year/trackCount, tag pills,
 /// two stacked icon buttons (add + expand).
 /// Expands inline to show track list.
+/// Long-press enters multi-select mode.
 class SearchAlbumRow extends ConsumerStatefulWidget {
   final BrowseItem item;
-  final DraggableScrollableController? sheetController;
 
-  const SearchAlbumRow({super.key, required this.item, this.sheetController});
+  const SearchAlbumRow({super.key, required this.item});
 
   @override
   ConsumerState<SearchAlbumRow> createState() => _SearchAlbumRowState();
@@ -28,6 +32,11 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
     with SingleTickerProviderStateMixin {
   bool _showAddCheck = false;
   Timer? _resetTimer;
+
+  // Long-press ring animation
+  bool _longPressing = false;
+  double _longPressProgress = 0.0;
+  Timer? _longPressTimer;
 
   Future<void> _addAlbum() async {
     try {
@@ -63,29 +72,46 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
       searchNotifier.collapseAlbum();
     } else {
       searchNotifier.expandAlbum(widget.item.id);
-      // Auto-snap sheet up if needed
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _tryAutoSnap();
-      });
     }
   }
 
-  void _tryAutoSnap() {
-    final controller = widget.sheetController;
-    if (controller == null || !controller.isAttached) return;
-    final currentSize = controller.size;
-    if (currentSize < 0.65) {
-      controller.animateTo(
-        0.65,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-      );
-    }
+  void _startLongPress() {
+    _longPressing = true;
+    _longPressProgress = 0.0;
+    const tickDuration = Duration(milliseconds: 16);
+    _longPressTimer = Timer.periodic(tickDuration, (timer) {
+      if (!mounted || !_longPressing) {
+        timer.cancel();
+        if (mounted) setState(() => _longPressProgress = 0.0);
+        return;
+      }
+      setState(() {
+        _longPressProgress = min(1.0, _longPressProgress + 16 / 500);
+      });
+      if (_longPressProgress >= 1.0) {
+        timer.cancel();
+        HapticFeedback.mediumImpact();
+        ref
+            .read(selectionStateProvider.notifier)
+            .toggleContainer(widget.item.id);
+        setState(() {
+          _longPressing = false;
+          _longPressProgress = 0.0;
+        });
+      }
+    });
+  }
+
+  void _cancelLongPress() {
+    _longPressing = false;
+    _longPressTimer?.cancel();
+    if (mounted) setState(() => _longPressProgress = 0.0);
   }
 
   @override
   void dispose() {
     _resetTimer?.cancel();
+    _longPressTimer?.cancel();
     super.dispose();
   }
 
@@ -94,6 +120,11 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
     final searchState = ref.watch(searchStateProvider);
     final isExpanded = searchState.expandedAlbumId == widget.item.id;
 
+    final selection = ref.watch(selectionStateProvider);
+    final selectionMode = selection.isActive;
+    final isSelected = selection.isContainerSelected(widget.item.id);
+    final isPartial = selection.isContainerPartial(widget.item.id);
+
     final album = widget.item.album;
     final title = album?.title ?? widget.item.name ?? 'Unknown';
     final artist = album?.artist?.name ?? '';
@@ -101,10 +132,9 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
     final genre = album?.genre?.name;
 
     final urlResolver = ref.read(urlResolverProvider);
-    final imageUrl = widget.item.image?.thumbnail ?? widget.item.image?.small;
-    final resolvedImageUrl = imageUrl != null
-        ? urlResolver.abs(imageUrl)
-        : null;
+    final imageUrl = widget.item.image?.small ?? widget.item.image?.thumbnail;
+    final resolvedImageUrl =
+        imageUrl != null ? urlResolver.abs(imageUrl) : null;
 
     final subtitleParts = <String>[
       if (artist.isNotEmpty) artist,
@@ -116,41 +146,100 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
       children: [
         // Main row
         GestureDetector(
-          onTap: _toggleExpand,
+          onTap: () {
+            if (selectionMode) {
+              ref
+                  .read(selectionStateProvider.notifier)
+                  .toggleContainer(widget.item.id);
+            } else {
+              _toggleExpand();
+            }
+          },
+          onLongPressStart: selectionMode ? null : (_) => _startLongPress(),
+          onLongPressEnd: selectionMode ? null : (_) => _cancelLongPress(),
+          onLongPressCancel: selectionMode ? null : _cancelLongPress,
           behavior: HitTestBehavior.opaque,
-          child: Padding(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
             padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: selectionMode && isSelected
+                  ? KalinkaColors.accent.withValues(alpha: 0.07)
+                  : Colors.transparent,
+              border: selectionMode && isSelected
+                  ? const Border(
+                      left:
+                          BorderSide(color: KalinkaColors.accent, width: 2),
+                    )
+                  : null,
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Thumbnail 56x56
-                Container(
+                // Thumbnail 56x56 with selection overlay
+                SizedBox(
                   width: 56,
                   height: 56,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: resolvedImageUrl != null
-                        ? Image.network(
-                            resolvedImageUrl,
-                            width: 56,
-                            height: 56,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => ProceduralAlbumArt(
-                              trackId: widget.item.id,
-                              size: 56,
+                  child: Stack(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
                             ),
-                          )
-                        : ProceduralAlbumArt(trackId: widget.item.id, size: 56),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: resolvedImageUrl != null
+                              ? Image.network(
+                                  resolvedImageUrl,
+                                  width: 56,
+                                  height: 56,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      ProceduralAlbumArt(
+                                    trackId: widget.item.id,
+                                    size: 56,
+                                  ),
+                                )
+                              : ProceduralAlbumArt(
+                                  trackId: widget.item.id,
+                                  size: 56,
+                                ),
+                        ),
+                      ),
+                      // Long-press ring
+                      if (_longPressing && _longPressProgress > 0)
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: LongPressRingPainter(
+                              progress: _longPressProgress,
+                              color: KalinkaColors.accent,
+                            ),
+                          ),
+                        ),
+                      // Selection overlay
+                      if (selectionMode && isSelected)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: KalinkaColors.accent
+                                  .withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              isPartial ? Icons.remove : Icons.check,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -161,7 +250,11 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
                     children: [
                       Text(
                         title,
-                        style: KalinkaTextStyles.cardTitle,
+                        style: KalinkaTextStyles.cardTitle.copyWith(
+                          color: selectionMode && isSelected
+                              ? KalinkaColors.accent
+                              : null,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -183,41 +276,44 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
                             color: KalinkaColors.pillSurface,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(genre, style: KalinkaTextStyles.tagPill),
+                          child:
+                              Text(genre, style: KalinkaTextStyles.tagPill),
                         ),
                       ],
                     ],
                   ),
                 ),
+                const SizedBox(width: 12),
                 // Stacked buttons
                 Column(
                   children: [
-                    // Add button
-                    GestureDetector(
-                      onTap: _addAlbum,
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
+                    // Add button (hidden in selection mode)
+                    if (!selectionMode)
+                      GestureDetector(
+                        onTap: _addAlbum,
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: _showAddCheck
+                                  ? KalinkaColors.confirmGreen
+                                  : KalinkaColors.gold,
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            _showAddCheck ? Icons.check : Icons.add,
+                            size: 14,
                             color: _showAddCheck
                                 ? KalinkaColors.confirmGreen
                                 : KalinkaColors.gold,
-                            width: 1,
                           ),
                         ),
-                        child: Icon(
-                          _showAddCheck ? Icons.check : Icons.add,
-                          size: 14,
-                          color: _showAddCheck
-                              ? KalinkaColors.confirmGreen
-                              : KalinkaColors.gold,
-                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    // Expand button
+                    if (!selectionMode) const SizedBox(height: 4),
+                    // Expand button (always visible)
                     GestureDetector(
                       onTap: _toggleExpand,
                       child: Container(
@@ -251,10 +347,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
         AnimatedCrossFade(
           firstChild: const SizedBox.shrink(),
           secondChild: isExpanded
-              ? _ExpandedAlbumTracks(
-                  albumId: widget.item.id,
-                  sheetController: widget.sheetController,
-                )
+              ? _ExpandedAlbumTracks(albumId: widget.item.id)
               : const SizedBox.shrink(),
           crossFadeState: isExpanded
               ? CrossFadeState.showSecond
@@ -271,9 +364,8 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
 
 class _ExpandedAlbumTracks extends ConsumerWidget {
   final String albumId;
-  final DraggableScrollableController? sheetController;
 
-  const _ExpandedAlbumTracks({required this.albumId, this.sheetController});
+  const _ExpandedAlbumTracks({required this.albumId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -282,7 +374,8 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(left: 16),
       decoration: const BoxDecoration(
-        border: Border(left: BorderSide(color: KalinkaColors.accent, width: 2)),
+        border:
+            Border(left: BorderSide(color: KalinkaColors.accent, width: 2)),
       ),
       child: tracksAsync.when(
         data: (browseList) {
@@ -291,10 +384,9 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
               .toList();
 
           if (tracks.isEmpty) {
-            // Show all items if none have track data
-            return _buildTrackList(browseList.items, ref);
+            return _buildTrackList(browseList.items);
           }
-          return _buildTrackList(tracks, ref);
+          return _buildTrackList(tracks);
         },
         loading: () => const Padding(
           padding: EdgeInsets.all(16),
@@ -317,12 +409,16 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
     );
   }
 
-  Widget _buildTrackList(List<BrowseItem> items, WidgetRef ref) {
+  Widget _buildTrackList(List<BrowseItem> items) {
     return Column(
       children: items.asMap().entries.map((entry) {
         final index = entry.key;
         final item = entry.value;
-        return _InlineTrackRow(item: item, index: index + 1);
+        return _InlineTrackRow(
+          item: item,
+          index: index + 1,
+          containerId: albumId,
+        );
       }).toList(),
     );
   }
@@ -331,8 +427,13 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
 class _InlineTrackRow extends ConsumerStatefulWidget {
   final BrowseItem item;
   final int index;
+  final String containerId;
 
-  const _InlineTrackRow({required this.item, required this.index});
+  const _InlineTrackRow({
+    required this.item,
+    required this.index,
+    required this.containerId,
+  });
 
   @override
   ConsumerState<_InlineTrackRow> createState() => _InlineTrackRowState();
@@ -365,58 +466,103 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
   Widget build(BuildContext context) {
     final track = widget.item.track;
     final title = track?.title ?? widget.item.name ?? 'Unknown';
-    final duration = _formatDuration(track?.duration);
+    final duration = _formatDuration(
+      track?.duration != null ? track!.duration * 1000 : null,
+    );
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 24,
-            child: Text(
-              '${widget.index}',
-              style: KalinkaTextStyles.trackRowSubtitle,
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              title,
-              style: KalinkaTextStyles.trackRowTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (duration != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
-            ),
-          GestureDetector(
-            onTap: _addTrack,
-            child: Container(
+    final selection = ref.watch(selectionStateProvider);
+    final selectionMode = selection.isActive;
+    final containerSelected =
+        selection.isContainerSelected(widget.containerId);
+    final trackSelected = containerSelected &&
+        selection.isTrackInContainerSelected(
+          widget.containerId,
+          widget.item.id,
+        );
+
+    return GestureDetector(
+      onTap: selectionMode && containerSelected
+          ? () => ref
+                .read(selectionStateProvider.notifier)
+                .toggleTrackInContainer(widget.containerId, widget.item.id)
+          : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selectionMode && containerSelected && trackSelected
+              ? KalinkaColors.accent.withValues(alpha: 0.05)
+              : Colors.transparent,
+        ),
+        child: Row(
+          children: [
+            // Track number or selection indicator
+            SizedBox(
               width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: _showCheck
-                      ? KalinkaColors.confirmGreen
-                      : KalinkaColors.gold,
-                  width: 1,
+              child: selectionMode && containerSelected
+                  ? Icon(
+                      trackSelected
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      size: 16,
+                      color: trackSelected
+                          ? KalinkaColors.accent
+                          : KalinkaColors.textSecondary,
+                    )
+                  : Text(
+                      '${widget.index}',
+                      style: KalinkaTextStyles.trackRowSubtitle,
+                      textAlign: TextAlign.center,
+                    ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: KalinkaTextStyles.trackRowTitle.copyWith(
+                  color: selectionMode && containerSelected && !trackSelected
+                      ? KalinkaColors.textSecondary
+                      : null,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (!(selectionMode && containerSelected)) ...[
+              if (duration != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(
+                    duration,
+                    style: KalinkaTextStyles.trackRowSubtitle,
+                  ),
+                ),
+              GestureDetector(
+                onTap: _addTrack,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: _showCheck
+                          ? KalinkaColors.confirmGreen
+                          : KalinkaColors.gold,
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(
+                    _showCheck ? Icons.check : Icons.add,
+                    size: 12,
+                    color: _showCheck
+                        ? KalinkaColors.confirmGreen
+                        : KalinkaColors.gold,
+                  ),
                 ),
               ),
-              child: Icon(
-                _showCheck ? Icons.check : Icons.add,
-                size: 12,
-                color: _showCheck
-                    ? KalinkaColors.confirmGreen
-                    : KalinkaColors.gold,
-              ),
-            ),
-          ),
-        ],
+            ],
+          ],
+        ),
       ),
     );
   }

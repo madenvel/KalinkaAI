@@ -12,6 +12,7 @@ import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 import 'add_context_menu.dart';
+import 'long_press_ring_painter.dart';
 
 /// Track row for search results.
 /// ~60px height, 44x44 thumbnail, title/artist/duration, + button.
@@ -19,9 +20,8 @@ import 'add_context_menu.dart';
 /// Long-press = enter multi-select.
 class SearchTrackRow extends ConsumerStatefulWidget {
   final BrowseItem item;
-  final DraggableScrollableController? sheetController;
 
-  const SearchTrackRow({super.key, required this.item, this.sheetController});
+  const SearchTrackRow({super.key, required this.item});
 
   @override
   ConsumerState<SearchTrackRow> createState() => _SearchTrackRowState();
@@ -203,10 +203,12 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
       artist,
       album,
     ].where((s) => s.isNotEmpty).join(' \u00B7 ');
-    final duration = _formatDuration(track?.duration);
+    final duration = _formatDuration(
+      track?.duration != null ? track!.duration * 1000 : null,
+    );
 
     final urlResolver = ref.read(urlResolverProvider);
-    final imageUrl = widget.item.image?.thumbnail ?? widget.item.image?.small;
+    final imageUrl = widget.item.image?.small;
     final resolvedImageUrl = imageUrl != null
         ? urlResolver.abs(imageUrl)
         : null;
@@ -262,7 +264,7 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
                   if (_longPressing && _longPressProgress > 0)
                     Positioned.fill(
                       child: CustomPaint(
-                        painter: _LongPressRingPainter(
+                        painter: LongPressRingPainter(
                           progress: _longPressProgress,
                           color: KalinkaColors.accent,
                         ),
@@ -313,15 +315,11 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
                 ],
               ),
             ),
+            const SizedBox(width: 12),
             // Duration
             if (duration != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Text(
-                  duration,
-                  style: KalinkaTextStyles.trackRowSubtitle,
-                ),
-              ),
+              Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
+            const SizedBox(width: 12),
             // + button (hidden in selection mode)
             if (!selectionMode)
               AnimatedBuilder(
@@ -377,34 +375,4 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
     final s = seconds % 60;
     return '$m:${s.toString().padLeft(2, '0')}';
   }
-}
-
-/// Paints a progress ring around the thumbnail during long-press.
-class _LongPressRingPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-
-  _LongPressRingPainter({required this.progress, required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 1;
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -pi / 2,
-      2 * pi * progress,
-      false,
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_LongPressRingPainter oldDelegate) =>
-      oldDelegate.progress != progress;
 }

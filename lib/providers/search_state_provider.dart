@@ -29,6 +29,8 @@ enum InteractionMode { contextMenu, instantAppend }
 /// Search state containing expansion, query, and results
 class SearchState {
   final bool isExpanded;
+  final bool searchActive;
+  final bool keyboardVisible;
   final String query;
   final bool isLoading;
   final Map<SearchType, BrowseItemsList>? searchResults;
@@ -38,9 +40,14 @@ class SearchState {
   final String? artistPreviewId;
   final bool tracksExpanded;
   final InteractionMode interactionMode;
+  final String? expandedAlbumIdWithinArtist;
+  final Set<String> artistMoreAlbumsExpanded;
+  final Set<String> albumMoreTracksExpanded;
 
   const SearchState({
     this.isExpanded = false,
+    this.searchActive = false,
+    this.keyboardVisible = false,
     this.query = '',
     this.isLoading = false,
     this.searchResults,
@@ -50,6 +57,9 @@ class SearchState {
     this.artistPreviewId,
     this.tracksExpanded = false,
     this.interactionMode = InteractionMode.instantAppend,
+    this.expandedAlbumIdWithinArtist,
+    this.artistMoreAlbumsExpanded = const {},
+    this.albumMoreTracksExpanded = const {},
   });
 
   int get totalResultCount {
@@ -59,6 +69,8 @@ class SearchState {
 
   SearchState copyWith({
     bool? isExpanded,
+    bool? searchActive,
+    bool? keyboardVisible,
     String? query,
     bool? isLoading,
     Map<SearchType, BrowseItemsList>? searchResults,
@@ -70,9 +82,15 @@ class SearchState {
     InteractionMode? interactionMode,
     bool clearExpandedAlbum = false,
     bool clearArtistPreview = false,
+    String? expandedAlbumIdWithinArtist,
+    Set<String>? artistMoreAlbumsExpanded,
+    Set<String>? albumMoreTracksExpanded,
+    bool clearExpandedAlbumWithinArtist = false,
   }) {
     return SearchState(
       isExpanded: isExpanded ?? this.isExpanded,
+      searchActive: searchActive ?? this.searchActive,
+      keyboardVisible: keyboardVisible ?? this.keyboardVisible,
       query: query ?? this.query,
       isLoading: isLoading ?? this.isLoading,
       searchResults: searchResults ?? this.searchResults,
@@ -85,6 +103,13 @@ class SearchState {
           clearArtistPreview ? null : (artistPreviewId ?? this.artistPreviewId),
       tracksExpanded: tracksExpanded ?? this.tracksExpanded,
       interactionMode: interactionMode ?? this.interactionMode,
+      expandedAlbumIdWithinArtist: clearExpandedAlbumWithinArtist
+          ? null
+          : (expandedAlbumIdWithinArtist ?? this.expandedAlbumIdWithinArtist),
+      artistMoreAlbumsExpanded:
+          artistMoreAlbumsExpanded ?? this.artistMoreAlbumsExpanded,
+      albumMoreTracksExpanded:
+          albumMoreTracksExpanded ?? this.albumMoreTracksExpanded,
     );
   }
 }
@@ -141,6 +166,33 @@ class SearchStateNotifier extends Notifier<SearchState> {
     state = state.copyWith(isExpanded: false);
   }
 
+  void activateSearch() {
+    state = state.copyWith(searchActive: true);
+    if (state.query.isEmpty && state.browseRecommendations == null) {
+      _loadBrowseRecommendations();
+    }
+  }
+
+  void deactivateSearch() {
+    _debounceTimer?.cancel();
+    state = state.copyWith(
+      searchActive: false,
+      query: '',
+      searchResults: null,
+      error: null,
+      clearExpandedAlbum: true,
+      clearArtistPreview: true,
+      tracksExpanded: false,
+      clearExpandedAlbumWithinArtist: true,
+      artistMoreAlbumsExpanded: const {},
+      albumMoreTracksExpanded: const {},
+    );
+  }
+
+  void setKeyboardVisible(bool visible) {
+    state = state.copyWith(keyboardVisible: visible);
+  }
+
   void setQuery(String query) {
     state = state.copyWith(query: query, error: null);
     _debounceTimer?.cancel();
@@ -153,7 +205,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
       return;
     }
     // Otherwise, debounce a search
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       performSearch();
     });
   }
@@ -286,11 +338,37 @@ class SearchStateNotifier extends Notifier<SearchState> {
     state = state.copyWith(
       artistPreviewId: artistId,
       clearExpandedAlbum: true,
+      clearExpandedAlbumWithinArtist: true,
+      artistMoreAlbumsExpanded: const {},
+      albumMoreTracksExpanded: const {},
     );
   }
 
   void collapseArtistPreview() {
-    state = state.copyWith(clearArtistPreview: true);
+    state = state.copyWith(
+      clearArtistPreview: true,
+      clearExpandedAlbumWithinArtist: true,
+    );
+  }
+
+  void expandAlbumWithinArtist(String albumId) {
+    state = state.copyWith(expandedAlbumIdWithinArtist: albumId);
+  }
+
+  void collapseAlbumWithinArtist() {
+    state = state.copyWith(clearExpandedAlbumWithinArtist: true);
+  }
+
+  void revealArtistMoreAlbums(String artistId) {
+    final updated = Set<String>.from(state.artistMoreAlbumsExpanded);
+    updated.add(artistId);
+    state = state.copyWith(artistMoreAlbumsExpanded: updated);
+  }
+
+  void revealAlbumMoreTracks(String albumId) {
+    final updated = Set<String>.from(state.albumMoreTracksExpanded);
+    updated.add(albumId);
+    state = state.copyWith(albumMoreTracksExpanded: updated);
   }
 
   void toggleTracksExpanded() {
@@ -309,6 +387,9 @@ class SearchStateNotifier extends Notifier<SearchState> {
       clearExpandedAlbum: true,
       clearArtistPreview: true,
       tracksExpanded: false,
+      clearExpandedAlbumWithinArtist: true,
+      artistMoreAlbumsExpanded: const {},
+      albumMoreTracksExpanded: const {},
     );
   }
 

@@ -151,7 +151,7 @@ class _BrowseListState extends ConsumerState<BrowseList> {
     final urlResolver = ref.read(urlResolverProvider);
 
     final images = items.take(4).map((item) {
-      final imageUrl = item.image?.thumbnail ?? item.image?.small;
+      final imageUrl = item.image?.thumbnail;
       return imageUrl != null ? urlResolver.abs(imageUrl) : null;
     }).toList();
 
@@ -219,7 +219,7 @@ class _BrowseListState extends ConsumerState<BrowseList> {
 
   Widget _buildListItem(BrowseItem item, ThemeData theme) {
     final urlResolver = ref.read(urlResolverProvider);
-    final imageUrl = item.image?.thumbnail ?? item.image?.small;
+    final imageUrl = item.image?.small;
     final resolvedImageUrl = imageUrl != null
         ? urlResolver.abs(imageUrl)
         : null;

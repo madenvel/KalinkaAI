@@ -33,7 +33,7 @@ class QueueItemRow extends ConsumerWidget {
     final api = ref.read(kalinkaWsApiProvider);
     final urlResolver = ref.read(urlResolverProvider);
 
-    final imageUrl = track.album?.image?.thumbnail ?? track.album?.image?.small;
+    final imageUrl = track.album?.image?.small;
     final resolvedImageUrl = imageUrl != null
         ? urlResolver.abs(imageUrl)
         : null;
@@ -106,9 +106,12 @@ class QueueItemRow extends ConsumerWidget {
               ),
             ),
             // Duration right-aligned
-            Text(
-              _formatDuration(track.duration),
-              style: KalinkaTextStyles.queueItemDuration,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Text(
+                _formatDuration(track.duration),
+                style: KalinkaTextStyles.queueItemDuration,
+              ),
             ),
           ],
         ),

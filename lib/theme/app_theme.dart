@@ -196,6 +196,16 @@ class KalinkaTextStyles {
     color: KalinkaColors.accent,
   );
 
+  static TextStyle cancelButton = GoogleFonts.ibmPlexMono(
+    fontSize: 12,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle searchBarInput = GoogleFonts.ibmPlexMono(
+    fontSize: 13,
+    color: KalinkaColors.textPrimary,
+  );
+
   static TextStyle batchBarLabel = GoogleFonts.ibmPlexMono(
     fontSize: 9,
     fontWeight: FontWeight.w500,
