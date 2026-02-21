@@ -13,6 +13,7 @@ class KalinkaColors {
 
   // Accent colors
   static const accent = Color(0xFFC23B5C);
+  static const accentTint = Color(0xFFD4647A);
   static const gold = Color(0xFFE8C87A);
 
   // Text
@@ -29,6 +30,13 @@ class KalinkaColors {
   // Semantic
   static const deleteRed = Color(0xFFE53935);
   static const confirmGreen = Color(0xFF4ADE80);
+
+  // Status colors
+  static const textMuted = Color(0xFF48485A);
+  static const amber = Color(0xFFF59E0B);
+  static const amberLight = Color(0xFFFCD34D);
+  static const statusGreen = Color(0xFF4ADE80);
+  static const statusRed = Color(0xFFEF4444);
 
   // Gradient for progress bars
   static const progressGradient = LinearGradient(colors: [accent, gold]);
@@ -329,6 +337,34 @@ class KalinkaTextStyles {
   static TextStyle dialogButton = GoogleFonts.ibmPlexMono(
     fontSize: 13,
     fontWeight: FontWeight.w500,
+  );
+
+  // Lettermark
+  static TextStyle lettermark = GoogleFonts.instrumentSerif(
+    fontSize: 22,
+    fontStyle: FontStyle.italic,
+    color: KalinkaColors.textPrimary,
+  );
+
+  // Server chip
+  static TextStyle serverChipLabel = GoogleFonts.ibmPlexMono(
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    color: KalinkaColors.textPrimary,
+  );
+
+  // Connection banners
+  static TextStyle bannerText = GoogleFonts.ibmPlexMono(
+    fontSize: 10,
+    color: KalinkaColors.amberLight,
+  );
+
+  // Muted section header (settings, server sheet)
+  static TextStyle sectionHeaderMuted = GoogleFonts.ibmPlexMono(
+    fontSize: 9,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 1.8,
+    color: KalinkaColors.textMuted,
   );
 }
 

@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../data_model/kalinka_ws_api.dart';
 import '../providers/app_state_provider.dart';
+import '../providers/connection_settings_provider.dart';
+import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/playback_time_provider.dart';
 import '../providers/search_state_provider.dart';
@@ -26,19 +29,25 @@ class MiniPlayer extends ConsumerStatefulWidget {
 }
 
 class _MiniPlayerState extends ConsumerState<MiniPlayer>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   Timer? _keyboardDismissTimer;
+  late AnimationController _marchController;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _marchController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _keyboardDismissTimer?.cancel();
+    _marchController.dispose();
     super.dispose();
   }
 
@@ -75,6 +84,12 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     final searchState = ref.watch(searchStateProvider);
     final shouldHide = searchState.searchActive && searchState.keyboardVisible;
 
+    final connectionState = ref.watch(connectionStateProvider);
+    final settings = ref.watch(connectionSettingsProvider);
+    final isOffline =
+        connectionState == ConnectionStatus.reconnecting ||
+        connectionState == ConnectionStatus.offline;
+
     final durationMs = (currentTrack?.duration ?? 0) * 1000;
     final progress = durationMs > 0
         ? (playbackTimeMs / durationMs).clamp(0.0, 1.0)
@@ -101,8 +116,21 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 2px gradient progress line at very top
-              GradientProgressLine(progress: progress),
+              // 2px progress line — marching dashes when offline, gradient when online
+              if (isOffline)
+                AnimatedBuilder(
+                  animation: _marchController,
+                  builder: (context, _) {
+                    return CustomPaint(
+                      size: const Size(double.infinity, 2),
+                      painter: _MarchingDashesPainter(
+                        progress: _marchController.value,
+                      ),
+                    );
+                  },
+                )
+              else
+                GradientProgressLine(progress: progress),
               // Main content — 72px
               GestureDetector(
                 onTap: widget.onTap,
@@ -139,7 +167,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                 ),
                         ),
                         const SizedBox(width: 10),
-                        // Track title + artist
+                        // Track title + artist (or reconnecting text)
                         Expanded(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -152,51 +180,85 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 2),
-                              Text(
-                                currentTrack?.performer?.name ?? '\u2014',
-                                style: KalinkaTextStyles.miniPlayerArtist,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              if (isOffline)
+                                Text(
+                                  connectionState ==
+                                          ConnectionStatus.reconnecting
+                                      ? 'Reconnecting to ${settings.name.isNotEmpty ? settings.name : settings.host}\u2026'
+                                      : '${settings.name.isNotEmpty ? settings.name : settings.host} unreachable',
+                                  style: KalinkaTextStyles.miniPlayerArtist
+                                      .copyWith(
+                                        color:
+                                            connectionState ==
+                                                ConnectionStatus.reconnecting
+                                            ? KalinkaColors.amber
+                                            : KalinkaColors.statusRed,
+                                      ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                )
+                              else
+                                Text(
+                                  currentTrack?.performer?.name ?? '\u2014',
+                                  style: KalinkaTextStyles.miniPlayerArtist,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 8),
-                        // Transport controls: prev, play/pause, next
-                        _TransportButton(
-                          icon: Icons.skip_previous_rounded,
-                          size: 24,
-                          onTap: () =>
-                              api.sendQueueCommand(const QueueCommand.prev()),
-                        ),
-                        const SizedBox(width: 4),
-                        // Play/pause — filled white circle 36px
-                        GestureDetector(
-                          onTap: isPlayPauseDisabled(playerState)
-                              ? null
-                              : () => sendPlayPauseCommand(ref, playerState),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              playerState == PlayerStateType.playing
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                              size: 22,
-                              color: KalinkaColors.background,
+                        // Transport controls — disabled when offline
+                        IgnorePointer(
+                          ignoring: isOffline,
+                          child: Opacity(
+                            opacity: isOffline ? 0.3 : 1.0,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _TransportButton(
+                                  icon: Icons.skip_previous_rounded,
+                                  size: 24,
+                                  onTap: () => api.sendQueueCommand(
+                                    const QueueCommand.prev(),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                // Play/pause — filled white circle 36px
+                                GestureDetector(
+                                  onTap: isPlayPauseDisabled(playerState)
+                                      ? null
+                                      : () => sendPlayPauseCommand(
+                                          ref,
+                                          playerState,
+                                        ),
+                                  child: Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      playerState == PlayerStateType.playing
+                                          ? Icons.pause_rounded
+                                          : Icons.play_arrow_rounded,
+                                      size: 22,
+                                      color: KalinkaColors.background,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                _TransportButton(
+                                  icon: Icons.skip_next_rounded,
+                                  size: 24,
+                                  onTap: () => api.sendQueueCommand(
+                                    const QueueCommand.next(),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        _TransportButton(
-                          icon: Icons.skip_next_rounded,
-                          size: 24,
-                          onTap: () =>
-                              api.sendQueueCommand(const QueueCommand.next()),
                         ),
                       ],
                     ),
@@ -208,6 +270,45 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
         ),
       ),
     );
+  }
+}
+
+/// Marching red dashes for the offline progress line.
+class _MarchingDashesPainter extends CustomPainter {
+  final double progress;
+
+  _MarchingDashesPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Background
+    final bgPaint = Paint()..color = KalinkaColors.borderDefault;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+
+    // Red marching dashes
+    final dashPaint = Paint()..color = KalinkaColors.statusRed;
+    const dashWidth = 8.0;
+    const gapWidth = 6.0;
+    const period = dashWidth + gapWidth;
+    final offset = progress * period;
+
+    var x = -period + offset;
+    while (x < size.width) {
+      final left = math.max(0.0, x);
+      final right = math.min(size.width, x + dashWidth);
+      if (right > left) {
+        canvas.drawRect(
+          Rect.fromLTWH(left, 0, right - left, size.height),
+          dashPaint,
+        );
+      }
+      x += period;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MarchingDashesPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
 

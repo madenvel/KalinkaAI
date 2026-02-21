@@ -1,0 +1,117 @@
+import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
+
+/// Collapsible section with chevron and animated content.
+///
+/// Used as "Advanced toggle row" within cards.
+class SettingsSection extends StatefulWidget {
+  final String title;
+  final Widget child;
+  final bool initiallyExpanded;
+  final bool showTopBorder;
+
+  const SettingsSection({
+    super.key,
+    required this.title,
+    required this.child,
+    this.initiallyExpanded = false,
+    this.showTopBorder = true,
+  });
+
+  @override
+  State<SettingsSection> createState() => _SettingsSectionState();
+}
+
+class _SettingsSectionState extends State<SettingsSection>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _chevronController;
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+    _chevronController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+      value: _expanded ? 1.0 : 0.0,
+    );
+  }
+
+  @override
+  void dispose() {
+    _chevronController.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() {
+      _expanded = !_expanded;
+      if (_expanded) {
+        _chevronController.forward();
+      } else {
+        _chevronController.reverse();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header row
+        GestureDetector(
+          onTap: _toggle,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: widget.showTopBorder
+                ? const BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: KalinkaColors.borderDefault),
+                    ),
+                  )
+                : null,
+            child: Row(
+              children: [
+                AnimatedBuilder(
+                  animation: _chevronController,
+                  builder: (context, child) {
+                    return Transform.rotate(
+                      angle: _chevronController.value * 3.14159,
+                      child: child,
+                    );
+                  },
+                  child: const Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 12,
+                    color: KalinkaColors.textMuted,
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: KalinkaTextStyles.trayRowSublabel.copyWith(
+                      fontSize: 10,
+                      color: KalinkaColors.textMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Animated content
+        AnimatedSize(
+          duration: const Duration(milliseconds: 340),
+          curve: const Cubic(0.4, 0, 0.2, 1),
+          alignment: Alignment.topCenter,
+          child: _expanded ? widget.child : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}

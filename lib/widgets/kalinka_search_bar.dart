@@ -26,18 +26,16 @@ class KalinkaSearchBar extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<KalinkaSearchBar> createState() => _KalinkaSearchBarState();
+  ConsumerState<KalinkaSearchBar> createState() => KalinkaSearchBarState();
 }
 
-class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
+class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
     with TickerProviderStateMixin {
   late TextEditingController _textController;
   late FocusNode _searchFocusNode;
-  late AnimationController _cancelAnimController;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   late AnimationController _clearMicController;
-  late Animation<double> _cancelAnimation;
   bool _isActive = false;
 
   @override
@@ -45,14 +43,6 @@ class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
     super.initState();
     _textController = TextEditingController();
     _searchFocusNode = FocusNode();
-    _cancelAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    );
-    _cancelAnimation = CurvedAnimation(
-      parent: _cancelAnimController,
-      curve: Curves.easeOut,
-    );
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -102,7 +92,6 @@ class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
     _searchFocusNode.removeListener(_onFocusChange);
     _textController.dispose();
     _searchFocusNode.dispose();
-    _cancelAnimController.dispose();
     _pulseController.dispose();
     _clearMicController.dispose();
     super.dispose();
@@ -116,9 +105,6 @@ class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
 
   void _activateSearch() {
     setState(() => _isActive = true);
-    if (!widget.alwaysExpanded) {
-      _cancelAnimController.forward();
-    }
     widget.onActivate?.call();
   }
 
@@ -148,7 +134,6 @@ class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
   }
 
   void cancelSearch() {
-    _cancelAnimController.reverse();
     _searchFocusNode.unfocus();
     _textController.clear();
     _clearMicController.value = 0.0;
@@ -171,12 +156,7 @@ class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
       }
     }
 
-    return Row(
-      children: [
-        Expanded(child: _buildSearchBar(searchState)),
-        if (widget.onCancel != null) _buildCancelButton(),
-      ],
-    );
+    return _buildSearchBar(searchState);
   }
 
   Widget _buildSearchBar(SearchState searchState) {
@@ -339,33 +319,6 @@ class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCancelButton() {
-    return SizeTransition(
-      axis: Axis.horizontal,
-      sizeFactor: _cancelAnimation,
-      child: AnimatedBuilder(
-        animation: _cancelAnimation,
-        builder: (context, child) {
-          final progress = _cancelAnimation.value;
-          return Transform.translate(
-            offset: Offset(20 * (1 - progress), 0),
-            child: Opacity(opacity: progress, child: child),
-          );
-        },
-        child: GestureDetector(
-          onTap: () {
-            cancelSearch();
-            widget.onCancel?.call();
-          },
-          child: Padding(
-            padding: const EdgeInsets.only(left: 12),
-            child: Text('Cancel', style: KalinkaTextStyles.cancelButton),
-          ),
-        ),
       ),
     );
   }

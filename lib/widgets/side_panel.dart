@@ -47,7 +47,7 @@ class SidePanel extends ConsumerWidget {
         Expanded(
           child: activePanel == TabletPanel.search
               ? _buildSearchPanel()
-              : const QueueZone(bottomPadding: 0),
+              : const QueueZone(bottomPadding: 0, isTablet: true),
         ),
       ],
     );

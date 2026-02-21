@@ -8,10 +8,7 @@ import 'providers/connection_settings_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Hard-coded override for shared prefs
   final prefs = await SharedPreferences.getInstance();
-  await prefs.setString('Kalinka.host', '192.168.50.85');
-  await prefs.setInt('Kalinka.port', 8000);
 
   runApp(
     ProviderScope(

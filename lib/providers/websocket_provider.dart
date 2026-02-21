@@ -11,7 +11,7 @@ final logger = Logger();
 ///
 /// This keeps all connection semantics (host/port, ws vs wss) in one place,
 /// and disposes the socket when the provider is torn down. Callers can
-/// transform the returned socket into a Stream&lt;String&gt; similar to
+/// transform the returned socket into a Stream<String> similar to
 final webSocketProvider = FutureProvider.autoDispose.family<WebSocket, String>((
   ref,
   path,
@@ -38,14 +38,13 @@ final webSocketProvider = FutureProvider.autoDispose.family<WebSocket, String>((
     Future.microtask(connection.connected);
 
     ref.onDispose(() {
-      connection.disconnected();
       socket.close();
     });
 
     return socket;
-  } on Object {
-    logger.e('WebSocket connection error to $uri', error: connection.error);
-    Future.microtask(connection.error);
+  } on Object catch (e) {
+    logger.e('WebSocket connection error to $uri', error: e);
+    Future.microtask(connection.startReconnecting);
     rethrow;
   }
 });

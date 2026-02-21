@@ -85,6 +85,14 @@ class ConnectionSettingsNotifier extends Notifier<ConnectionSettings> {
     state = ConnectionSettings(name: '', host: '', port: 0);
   }
 
+  /// Clear stored device and reset to unconfigured state.
+  Future<void> clearDevice() async {
+    await _sharedPrefs.remove(sharedPrefName);
+    await _sharedPrefs.remove(sharedPrefHost);
+    await _sharedPrefs.remove(sharedPrefPort);
+    state = const ConnectionSettings(name: '', host: '', port: 0);
+  }
+
   @override
   ConnectionSettings build() {
     // Get SharedPreferences from the provider
