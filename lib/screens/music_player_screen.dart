@@ -4,6 +4,7 @@ import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/completion_strip.dart';
 import '../widgets/expanded_player_overlay.dart';
+import '../widgets/first_encounter_prompt.dart';
 import '../widgets/header_zone.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/now_playing_content.dart';
@@ -112,6 +113,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                       : const QueueZone(key: ValueKey('queue')),
                 ),
               ),
+              const FirstEncounterPrompt(),
               MiniPlayer(onTap: _openPlayer),
             ],
           ),

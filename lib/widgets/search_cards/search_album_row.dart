@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
+import '../../providers/add_mode_provider.dart';
 import '../../providers/browse_detail_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_state_provider.dart';
@@ -13,6 +14,7 @@ import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
+import 'add_context_menu.dart';
 import 'long_press_ring_painter.dart';
 
 /// Album row for search results.
@@ -34,12 +36,35 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
   bool _showAddCheck = false;
   Timer? _resetTimer;
 
-  // Long-press ring animation
+  // Long-press ring animation (row long-press → multi-select)
   bool _longPressing = false;
   double _longPressProgress = 0.0;
   Timer? _longPressTimer;
 
+  // + button long-press (escape hatch)
+  bool _plusLongPressing = false;
+  double _plusLongPressProgress = 0.0;
+  Timer? _plusLongPressTimer;
+
   Future<void> _addAlbum() async {
+    final addModeState = ref.read(addModeProvider);
+
+    // First-encounter intercept
+    if (!addModeState.firstEncounterShown) {
+      ref.read(addModeProvider.notifier).triggerFirstEncounter(widget.item);
+      return;
+    }
+
+    if (addModeState.addMode == AddMode.askEachTime) {
+      _showContextMenu(context, showAddToPlaylist: false);
+      return;
+    }
+
+    // Mode B: instant append
+    await _instantAppend();
+  }
+
+  Future<void> _instantAppend() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
@@ -50,9 +75,11 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
         if (mounted) setState(() => _showAddCheck = false);
       });
       if (mounted) {
+        final name = widget.item.album?.title ?? widget.item.name ?? 'album';
+        final trackCount = widget.item.album?.trackCount;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Added "${widget.item.name ?? 'album'}" to queue'),
+            content: Text('$name — ${trackCount ?? ''} tracks appended'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -66,6 +93,35 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
     }
   }
 
+  void _showContextMenu(
+    BuildContext context, {
+    bool showAddToPlaylist = false,
+  }) {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (ctx) => AddContextMenu(
+        item: widget.item,
+        showAddToPlaylist: showAddToPlaylist,
+        anchorPosition: Offset(
+          position.dx + size.width - 40,
+          position.dy + size.height / 2,
+        ),
+        onConfirm: () {
+          setState(() => _showAddCheck = true);
+          _resetTimer?.cancel();
+          _resetTimer = Timer(const Duration(milliseconds: 1600), () {
+            if (mounted) setState(() => _showAddCheck = false);
+          });
+        },
+      ),
+    );
+  }
+
   void _toggleExpand() {
     final searchNotifier = ref.read(searchStateProvider.notifier);
     final currentExpanded = ref.read(searchStateProvider).expandedAlbumId;
@@ -75,6 +131,8 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
       searchNotifier.expandAlbum(widget.item.id);
     }
   }
+
+  // --- Row long-press (multi-select) ---
 
   void _startLongPress() {
     _longPressing = true;
@@ -109,10 +167,44 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
     if (mounted) setState(() => _longPressProgress = 0.0);
   }
 
+  // --- + button long-press (escape hatch) ---
+
+  void _startPlusLongPress() {
+    _plusLongPressing = true;
+    _plusLongPressProgress = 0.0;
+    const tickDuration = Duration(milliseconds: 16);
+    _plusLongPressTimer = Timer.periodic(tickDuration, (timer) {
+      if (!mounted || !_plusLongPressing) {
+        timer.cancel();
+        if (mounted) setState(() => _plusLongPressProgress = 0.0);
+        return;
+      }
+      setState(() {
+        _plusLongPressProgress = min(1.0, _plusLongPressProgress + 16 / 400);
+      });
+      if (_plusLongPressProgress >= 1.0) {
+        timer.cancel();
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _plusLongPressing = false;
+          _plusLongPressProgress = 0.0;
+        });
+        _showContextMenu(context, showAddToPlaylist: false);
+      }
+    });
+  }
+
+  void _cancelPlusLongPress() {
+    _plusLongPressing = false;
+    _plusLongPressTimer?.cancel();
+    if (mounted) setState(() => _plusLongPressProgress = 0.0);
+  }
+
   @override
   void dispose() {
     _resetTimer?.cancel();
     _longPressTimer?.cancel();
+    _plusLongPressTimer?.cancel();
     super.dispose();
   }
 
@@ -143,6 +235,11 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
       if (trackCount != null) '$trackCount tracks',
     ];
     final subtitle = subtitleParts.join(' \u00B7 ');
+
+    // Scale for + button during long-press (1.0 → 0.88)
+    final plusScale = _plusLongPressing
+        ? 1.0 - (0.12 * _plusLongPressProgress)
+        : 1.0;
 
     return Column(
       children: [
@@ -297,26 +394,33 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
                   children: [
                     // Add button (hidden in selection mode)
                     if (!selectionMode)
-                      GestureDetector(
-                        onTap: _addAlbum,
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
+                      Transform.scale(
+                        scale: plusScale,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _addAlbum,
+                          onLongPressStart: (_) => _startPlusLongPress(),
+                          onLongPressEnd: (_) => _cancelPlusLongPress(),
+                          onLongPressCancel: _cancelPlusLongPress,
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: _showAddCheck
+                                    ? KalinkaColors.confirmGreen
+                                    : KalinkaColors.gold,
+                                width: 1,
+                              ),
+                            ),
+                            child: Icon(
+                              _showAddCheck ? Icons.check : Icons.add,
+                              size: 14,
                               color: _showAddCheck
                                   ? KalinkaColors.confirmGreen
                                   : KalinkaColors.gold,
-                              width: 1,
                             ),
-                          ),
-                          child: Icon(
-                            _showAddCheck ? Icons.check : Icons.add,
-                            size: 14,
-                            color: _showAddCheck
-                                ? KalinkaColors.confirmGreen
-                                : KalinkaColors.gold,
                           ),
                         ),
                       ),
@@ -450,13 +554,37 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
   bool _showCheck = false;
   Timer? _resetTimer;
 
+  // + button long-press (escape hatch)
+  bool _plusLongPressing = false;
+  double _plusLongPressProgress = 0.0;
+  Timer? _plusLongPressTimer;
+
   @override
   void dispose() {
     _resetTimer?.cancel();
+    _plusLongPressTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _addTrack() async {
+    final addModeState = ref.read(addModeProvider);
+
+    // First-encounter intercept
+    if (!addModeState.firstEncounterShown) {
+      ref.read(addModeProvider.notifier).triggerFirstEncounter(widget.item);
+      return;
+    }
+
+    if (addModeState.addMode == AddMode.askEachTime) {
+      _showContextMenu(context, showAddToPlaylist: true);
+      return;
+    }
+
+    // Mode B: instant append
+    await _instantAppend();
+  }
+
+  Future<void> _instantAppend() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
@@ -466,7 +594,88 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
       _resetTimer = Timer(const Duration(milliseconds: 1600), () {
         if (mounted) setState(() => _showCheck = false);
       });
+      if (mounted) {
+        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"$title" appended'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     } catch (_) {}
+  }
+
+  void _showContextMenu(BuildContext context, {bool showAddToPlaylist = true}) {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (ctx) => AddContextMenu(
+        item: widget.item,
+        showAddToPlaylist: showAddToPlaylist,
+        anchorPosition: Offset(
+          position.dx + size.width - 40,
+          position.dy + size.height / 2,
+        ),
+        onConfirm: () {
+          setState(() => _showCheck = true);
+          _resetTimer?.cancel();
+          _resetTimer = Timer(const Duration(milliseconds: 1600), () {
+            if (mounted) setState(() => _showCheck = false);
+          });
+        },
+      ),
+    );
+  }
+
+  Future<void> _playTrack() async {
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      await api.add([widget.item.id]);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to play: $e')));
+      }
+    }
+  }
+
+  // --- + button long-press (escape hatch) ---
+
+  void _startPlusLongPress() {
+    _plusLongPressing = true;
+    _plusLongPressProgress = 0.0;
+    const tickDuration = Duration(milliseconds: 16);
+    _plusLongPressTimer = Timer.periodic(tickDuration, (timer) {
+      if (!mounted || !_plusLongPressing) {
+        timer.cancel();
+        if (mounted) setState(() => _plusLongPressProgress = 0.0);
+        return;
+      }
+      setState(() {
+        _plusLongPressProgress = min(1.0, _plusLongPressProgress + 16 / 400);
+      });
+      if (_plusLongPressProgress >= 1.0) {
+        timer.cancel();
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _plusLongPressing = false;
+          _plusLongPressProgress = 0.0;
+        });
+        _showContextMenu(context, showAddToPlaylist: true);
+      }
+    });
+  }
+
+  void _cancelPlusLongPress() {
+    _plusLongPressing = false;
+    _plusLongPressTimer?.cancel();
+    if (mounted) setState(() => _plusLongPressProgress = 0.0);
   }
 
   @override
@@ -487,12 +696,22 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
           widget.item.id,
         );
 
+    // Scale for + button during long-press (1.0 → 0.88)
+    final plusScale = _plusLongPressing
+        ? 1.0 - (0.12 * _plusLongPressProgress)
+        : 1.0;
+
     return GestureDetector(
-      onTap: selectionMode && containerSelected
-          ? () => ref
-                .read(selectionStateProvider.notifier)
-                .toggleTrackInContainer(widget.containerId, widget.item.id)
-          : null,
+      onTap: () {
+        if (selectionMode && containerSelected) {
+          ref
+              .read(selectionStateProvider.notifier)
+              .toggleTrackInContainer(widget.containerId, widget.item.id);
+        } else if (!selectionMode) {
+          _playTrack();
+        }
+      },
+      behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -544,26 +763,33 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
                     style: KalinkaTextStyles.trackRowSubtitle,
                   ),
                 ),
-              GestureDetector(
-                onTap: _addTrack,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
+              Transform.scale(
+                scale: plusScale,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _addTrack,
+                  onLongPressStart: (_) => _startPlusLongPress(),
+                  onLongPressEnd: (_) => _cancelPlusLongPress(),
+                  onLongPressCancel: _cancelPlusLongPress,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _showCheck
+                            ? KalinkaColors.confirmGreen
+                            : KalinkaColors.gold,
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(
+                      _showCheck ? Icons.check : Icons.add,
+                      size: 12,
                       color: _showCheck
                           ? KalinkaColors.confirmGreen
                           : KalinkaColors.gold,
-                      width: 1,
                     ),
-                  ),
-                  child: Icon(
-                    _showCheck ? Icons.check : Icons.add,
-                    size: 12,
-                    color: _showCheck
-                        ? KalinkaColors.confirmGreen
-                        : KalinkaColors.gold,
                   ),
                 ),
               ),

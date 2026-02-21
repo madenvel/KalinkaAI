@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/add_mode_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
 
@@ -246,9 +247,7 @@ class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
             const SizedBox(width: 8),
             // Mode indicator (only when active)
             if (_isActive) ...[
-              _buildModeIndicator(
-                ref.watch(searchStateProvider).interactionMode,
-              ),
+              _buildModeIndicator(ref.watch(addModeProvider).addMode),
               const SizedBox(width: 4),
             ],
             // Mic / Clear (×) button — animated crossfade
@@ -371,11 +370,14 @@ class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
     );
   }
 
-  Widget _buildModeIndicator(InteractionMode mode) {
-    final isContextMenu = mode == InteractionMode.contextMenu;
+  Widget _buildModeIndicator(AddMode mode) {
+    final isAskMode = mode == AddMode.askEachTime;
     return GestureDetector(
       onTap: () {
-        ref.read(searchStateProvider.notifier).cycleInteractionMode();
+        final notifier = ref.read(addModeProvider.notifier);
+        notifier.setAddMode(
+          isAskMode ? AddMode.alwaysAppend : AddMode.askEachTime,
+        );
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -384,11 +386,9 @@ class _KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
           color: KalinkaColors.pillSurface,
         ),
         child: Icon(
-          isContextMenu ? Icons.menu : Icons.bolt,
+          isAskMode ? Icons.menu : Icons.bolt,
           size: 14,
-          color: isContextMenu
-              ? KalinkaColors.textSecondary
-              : KalinkaColors.gold,
+          color: isAskMode ? KalinkaColors.textSecondary : KalinkaColors.gold,
         ),
       ),
     );

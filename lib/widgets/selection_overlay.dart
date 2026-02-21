@@ -148,7 +148,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    '${selection.count} ITEMS SELECTED',
+                    '${selection.count} TRACKS SELECTED',
                     style: KalinkaTextStyles.batchBarLabel,
                   ),
                 ),
@@ -277,7 +277,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Added ${selection.count} item(s) to queue'),
+            content: Text('${selection.count} tracks appended'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -306,7 +306,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Playing ${selection.count} item(s) next'),
+            content: Text('${selection.count} tracks playing next'),
             duration: const Duration(seconds: 2),
           ),
         );

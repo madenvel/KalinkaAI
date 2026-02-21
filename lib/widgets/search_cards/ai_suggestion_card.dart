@@ -1,18 +1,77 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../providers/kalinka_player_api_provider.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 
 /// AI Suggestion Card — shape-breaking, always first in results.
 /// Full-width, gradient border, grain texture, horizontal track chip strip.
-class AiSuggestionCard extends ConsumerWidget {
+class AiSuggestionCard extends ConsumerStatefulWidget {
   const AiSuggestionCard({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AiSuggestionCard> createState() => _AiSuggestionCardState();
+}
+
+class _AiSuggestionCardState extends ConsumerState<AiSuggestionCard> {
+  bool _isLoading = false;
+  bool _isConfirmed = false;
+  Timer? _resetTimer;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _handleAddAll() async {
+    if (_isLoading || _isConfirmed) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      // Placeholder track IDs — will be populated by AI search results
+      final trackIds = List.generate(5, (i) => 'ai_track_$i');
+      await api.add(trackIds);
+
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _isConfirmed = true;
+      });
+
+      _resetTimer?.cancel();
+      _resetTimer = Timer(const Duration(milliseconds: 1800), () {
+        if (mounted) {
+          setState(() => _isConfirmed = false);
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${trackIds.length} AI tracks appended'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Placeholder data — will be populated by AI search results
     return Container(
       decoration: BoxDecoration(
@@ -105,29 +164,43 @@ class AiSuggestionCard extends ConsumerWidget {
                         style: KalinkaTextStyles.aiTrackChipDuration,
                       ),
                       GestureDetector(
-                        onTap: () {
-                          // Add all — placeholder
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(9),
-                            border: Border.all(
-                              color: KalinkaColors.gold,
-                              width: 1,
+                        onTap: _handleAddAll,
+                        child: Opacity(
+                          opacity: _isLoading ? 0.6 : 1.0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
                             ),
-                          ),
-                          child: Text(
-                            'ADD ALL',
-                            style: GoogleFonts.ibmPlexMono(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.0,
-                              color: KalinkaColors.gold,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(
+                                color: _isConfirmed
+                                    ? KalinkaColors.confirmGreen
+                                    : KalinkaColors.gold,
+                                width: 1,
+                              ),
                             ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 12,
+                                    height: 12,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: KalinkaColors.gold,
+                                    ),
+                                  )
+                                : Text(
+                                    _isConfirmed ? 'ADD ALL \u2713' : 'ADD ALL',
+                                    style: GoogleFonts.ibmPlexMono(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 1.0,
+                                      color: _isConfirmed
+                                          ? KalinkaColors.confirmGreen
+                                          : KalinkaColors.gold,
+                                    ),
+                                  ),
                           ),
                         ),
                       ),

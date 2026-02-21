@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
+import '../../providers/add_mode_provider.dart';
 import '../../providers/browse_detail_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_state_provider.dart';
@@ -12,6 +13,7 @@ import '../../providers/selection_state_provider.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
+import 'add_context_menu.dart';
 import 'long_press_ring_painter.dart';
 
 /// Playlist row for search results.
@@ -30,12 +32,32 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
   bool _showAddCheck = false;
   Timer? _resetTimer;
 
-  // Long-press ring animation
+  // Long-press ring animation (row-level multi-select)
   bool _longPressing = false;
   double _longPressProgress = 0.0;
   Timer? _longPressTimer;
 
+  // Plus-button long-press escape hatch
+  bool _plusLongPressing = false;
+  double _plusLongPressProgress = 0.0;
+  Timer? _plusLongPressTimer;
+
   Future<void> _addPlaylist() async {
+    final addState = ref.read(addModeProvider);
+
+    // First-encounter gate
+    if (!addState.firstEncounterShown) {
+      ref.read(addModeProvider.notifier).triggerFirstEncounter(widget.item);
+      return;
+    }
+
+    // Mode A: ask each time
+    if (addState.addMode == AddMode.askEachTime) {
+      if (mounted) _showContextMenu(context, showAddToPlaylist: false);
+      return;
+    }
+
+    // Mode B: always append
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
@@ -46,9 +68,12 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
         if (mounted) setState(() => _showAddCheck = false);
       });
       if (mounted) {
+        final title =
+            widget.item.playlist?.name ?? widget.item.name ?? 'playlist';
+        final trackCount = widget.item.playlist?.trackCount;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Added "${widget.item.name ?? 'playlist'}" to queue'),
+            content: Text('$title — ${trackCount ?? ''} tracks appended'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -60,6 +85,65 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
         ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
       }
     }
+  }
+
+  void _showContextMenu(
+    BuildContext context, {
+    bool showAddToPlaylist = false,
+  }) {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (ctx) => AddContextMenu(
+        item: widget.item,
+        showAddToPlaylist: showAddToPlaylist,
+        anchorPosition: Offset(
+          position.dx + size.width - 40,
+          position.dy + size.height / 2,
+        ),
+        onConfirm: () {
+          setState(() => _showAddCheck = true);
+          _resetTimer?.cancel();
+          _resetTimer = Timer(const Duration(milliseconds: 1600), () {
+            if (mounted) setState(() => _showAddCheck = false);
+          });
+        },
+      ),
+    );
+  }
+
+  void _startPlusLongPress() {
+    _plusLongPressing = true;
+    _plusLongPressProgress = 0.0;
+    const tickDuration = Duration(milliseconds: 16);
+    _plusLongPressTimer = Timer.periodic(tickDuration, (timer) {
+      if (!mounted || !_plusLongPressing) {
+        timer.cancel();
+        if (mounted) setState(() => _plusLongPressProgress = 0.0);
+        return;
+      }
+      setState(() {
+        _plusLongPressProgress = min(1.0, _plusLongPressProgress + 16 / 400);
+      });
+      if (_plusLongPressProgress >= 1.0) {
+        timer.cancel();
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _plusLongPressing = false;
+          _plusLongPressProgress = 0.0;
+        });
+        _showContextMenu(context, showAddToPlaylist: false);
+      }
+    });
+  }
+
+  void _cancelPlusLongPress() {
+    _plusLongPressing = false;
+    _plusLongPressTimer?.cancel();
+    if (mounted) setState(() => _plusLongPressProgress = 0.0);
   }
 
   void _toggleExpand() {
@@ -110,6 +194,7 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
   void dispose() {
     _resetTimer?.cancel();
     _longPressTimer?.cancel();
+    _plusLongPressTimer?.cancel();
     super.dispose();
   }
 
@@ -281,24 +366,32 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
                     if (!selectionMode)
                       GestureDetector(
                         onTap: _addPlaylist,
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
+                        onLongPressStart: (_) => _startPlusLongPress(),
+                        onLongPressEnd: (_) => _cancelPlusLongPress(),
+                        onLongPressCancel: _cancelPlusLongPress,
+                        behavior: HitTestBehavior.opaque,
+                        child: AnimatedScale(
+                          scale: _plusLongPressing ? 0.88 : 1.0,
+                          duration: const Duration(milliseconds: 120),
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: _showAddCheck
+                                    ? KalinkaColors.confirmGreen
+                                    : KalinkaColors.gold,
+                                width: 1,
+                              ),
+                            ),
+                            child: Icon(
+                              _showAddCheck ? Icons.check : Icons.add,
+                              size: 14,
                               color: _showAddCheck
                                   ? KalinkaColors.confirmGreen
                                   : KalinkaColors.gold,
-                              width: 1,
                             ),
-                          ),
-                          child: Icon(
-                            _showAddCheck ? Icons.check : Icons.add,
-                            size: 14,
-                            color: _showAddCheck
-                                ? KalinkaColors.confirmGreen
-                                : KalinkaColors.gold,
                           ),
                         ),
                       ),
@@ -424,13 +517,34 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
   bool _showCheck = false;
   Timer? _resetTimer;
 
+  // Plus-button long-press escape hatch
+  bool _plusLongPressing = false;
+  double _plusLongPressProgress = 0.0;
+  Timer? _plusLongPressTimer;
+
   @override
   void dispose() {
     _resetTimer?.cancel();
+    _plusLongPressTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _addTrack() async {
+    final addState = ref.read(addModeProvider);
+
+    // First-encounter gate
+    if (!addState.firstEncounterShown) {
+      ref.read(addModeProvider.notifier).triggerFirstEncounter(widget.item);
+      return;
+    }
+
+    // Mode A: ask each time
+    if (addState.addMode == AddMode.askEachTime) {
+      if (mounted) _showContextMenu(context, showAddToPlaylist: true);
+      return;
+    }
+
+    // Mode B: always append
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
@@ -440,7 +554,88 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
       _resetTimer = Timer(const Duration(milliseconds: 1600), () {
         if (mounted) setState(() => _showCheck = false);
       });
+      if (mounted) {
+        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"$title" appended'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     } catch (_) {}
+  }
+
+  void _showContextMenu(
+    BuildContext context, {
+    bool showAddToPlaylist = false,
+  }) {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (ctx) => AddContextMenu(
+        item: widget.item,
+        showAddToPlaylist: showAddToPlaylist,
+        anchorPosition: Offset(
+          position.dx + size.width - 40,
+          position.dy + size.height / 2,
+        ),
+        onConfirm: () {
+          setState(() => _showCheck = true);
+          _resetTimer?.cancel();
+          _resetTimer = Timer(const Duration(milliseconds: 1600), () {
+            if (mounted) setState(() => _showCheck = false);
+          });
+        },
+      ),
+    );
+  }
+
+  void _startPlusLongPress() {
+    _plusLongPressing = true;
+    _plusLongPressProgress = 0.0;
+    const tickDuration = Duration(milliseconds: 16);
+    _plusLongPressTimer = Timer.periodic(tickDuration, (timer) {
+      if (!mounted || !_plusLongPressing) {
+        timer.cancel();
+        if (mounted) setState(() => _plusLongPressProgress = 0.0);
+        return;
+      }
+      setState(() {
+        _plusLongPressProgress = min(1.0, _plusLongPressProgress + 16 / 400);
+      });
+      if (_plusLongPressProgress >= 1.0) {
+        timer.cancel();
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _plusLongPressing = false;
+          _plusLongPressProgress = 0.0;
+        });
+        _showContextMenu(context, showAddToPlaylist: true);
+      }
+    });
+  }
+
+  void _cancelPlusLongPress() {
+    _plusLongPressing = false;
+    _plusLongPressTimer?.cancel();
+    if (mounted) setState(() => _plusLongPressProgress = 0.0);
+  }
+
+  Future<void> _playTrack() async {
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      await api.add([widget.item.id]);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to play: $e')));
+      }
+    }
   }
 
   @override
@@ -464,7 +659,7 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
           ? () => ref
                 .read(selectionStateProvider.notifier)
                 .toggleTrackInContainer(widget.containerId, widget.item.id)
-          : null,
+          : _playTrack,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -518,24 +713,32 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
                 ),
               GestureDetector(
                 onTap: _addTrack,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
+                onLongPressStart: (_) => _startPlusLongPress(),
+                onLongPressEnd: (_) => _cancelPlusLongPress(),
+                onLongPressCancel: _cancelPlusLongPress,
+                behavior: HitTestBehavior.opaque,
+                child: AnimatedScale(
+                  scale: _plusLongPressing ? 0.88 : 1.0,
+                  duration: const Duration(milliseconds: 120),
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _showCheck
+                            ? KalinkaColors.confirmGreen
+                            : KalinkaColors.gold,
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(
+                      _showCheck ? Icons.check : Icons.add,
+                      size: 12,
                       color: _showCheck
                           ? KalinkaColors.confirmGreen
                           : KalinkaColors.gold,
-                      width: 1,
                     ),
-                  ),
-                  child: Icon(
-                    _showCheck ? Icons.check : Icons.add,
-                    size: 12,
-                    color: _showCheck
-                        ? KalinkaColors.confirmGreen
-                        : KalinkaColors.gold,
                   ),
                 ),
               ),

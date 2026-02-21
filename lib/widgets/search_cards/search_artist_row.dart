@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
+import '../../providers/add_mode_provider.dart';
 import '../../providers/browse_detail_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_state_provider.dart';
@@ -13,6 +14,7 @@ import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
+import 'add_context_menu.dart';
 import 'long_press_ring_painter.dart';
 
 const _dimmedColor = Color(0xFF48485A);
@@ -66,6 +68,24 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
   }
 
   Future<void> _handleTopTracks() async {
+    final addModeState = ref.read(addModeProvider);
+
+    // First-encounter intercept
+    if (!addModeState.firstEncounterShown) {
+      ref.read(addModeProvider.notifier).triggerFirstEncounter(widget.item);
+      return;
+    }
+
+    if (addModeState.addMode == AddMode.askEachTime) {
+      _showTopContextMenu(context);
+      return;
+    }
+
+    // Mode B: instant append
+    await _instantTopAppend();
+  }
+
+  Future<void> _instantTopAppend() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
@@ -83,7 +103,7 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Top 5 by $name queued'),
+            content: Text('Top 5 by $name appended'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -95,6 +115,36 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
         );
       }
     }
+  }
+
+  void _showTopContextMenu(BuildContext context) {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (ctx) => AddContextMenu(
+        item: widget.item,
+        showAddToPlaylist: false,
+        anchorPosition: Offset(
+          position.dx + size.width - 40,
+          position.dy + size.height / 2,
+        ),
+        onConfirm: () {
+          setState(() => _topTracksConfirmed = true);
+          _topTracksConfirmController.forward(from: 0);
+          _topTracksResetTimer?.cancel();
+          _topTracksResetTimer = Timer(const Duration(milliseconds: 1400), () {
+            if (mounted) {
+              setState(() => _topTracksConfirmed = false);
+              _topTracksConfirmController.reset();
+            }
+          });
+        },
+      ),
+    );
   }
 
   void _toggleExpand() {
@@ -458,14 +508,38 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
   double _longPressProgress = 0.0;
   Timer? _longPressTimer;
 
+  // + button long-press (escape hatch)
+  bool _plusLongPressing = false;
+  double _plusLongPressProgress = 0.0;
+  Timer? _plusLongPressTimer;
+
   @override
   void dispose() {
     _resetTimer?.cancel();
     _longPressTimer?.cancel();
+    _plusLongPressTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _addAlbum() async {
+    final addModeState = ref.read(addModeProvider);
+
+    // First-encounter intercept
+    if (!addModeState.firstEncounterShown) {
+      ref.read(addModeProvider.notifier).triggerFirstEncounter(widget.item);
+      return;
+    }
+
+    if (addModeState.addMode == AddMode.askEachTime) {
+      _showContextMenu(context, showAddToPlaylist: false);
+      return;
+    }
+
+    // Mode B: instant append
+    await _instantAppend();
+  }
+
+  Future<void> _instantAppend() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
@@ -477,9 +551,10 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
       });
       if (mounted) {
         final name = widget.item.album?.title ?? widget.item.name ?? 'album';
+        final trackCount = widget.item.album?.trackCount;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Added "$name" to queue'),
+            content: Text('$name — ${trackCount ?? ''} tracks appended'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -491,6 +566,32 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
         );
       }
     }
+  }
+
+  void _showContextMenu(BuildContext context, {bool showAddToPlaylist = false}) {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (ctx) => AddContextMenu(
+        item: widget.item,
+        showAddToPlaylist: showAddToPlaylist,
+        anchorPosition: Offset(
+          position.dx + size.width - 40,
+          position.dy + size.height / 2,
+        ),
+        onConfirm: () {
+          setState(() => _showAddCheck = true);
+          _resetTimer?.cancel();
+          _resetTimer = Timer(const Duration(milliseconds: 1400), () {
+            if (mounted) setState(() => _showAddCheck = false);
+          });
+        },
+      ),
+    );
   }
 
   void _toggleExpand() {
@@ -537,6 +638,39 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
     if (mounted) setState(() => _longPressProgress = 0.0);
   }
 
+  // --- + button long-press (escape hatch) ---
+
+  void _startPlusLongPress() {
+    _plusLongPressing = true;
+    _plusLongPressProgress = 0.0;
+    const tickDuration = Duration(milliseconds: 16);
+    _plusLongPressTimer = Timer.periodic(tickDuration, (timer) {
+      if (!mounted || !_plusLongPressing) {
+        timer.cancel();
+        if (mounted) setState(() => _plusLongPressProgress = 0.0);
+        return;
+      }
+      setState(() {
+        _plusLongPressProgress = min(1.0, _plusLongPressProgress + 16 / 400);
+      });
+      if (_plusLongPressProgress >= 1.0) {
+        timer.cancel();
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _plusLongPressing = false;
+          _plusLongPressProgress = 0.0;
+        });
+        _showContextMenu(context, showAddToPlaylist: false);
+      }
+    });
+  }
+
+  void _cancelPlusLongPress() {
+    _plusLongPressing = false;
+    _plusLongPressTimer?.cancel();
+    if (mounted) setState(() => _plusLongPressProgress = 0.0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchStateProvider);
@@ -562,6 +696,11 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
       if (trackCount != null) '$trackCount tracks',
     ];
     final subtitleText = subtitleParts.join(' \u00B7 ');
+
+    // Scale for + button during long-press (1.0 → 0.88)
+    final plusScale = _plusLongPressing
+        ? 1.0 - (0.12 * _plusLongPressProgress)
+        : 1.0;
 
     return Column(
       children: [
@@ -643,32 +782,39 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Gold + button
+                // Gold + button with long-press escape hatch
                 if (!selectionMode)
-                  GestureDetector(
-                    onTap: _addAlbum,
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: (_showAddCheck
+                  Transform.scale(
+                    scale: plusScale,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _addAlbum,
+                      onLongPressStart: (_) => _startPlusLongPress(),
+                      onLongPressEnd: (_) => _cancelPlusLongPress(),
+                      onLongPressCancel: _cancelPlusLongPress,
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: (_showAddCheck
+                                  ? KalinkaColors.confirmGreen
+                                  : KalinkaColors.gold)
+                              .withValues(alpha: 0.09),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _showAddCheck
                                 ? KalinkaColors.confirmGreen
-                                : KalinkaColors.gold)
-                            .withValues(alpha: 0.09),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
+                                : KalinkaColors.gold,
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          _showAddCheck ? Icons.check : Icons.add,
+                          size: 14,
                           color: _showAddCheck
                               ? KalinkaColors.confirmGreen
                               : KalinkaColors.gold,
-                          width: 1,
                         ),
-                      ),
-                      child: Icon(
-                        _showAddCheck ? Icons.check : Icons.add,
-                        size: 14,
-                        color: _showAddCheck
-                            ? KalinkaColors.confirmGreen
-                            : KalinkaColors.gold,
                       ),
                     ),
                   ),
@@ -851,17 +997,37 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
   bool _showCheck = false;
   Timer? _resetTimer;
 
+  // + button long-press (escape hatch)
+  bool _plusLongPressing = false;
+  double _plusLongPressProgress = 0.0;
+  Timer? _plusLongPressTimer;
+
   @override
   void dispose() {
     _resetTimer?.cancel();
+    _plusLongPressTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _addTrack() async {
-    final mode = ref.read(searchStateProvider).interactionMode;
-    if (mode == InteractionMode.contextMenu) {
-      // For nested tracks, just do instant add
+    final addModeState = ref.read(addModeProvider);
+
+    // First-encounter intercept
+    if (!addModeState.firstEncounterShown) {
+      ref.read(addModeProvider.notifier).triggerFirstEncounter(widget.item);
+      return;
     }
+
+    if (addModeState.addMode == AddMode.askEachTime) {
+      _showContextMenu(context, showAddToPlaylist: true);
+      return;
+    }
+
+    // Mode B: instant append
+    await _instantAppend();
+  }
+
+  Future<void> _instantAppend() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
@@ -871,7 +1037,42 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
       _resetTimer = Timer(const Duration(milliseconds: 1400), () {
         if (mounted) setState(() => _showCheck = false);
       });
+      if (mounted) {
+        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"$title" appended'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     } catch (_) {}
+  }
+
+  void _showContextMenu(BuildContext context, {bool showAddToPlaylist = true}) {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (ctx) => AddContextMenu(
+        item: widget.item,
+        showAddToPlaylist: showAddToPlaylist,
+        anchorPosition: Offset(
+          position.dx + size.width - 40,
+          position.dy + size.height / 2,
+        ),
+        onConfirm: () {
+          setState(() => _showCheck = true);
+          _resetTimer?.cancel();
+          _resetTimer = Timer(const Duration(milliseconds: 1400), () {
+            if (mounted) setState(() => _showCheck = false);
+          });
+        },
+      ),
+    );
   }
 
   Future<void> _playTrack() async {
@@ -905,13 +1106,18 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
           widget.item.id,
         );
 
+    // Scale for + button during long-press (1.0 → 0.88)
+    final plusScale = _plusLongPressing
+        ? 1.0 - (0.12 * _plusLongPressProgress)
+        : 1.0;
+
     return GestureDetector(
       onTap: () {
         if (selectionMode && containerSelected) {
           ref
               .read(selectionStateProvider.notifier)
               .toggleTrackInContainer(widget.containerId, widget.item.id);
-        } else {
+        } else if (!selectionMode) {
           _playTrack();
         }
       },
@@ -967,27 +1173,34 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
                         .copyWith(color: _dimmedColor),
                   ),
                 ),
-              // Gold + button 24x24
-              GestureDetector(
-                onTap: _addTrack,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
+              // Gold + button 24x24 with long-press escape hatch
+              Transform.scale(
+                scale: plusScale,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _addTrack,
+                  onLongPressStart: (_) => _startPlusLongPress(),
+                  onLongPressEnd: (_) => _cancelPlusLongPress(),
+                  onLongPressCancel: _cancelPlusLongPress,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _showCheck
+                            ? KalinkaColors.confirmGreen
+                            : KalinkaColors.gold,
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(
+                      _showCheck ? Icons.check : Icons.add,
+                      size: 12,
                       color: _showCheck
                           ? KalinkaColors.confirmGreen
                           : KalinkaColors.gold,
-                      width: 1,
                     ),
-                  ),
-                  child: Icon(
-                    _showCheck ? Icons.check : Icons.add,
-                    size: 12,
-                    color: _showCheck
-                        ? KalinkaColors.confirmGreen
-                        : KalinkaColors.gold,
                   ),
                 ),
               ),
@@ -996,6 +1209,39 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
         ),
       ),
     );
+  }
+
+  // --- + button long-press (escape hatch) ---
+
+  void _startPlusLongPress() {
+    _plusLongPressing = true;
+    _plusLongPressProgress = 0.0;
+    const tickDuration = Duration(milliseconds: 16);
+    _plusLongPressTimer = Timer.periodic(tickDuration, (timer) {
+      if (!mounted || !_plusLongPressing) {
+        timer.cancel();
+        if (mounted) setState(() => _plusLongPressProgress = 0.0);
+        return;
+      }
+      setState(() {
+        _plusLongPressProgress = min(1.0, _plusLongPressProgress + 16 / 400);
+      });
+      if (_plusLongPressProgress >= 1.0) {
+        timer.cancel();
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _plusLongPressing = false;
+          _plusLongPressProgress = 0.0;
+        });
+        _showContextMenu(context, showAddToPlaylist: true);
+      }
+    });
+  }
+
+  void _cancelPlusLongPress() {
+    _plusLongPressing = false;
+    _plusLongPressTimer?.cancel();
+    if (mounted) setState(() => _plusLongPressProgress = 0.0);
   }
 
   String? _formatDuration(int? ms) {
@@ -1031,13 +1277,39 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
   bool _showAddCheck = false;
   Timer? _resetTimer;
 
+  // + button long-press (escape hatch)
+  bool _plusLongPressing = false;
+  double _plusLongPressProgress = 0.0;
+  Timer? _plusLongPressTimer;
+
   @override
   void dispose() {
     _resetTimer?.cancel();
+    _plusLongPressTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _addAll() async {
+    final addModeState = ref.read(addModeProvider);
+
+    // First-encounter intercept
+    if (!addModeState.firstEncounterShown) {
+      if (widget.tracks.isNotEmpty) {
+        ref.read(addModeProvider.notifier).triggerFirstEncounter(widget.tracks.first);
+      }
+      return;
+    }
+
+    if (addModeState.addMode == AddMode.askEachTime) {
+      _showContextMenu(context);
+      return;
+    }
+
+    // Mode B: instant append
+    await _instantAppend();
+  }
+
+  Future<void> _instantAppend() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
       final ids = widget.tracks.map((t) => t.id).toList();
@@ -1052,7 +1324,7 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content:
-                Text('${widget.tracks.length} tracks by ${widget.artistName} queued'),
+                Text('${widget.tracks.length} tracks by ${widget.artistName} appended'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -1064,6 +1336,68 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
         );
       }
     }
+  }
+
+  void _showContextMenu(BuildContext context) {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    // Use the first track to represent this section in the context menu
+    if (widget.tracks.isEmpty) return;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (ctx) => AddContextMenu(
+        item: widget.tracks.first,
+        showAddToPlaylist: false,
+        anchorPosition: Offset(
+          position.dx + size.width - 40,
+          position.dy + size.height / 2,
+        ),
+        onConfirm: () {
+          setState(() => _showAddCheck = true);
+          _resetTimer?.cancel();
+          _resetTimer = Timer(const Duration(milliseconds: 1400), () {
+            if (mounted) setState(() => _showAddCheck = false);
+          });
+        },
+      ),
+    );
+  }
+
+  // --- + button long-press (escape hatch) ---
+
+  void _startPlusLongPress() {
+    _plusLongPressing = true;
+    _plusLongPressProgress = 0.0;
+    const tickDuration = Duration(milliseconds: 16);
+    _plusLongPressTimer = Timer.periodic(tickDuration, (timer) {
+      if (!mounted || !_plusLongPressing) {
+        timer.cancel();
+        if (mounted) setState(() => _plusLongPressProgress = 0.0);
+        return;
+      }
+      setState(() {
+        _plusLongPressProgress = min(1.0, _plusLongPressProgress + 16 / 400);
+      });
+      if (_plusLongPressProgress >= 1.0) {
+        timer.cancel();
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _plusLongPressing = false;
+          _plusLongPressProgress = 0.0;
+        });
+        _showContextMenu(context);
+      }
+    });
+  }
+
+  void _cancelPlusLongPress() {
+    _plusLongPressing = false;
+    _plusLongPressTimer?.cancel();
+    if (mounted) setState(() => _plusLongPressProgress = 0.0);
   }
 
   @override
@@ -1120,10 +1454,18 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Gold + button
-                GestureDetector(
-                  onTap: _addAll,
-                  child: Container(
+                // Gold + button with long-press escape hatch
+                Transform.scale(
+                  scale: _plusLongPressing
+                      ? 1.0 - (0.12 * _plusLongPressProgress)
+                      : 1.0,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _addAll,
+                    onLongPressStart: (_) => _startPlusLongPress(),
+                    onLongPressEnd: (_) => _cancelPlusLongPress(),
+                    onLongPressCancel: _cancelPlusLongPress,
+                    child: Container(
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
@@ -1145,6 +1487,7 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
                       color: _showAddCheck
                           ? KalinkaColors.confirmGreen
                           : KalinkaColors.gold,
+                    ),
                     ),
                   ),
                 ),

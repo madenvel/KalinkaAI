@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
+import '../../providers/add_mode_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
-import '../../providers/search_state_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
@@ -18,7 +18,8 @@ import 'long_press_ring_painter.dart';
 /// Track row for search results.
 /// ~60px height, 44x44 thumbnail, title/artist/duration, + button.
 /// Tap row = play immediately. Tap + = mode-dependent add.
-/// Long-press = enter multi-select.
+/// Long-press row = enter multi-select.
+/// Long-press + button = escape hatch context menu.
 class SearchTrackRow extends ConsumerStatefulWidget {
   final BrowseItem item;
 
@@ -29,30 +30,39 @@ class SearchTrackRow extends ConsumerStatefulWidget {
 }
 
 class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _confirmController;
   late Animation<double> _scaleAnimation;
   late Animation<Color?> _colorAnimation;
   bool _showCheck = false;
   Timer? _resetTimer;
 
-  // Long-press ring animation
+  // Long-press ring animation (row long-press → multi-select)
   bool _longPressing = false;
   double _longPressProgress = 0.0;
   Timer? _longPressTimer;
+
+  // + button long-press (escape hatch)
+  bool _plusLongPressing = false;
+  double _plusLongPressProgress = 0.0;
+  Timer? _plusLongPressTimer;
+
+  // Tooltip overlay
+  OverlayEntry? _tooltipOverlay;
+  Timer? _tooltipDismissTimer;
 
   @override
   void initState() {
     super.initState();
     _confirmController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 280),
+      duration: const Duration(milliseconds: 260),
     );
     _scaleAnimation =
         TweenSequence<double>([
           TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.85), weight: 20),
-          TweenSequenceItem(tween: Tween(begin: 0.85, end: 1.15), weight: 50),
-          TweenSequenceItem(tween: Tween(begin: 1.15, end: 1.0), weight: 30),
+          TweenSequenceItem(tween: Tween(begin: 0.85, end: 1.12), weight: 50),
+          TweenSequenceItem(tween: Tween(begin: 1.12, end: 1.0), weight: 30),
         ]).animate(
           CurvedAnimation(parent: _confirmController, curve: Curves.easeInOut),
         );
@@ -67,14 +77,23 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
     _confirmController.dispose();
     _resetTimer?.cancel();
     _longPressTimer?.cancel();
+    _plusLongPressTimer?.cancel();
+    _tooltipDismissTimer?.cancel();
+    _tooltipOverlay?.remove();
     super.dispose();
   }
 
   Future<void> _handleAddTap(BuildContext context) async {
-    final mode = ref.read(searchStateProvider).interactionMode;
+    final addModeState = ref.read(addModeProvider);
 
-    if (mode == InteractionMode.contextMenu) {
-      _showContextMenu(context);
+    // First-encounter intercept
+    if (!addModeState.firstEncounterShown) {
+      ref.read(addModeProvider.notifier).triggerFirstEncounter(widget.item);
+      return;
+    }
+
+    if (addModeState.addMode == AddMode.askEachTime) {
+      _showContextMenu(context, showAddToPlaylist: true);
       return;
     }
 
@@ -99,9 +118,10 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
       });
 
       if (mounted) {
+        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Added "${widget.item.name ?? 'track'}" to queue'),
+            content: Text('"$title" appended'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -115,16 +135,17 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
     }
   }
 
-  void _showContextMenu(BuildContext context) {
+  void _showContextMenu(BuildContext context, {bool showAddToPlaylist = true}) {
     final renderBox = context.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
     final size = renderBox.size;
 
     showDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.3),
+      barrierColor: Colors.transparent,
       builder: (ctx) => AddContextMenu(
         item: widget.item,
+        showAddToPlaylist: showAddToPlaylist,
         anchorPosition: Offset(
           position.dx + size.width - 40,
           position.dy + size.height / 2,
@@ -156,6 +177,8 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
       }
     }
   }
+
+  // --- Row long-press (multi-select) ---
 
   void _startLongPress() {
     _longPressing = true;
@@ -190,6 +213,97 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
     if (mounted) setState(() => _longPressProgress = 0.0);
   }
 
+  // --- + button long-press (escape hatch) ---
+
+  void _startPlusLongPress() {
+    _plusLongPressing = true;
+    _plusLongPressProgress = 0.0;
+    const tickDuration = Duration(milliseconds: 16);
+    _plusLongPressTimer = Timer.periodic(tickDuration, (timer) {
+      if (!mounted || !_plusLongPressing) {
+        timer.cancel();
+        if (mounted) setState(() => _plusLongPressProgress = 0.0);
+        return;
+      }
+      setState(() {
+        _plusLongPressProgress = min(1.0, _plusLongPressProgress + 16 / 400);
+      });
+      if (_plusLongPressProgress >= 1.0) {
+        timer.cancel();
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _plusLongPressing = false;
+          _plusLongPressProgress = 0.0;
+        });
+
+        // Show "Hold for options" tooltip in Mode B (once per session)
+        final addModeState = ref.read(addModeProvider);
+        if (addModeState.addMode == AddMode.alwaysAppend &&
+            !addModeState.holdForOptionsTooltipShown) {
+          ref.read(addModeProvider.notifier).markHoldTooltipShown();
+          _showHoldTooltip();
+        }
+
+        // Open context menu (escape hatch — one-time, doesn't change mode)
+        _showContextMenu(context, showAddToPlaylist: true);
+      }
+    });
+  }
+
+  void _cancelPlusLongPress() {
+    _plusLongPressing = false;
+    _plusLongPressTimer?.cancel();
+    if (mounted) setState(() => _plusLongPressProgress = 0.0);
+  }
+
+  void _showHoldTooltip() {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    _tooltipOverlay?.remove();
+    _tooltipOverlay = OverlayEntry(
+      builder: (context) => Positioned(
+        left: position.dx + size.width - 100,
+        top: position.dy + size.height + 4,
+        child: IgnorePointer(
+          child: Material(
+            color: Colors.transparent,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              builder: (context, value, child) {
+                return Opacity(opacity: value, child: child);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: KalinkaColors.miniPlayerSurface,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: KalinkaColors.borderDefault),
+                ),
+                child: Text(
+                  'Hold for options',
+                  style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+                    color: const Color(0xFF48485A),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_tooltipOverlay!);
+
+    _tooltipDismissTimer?.cancel();
+    _tooltipDismissTimer = Timer(const Duration(milliseconds: 1200), () {
+      _tooltipOverlay?.remove();
+      _tooltipOverlay = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final selection = ref.watch(selectionStateProvider);
@@ -213,6 +327,11 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
     final resolvedImageUrl = imageUrl != null
         ? urlResolver.abs(imageUrl)
         : null;
+
+    // Scale for + button during long-press (1.0 → 0.88)
+    final plusScale = _plusLongPressing
+        ? 1.0 - (0.12 * _plusLongPressProgress)
+        : 1.0;
 
     return GestureDetector(
       onTap: () {
@@ -336,9 +455,13 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
                   return Transform.scale(
                     scale: _confirmController.isAnimating
                         ? _scaleAnimation.value
-                        : 1.0,
+                        : plusScale,
                     child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
                       onTap: () => _handleAddTap(context),
+                      onLongPressStart: (_) => _startPlusLongPress(),
+                      onLongPressEnd: (_) => _cancelPlusLongPress(),
+                      onLongPressCancel: _cancelPlusLongPress,
                       child: Container(
                         width: 30,
                         height: 30,

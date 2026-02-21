@@ -25,9 +25,6 @@ class CachedSearchResult {
       DateTime.now().difference(timestamp).inMinutes >= _cacheTtlMinutes;
 }
 
-/// Interaction mode for the + button
-enum InteractionMode { contextMenu, instantAppend }
-
 /// Search surface lifecycle phase
 enum SearchPhase { inactive, activated, typing, results, cleared }
 
@@ -51,7 +48,6 @@ class SearchState {
   final String? expandedAlbumId;
   final String? artistPreviewId;
   final bool tracksExpanded;
-  final InteractionMode interactionMode;
   final String? expandedAlbumIdWithinArtist;
   final Set<String> artistMoreAlbumsExpanded;
   final Set<String> albumMoreTracksExpanded;
@@ -73,7 +69,6 @@ class SearchState {
     this.expandedAlbumId,
     this.artistPreviewId,
     this.tracksExpanded = false,
-    this.interactionMode = InteractionMode.instantAppend,
     this.expandedAlbumIdWithinArtist,
     this.artistMoreAlbumsExpanded = const {},
     this.albumMoreTracksExpanded = const {},
@@ -111,7 +106,6 @@ class SearchState {
     String? expandedAlbumId,
     String? artistPreviewId,
     bool? tracksExpanded,
-    InteractionMode? interactionMode,
     bool clearExpandedAlbum = false,
     bool clearArtistPreview = false,
     String? expandedAlbumIdWithinArtist,
@@ -144,7 +138,6 @@ class SearchState {
       artistPreviewId:
           clearArtistPreview ? null : (artistPreviewId ?? this.artistPreviewId),
       tracksExpanded: tracksExpanded ?? this.tracksExpanded,
-      interactionMode: interactionMode ?? this.interactionMode,
       expandedAlbumIdWithinArtist: clearExpandedAlbumWithinArtist
           ? null
           : (expandedAlbumIdWithinArtist ?? this.expandedAlbumIdWithinArtist),
@@ -592,13 +585,6 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
   void toggleTracksExpanded() {
     state = state.copyWith(tracksExpanded: !state.tracksExpanded);
-  }
-
-  void cycleInteractionMode() {
-    final next = state.interactionMode == InteractionMode.instantAppend
-        ? InteractionMode.contextMenu
-        : InteractionMode.instantAppend;
-    state = state.copyWith(interactionMode: next);
   }
 
   void resetExpansions() {
