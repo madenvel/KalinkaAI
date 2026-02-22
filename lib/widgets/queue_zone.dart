@@ -85,6 +85,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
             child: ClearAllConfirmDialog(
               onCancel: _closeClearAllConfirm,
               onConfirmed: _closeClearAllConfirm,
+              onConfirmClearAll: _clearAll,
             ),
           ),
         ),
@@ -137,6 +138,15 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
     }
   }
 
+  Future<void> _clearAll() async {
+    await ref.read(kalinkaProxyProvider).clear();
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Queue cleared')));
+    }
+  }
+
   void _activateSearch() {
     ref.read(searchStateProvider.notifier).activateSearch();
   }
@@ -165,7 +175,8 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
   Widget build(BuildContext context) {
     final queueState = ref.watch(playQueueStateStoreProvider);
     final trackList = queueState.trackList;
-    final currentIndex = queueState.playbackState.index ?? 0;
+    final playbackIndex = queueState.playbackState.index ?? 0;
+    final currentIndex = playbackIndex.clamp(0, trackList.length);
     final playbackMode = queueState.playbackMode;
     final connectionState = ref.watch(connectionStateProvider);
     final connectionNotifier = ref.read(connectionStateProvider.notifier);
@@ -230,6 +241,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
             child: ClearAllConfirmDialog(
               onCancel: _closeClearAllConfirm,
               onConfirmed: _closeClearAllConfirm,
+              onConfirmClearAll: _clearAll,
             ),
           ),
       ],

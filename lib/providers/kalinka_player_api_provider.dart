@@ -227,9 +227,14 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
     int limit = 10,
     List<String>? genreIds,
   }) async {
+    final normalizedId = id.trim();
+    final endpoint = (normalizedId.isEmpty || normalizedId == 'root')
+        ? '/browse'
+        : '/browse/$normalizedId';
+
     return client
         .get(
-          '/browse/$id',
+          endpoint,
           queryParameters: {
             'offset': offset.toString(),
             'limit': limit.toString(),

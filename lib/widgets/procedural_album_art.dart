@@ -34,10 +34,11 @@ class _ProceduralAlbumArtPainter extends CustomPainter {
     final hash = trackId.hashCode;
     final rng = Random(hash);
 
-    // Generate a deep hue in the purple/blue/green range (200-320 degrees)
-    final hue = 200.0 + rng.nextDouble() * 120.0;
-    final baseColor = HSLColor.fromAHSL(1.0, hue, 0.6, 0.2).toColor();
-    final nearBlack = const Color(0xFF0A0A0D);
+    // Generate a deep hue in the rose/crimson/gold range (320-400°, wrapping
+    // through red to amber) to stay in harmony with the app accent and gold.
+    final hue = (320.0 + rng.nextDouble() * 80.0) % 360.0;
+    final baseColor = HSLColor.fromAHSL(1.0, hue, 0.65, 0.18).toColor();
+    const nearBlack = KalinkaColors.background;
 
     // Radial gradient background
     final bgPaint = Paint()

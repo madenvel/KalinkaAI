@@ -1,26 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/kalinka_player_api_provider.dart';
 import '../theme/app_theme.dart';
 
 /// Confirmation dialog for clearing the entire queue.
 /// Slides up from the bottom after a 160ms delay from the tray closing.
-class ClearAllConfirmDialog extends ConsumerStatefulWidget {
+class ClearAllConfirmDialog extends StatefulWidget {
   final VoidCallback onCancel;
   final VoidCallback onConfirmed;
+  final Future<void> Function() onConfirmClearAll;
 
   const ClearAllConfirmDialog({
     super.key,
     required this.onCancel,
     required this.onConfirmed,
+    required this.onConfirmClearAll,
   });
 
   @override
-  ConsumerState<ClearAllConfirmDialog> createState() =>
-      _ClearAllConfirmDialogState();
+  State<ClearAllConfirmDialog> createState() => _ClearAllConfirmDialogState();
 }
 
-class _ClearAllConfirmDialogState extends ConsumerState<ClearAllConfirmDialog>
+class _ClearAllConfirmDialogState extends State<ClearAllConfirmDialog>
     with SingleTickerProviderStateMixin {
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
@@ -60,15 +59,10 @@ class _ClearAllConfirmDialogState extends ConsumerState<ClearAllConfirmDialog>
 
   Future<void> _doClearAll() async {
     try {
-      await ref.read(kalinkaProxyProvider).clear();
+      await widget.onConfirmClearAll();
       if (!mounted) return;
       await _slideController.reverse();
       widget.onConfirmed();
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Queue cleared')));
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
