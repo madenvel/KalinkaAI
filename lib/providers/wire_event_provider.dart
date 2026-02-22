@@ -74,29 +74,47 @@ Stream<String> openPlayQueueStream(Ref ref, CancelToken cancel) async* {
 // WebSocket-based queue stream (expects text frames with JSON)
 Stream<String> openPlayQueueWsStream(Ref ref, CancelToken cancel) async* {
   final socket = await ref.watch(queueWebSocketProvider.future);
+  final conn = ref.read(connectionStateProvider.notifier);
 
   // Close the socket if the caller cancels via CancelToken
   cancel.whenCancel.then((_) => socket.close());
 
-  yield* socket.map((event) {
-    if (event is String) return event;
-    if (event is List<int>) return utf8.decode(event);
-    return event.toString();
-  });
+  try {
+    yield* socket.map((event) {
+      if (event is String) return event;
+      if (event is List<int>) return utf8.decode(event);
+      return event.toString();
+    });
+  } finally {
+    // Stream ended — if not intentionally cancelled, the server dropped the
+    // connection. Trigger reconnection so the UI reflects the lost connection.
+    if (!cancel.isCancelled) {
+      conn.startReconnecting();
+    }
+  }
 }
 
 // Web-Socket-based external device stream (expects text frames with JSON)
 Stream<String> openExtDeviceWsStream(Ref ref, CancelToken cancel) async* {
   final socket = await ref.watch(deviceWebSocketProvider.future);
+  final conn = ref.read(connectionStateProvider.notifier);
 
   // Close the socket if the caller cancels via CancelToken
   cancel.whenCancel.then((_) => socket.close());
 
-  yield* socket.map((event) {
-    if (event is String) return event;
-    if (event is List<int>) return utf8.decode(event);
-    return event.toString();
-  });
+  try {
+    yield* socket.map((event) {
+      if (event is String) return event;
+      if (event is List<int>) return utf8.decode(event);
+      return event.toString();
+    });
+  } finally {
+    // Stream ended — if not intentionally cancelled, the server dropped the
+    // connection. Trigger reconnection so the UI reflects the lost connection.
+    if (!cancel.isCancelled) {
+      conn.startReconnecting();
+    }
+  }
 }
 
 Stream<String> openExtDeviceStream(Ref ref, CancelToken cancel) async* {
