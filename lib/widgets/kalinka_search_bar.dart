@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/add_mode_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/haptics.dart';
 
 /// Shared search bar used in both phone (HeaderZone) and tablet (SidePanel).
 ///
@@ -127,6 +128,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
   }
 
   void _onClearTapped() {
+    KalinkaHaptics.lightImpact();
     _textController.clear();
     _clearMicController.reverse();
     ref.read(searchStateProvider.notifier).clearQueryMidSession();
@@ -167,6 +169,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
     return GestureDetector(
       onTap: () {
         if (!_isActive) {
+          KalinkaHaptics.lightImpact();
           _activateSearch();
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _searchFocusNode.requestFocus();
@@ -262,6 +265,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
                   scale: 0.85 + 0.15 * (1.0 - progress),
                   child: GestureDetector(
                     onTap: () {
+                      KalinkaHaptics.mediumImpact();
                       // Mic placeholder — no-op for now
                     },
                     child: const Icon(
@@ -326,6 +330,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
     final isAskMode = mode == AddMode.askEachTime;
     return GestureDetector(
       onTap: () {
+        KalinkaHaptics.selectionClick();
         final notifier = ref.read(addModeProvider.notifier);
         notifier.setAddMode(
           isAskMode ? AddMode.alwaysAppend : AddMode.askEachTime,

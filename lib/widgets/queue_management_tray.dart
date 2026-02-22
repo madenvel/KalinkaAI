@@ -5,6 +5,7 @@ import '../providers/add_mode_provider.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/haptics.dart';
 
 /// Management tray — slides up from the bottom with playback and queue controls.
 class QueueManagementTray extends ConsumerStatefulWidget {
@@ -170,6 +171,9 @@ class _QueueManagementTrayState extends ConsumerState<QueueManagementTray>
                                 value: isShuffle,
                                 activeColor: KalinkaColors.gold,
                                 onTap: () {
+                                  isShuffle
+                                      ? KalinkaHaptics.lightImpact()
+                                      : KalinkaHaptics.mediumImpact();
                                   // Shuffle not yet wired to API
                                 },
                               ),
@@ -345,6 +349,7 @@ class _QueueManagementTrayState extends ConsumerState<QueueManagementTray>
                               label: 'Clear played',
                               sublabel: 'Remove played tracks from history',
                               onTap: () async {
+                                KalinkaHaptics.mediumImpact();
                                 await _animateClose();
                                 widget.onClearPlayed();
                               },
@@ -370,6 +375,7 @@ class _QueueManagementTrayState extends ConsumerState<QueueManagementTray>
                               sublabel: 'Remove everything from queue',
                               isDanger: true,
                               onTap: () async {
+                                KalinkaHaptics.heavyImpact();
                                 await _animateClose();
                                 widget.onClearAllRequested();
                               },
@@ -543,7 +549,10 @@ class _RepeatSegmentedControl extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        KalinkaHaptics.selectionClick();
+        onTap();
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeInOut,
@@ -607,7 +616,10 @@ class _AddModeSegmentedControl extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        KalinkaHaptics.selectionClick();
+        onTap();
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeInOut,

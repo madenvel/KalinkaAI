@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../utils/haptics.dart';
 
 /// Confirmation dialog for clearing the entire queue.
 /// Slides up from the bottom after a 160ms delay from the tray closing.
@@ -53,11 +54,13 @@ class _ClearAllConfirmDialogState extends State<ClearAllConfirmDialog>
   }
 
   Future<void> _animateClose() async {
+    KalinkaHaptics.lightImpact();
     await _slideController.reverse();
     widget.onCancel();
   }
 
   Future<void> _doClearAll() async {
+    KalinkaHaptics.heavyImpact();
     try {
       await widget.onConfirmClearAll();
       if (!mounted) return;

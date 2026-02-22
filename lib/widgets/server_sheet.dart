@@ -4,6 +4,7 @@ import '../providers/connection_settings_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/server_info_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/haptics.dart';
 
 /// Server management bottom sheet — opened by tapping the server chip.
 ///
@@ -364,7 +365,14 @@ class _SheetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: onTap != null
+          ? () {
+              isDanger
+                  ? KalinkaHaptics.heavyImpact()
+                  : KalinkaHaptics.lightImpact();
+              onTap!();
+            }
+          : null,
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),

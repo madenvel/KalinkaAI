@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/haptics.dart';
 
 /// Slider control for bounded numeric ranges.
 ///
 /// Gradient fill from accent to accentTint, value readout, range labels.
-class SettingsSlider extends StatelessWidget {
+class SettingsSlider extends StatefulWidget {
   final String label;
   final double value;
   final double min;
@@ -29,6 +30,13 @@ class SettingsSlider extends StatelessWidget {
   });
 
   @override
+  State<SettingsSlider> createState() => _SettingsSliderState();
+}
+
+class _SettingsSliderState extends State<SettingsSlider> {
+  double _lastHapticPosition = double.negativeInfinity;
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -42,13 +50,13 @@ class SettingsSlider extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                label,
+                widget.label,
                 style: KalinkaTextStyles.trayRowSublabel.copyWith(fontSize: 12),
               ),
               Text(
-                valueLabel ??
-                    value.toStringAsFixed(
-                      value == value.roundToDouble() ? 0 : 1,
+                widget.valueLabel ??
+                    widget.value.toStringAsFixed(
+                      widget.value == widget.value.roundToDouble() ? 0 : 1,
                     ),
                 style: KalinkaTextStyles.trayRowLabel.copyWith(
                   fontSize: 11,
@@ -70,28 +78,35 @@ class SettingsSlider extends StatelessWidget {
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
             ),
             child: Slider(
-              value: value.clamp(min, max),
-              min: min,
-              max: max,
-              divisions: divisions,
-              onChanged: onChanged,
+              value: widget.value.clamp(widget.min, widget.max),
+              min: widget.min,
+              max: widget.max,
+              divisions: widget.divisions,
+              onChanged: (value) {
+                final tickSize = (widget.max - widget.min) * 0.10;
+                if ((value - _lastHapticPosition).abs() >= tickSize) {
+                  KalinkaHaptics.selectionClick();
+                  _lastHapticPosition = value;
+                }
+                widget.onChanged(value);
+              },
             ),
           ),
           // Range labels
-          if (minLabel != null || maxLabel != null)
+          if (widget.minLabel != null || widget.maxLabel != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    minLabel ?? min.toString(),
+                    widget.minLabel ?? widget.min.toString(),
                     style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
                       letterSpacing: 0,
                     ),
                   ),
                   Text(
-                    maxLabel ?? max.toString(),
+                    widget.maxLabel ?? widget.max.toString(),
                     style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
                       letterSpacing: 0,
                     ),

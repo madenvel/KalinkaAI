@@ -13,6 +13,7 @@ import '../providers/playback_time_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
+import '../utils/haptics.dart';
 import '../utils/playback_utils.dart';
 import 'gradient_progress_line.dart';
 import 'procedural_album_art.dart';
@@ -85,6 +86,16 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     final shouldHide = searchState.searchActive && searchState.keyboardVisible;
 
     final connectionState = ref.watch(connectionStateProvider);
+    ref.listen(connectionStateProvider, (prev, next) {
+      if (prev == null) return;
+      if (prev != ConnectionStatus.offline &&
+          next == ConnectionStatus.offline) {
+        KalinkaHaptics.doublePulse();
+      } else if (prev != ConnectionStatus.connected &&
+          next == ConnectionStatus.connected) {
+        KalinkaHaptics.mediumImpact();
+      }
+    });
     final settings = ref.watch(connectionSettingsProvider);
     final isOffline =
         connectionState == ConnectionStatus.reconnecting ||
@@ -219,6 +230,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                 _TransportButton(
                                   icon: Icons.skip_previous_rounded,
                                   size: 24,
+                                  onTapDown: KalinkaHaptics.mediumImpact,
                                   onTap: () => api.sendQueueCommand(
                                     const QueueCommand.prev(),
                                   ),
@@ -226,6 +238,13 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                 const SizedBox(width: 4),
                                 // Play/pause — filled white circle 36px
                                 GestureDetector(
+                                  onTapDown: isPlayPauseDisabled(playerState)
+                                      ? null
+                                      : (_) =>
+                                          playerState ==
+                                                  PlayerStateType.playing
+                                              ? KalinkaHaptics.lightImpact()
+                                              : KalinkaHaptics.mediumImpact(),
                                   onTap: isPlayPauseDisabled(playerState)
                                       ? null
                                       : () => sendPlayPauseCommand(
@@ -252,6 +271,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                 _TransportButton(
                                   icon: Icons.skip_next_rounded,
                                   size: 24,
+                                  onTapDown: KalinkaHaptics.mediumImpact,
                                   onTap: () => api.sendQueueCommand(
                                     const QueueCommand.next(),
                                   ),
@@ -316,12 +336,19 @@ class _TransportButton extends StatelessWidget {
   final IconData icon;
   final double size;
   final VoidCallback? onTap;
+  final VoidCallback? onTapDown;
 
-  const _TransportButton({required this.icon, required this.size, this.onTap});
+  const _TransportButton({
+    required this.icon,
+    required this.size,
+    this.onTap,
+    this.onTapDown,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onTapDown: onTapDown != null ? (_) => onTapDown!() : null,
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(

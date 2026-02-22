@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/haptics.dart';
 
 /// Toggle switch control for settings.
 ///
@@ -17,7 +18,10 @@ class SettingsToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => onChanged(!value),
+      onTap: () {
+        KalinkaHaptics.mediumImpact();
+        onChanged(!value);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         width: 42,

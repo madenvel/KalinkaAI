@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/selection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/haptics.dart';
 
 /// Top bar shown during multi-select mode.
 /// Cancel | "N selected" | Select all
@@ -43,6 +44,7 @@ class MultiSelectTopBar extends ConsumerWidget {
               // Cancel
               GestureDetector(
                 onTap: () {
+                  KalinkaHaptics.lightImpact();
                   ref.read(selectionStateProvider.notifier).exitSelectionMode();
                 },
                 child: Text(
@@ -81,6 +83,7 @@ class MultiSelectTopBar extends ConsumerWidget {
               // Select all
               GestureDetector(
                 onTap: () {
+                  KalinkaHaptics.lightImpact();
                   if (allItemIds != null) {
                     ref
                         .read(selectionStateProvider.notifier)
@@ -154,7 +157,10 @@ class MultiSelectBottomBar extends ConsumerWidget {
                     Expanded(
                       child: GestureDetector(
                         onTap: selection.count > 0
-                            ? () => _appendToQueue(context, ref, selection)
+                            ? () {
+                                KalinkaHaptics.mediumImpact();
+                                _appendToQueue(context, ref, selection);
+                              }
                             : null,
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -203,7 +209,10 @@ class MultiSelectBottomBar extends ConsumerWidget {
                     Expanded(
                       child: GestureDetector(
                         onTap: selection.count > 0
-                            ? () => _playNext(context, ref, selection)
+                            ? () {
+                                KalinkaHaptics.mediumImpact();
+                                _playNext(context, ref, selection);
+                              }
                             : null,
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10),

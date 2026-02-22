@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../utils/haptics.dart';
 
 /// Wraps a child widget to support left-swipe revealing action buttons.
 /// Left-swipe translates the item left to reveal "play next" and "remove" buttons.
@@ -119,7 +120,12 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: GestureDetector(
-        onTap: onTap,
+        onTap: onTap != null
+            ? () {
+                KalinkaHaptics.mediumImpact();
+                onTap!();
+              }
+            : null,
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 6),
           decoration: BoxDecoration(

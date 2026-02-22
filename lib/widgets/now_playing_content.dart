@@ -7,6 +7,7 @@ import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/playback_time_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
+import '../utils/haptics.dart';
 import '../utils/playback_utils.dart';
 import 'procedural_album_art.dart';
 import 'server_chip.dart';
@@ -47,6 +48,9 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
 
   bool _isAdjustingVolume = false;
   double _localVolumeProgress = 0.0;
+
+  double _lastHapticSeekPosition = -1.0;
+  double _lastHapticVolumePosition = -1.0;
 
   String _formatTime(int milliseconds) {
     final seconds = milliseconds ~/ 1000;
@@ -324,6 +328,16 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                               child: Slider(
                                 value: progress,
                                 onChanged: (value) {
+                                  if (!_isSeeking) {
+                                    KalinkaHaptics.mediumImpact();
+                                    _lastHapticSeekPosition = value;
+                                  } else if ((value -
+                                              _lastHapticSeekPosition)
+                                          .abs() >=
+                                      0.05) {
+                                    KalinkaHaptics.selectionClick();
+                                    _lastHapticSeekPosition = value;
+                                  }
                                   setState(() {
                                     _isSeeking = true;
                                     _seekProgress = value;
@@ -332,6 +346,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                   });
                                 },
                                 onChangeEnd: (value) {
+                                  KalinkaHaptics.lightImpact();
                                   final newPositionMs = (value * durationMs)
                                       .toInt();
                                   setState(() {
@@ -372,6 +387,9 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                               children: [
                                 // Shuffle
                                 GestureDetector(
+                                  onTapDown: (_) => isShuffle
+                                      ? KalinkaHaptics.lightImpact()
+                                      : KalinkaHaptics.mediumImpact(),
                                   onTap: () {
                                     api.sendQueueCommand(
                                       QueueCommand.setPlaybackMode(
@@ -391,6 +409,8 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                 ),
                                 // Previous
                                 GestureDetector(
+                                  onTapDown: (_) =>
+                                      KalinkaHaptics.mediumImpact(),
                                   onTap: () => api.sendQueueCommand(
                                     const QueueCommand.prev(),
                                   ),
@@ -402,6 +422,13 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                 ),
                                 // Play/pause
                                 GestureDetector(
+                                  onTapDown: isPlayPauseDisabled(playerState)
+                                      ? null
+                                      : (_) =>
+                                          playerState ==
+                                                  PlayerStateType.playing
+                                              ? KalinkaHaptics.lightImpact()
+                                              : KalinkaHaptics.mediumImpact(),
                                   onTap: isPlayPauseDisabled(playerState)
                                       ? null
                                       : () => sendPlayPauseCommand(
@@ -426,6 +453,8 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                 ),
                                 // Next
                                 GestureDetector(
+                                  onTapDown: (_) =>
+                                      KalinkaHaptics.mediumImpact(),
                                   onTap: () => api.sendQueueCommand(
                                     const QueueCommand.next(),
                                   ),
@@ -438,6 +467,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                 // Repeat
                                 GestureDetector(
                                   onTap: () {
+                                    KalinkaHaptics.selectionClick();
                                     final bool newRepeatAll;
                                     final bool newRepeatSingle;
                                     if (isRepeatOne) {
@@ -509,6 +539,16 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                                         .clamp(0.0, 1.0)
                                                   : 0.0),
                                         onChanged: (value) {
+                                          if (!_isAdjustingVolume) {
+                                            KalinkaHaptics.lightImpact();
+                                            _lastHapticVolumePosition = value;
+                                          } else if ((value -
+                                                      _lastHapticVolumePosition)
+                                                  .abs() >=
+                                              0.10) {
+                                            KalinkaHaptics.selectionClick();
+                                            _lastHapticVolumePosition = value;
+                                          }
                                           final newVolume =
                                               (value * volumeState.maxVolume)
                                                   .round();
@@ -525,6 +565,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                               );
                                         },
                                         onChangeEnd: (_) {
+                                          _lastHapticVolumePosition = -1.0;
                                           setState(
                                             () => _isAdjustingVolume = false,
                                           );

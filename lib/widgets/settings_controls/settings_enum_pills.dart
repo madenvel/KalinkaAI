@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/haptics.dart';
 
 /// Segmented pill group for enum-like settings.
 ///
@@ -24,7 +25,10 @@ class SettingsEnumPills extends StatelessWidget {
       children: options.map((option) {
         final isActive = option == selected;
         return GestureDetector(
-          onTap: () => onChanged(option),
+          onTap: () {
+            KalinkaHaptics.selectionClick();
+            onChanged(option);
+          },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

@@ -5,6 +5,7 @@ import '../data_model/kalinka_ws_api.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
+import '../utils/haptics.dart';
 import 'procedural_album_art.dart';
 import 'source_badge.dart';
 
@@ -40,7 +41,10 @@ class QueueItemRow extends ConsumerWidget {
         : null;
 
     return GestureDetector(
-      onTap: () => api.sendQueueCommand(QueueCommand.play(index: index)),
+      onTap: () {
+        KalinkaHaptics.lightImpact();
+        api.sendQueueCommand(QueueCommand.play(index: index));
+      },
       child: Container(
         color: isCurrentTrack
             ? KalinkaColors.accent.withValues(alpha: 0.08)

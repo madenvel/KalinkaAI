@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/restart_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/haptics.dart';
 
 /// Full-screen overlay showing restart progress with a 4-step timeline,
 /// connector lines, progress bar, and auto-dismiss.
@@ -59,6 +60,17 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
   @override
   Widget build(BuildContext context) {
     final restartState = ref.watch(restartProvider);
+
+    ref.listen(restartProvider, (prev, next) {
+      if (prev == null) return;
+      if (next.completedSteps.length > prev.completedSteps.length) {
+        if (next.isDone) {
+          KalinkaHaptics.successCrescendo();
+        } else {
+          KalinkaHaptics.lightImpact();
+        }
+      }
+    });
 
     // Auto-dismiss when done
     if (restartState.isDone && _autoDismissTimer == null) {
