@@ -66,6 +66,27 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
     return mimeType.split('/').last.toUpperCase();
   }
 
+  String _formatAudioQuality(AudioInfo? audioInfo) {
+    if (audioInfo == null) return '';
+
+    final bitsPerSample = audioInfo.bitsPerSample;
+    final sampleRate = audioInfo.sampleRate;
+
+    final parts = <String>[];
+    if (bitsPerSample > 0) {
+      parts.add('${bitsPerSample}-bit');
+    }
+    if (sampleRate > 0) {
+      final khz = sampleRate / 1000;
+      final khzLabel = sampleRate % 1000 == 0
+          ? khz.toStringAsFixed(0)
+          : khz.toStringAsFixed(1);
+      parts.add('${khzLabel} kHz');
+    }
+
+    return parts.join(' • ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final queueState = ref.watch(playQueueStateStoreProvider);
@@ -107,6 +128,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
         : null;
 
     final mimeLabel = _formatLabel(playbackState.mimeType);
+    final qualityLabel = _formatAudioQuality(playbackState.audioInfo);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -220,8 +242,9 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                               style: KalinkaTextStyles.expandedArtist,
                               textAlign: TextAlign.center,
                             ),
-                            // Format + source badges
+                            // Format + quality + source badges
                             if (mimeLabel.isNotEmpty ||
+                                qualityLabel.isNotEmpty ||
                                 currentTrack != null) ...[
                               const SizedBox(height: 8),
                               Row(
@@ -246,6 +269,28 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                       ),
                                     ),
                                   if (mimeLabel.isNotEmpty &&
+                                      qualityLabel.isNotEmpty)
+                                    const SizedBox(width: 6),
+                                  if (qualityLabel.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: KalinkaColors.accent,
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        qualityLabel,
+                                        style: KalinkaTextStyles.formatBadge,
+                                      ),
+                                    ),
+                                  if ((mimeLabel.isNotEmpty ||
+                                          qualityLabel.isNotEmpty) &&
                                       currentTrack != null)
                                     const SizedBox(width: 6),
                                   if (currentTrack != null)
@@ -458,10 +503,11 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                         value: _isAdjustingVolume
                                             ? _localVolumeProgress
                                             : (volumeState.maxVolume > 0
-                                                ? (volumeState.currentVolume /
-                                                          volumeState.maxVolume)
-                                                      .clamp(0.0, 1.0)
-                                                : 0.0),
+                                                  ? (volumeState.currentVolume /
+                                                            volumeState
+                                                                .maxVolume)
+                                                        .clamp(0.0, 1.0)
+                                                  : 0.0),
                                         onChanged: (value) {
                                           final newVolume =
                                               (value * volumeState.maxVolume)
