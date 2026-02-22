@@ -48,6 +48,9 @@ class SearchState {
   final String? expandedAlbumId;
   final String? artistPreviewId;
   final bool tracksExpanded;
+  final bool albumsExpanded;
+  final bool artistsExpanded;
+  final bool playlistsExpanded;
   final String? expandedAlbumIdWithinArtist;
   final Set<String> artistMoreAlbumsExpanded;
   final Set<String> albumMoreTracksExpanded;
@@ -69,6 +72,9 @@ class SearchState {
     this.expandedAlbumId,
     this.artistPreviewId,
     this.tracksExpanded = false,
+    this.albumsExpanded = false,
+    this.artistsExpanded = false,
+    this.playlistsExpanded = false,
     this.expandedAlbumIdWithinArtist,
     this.artistMoreAlbumsExpanded = const {},
     this.albumMoreTracksExpanded = const {},
@@ -80,8 +86,7 @@ class SearchState {
   });
 
   /// Backward-compatible getter — true when search surface is active
-  bool get searchActive =>
-      searchPhase != SearchPhase.inactive;
+  bool get searchActive => searchPhase != SearchPhase.inactive;
 
   /// Derived: mic visible when query is empty and search is active
   bool get micVisible => searchActive && query.isEmpty;
@@ -91,7 +96,10 @@ class SearchState {
 
   int get totalResultCount {
     if (searchResults == null) return 0;
-    return searchResults!.values.fold(0, (sum, list) => sum + list.items.length);
+    return searchResults!.values.fold(
+      0,
+      (sum, list) => sum + list.items.length,
+    );
   }
 
   SearchState copyWith({
@@ -106,6 +114,9 @@ class SearchState {
     String? expandedAlbumId,
     String? artistPreviewId,
     bool? tracksExpanded,
+    bool? albumsExpanded,
+    bool? artistsExpanded,
+    bool? playlistsExpanded,
     bool clearExpandedAlbum = false,
     bool clearArtistPreview = false,
     String? expandedAlbumIdWithinArtist,
@@ -133,11 +144,16 @@ class SearchState {
       browseRecommendations:
           browseRecommendations ?? this.browseRecommendations,
       error: clearError ? null : (error ?? this.error),
-      expandedAlbumId:
-          clearExpandedAlbum ? null : (expandedAlbumId ?? this.expandedAlbumId),
-      artistPreviewId:
-          clearArtistPreview ? null : (artistPreviewId ?? this.artistPreviewId),
+      expandedAlbumId: clearExpandedAlbum
+          ? null
+          : (expandedAlbumId ?? this.expandedAlbumId),
+      artistPreviewId: clearArtistPreview
+          ? null
+          : (artistPreviewId ?? this.artistPreviewId),
       tracksExpanded: tracksExpanded ?? this.tracksExpanded,
+      albumsExpanded: albumsExpanded ?? this.albumsExpanded,
+      artistsExpanded: artistsExpanded ?? this.artistsExpanded,
+      playlistsExpanded: playlistsExpanded ?? this.playlistsExpanded,
       expandedAlbumIdWithinArtist: clearExpandedAlbumWithinArtist
           ? null
           : (expandedAlbumIdWithinArtist ?? this.expandedAlbumIdWithinArtist),
@@ -235,6 +251,9 @@ class SearchStateNotifier extends Notifier<SearchState> {
       clearExpandedAlbum: true,
       clearArtistPreview: true,
       tracksExpanded: false,
+      albumsExpanded: false,
+      artistsExpanded: false,
+      playlistsExpanded: false,
       clearExpandedAlbumWithinArtist: true,
       artistMoreAlbumsExpanded: const {},
       albumMoreTracksExpanded: const {},
@@ -272,6 +291,9 @@ class SearchStateNotifier extends Notifier<SearchState> {
       clearExpandedAlbum: true,
       clearArtistPreview: true,
       tracksExpanded: false,
+      albumsExpanded: false,
+      artistsExpanded: false,
+      playlistsExpanded: false,
       clearExpandedAlbumWithinArtist: true,
       artistMoreAlbumsExpanded: const {},
       albumMoreTracksExpanded: const {},
@@ -536,10 +558,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
   }
 
   void expandAlbum(String albumId) {
-    state = state.copyWith(
-      expandedAlbumId: albumId,
-      clearArtistPreview: true,
-    );
+    state = state.copyWith(expandedAlbumId: albumId, clearArtistPreview: true);
   }
 
   void collapseAlbum() {
@@ -587,11 +606,26 @@ class SearchStateNotifier extends Notifier<SearchState> {
     state = state.copyWith(tracksExpanded: !state.tracksExpanded);
   }
 
+  void toggleAlbumsExpanded() {
+    state = state.copyWith(albumsExpanded: !state.albumsExpanded);
+  }
+
+  void toggleArtistsExpanded() {
+    state = state.copyWith(artistsExpanded: !state.artistsExpanded);
+  }
+
+  void togglePlaylistsExpanded() {
+    state = state.copyWith(playlistsExpanded: !state.playlistsExpanded);
+  }
+
   void resetExpansions() {
     state = state.copyWith(
       clearExpandedAlbum: true,
       clearArtistPreview: true,
       tracksExpanded: false,
+      albumsExpanded: false,
+      artistsExpanded: false,
+      playlistsExpanded: false,
       clearExpandedAlbumWithinArtist: true,
       artistMoreAlbumsExpanded: const {},
       albumMoreTracksExpanded: const {},

@@ -269,17 +269,30 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     final albums = results[SearchType.album]?.items ?? [];
     final artists = results[SearchType.artist]?.items ?? [];
     final playlists = results[SearchType.playlist]?.items ?? [];
+    const trackDisplayLimit = 3;
+    const albumDisplayLimit = 5;
+    const artistDisplayLimit = 3;
+    const playlistDisplayLimit = 5;
 
     // Count total items for stagger animation
     final trackDisplayCount = searchState.tracksExpanded
         ? tracks.length
-        : min<int>(3, tracks.length);
+        : min<int>(trackDisplayLimit, tracks.length);
+    final albumsVisibleCount = searchState.albumsExpanded
+        ? albums.length
+        : min<int>(albumDisplayLimit, albums.length);
+    final artistsVisibleCount = searchState.artistsExpanded
+        ? artists.length
+        : min<int>(artistDisplayLimit, artists.length);
+    final playlistsVisibleCount = searchState.playlistsExpanded
+        ? playlists.length
+        : min<int>(playlistDisplayLimit, playlists.length);
     final totalItems =
         1 + // AI card
         trackDisplayCount +
-        albums.length +
-        artists.length +
-        playlists.length;
+        albumsVisibleCount +
+        artistsVisibleCount +
+        playlistsVisibleCount;
     _triggerStagger(totalItems);
 
     int itemIndex = 0;
@@ -325,43 +338,40 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         // Albums section
         if (albums.isNotEmpty) ...[
           SectionHeader(label: 'Albums', count: albums.length),
-          ...albums.map((item) {
-            final idx = itemIndex++;
-            return _StaggeredItem(
-              index: idx,
-              controller: _staggerController,
-              totalItems: totalItems,
-              child: SearchAlbumRow(item: item),
-            );
-          }),
+          ..._buildAlbumsSection(
+            ref,
+            albums,
+            searchState,
+            albumDisplayLimit,
+            itemIndex,
+            totalItems,
+          ),
         ],
 
         // Artists section
         if (artists.isNotEmpty) ...[
           SectionHeader(label: 'Artists', count: artists.length),
-          ...artists.map((item) {
-            final idx = itemIndex++;
-            return _StaggeredItem(
-              index: idx,
-              controller: _staggerController,
-              totalItems: totalItems,
-              child: SearchArtistRow(item: item),
-            );
-          }),
+          ..._buildArtistsSection(
+            ref,
+            artists,
+            searchState,
+            artistDisplayLimit,
+            itemIndex,
+            totalItems,
+          ),
         ],
 
         // Playlists section
         if (playlists.isNotEmpty) ...[
           SectionHeader(label: 'Playlists', count: playlists.length),
-          ...playlists.map((item) {
-            final idx = itemIndex++;
-            return _StaggeredItem(
-              index: idx,
-              controller: _staggerController,
-              totalItems: totalItems,
-              child: SearchPlaylistRow(item: item),
-            );
-          }),
+          ..._buildPlaylistsSection(
+            ref,
+            playlists,
+            searchState,
+            playlistDisplayLimit,
+            itemIndex,
+            totalItems,
+          ),
         ],
       ],
     );
@@ -399,6 +409,121 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
           isExpanded: true,
           onTap: () =>
               ref.read(searchStateProvider.notifier).toggleTracksExpanded(),
+        ),
+    ];
+  }
+
+  List<Widget> _buildAlbumsSection(
+    WidgetRef ref,
+    List<BrowseItem> albums,
+    SearchState searchState,
+    int limit,
+    int startIndex,
+    int totalItems,
+  ) {
+    final isExpanded = searchState.albumsExpanded;
+    final displayCount = isExpanded ? albums.length : min(limit, albums.length);
+    final remaining = albums.length - limit;
+
+    return [
+      for (int i = 0; i < displayCount; i++)
+        _StaggeredItem(
+          index: startIndex + i,
+          controller: _staggerController,
+          totalItems: totalItems,
+          child: SearchAlbumRow(item: albums[i]),
+        ),
+      if (!isExpanded && remaining > 0)
+        ShowMoreRow(
+          remainingCount: remaining,
+          isExpanded: false,
+          onTap: () =>
+              ref.read(searchStateProvider.notifier).toggleAlbumsExpanded(),
+        ),
+      if (isExpanded && albums.length > limit)
+        ShowMoreRow(
+          remainingCount: 0,
+          isExpanded: true,
+          onTap: () =>
+              ref.read(searchStateProvider.notifier).toggleAlbumsExpanded(),
+        ),
+    ];
+  }
+
+  List<Widget> _buildArtistsSection(
+    WidgetRef ref,
+    List<BrowseItem> artists,
+    SearchState searchState,
+    int limit,
+    int startIndex,
+    int totalItems,
+  ) {
+    final isExpanded = searchState.artistsExpanded;
+    final displayCount = isExpanded
+        ? artists.length
+        : min(limit, artists.length);
+    final remaining = artists.length - limit;
+
+    return [
+      for (int i = 0; i < displayCount; i++)
+        _StaggeredItem(
+          index: startIndex + i,
+          controller: _staggerController,
+          totalItems: totalItems,
+          child: SearchArtistRow(item: artists[i]),
+        ),
+      if (!isExpanded && remaining > 0)
+        ShowMoreRow(
+          remainingCount: remaining,
+          isExpanded: false,
+          onTap: () =>
+              ref.read(searchStateProvider.notifier).toggleArtistsExpanded(),
+        ),
+      if (isExpanded && artists.length > limit)
+        ShowMoreRow(
+          remainingCount: 0,
+          isExpanded: true,
+          onTap: () =>
+              ref.read(searchStateProvider.notifier).toggleArtistsExpanded(),
+        ),
+    ];
+  }
+
+  List<Widget> _buildPlaylistsSection(
+    WidgetRef ref,
+    List<BrowseItem> playlists,
+    SearchState searchState,
+    int limit,
+    int startIndex,
+    int totalItems,
+  ) {
+    final isExpanded = searchState.playlistsExpanded;
+    final displayCount = isExpanded
+        ? playlists.length
+        : min(limit, playlists.length);
+    final remaining = playlists.length - limit;
+
+    return [
+      for (int i = 0; i < displayCount; i++)
+        _StaggeredItem(
+          index: startIndex + i,
+          controller: _staggerController,
+          totalItems: totalItems,
+          child: SearchPlaylistRow(item: playlists[i]),
+        ),
+      if (!isExpanded && remaining > 0)
+        ShowMoreRow(
+          remainingCount: remaining,
+          isExpanded: false,
+          onTap: () =>
+              ref.read(searchStateProvider.notifier).togglePlaylistsExpanded(),
+        ),
+      if (isExpanded && playlists.length > limit)
+        ShowMoreRow(
+          remainingCount: 0,
+          isExpanded: true,
+          onTap: () =>
+              ref.read(searchStateProvider.notifier).togglePlaylistsExpanded(),
         ),
     ];
   }
