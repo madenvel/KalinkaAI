@@ -45,6 +45,9 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
   int _seekPositionMs = 0;
   int? _seekBeforeSeq;
 
+  bool _isAdjustingVolume = false;
+  double _localVolumeProgress = 0.0;
+
   String _formatTime(int milliseconds) {
     final seconds = milliseconds ~/ 1000;
     final minutes = seconds ~/ 60;
@@ -452,15 +455,21 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                             .withValues(alpha: 0.1),
                                       ),
                                       child: Slider(
-                                        value: volumeState.maxVolume > 0
-                                            ? (volumeState.currentVolume /
-                                                      volumeState.maxVolume)
-                                                  .clamp(0.0, 1.0)
-                                            : 0.0,
+                                        value: _isAdjustingVolume
+                                            ? _localVolumeProgress
+                                            : (volumeState.maxVolume > 0
+                                                ? (volumeState.currentVolume /
+                                                          volumeState.maxVolume)
+                                                      .clamp(0.0, 1.0)
+                                                : 0.0),
                                         onChanged: (value) {
                                           final newVolume =
                                               (value * volumeState.maxVolume)
                                                   .round();
+                                          setState(() {
+                                            _isAdjustingVolume = true;
+                                            _localVolumeProgress = value;
+                                          });
                                           ref
                                               .read(kalinkaWsApiProvider)
                                               .sendDeviceCommand(
@@ -468,6 +477,11 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                                   volume: newVolume,
                                                 ),
                                               );
+                                        },
+                                        onChangeEnd: (_) {
+                                          setState(
+                                            () => _isAdjustingVolume = false,
+                                          );
                                         },
                                       ),
                                     ),
