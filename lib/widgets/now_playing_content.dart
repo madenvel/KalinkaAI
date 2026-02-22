@@ -74,14 +74,14 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
 
     final parts = <String>[];
     if (bitsPerSample > 0) {
-      parts.add('${bitsPerSample}-bit');
+      parts.add('$bitsPerSample-bit');
     }
     if (sampleRate > 0) {
       final khz = sampleRate / 1000;
       final khzLabel = sampleRate % 1000 == 0
           ? khz.toStringAsFixed(0)
           : khz.toStringAsFixed(1);
-      parts.add('${khzLabel} kHz');
+      parts.add('$khzLabel kHz');
     }
 
     return parts.join(' • ');

@@ -10,6 +10,7 @@ import '../../providers/browse_detail_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_state_provider.dart';
 import '../../providers/selection_state_provider.dart';
+import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
@@ -202,6 +203,7 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchStateProvider);
     final isExpanded = searchState.expandedAlbumId == widget.item.id;
+    final urlResolver = ref.read(urlResolverProvider);
 
     final selection = ref.watch(selectionStateProvider);
     final selectionMode = selection.isActive;
@@ -218,6 +220,13 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
       if (description.isNotEmpty) description,
     ];
     final subtitle = subtitleParts.join(' \u00B7 ');
+    final imageUrl =
+        widget.item.image?.small ??
+        widget.item.image?.thumbnail ??
+        widget.item.image?.large;
+    final resolvedImageUrl = imageUrl != null
+        ? urlResolver.abs(imageUrl)
+        : null;
 
     return Column(
       children: [
@@ -273,10 +282,24 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
                           borderRadius: BorderRadius.circular(10),
                           child: Stack(
                             children: [
-                              ProceduralAlbumArt(
-                                trackId: widget.item.id,
-                                size: 56,
-                              ),
+                              if (resolvedImageUrl != null)
+                                Image.network(
+                                  resolvedImageUrl,
+                                  fit: BoxFit.cover,
+                                  width: 56,
+                                  height: 56,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return ProceduralAlbumArt(
+                                      trackId: widget.item.id,
+                                      size: 56,
+                                    );
+                                  },
+                                )
+                              else
+                                ProceduralAlbumArt(
+                                  trackId: widget.item.id,
+                                  size: 56,
+                                ),
                               // 2x2 mosaic overlay at 25% opacity
                               Opacity(
                                 opacity: 0.25,

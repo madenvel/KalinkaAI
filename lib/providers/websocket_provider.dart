@@ -11,7 +11,7 @@ final logger = Logger();
 ///
 /// This keeps all connection semantics (host/port, ws vs wss) in one place,
 /// and disposes the socket when the provider is torn down. Callers can
-/// transform the returned socket into a Stream<String> similar to
+/// transform the returned socket into a `Stream<String>` similar to
 final webSocketProvider = FutureProvider.autoDispose.family<WebSocket, String>((
   ref,
   path,

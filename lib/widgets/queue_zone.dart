@@ -296,14 +296,13 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
               },
               onDelete: () async {
                 setState(() => _revealedIndex = -1);
+                final messenger = ScaffoldMessenger.of(context);
                 try {
                   await ref.read(kalinkaProxyProvider).remove(absoluteIndex);
                 } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to remove: $e')),
-                    );
-                  }
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('Failed to remove: $e')),
+                  );
                 }
               },
               child: QueueItemRow(
