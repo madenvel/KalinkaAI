@@ -45,10 +45,10 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
     final aiSuggestions = searchState.aiPromptSuggestions;
     final browseRecs = searchState.browseRecommendations;
 
-    final libraryItemCount =
-        browseRecs != null ? _countLibraryItems(browseRecs) : 0;
-    final showLibrarySection =
-        searchState.isLoading || libraryItemCount > 0;
+    final libraryItemCount = browseRecs != null
+        ? _countLibraryItems(browseRecs)
+        : 0;
+    final showLibrarySection = searchState.isLoading || libraryItemCount > 0;
 
     int itemIndex = 0;
     int totalItems =
