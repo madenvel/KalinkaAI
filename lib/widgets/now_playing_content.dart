@@ -43,6 +43,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
   bool _isSeeking = false;
   double _seekProgress = 0.0;
   int _seekPositionMs = 0;
+  int? _seekBeforeSeq;
 
   String _formatTime(int milliseconds) {
     final seconds = milliseconds ~/ 1000;
@@ -65,6 +66,19 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
   @override
   Widget build(BuildContext context) {
     final queueState = ref.watch(playQueueStateStoreProvider);
+
+    // Clear the local seek position once the server acknowledges the seek
+    // with a new event (seq changes). This prevents the thumb from jumping
+    // back to the old position before the server reply arrives.
+    ref.listen(playQueueStateStoreProvider, (prev, next) {
+      if (_isSeeking && next.seq != _seekBeforeSeq) {
+        setState(() {
+          _isSeeking = false;
+          _seekBeforeSeq = null;
+        });
+      }
+    });
+
     final playbackState = queueState.playbackState;
     final currentTrack = playbackState.currentTrack;
     final playerState = playbackState.state;
@@ -272,12 +286,14 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                 onChangeEnd: (value) {
                                   final newPositionMs = (value * durationMs)
                                       .toInt();
+                                  setState(() {
+                                    _seekBeforeSeq = queueState.seq;
+                                  });
                                   api.sendQueueCommand(
                                     QueueCommand.seek(
                                       positionMs: newPositionMs,
                                     ),
                                   );
-                                  setState(() => _isSeeking = false);
                                 },
                               ),
                             ),
