@@ -38,69 +38,64 @@ class MultiSelectTopBar extends ConsumerWidget {
               ),
             ],
           ),
-          child: SafeArea(
-            bottom: false,
-            child: Row(
-              children: [
-                // Cancel
-                GestureDetector(
-                  onTap: () {
+          child: Row(
+            children: [
+              // Cancel
+              GestureDetector(
+                onTap: () {
+                  ref.read(selectionStateProvider.notifier).exitSelectionMode();
+                },
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.ibmPlexMono(
+                    fontSize: 13,
+                    color: KalinkaColors.textSecondary,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              // N selected
+              RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${selection.count}',
+                      style: GoogleFonts.ibmPlexMono(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: KalinkaColors.accent,
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' selected',
+                      style: GoogleFonts.ibmPlexMono(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: KalinkaColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              // Select all
+              GestureDetector(
+                onTap: () {
+                  if (allItemIds != null) {
                     ref
                         .read(selectionStateProvider.notifier)
-                        .exitSelectionMode();
-                  },
-                  child: Text(
-                    'Cancel',
-                    style: GoogleFonts.ibmPlexMono(
-                      fontSize: 13,
-                      color: KalinkaColors.textSecondary,
-                    ),
+                        .selectAll(allItemIds!);
+                  }
+                },
+                child: Text(
+                  'Select all',
+                  style: GoogleFonts.ibmPlexMono(
+                    fontSize: 13,
+                    color: KalinkaColors.textSecondary,
                   ),
                 ),
-                const Spacer(),
-                // N selected
-                RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(
-                        text: '${selection.count}',
-                        style: GoogleFonts.ibmPlexMono(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: KalinkaColors.accent,
-                        ),
-                      ),
-                      TextSpan(
-                        text: ' selected',
-                        style: GoogleFonts.ibmPlexMono(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: KalinkaColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                // Select all
-                GestureDetector(
-                  onTap: () {
-                    if (allItemIds != null) {
-                      ref
-                          .read(selectionStateProvider.notifier)
-                          .selectAll(allItemIds!);
-                    }
-                  },
-                  child: Text(
-                    'Select all',
-                    style: GoogleFonts.ibmPlexMono(
-                      fontSize: 13,
-                      color: KalinkaColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

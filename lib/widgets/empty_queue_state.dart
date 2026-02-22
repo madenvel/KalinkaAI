@@ -38,86 +38,99 @@ class _EmptyQueueStateState extends State<EmptyQueueState>
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Procedural art element
-            SizedBox(
-              width: 100,
-              height: 100,
-              child: CustomPaint(painter: _EmptyQueueArtPainter()),
-            ),
-            const SizedBox(height: 24),
-            // Title
-            Text(
-              'nothing queued',
-              style: KalinkaTextStyles.emptyQueueTitle,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            // Subtitle
-            Text(
-              'search to add music',
-              style: KalinkaTextStyles.emptyQueueSubtitle,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            // Search hint chip with pulse
-            AnimatedBuilder(
-              animation: _pulseAnimation,
-              builder: (context, child) {
-                return GestureDetector(
-                  onTap: widget.onSearchTap,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: KalinkaColors.inputSurface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: KalinkaColors.accent.withValues(alpha: 0.30),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: KalinkaColors.accent.withValues(
-                            alpha: 0.04 + (_pulseAnimation.value / 6.0) * 0.11,
-                          ),
-                          blurRadius: _pulseAnimation.value,
-                          spreadRadius: _pulseAnimation.value * 0.5,
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.search,
-                          size: 13,
-                          color: KalinkaColors.accent.withValues(alpha: 0.7),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'tap to search',
-                          style: TextStyle(
-                            fontFamily: 'IBMPlexMono',
-                            fontSize: 12,
-                            color: KalinkaColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Procedural art element
+                  SizedBox(
+                    width: 100,
+                    height: 100,
+                    child: CustomPaint(painter: _EmptyQueueArtPainter()),
                   ),
-                );
-              },
+                  const SizedBox(height: 24),
+                  // Title
+                  Text(
+                    'nothing queued',
+                    style: KalinkaTextStyles.emptyQueueTitle,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  // Subtitle
+                  Text(
+                    'search to add music',
+                    style: KalinkaTextStyles.emptyQueueSubtitle,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  // Search hint chip with pulse
+                  AnimatedBuilder(
+                    animation: _pulseAnimation,
+                    builder: (context, child) {
+                      return GestureDetector(
+                        onTap: widget.onSearchTap,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: KalinkaColors.inputSurface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: KalinkaColors.accent.withValues(
+                                alpha: 0.30,
+                              ),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: KalinkaColors.accent.withValues(
+                                  alpha:
+                                      0.04 +
+                                      (_pulseAnimation.value / 6.0) * 0.11,
+                                ),
+                                blurRadius: _pulseAnimation.value,
+                                spreadRadius: _pulseAnimation.value * 0.5,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.search,
+                                size: 13,
+                                color: KalinkaColors.accent.withValues(
+                                  alpha: 0.7,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'tap to search',
+                                style: TextStyle(
+                                  fontFamily: 'IBMPlexMono',
+                                  fontSize: 12,
+                                  color: KalinkaColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
