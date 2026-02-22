@@ -85,7 +85,7 @@ class _ServerChipState extends ConsumerState<ServerChip>
             const SizedBox(width: 6),
             // Label
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 120),
+              constraints: const BoxConstraints(maxWidth: 80),
               child: Text(
                 chipData.label,
                 style: KalinkaTextStyles.serverChipLabel.copyWith(
