@@ -204,14 +204,13 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
                       controller: _textController,
                       focusNode: _searchFocusNode,
                       style: KalinkaTextStyles.searchBarInput,
+                      textAlignVertical: TextAlignVertical.center,
                       cursorColor: KalinkaColors.accent,
                       decoration: InputDecoration(
                         hintText: 'Search music\u2026',
                         hintStyle: KalinkaTextStyles.searchPlaceholder,
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                        ),
+                        contentPadding: EdgeInsets.zero,
                         isDense: true,
                       ),
                       onChanged: _onQueryChanged,
