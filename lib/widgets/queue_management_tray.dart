@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/kalinka_ws_api.dart';
-import '../providers/add_mode_provider.dart';
+
 import '../providers/app_state_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../theme/app_theme.dart';
@@ -230,89 +230,6 @@ class _QueueManagementTrayState extends ConsumerState<QueueManagementTray>
                                         repeatAll: repeatAll,
                                         repeatSingle: repeatSingle,
                                       );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 8),
-                            // Section divider
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: Divider(
-                                color: Colors.white.withValues(alpha: 0.07),
-                                height: 1,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Section: ADDING
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                              child: Text(
-                                'ADDING',
-                                style: KalinkaTextStyles.traySectionLabel,
-                              ),
-                            ),
-
-                            // Adding mode row — segmented control
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 13,
-                              ),
-                              child: Row(
-                                children: [
-                                  // Icon container
-                                  Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: KalinkaColors.gold.withValues(
-                                        alpha: 0.14,
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Icon(
-                                      Icons.playlist_add,
-                                      size: 16,
-                                      color: KalinkaColors.gold,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  // Label
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'When adding to queue',
-                                          style: KalinkaTextStyles.trayRowLabel,
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          ref.watch(addModeProvider).addMode ==
-                                                  AddMode.askEachTime
-                                              ? 'Choose Play next, Append, or Add to playlist'
-                                              : 'Adds to end of queue instantly',
-                                          style:
-                                              KalinkaTextStyles.trayRowSublabel,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  // Segmented control
-                                  _AddModeSegmentedControl(
-                                    addMode: ref.watch(addModeProvider).addMode,
-                                    onChanged: (mode) {
-                                      ref
-                                          .read(addModeProvider.notifier)
-                                          .setAddMode(mode);
                                     },
                                   ),
                                 ],
@@ -565,73 +482,6 @@ class _RepeatSegmentedControl extends StatelessWidget {
           label,
           style: KalinkaTextStyles.trayRowSublabel.copyWith(
             color: isActive ? Colors.white : KalinkaColors.textSecondary,
-            fontWeight: isActive ? FontWeight.w500 : FontWeight.w400,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Two-segment pill control for add mode: Ask each time / Always append.
-class _AddModeSegmentedControl extends StatelessWidget {
-  final AddMode addMode;
-  final void Function(AddMode mode) onChanged;
-
-  const _AddModeSegmentedControl({
-    required this.addMode,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: KalinkaColors.pillSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: KalinkaColors.borderElevated),
-      ),
-      padding: const EdgeInsets.all(3),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildSegment(
-            label: 'Ask',
-            isActive: addMode == AddMode.askEachTime,
-            onTap: () => onChanged(AddMode.askEachTime),
-          ),
-          _buildSegment(
-            label: 'Append',
-            isActive: addMode == AddMode.alwaysAppend,
-            onTap: () => onChanged(AddMode.alwaysAppend),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSegment({
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: () {
-        KalinkaHaptics.selectionClick();
-        onTap();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive ? KalinkaColors.gold : Colors.transparent,
-          borderRadius: BorderRadius.circular(7),
-        ),
-        child: Text(
-          label,
-          style: KalinkaTextStyles.trayRowSublabel.copyWith(
-            color: isActive ? Colors.black : KalinkaColors.textSecondary,
             fontWeight: isActive ? FontWeight.w500 : FontWeight.w400,
           ),
         ),

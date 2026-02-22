@@ -48,7 +48,7 @@ class MultiSelectTopBar extends ConsumerWidget {
                   ref.read(selectionStateProvider.notifier).exitSelectionMode();
                 },
                 child: Text(
-                  'Cancel',
+                  'Done',
                   style: GoogleFonts.ibmPlexMono(
                     fontSize: 13,
                     color: KalinkaColors.textSecondary,
@@ -150,16 +150,16 @@ class MultiSelectBottomBar extends ConsumerWidget {
                     style: KalinkaTextStyles.batchBarLabel,
                   ),
                 ),
-                // Two buttons
+                // Three buttons: Play now | Play next | Add to queue
                 Row(
                   children: [
-                    // Append
+                    // Play now
                     Expanded(
                       child: GestureDetector(
                         onTap: selection.count > 0
                             ? () {
                                 KalinkaHaptics.mediumImpact();
-                                _appendToQueue(context, ref, selection);
+                                _playNow(context, ref, selection);
                               }
                             : null,
                         child: Container(
@@ -168,43 +168,33 @@ class MultiSelectBottomBar extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: selection.count > 0
-                                  ? KalinkaColors.gold
-                                  : KalinkaColors.gold.withValues(alpha: 0.3),
+                                  ? KalinkaColors.accent
+                                  : KalinkaColors.accent.withValues(alpha: 0.3),
                               width: 1,
                             ),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          child: Column(
                             children: [
                               Icon(
-                                Icons.playlist_add,
+                                Icons.play_arrow,
                                 size: 16,
-                                color: KalinkaColors.gold,
+                                color: KalinkaColors.accent,
                               ),
-                              const SizedBox(width: 6),
-                              Column(
-                                children: [
-                                  Text(
-                                    'Append',
-                                    style: GoogleFonts.ibmPlexMono(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: KalinkaColors.gold,
-                                    ),
-                                  ),
-                                  Text(
-                                    'add to end',
-                                    style:
-                                        KalinkaTextStyles.aiTrackChipDuration,
-                                  ),
-                                ],
+                              const SizedBox(height: 2),
+                              Text(
+                                'Play now',
+                                style: GoogleFonts.ibmPlexMono(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: KalinkaColors.accent,
+                                ),
                               ),
                             ],
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     // Play next
                     Expanded(
                       child: GestureDetector(
@@ -225,31 +215,63 @@ class MultiSelectBottomBar extends ConsumerWidget {
                               width: 1,
                             ),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          child: Column(
                             children: [
                               Icon(
-                                Icons.queue_music,
+                                Icons.arrow_upward,
                                 size: 16,
                                 color: KalinkaColors.accent,
                               ),
-                              const SizedBox(width: 6),
-                              Column(
-                                children: [
-                                  Text(
-                                    'Play next',
-                                    style: GoogleFonts.ibmPlexMono(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: KalinkaColors.accent,
-                                    ),
-                                  ),
-                                  Text(
-                                    'after current',
-                                    style:
-                                        KalinkaTextStyles.aiTrackChipDuration,
-                                  ),
-                                ],
+                              const SizedBox(height: 2),
+                              Text(
+                                'Play next',
+                                style: GoogleFonts.ibmPlexMono(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: KalinkaColors.accent,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Add to queue
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: selection.count > 0
+                            ? () {
+                                KalinkaHaptics.mediumImpact();
+                                _appendToQueue(context, ref, selection);
+                              }
+                            : null,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: selection.count > 0
+                                  ? KalinkaColors.gold
+                                  : KalinkaColors.gold.withValues(alpha: 0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.playlist_add,
+                                size: 16,
+                                color: KalinkaColors.gold,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Add to queue',
+                                style: GoogleFonts.ibmPlexMono(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: KalinkaColors.gold,
+                                ),
                               ),
                             ],
                           ),
@@ -281,7 +303,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${selection.count} tracks appended'),
+            content: Text('${selection.count} tracks added to queue'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -291,6 +313,37 @@ class MultiSelectBottomBar extends ConsumerWidget {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to add to queue: $e')));
+      }
+    }
+  }
+
+  Future<void> _playNow(
+    BuildContext context,
+    WidgetRef ref,
+    SelectionState selection,
+  ) async {
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      final ids = ref.read(selectionStateProvider.notifier).resolveIdsForApi();
+      await api.clear();
+      await api.add(ids);
+      await api.play();
+
+      ref.read(selectionStateProvider.notifier).exitSelectionMode();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Playing ${selection.count} tracks'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to play: $e')));
       }
     }
   }

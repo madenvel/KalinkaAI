@@ -8,7 +8,6 @@ import '../widgets/connection_banner.dart';
 import '../widgets/discovery_screen.dart';
 import '../widgets/escalation_card.dart';
 import '../widgets/expanded_player_overlay.dart';
-import '../widgets/first_encounter_prompt.dart';
 import '../widgets/header_zone.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/now_playing_content.dart';
@@ -186,7 +185,6 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                   setState(() => _discoveryOpen = true);
                 },
               ),
-              const FirstEncounterPrompt(),
               MiniPlayer(onTap: _openPlayer),
             ],
           ),

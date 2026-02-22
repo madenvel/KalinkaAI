@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/add_mode_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
@@ -227,11 +226,6 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
                     ),
             ),
             const SizedBox(width: 8),
-            // Mode indicator (only when active)
-            if (_isActive) ...[
-              _buildModeIndicator(ref.watch(addModeProvider).addMode),
-              const SizedBox(width: 4),
-            ],
             // Mic / Clear (×) button — animated crossfade
             if (_isActive) _buildMicClearButton(),
             if (!_isActive) ...[
@@ -322,31 +316,6 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildModeIndicator(AddMode mode) {
-    final isAskMode = mode == AddMode.askEachTime;
-    return GestureDetector(
-      onTap: () {
-        KalinkaHaptics.selectionClick();
-        final notifier = ref.read(addModeProvider.notifier);
-        notifier.setAddMode(
-          isAskMode ? AddMode.alwaysAppend : AddMode.askEachTime,
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(6),
-          color: KalinkaColors.pillSurface,
-        ),
-        child: Icon(
-          isAskMode ? Icons.menu : Icons.bolt,
-          size: 14,
-          color: isAskMode ? KalinkaColors.textSecondary : KalinkaColors.gold,
-        ),
       ),
     );
   }

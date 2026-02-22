@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
-import '../../providers/add_mode_provider.dart';
 import '../../providers/browse_detail_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_state_provider.dart';
@@ -14,13 +13,12 @@ import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
-import 'add_context_menu.dart';
+import '../swipe_to_act_row.dart';
 import 'long_press_ring_painter.dart';
 
 /// Album row for search results.
-/// 56x56 thumbnail, title/artist/year/trackCount, tag pills,
-/// two stacked icon buttons (add + expand).
-/// Expands inline to show track list.
+/// 56x56 thumbnail, title/artist/year/trackCount, tag pills, expand chevron.
+/// Tap = expand inline track list. Swipe right = add to queue / play next.
 /// Long-press enters multi-select mode.
 class SearchAlbumRow extends ConsumerStatefulWidget {
   final BrowseItem item;
@@ -31,55 +29,32 @@ class SearchAlbumRow extends ConsumerStatefulWidget {
   ConsumerState<SearchAlbumRow> createState() => _SearchAlbumRowState();
 }
 
-class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
-    with SingleTickerProviderStateMixin {
-  bool _showAddCheck = false;
-  Timer? _resetTimer;
-
+class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
   // Long-press ring animation (row long-press → multi-select)
   bool _longPressing = false;
   double _longPressProgress = 0.0;
   Timer? _longPressTimer;
 
-  // + button long-press (escape hatch)
-  bool _plusLongPressing = false;
-  double _plusLongPressProgress = 0.0;
-  Timer? _plusLongPressTimer;
-
-  Future<void> _addAlbum() async {
-    final addModeState = ref.read(addModeProvider);
-
-    // First-encounter intercept
-    if (!addModeState.firstEncounterShown) {
-      ref.read(addModeProvider.notifier).triggerFirstEncounter(widget.item);
-      return;
+  void _toggleExpand() {
+    final searchNotifier = ref.read(searchStateProvider.notifier);
+    final currentExpanded = ref.read(searchStateProvider).expandedAlbumId;
+    if (currentExpanded == widget.item.id) {
+      searchNotifier.collapseAlbum();
+    } else {
+      searchNotifier.expandAlbum(widget.item.id);
     }
-
-    if (addModeState.addMode == AddMode.askEachTime) {
-      _showContextMenu(context, showAddToPlaylist: false);
-      return;
-    }
-
-    // Mode B: instant append
-    await _instantAppend();
   }
 
-  Future<void> _instantAppend() async {
+  Future<void> _addToQueue() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      if (!mounted) return;
-      setState(() => _showAddCheck = true);
-      _resetTimer?.cancel();
-      _resetTimer = Timer(const Duration(milliseconds: 1600), () {
-        if (mounted) setState(() => _showAddCheck = false);
-      });
       if (mounted) {
         final name = widget.item.album?.title ?? widget.item.name ?? 'album';
         final trackCount = widget.item.album?.trackCount;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$name — ${trackCount ?? ''} tracks appended'),
+            content: Text('$name — ${trackCount ?? ''} tracks added to queue'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -93,42 +68,25 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
     }
   }
 
-  void _showContextMenu(
-    BuildContext context, {
-    bool showAddToPlaylist = false,
-  }) {
-    final renderBox = context.findRenderObject() as RenderBox;
-    final position = renderBox.localToGlobal(Offset.zero);
-    final size = renderBox.size;
-
-    showDialog(
-      context: context,
-      barrierColor: Colors.transparent,
-      builder: (ctx) => AddContextMenu(
-        item: widget.item,
-        showAddToPlaylist: showAddToPlaylist,
-        anchorPosition: Offset(
-          position.dx + size.width - 40,
-          position.dy + size.height / 2,
-        ),
-        onConfirm: () {
-          setState(() => _showAddCheck = true);
-          _resetTimer?.cancel();
-          _resetTimer = Timer(const Duration(milliseconds: 1600), () {
-            if (mounted) setState(() => _showAddCheck = false);
-          });
-        },
-      ),
-    );
-  }
-
-  void _toggleExpand() {
-    final searchNotifier = ref.read(searchStateProvider.notifier);
-    final currentExpanded = ref.read(searchStateProvider).expandedAlbumId;
-    if (currentExpanded == widget.item.id) {
-      searchNotifier.collapseAlbum();
-    } else {
-      searchNotifier.expandAlbum(widget.item.id);
+  Future<void> _playNext() async {
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      await api.add([widget.item.id]);
+      if (mounted) {
+        final name = widget.item.album?.title ?? widget.item.name ?? 'album';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$name playing next'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
+      }
     }
   }
 
@@ -167,44 +125,9 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
     if (mounted) setState(() => _longPressProgress = 0.0);
   }
 
-  // --- + button long-press (escape hatch) ---
-
-  void _startPlusLongPress() {
-    _plusLongPressing = true;
-    _plusLongPressProgress = 0.0;
-    const tickDuration = Duration(milliseconds: 16);
-    _plusLongPressTimer = Timer.periodic(tickDuration, (timer) {
-      if (!mounted || !_plusLongPressing) {
-        timer.cancel();
-        if (mounted) setState(() => _plusLongPressProgress = 0.0);
-        return;
-      }
-      setState(() {
-        _plusLongPressProgress = min(1.0, _plusLongPressProgress + 16 / 400);
-      });
-      if (_plusLongPressProgress >= 1.0) {
-        timer.cancel();
-        HapticFeedback.mediumImpact();
-        setState(() {
-          _plusLongPressing = false;
-          _plusLongPressProgress = 0.0;
-        });
-        _showContextMenu(context, showAddToPlaylist: false);
-      }
-    });
-  }
-
-  void _cancelPlusLongPress() {
-    _plusLongPressing = false;
-    _plusLongPressTimer?.cancel();
-    if (mounted) setState(() => _plusLongPressProgress = 0.0);
-  }
-
   @override
   void dispose() {
-    _resetTimer?.cancel();
     _longPressTimer?.cancel();
-    _plusLongPressTimer?.cancel();
     super.dispose();
   }
 
@@ -236,222 +159,187 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
     ];
     final subtitle = subtitleParts.join(' \u00B7 ');
 
-    // Scale for + button during long-press (1.0 → 0.88)
-    final plusScale = _plusLongPressing
-        ? 1.0 - (0.12 * _plusLongPressProgress)
-        : 1.0;
-
     return Column(
       children: [
         // Main row
-        GestureDetector(
-          onTap: () {
-            if (selectionMode) {
-              ref
-                  .read(selectionStateProvider.notifier)
-                  .toggleContainer(widget.item.id);
-            } else {
-              _toggleExpand();
-            }
-          },
-          onLongPressStart: selectionMode ? null : (_) => _startLongPress(),
-          onLongPressEnd: selectionMode ? null : (_) => _cancelLongPress(),
-          onLongPressCancel: selectionMode ? null : _cancelLongPress,
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: selectionMode && isSelected
-                  ? KalinkaColors.accent.withValues(alpha: 0.07)
-                  : Colors.transparent,
-              border: selectionMode && isSelected
-                  ? const Border(
-                      left: BorderSide(color: KalinkaColors.accent, width: 2),
-                    )
-                  : null,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Thumbnail 56x56 with selection overlay
-                SizedBox(
-                  width: 56,
-                  height: 56,
-                  child: Stack(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: resolvedImageUrl != null
-                              ? Image.network(
-                                  resolvedImageUrl,
-                                  width: 56,
-                                  height: 56,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      ProceduralAlbumArt(
-                                        trackId: widget.item.id,
-                                        size: 56,
-                                      ),
-                                )
-                              : ProceduralAlbumArt(
-                                  trackId: widget.item.id,
-                                  size: 56,
-                                ),
-                        ),
-                      ),
-                      // Long-press ring
-                      if (_longPressing && _longPressProgress > 0)
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: LongPressRingPainter(
-                              progress: _longPressProgress,
-                              color: KalinkaColors.accent,
-                            ),
-                          ),
-                        ),
-                      // Selection overlay
-                      if (selectionMode && isSelected)
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: KalinkaColors.accent.withValues(
-                                alpha: 0.7,
+        SwipeToActRow(
+          enabled: !selectionMode,
+          onAddToQueue: _addToQueue,
+          onPlayNext: _playNext,
+          child: GestureDetector(
+            onTap: () {
+              if (selectionMode) {
+                ref
+                    .read(selectionStateProvider.notifier)
+                    .toggleContainer(widget.item.id);
+              } else {
+                _toggleExpand();
+              }
+            },
+            onLongPressStart: selectionMode ? null : (_) => _startLongPress(),
+            onLongPressEnd: selectionMode ? null : (_) => _cancelLongPress(),
+            onLongPressCancel: selectionMode ? null : _cancelLongPress,
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: selectionMode && isSelected
+                    ? KalinkaColors.accent.withValues(alpha: 0.07)
+                    : Colors.transparent,
+                border: selectionMode && isSelected
+                    ? const Border(
+                        left: BorderSide(color: KalinkaColors.accent, width: 2),
+                      )
+                    : null,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Thumbnail 56x56 with selection overlay
+                  SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: Stack(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
                               ),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              isPartial ? Icons.remove : Icons.check,
-                              color: Colors.white,
-                              size: 24,
-                            ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: resolvedImageUrl != null
+                                ? Image.network(
+                                    resolvedImageUrl,
+                                    width: 56,
+                                    height: 56,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        ProceduralAlbumArt(
+                                          trackId: widget.item.id,
+                                          size: 56,
+                                        ),
+                                  )
+                                : ProceduralAlbumArt(
+                                    trackId: widget.item.id,
+                                    size: 56,
+                                  ),
                           ),
                         ),
-                      // Source badge
-                      if (!(selectionMode && isSelected))
-                        Positioned(
-                          bottom: 2,
-                          right: 2,
-                          child: SourceBadge(entityId: widget.item.id),
-                        ),
-                    ],
+                        // Long-press ring
+                        if (_longPressing && _longPressProgress > 0)
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: LongPressRingPainter(
+                                progress: _longPressProgress,
+                                color: KalinkaColors.accent,
+                              ),
+                            ),
+                          ),
+                        // Selection overlay
+                        if (selectionMode && isSelected)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: KalinkaColors.accent.withValues(
+                                  alpha: 0.7,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                isPartial ? Icons.remove : Icons.check,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        // Source badge
+                        if (!(selectionMode && isSelected))
+                          Positioned(
+                            bottom: 2,
+                            right: 2,
+                            child: SourceBadge(entityId: widget.item.id),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                // Info column
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: KalinkaTextStyles.cardTitle.copyWith(
-                          color: selectionMode && isSelected
-                              ? KalinkaColors.accent
-                              : null,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (subtitle.isNotEmpty)
+                  const SizedBox(width: 12),
+                  // Info column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          subtitle,
-                          style: KalinkaTextStyles.trackRowSubtitle,
+                          title,
+                          style: KalinkaTextStyles.cardTitle.copyWith(
+                            color: selectionMode && isSelected
+                                ? KalinkaColors.accent
+                                : null,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                      if (genre != null) ...[
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                        if (subtitle.isNotEmpty)
+                          Text(
+                            subtitle,
+                            style: KalinkaTextStyles.trackRowSubtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          decoration: BoxDecoration(
-                            color: KalinkaColors.pillSurface,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(genre, style: KalinkaTextStyles.tagPill),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Stacked buttons
-                Column(
-                  children: [
-                    // Add button (hidden in selection mode)
-                    if (!selectionMode)
-                      Transform.scale(
-                        scale: plusScale,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: _addAlbum,
-                          onLongPressStart: (_) => _startPlusLongPress(),
-                          onLongPressEnd: (_) => _cancelPlusLongPress(),
-                          onLongPressCancel: _cancelPlusLongPress,
-                          child: Container(
-                            width: 28,
-                            height: 28,
+                        if (genre != null) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: _showAddCheck
-                                    ? KalinkaColors.confirmGreen
-                                    : KalinkaColors.gold,
-                                width: 1,
-                              ),
+                              color: KalinkaColors.pillSurface,
+                              borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Icon(
-                              _showAddCheck ? Icons.check : Icons.add,
-                              size: 14,
-                              color: _showAddCheck
-                                  ? KalinkaColors.confirmGreen
-                                  : KalinkaColors.gold,
+                            child: Text(
+                              genre,
+                              style: KalinkaTextStyles.tagPill,
                             ),
                           ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Expand chevron button (always visible)
+                  GestureDetector(
+                    onTap: _toggleExpand,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: KalinkaColors.borderElevated,
+                          width: 1,
                         ),
                       ),
-                    if (!selectionMode) const SizedBox(height: 4),
-                    // Expand button (always visible)
-                    GestureDetector(
-                      onTap: _toggleExpand,
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: KalinkaColors.borderElevated,
-                            width: 1,
-                          ),
-                        ),
-                        child: AnimatedRotation(
-                          turns: isExpanded ? 0.5 : 0.0,
-                          duration: const Duration(milliseconds: 200),
-                          child: const Icon(
-                            Icons.expand_more,
-                            size: 14,
-                            color: KalinkaColors.textSecondary,
-                          ),
+                      child: AnimatedRotation(
+                        turns: isExpanded ? 0.5 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: const Icon(
+                          Icons.expand_more,
+                          size: 14,
+                          color: KalinkaColors.textSecondary,
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -535,7 +423,7 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
   }
 }
 
-class _InlineTrackRow extends ConsumerStatefulWidget {
+class _InlineTrackRow extends ConsumerWidget {
   final BrowseItem item;
   final int index;
   final String containerId;
@@ -546,98 +434,14 @@ class _InlineTrackRow extends ConsumerStatefulWidget {
     required this.containerId,
   });
 
-  @override
-  ConsumerState<_InlineTrackRow> createState() => _InlineTrackRowState();
-}
-
-class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
-  bool _showCheck = false;
-  Timer? _resetTimer;
-
-  // + button long-press (escape hatch)
-  bool _plusLongPressing = false;
-  double _plusLongPressProgress = 0.0;
-  Timer? _plusLongPressTimer;
-
-  @override
-  void dispose() {
-    _resetTimer?.cancel();
-    _plusLongPressTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _addTrack() async {
-    final addModeState = ref.read(addModeProvider);
-
-    // First-encounter intercept
-    if (!addModeState.firstEncounterShown) {
-      ref.read(addModeProvider.notifier).triggerFirstEncounter(widget.item);
-      return;
-    }
-
-    if (addModeState.addMode == AddMode.askEachTime) {
-      _showContextMenu(context, showAddToPlaylist: true);
-      return;
-    }
-
-    // Mode B: instant append
-    await _instantAppend();
-  }
-
-  Future<void> _instantAppend() async {
+  Future<void> _playTrack(WidgetRef ref, BuildContext context) async {
     try {
       final api = ref.read(kalinkaProxyProvider);
-      await api.add([widget.item.id]);
-      if (!mounted) return;
-      setState(() => _showCheck = true);
-      _resetTimer?.cancel();
-      _resetTimer = Timer(const Duration(milliseconds: 1600), () {
-        if (mounted) setState(() => _showCheck = false);
-      });
-      if (mounted) {
-        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('"$title" appended'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (_) {}
-  }
-
-  void _showContextMenu(BuildContext context, {bool showAddToPlaylist = true}) {
-    final renderBox = context.findRenderObject() as RenderBox;
-    final position = renderBox.localToGlobal(Offset.zero);
-    final size = renderBox.size;
-
-    showDialog(
-      context: context,
-      barrierColor: Colors.transparent,
-      builder: (ctx) => AddContextMenu(
-        item: widget.item,
-        showAddToPlaylist: showAddToPlaylist,
-        anchorPosition: Offset(
-          position.dx + size.width - 40,
-          position.dy + size.height / 2,
-        ),
-        onConfirm: () {
-          setState(() => _showCheck = true);
-          _resetTimer?.cancel();
-          _resetTimer = Timer(const Duration(milliseconds: 1600), () {
-            if (mounted) setState(() => _showCheck = false);
-          });
-        },
-      ),
-    );
-  }
-
-  Future<void> _playTrack() async {
-    try {
-      final api = ref.read(kalinkaProxyProvider);
-      await api.add([widget.item.id]);
+      await api.clear();
+      await api.add([item.id]);
+      await api.play();
     } catch (e) {
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to play: $e')));
@@ -645,156 +449,122 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
     }
   }
 
-  // --- + button long-press (escape hatch) ---
-
-  void _startPlusLongPress() {
-    _plusLongPressing = true;
-    _plusLongPressProgress = 0.0;
-    const tickDuration = Duration(milliseconds: 16);
-    _plusLongPressTimer = Timer.periodic(tickDuration, (timer) {
-      if (!mounted || !_plusLongPressing) {
-        timer.cancel();
-        if (mounted) setState(() => _plusLongPressProgress = 0.0);
-        return;
+  Future<void> _addToQueue(WidgetRef ref, BuildContext context) async {
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      await api.add([item.id]);
+      if (context.mounted) {
+        final title = item.track?.title ?? item.name ?? 'track';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"$title" added to queue'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
-      setState(() {
-        _plusLongPressProgress = min(1.0, _plusLongPressProgress + 16 / 400);
-      });
-      if (_plusLongPressProgress >= 1.0) {
-        timer.cancel();
-        HapticFeedback.mediumImpact();
-        setState(() {
-          _plusLongPressing = false;
-          _plusLongPressProgress = 0.0;
-        });
-        _showContextMenu(context, showAddToPlaylist: true);
-      }
-    });
+    } catch (_) {}
   }
 
-  void _cancelPlusLongPress() {
-    _plusLongPressing = false;
-    _plusLongPressTimer?.cancel();
-    if (mounted) setState(() => _plusLongPressProgress = 0.0);
+  Future<void> _playNext(WidgetRef ref, BuildContext context) async {
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      await api.add([item.id]);
+      if (context.mounted) {
+        final title = item.track?.title ?? item.name ?? 'track';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"$title" playing next'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (_) {}
   }
 
   @override
-  Widget build(BuildContext context) {
-    final track = widget.item.track;
-    final title = track?.title ?? widget.item.name ?? 'Unknown';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final track = item.track;
+    final title = track?.title ?? item.name ?? 'Unknown';
     final duration = _formatDuration(
       track?.duration != null ? track!.duration * 1000 : null,
     );
 
     final selection = ref.watch(selectionStateProvider);
     final selectionMode = selection.isActive;
-    final containerSelected = selection.isContainerSelected(widget.containerId);
+    final containerSelected = selection.isContainerSelected(containerId);
     final trackSelected =
         containerSelected &&
-        selection.isTrackInContainerSelected(
-          widget.containerId,
-          widget.item.id,
-        );
+        selection.isTrackInContainerSelected(containerId, item.id);
 
-    // Scale for + button during long-press (1.0 → 0.88)
-    final plusScale = _plusLongPressing
-        ? 1.0 - (0.12 * _plusLongPressProgress)
-        : 1.0;
-
-    return GestureDetector(
-      onTap: () {
-        if (selectionMode && containerSelected) {
-          ref
-              .read(selectionStateProvider.notifier)
-              .toggleTrackInContainer(widget.containerId, widget.item.id);
-        } else if (!selectionMode) {
-          _playTrack();
-        }
-      },
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: selectionMode && containerSelected && trackSelected
-              ? KalinkaColors.accent.withValues(alpha: 0.05)
-              : Colors.transparent,
-        ),
-        child: Row(
-          children: [
-            // Track number or selection indicator
-            SizedBox(
-              width: 24,
-              child: selectionMode && containerSelected
-                  ? Icon(
-                      trackSelected
-                          ? Icons.check_circle
-                          : Icons.radio_button_unchecked,
-                      size: 16,
-                      color: trackSelected
-                          ? KalinkaColors.accent
-                          : KalinkaColors.textSecondary,
-                    )
-                  : Text(
-                      '${widget.index}',
-                      style: KalinkaTextStyles.trackRowSubtitle,
-                      textAlign: TextAlign.center,
-                    ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                title,
-                style: KalinkaTextStyles.trackRowTitle.copyWith(
-                  color: selectionMode && containerSelected && !trackSelected
-                      ? KalinkaColors.textSecondary
-                      : null,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (!(selectionMode && containerSelected)) ...[
-              if (duration != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Text(
-                    duration,
-                    style: KalinkaTextStyles.trackRowSubtitle,
-                  ),
-                ),
-              Transform.scale(
-                scale: plusScale,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _addTrack,
-                  onLongPressStart: (_) => _startPlusLongPress(),
-                  onLongPressEnd: (_) => _cancelPlusLongPress(),
-                  onLongPressCancel: _cancelPlusLongPress,
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: _showCheck
-                            ? KalinkaColors.confirmGreen
-                            : KalinkaColors.gold,
-                        width: 1,
+    return SwipeToActRow(
+      enabled: !selectionMode,
+      onAddToQueue: () => _addToQueue(ref, context),
+      onPlayNext: () => _playNext(ref, context),
+      child: GestureDetector(
+        onTap: () {
+          if (selectionMode && containerSelected) {
+            ref
+                .read(selectionStateProvider.notifier)
+                .toggleTrackInContainer(containerId, item.id);
+          } else if (!selectionMode) {
+            _playTrack(ref, context);
+          }
+        },
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selectionMode && containerSelected && trackSelected
+                ? KalinkaColors.accent.withValues(alpha: 0.05)
+                : Colors.transparent,
+          ),
+          child: Row(
+            children: [
+              // Track number or selection indicator
+              SizedBox(
+                width: 24,
+                child: selectionMode && containerSelected
+                    ? Icon(
+                        trackSelected
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                        size: 16,
+                        color: trackSelected
+                            ? KalinkaColors.accent
+                            : KalinkaColors.textSecondary,
+                      )
+                    : Text(
+                        '$index',
+                        style: KalinkaTextStyles.trackRowSubtitle,
+                        textAlign: TextAlign.center,
                       ),
-                    ),
-                    child: Icon(
-                      _showCheck ? Icons.check : Icons.add,
-                      size: 12,
-                      color: _showCheck
-                          ? KalinkaColors.confirmGreen
-                          : KalinkaColors.gold,
-                    ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: KalinkaTextStyles.trackRowTitle.copyWith(
+                    color: selectionMode && containerSelected && !trackSelected
+                        ? KalinkaColors.textSecondary
+                        : null,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (!(selectionMode && containerSelected)) ...[
+                if (duration != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(
+                      duration,
+                      style: KalinkaTextStyles.trackRowSubtitle,
+                    ),
+                  ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
