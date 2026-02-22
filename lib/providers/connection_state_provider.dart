@@ -1,10 +1,12 @@
 import 'dart:async' show Timer;
 
 import 'package:dio/dio.dart' show DioException;
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart' show Logger;
 import 'connection_settings_provider.dart';
 import 'kalinka_player_api_provider.dart';
+import 'playback_time_provider.dart' show appLifecycleProvider;
 
 final _logger = Logger();
 
@@ -35,7 +37,26 @@ class ConnectionStateNotifier extends Notifier<ConnectionStatus> {
   ConnectionStatus build() {
     final settings = ref.read(connectionSettingsProvider);
     ref.onDispose(_cancelRetryTimer);
+
+    ref.listen<AppLifecycleState>(appLifecycleProvider, (_, next) {
+      _onLifecycleChange(next);
+    });
+
     return settings.isSet ? ConnectionStatus.connecting : ConnectionStatus.none;
+  }
+
+  void _onLifecycleChange(AppLifecycleState lifecycle) {
+    if (lifecycle == AppLifecycleState.resumed) {
+      // Foregrounded: restart reconnection immediately if it was paused.
+      if (state == ConnectionStatus.reconnecting ||
+          state == ConnectionStatus.offline) {
+        _startRetryTimer();
+        _attemptReconnect();
+      }
+    } else {
+      // Backgrounded: pause reconnection attempts to save battery.
+      _cancelRetryTimer();
+    }
   }
 
   void connecting() {
@@ -62,7 +83,11 @@ class ConnectionStateNotifier extends Notifier<ConnectionStatus> {
     _retryCount = 0;
     _reconnectStartedAt = DateTime.now();
     state = ConnectionStatus.reconnecting;
+    _startRetryTimer();
+  }
 
+  void _startRetryTimer() {
+    _retryTimer?.cancel();
     _retryTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _attemptReconnect();
     });
@@ -79,15 +104,13 @@ class ConnectionStateNotifier extends Notifier<ConnectionStatus> {
       _reconnectStartedAt = DateTime.now();
       escalationDismissed = false;
       state = ConnectionStatus.reconnecting;
-
-      _retryTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-        _attemptReconnect();
-      });
+      _startRetryTimer();
     }
     _attemptReconnect();
   }
 
   Future<void> _attemptReconnect() async {
+    if (ref.read(appLifecycleProvider) != AppLifecycleState.resumed) return;
     _retryCount++;
     _logger.d('Reconnect attempt #$_retryCount');
 
