@@ -462,8 +462,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '${server.host}:${server.port}'
-                    '${server.latencyMs > 0 ? ' \u00b7 ${server.latencyMs}ms' : ''}',
+                    [
+                      '${server.host}:${server.port}',
+                      if (server.latencyMs > 0) '${server.latencyMs}ms',
+                      if (server.version != null) 'v${server.version}',
+                    ].join(' \u00b7 '),
                     style: KalinkaTextStyles.trayRowSublabel.copyWith(
                       color: KalinkaColors.textMuted,
                     ),

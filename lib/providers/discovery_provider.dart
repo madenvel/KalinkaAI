@@ -1,11 +1,9 @@
 import 'dart:async' show Timer;
-import 'dart:convert' show utf8;
 
 import 'package:dio/dio.dart' show Dio, BaseOptions;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart' show Logger;
-import 'package:nsd/nsd.dart'
-    show Discovery, ServiceStatus, startDiscovery, stopDiscovery;
+import 'package:multicast_dns/multicast_dns.dart';
 
 final _logger = Logger();
 
@@ -14,12 +12,14 @@ class DiscoveredServer {
   final String host;
   final int port;
   final int latencyMs;
+  final String? version;
 
   const DiscoveredServer({
     required this.name,
     required this.host,
     required this.port,
     this.latencyMs = 0,
+    this.version,
   });
 
   /// Signal strength 0-3 derived from latency.
@@ -61,8 +61,9 @@ final discoveryProvider = NotifierProvider<DiscoveryNotifier, DiscoveryState>(
 );
 
 class DiscoveryNotifier extends Notifier<DiscoveryState> {
-  Discovery? _discovery;
+  MDnsClient? _client;
   Timer? _minDurationTimer;
+  Timer? _timeoutTimer;
 
   @override
   DiscoveryState build() {
@@ -72,7 +73,7 @@ class DiscoveryNotifier extends Notifier<DiscoveryState> {
     return const DiscoveryState();
   }
 
-  /// Start scanning for `_misc._tcp` services on the local network.
+  /// Start scanning for `_kalinkaplayer._tcp` services on the local network.
   Future<void> startScan() async {
     await stopScan();
     state = const DiscoveryState(isScanning: true);
@@ -83,65 +84,121 @@ class DiscoveryNotifier extends Notifier<DiscoveryState> {
     // Enforce minimum 1.2 second scan duration for visual stability
     _minDurationTimer = Timer(const Duration(milliseconds: 1200), () {
       minDurationElapsed = true;
-      if (foundServers.isNotEmpty || state.isScanning) {
+    });
+
+    // Timeout: stop scanning after 5 seconds regardless
+    _timeoutTimer = Timer(const Duration(seconds: 5), () {
+      if (state.isScanning) {
         _finalizeScan(foundServers);
       }
     });
 
     try {
-      _discovery = await startDiscovery('_misc._tcp');
+      _client = MDnsClient();
+      await _client!.start();
 
-      _discovery!.addServiceListener((service, status) async {
-        if (status == ServiceStatus.found) {
-          final host = service.addresses?.firstOrNull?.address;
-          final port = service.port;
+      const serviceType = '_kalinkaplayer._tcp.local';
 
-          // Read name from TXT record or fall back to service name
-          String name = service.name ?? 'Kalinka Server';
-          final txtName = service.txt?['name'];
-          if (txtName != null) {
-            name = utf8.decode(txtName);
-          }
-
-          if (host != null && port != null) {
-            // Measure latency with a quick ping
-            final latency = await _measureLatency(host, port);
-            final server = DiscoveredServer(
-              name: name,
-              host: host,
-              port: port,
-              latencyMs: latency,
-            );
-
-            foundServers.add(server);
-
-            if (minDurationElapsed) {
-              _finalizeScan(foundServers);
-            }
-          }
-        }
-      });
-
-      // Timeout: stop scanning after 5 seconds regardless
-      Timer(const Duration(seconds: 5), () {
-        if (state.isScanning) {
-          _finalizeScan(foundServers);
-        }
-      });
+      _client!
+          .lookup<PtrResourceRecord>(
+            ResourceRecordQuery.serverPointer(serviceType),
+            timeout: const Duration(seconds: 4),
+          )
+          .listen(
+            (ptr) async {
+              await _resolveService(ptr, foundServers);
+              if (minDurationElapsed) {
+                _finalizeScan(foundServers);
+              }
+            },
+            onError: (Object e) {
+              _logger.e('mDNS discovery error', error: e);
+            },
+          );
     } catch (e) {
       _logger.e('mDNS discovery error', error: e);
-      // If mDNS fails, just show empty results after min duration
-      if (minDurationElapsed) {
-        state = DiscoveryState(
-          isScanning: false,
-          servers: foundServers,
-          error: e.toString(),
-        );
+      _minDurationTimer?.cancel();
+      _timeoutTimer?.cancel();
+      state = DiscoveryState(
+        isScanning: false,
+        servers: foundServers,
+        error: e.toString(),
+      );
+    }
+  }
+
+  Future<void> _resolveService(
+    PtrResourceRecord ptr,
+    List<DiscoveredServer> foundServers,
+  ) async {
+    final client = _client;
+    if (client == null) return;
+
+    // Service name from the PTR domain (strip the service type suffix)
+    final name = ptr.domainName.split('.').first;
+
+    String? host;
+    int port = 0;
+    String? version;
+
+    // SRV record gives host and port
+    await for (final SrvResourceRecord srv in client.lookup<SrvResourceRecord>(
+      ResourceRecordQuery.service(ptr.domainName),
+      timeout: const Duration(seconds: 2),
+    )) {
+      port = srv.port;
+
+      // IPv4 address
+      await for (final IPAddressResourceRecord ip
+          in client.lookup<IPAddressResourceRecord>(
+        ResourceRecordQuery.addressIPv4(srv.target),
+        timeout: const Duration(seconds: 2),
+      )) {
+        host = ip.address.address;
+        break;
       }
+
+      // Fallback to IPv6 if no IPv4 found
+      if (host == null) {
+        await for (final IPAddressResourceRecord ip
+            in client.lookup<IPAddressResourceRecord>(
+          ResourceRecordQuery.addressIPv6(srv.target),
+          timeout: const Duration(seconds: 2),
+        )) {
+          host = ip.address.address;
+          break;
+        }
+      }
+      break;
+    }
+
+    // TXT record for server_version
+    await for (final TxtResourceRecord txt in client.lookup<TxtResourceRecord>(
+      ResourceRecordQuery.text(ptr.domainName),
+      timeout: const Duration(seconds: 2),
+    )) {
+      for (final entry in txt.text.split('\n')) {
+        if (entry.startsWith('server_version=')) {
+          version = entry.substring('server_version='.length);
+        }
+      }
+      break;
+    }
+
+    if (host != null && port > 0) {
+      final latency = await _measureLatency(host, port);
+      foundServers.add(DiscoveredServer(
+        name: name,
+        host: host,
+        port: port,
+        latencyMs: latency,
+        version: version,
+      ));
     }
   }
 
   void _finalizeScan(List<DiscoveredServer> servers) {
+    if (!state.isScanning) return;
     // Sort by latency (best first)
     servers.sort((a, b) => a.latencyMs.compareTo(b.latencyMs));
     state = DiscoveryState(isScanning: false, servers: List.of(servers));
@@ -171,16 +228,14 @@ class DiscoveryNotifier extends Notifier<DiscoveryState> {
   Future<void> stopScan() async {
     _minDurationTimer?.cancel();
     _minDurationTimer = null;
+    _timeoutTimer?.cancel();
+    _timeoutTimer = null;
     await _cleanupDiscovery();
   }
 
   Future<void> _cleanupDiscovery() async {
-    if (_discovery != null) {
-      try {
-        await stopDiscovery(_discovery!);
-      } catch (_) {}
-      _discovery = null;
-    }
+    _client?.stop();
+    _client = null;
   }
 
   Future<void> rescan() async {

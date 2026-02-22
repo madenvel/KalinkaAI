@@ -93,7 +93,30 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final artSize = constraints.maxWidth * 0.75;
+        // Header height varies by mode.
+        final double headerHeight = widget.showOverlayHeader ? 80.0 : 52.0;
+        // Estimated height of all content below the album art:
+        // spacing + title + artist + badges + slider + time + controls + volume + padding.
+        const double belowArtHeight = 400.0;
+        // Spacing above the album art inside the scroll area.
+        const double aboveArtHeight = 16.0;
+
+        final double maxArtByWidth = constraints.maxWidth * 0.75;
+        // Only constrain by height when the panel has a finite, bounded height.
+        final double artSize;
+        if (constraints.hasBoundedHeight) {
+          final double maxArtByHeight =
+              constraints.maxHeight -
+              headerHeight -
+              aboveArtHeight -
+              belowArtHeight;
+          artSize = maxArtByWidth.clamp(
+            0.0,
+            maxArtByHeight.clamp(80.0, maxArtByWidth),
+          );
+        } else {
+          artSize = maxArtByWidth;
+        }
 
         return Container(
           color: KalinkaColors.background,
@@ -124,9 +147,9 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                   children: [
                     // Header
                     _buildHeader(),
-                    // Scrollable content
+                    // Content — fills remaining space with controls pinned to bottom
                     Expanded(
-                      child: SingleChildScrollView(
+                      child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         child: Column(
                           children: [
@@ -163,7 +186,8 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                       size: artSize,
                                     ),
                             ),
-                            const SizedBox(height: 28),
+                            // Flexible gap: centres track info between art and controls
+                            const Spacer(),
                             // Track title
                             Text(
                               currentTrack?.title ?? 'No track',
@@ -215,7 +239,8 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                 ],
                               ),
                             ],
-                            const SizedBox(height: 24),
+                            // Flexible gap: pushes controls to the bottom
+                            const Spacer(),
                             // Progress bar
                             SliderTheme(
                               data: SliderThemeData(
