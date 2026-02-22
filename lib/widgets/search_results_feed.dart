@@ -291,7 +291,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         // Result count hint
         if (searchState.totalResultCount > 0)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(top: 12, bottom: 8),
             child: Text(
               '${searchState.totalResultCount} RESULTS \u00B7 RANKED BY RELEVANCE',
               style: KalinkaTextStyles.resultCountHint,

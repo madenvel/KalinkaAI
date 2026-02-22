@@ -4,6 +4,7 @@ import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
 import 'search_cards/search_album_row.dart';
 import 'search_cards/search_artist_row.dart';
+import 'search_cards/search_track_row.dart';
 import '../data_model/data_model.dart';
 
 /// Zero-state content surface shown when search is activated but no query
@@ -44,12 +45,17 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
     final aiSuggestions = searchState.aiPromptSuggestions;
     final browseRecs = searchState.browseRecommendations;
 
+    final libraryItemCount =
+        browseRecs != null ? _countLibraryItems(browseRecs) : 0;
+    final showLibrarySection =
+        searchState.isLoading || libraryItemCount > 0;
+
     int itemIndex = 0;
     int totalItems =
         (history.isNotEmpty ? history.length + 1 : 0) +
         aiSuggestions.length +
-        1 + // section label
-        (browseRecs != null ? _countLibraryItems(browseRecs) + 1 : 0);
+        1 + // AI section label
+        (showLibrarySection ? libraryItemCount + 1 : 0);
 
     return ListView(
       controller: _scrollController,
@@ -137,34 +143,36 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
         const SizedBox(height: 16),
 
         // In your library section
-        _StaggeredZeroItem(
-          index: itemIndex++,
-          controller: _staggerController,
-          totalItems: totalItems,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              'IN YOUR LIBRARY',
-              style: KalinkaTextStyles.sectionLabel,
-            ),
-          ),
-        ),
-        if (browseRecs != null)
-          ..._buildLibraryItems(browseRecs, itemIndex, totalItems)
-        else if (searchState.isLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: KalinkaColors.accent,
-                ),
+        if (showLibrarySection) ...[
+          _StaggeredZeroItem(
+            index: itemIndex++,
+            controller: _staggerController,
+            totalItems: totalItems,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'IN YOUR LIBRARY',
+                style: KalinkaTextStyles.sectionLabel,
               ),
             ),
           ),
+          if (browseRecs != null)
+            ..._buildLibraryItems(browseRecs, itemIndex, totalItems)
+          else if (searchState.isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: KalinkaColors.accent,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ],
     );
   }
@@ -195,12 +203,13 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
     return items.map((item) {
       final currentIdx = idx++;
       Widget row;
-      if (item.album != null) {
+      if (item.track != null) {
+        row = SearchTrackRow(item: item);
+      } else if (item.album != null) {
         row = SearchAlbumRow(item: item);
       } else if (item.artist != null) {
         row = SearchArtistRow(item: item);
       } else {
-        // Generic item — use album row as fallback
         row = SearchAlbumRow(item: item);
       }
       return _StaggeredZeroItem(
