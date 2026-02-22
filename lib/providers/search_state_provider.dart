@@ -6,10 +6,12 @@ import '../data_model/data_model.dart';
 import 'kalinka_player_api_provider.dart';
 import 'connection_settings_provider.dart';
 import 'app_state_provider.dart';
+import 'selection_state_provider.dart';
 
 const _searchHistoryKey = 'Kalinka.searchHistory';
 const _maxHistoryItems = 10;
 const _maxSessionHistory = 5;
+const _minHistoryQueryLength = 3;
 const _maxCachedQueries = 5;
 const _cacheTtlMinutes = 5;
 const _maxCompletions = 3;
@@ -239,6 +241,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
   void deactivateSearch() {
     _debounceTimer?.cancel();
     _completionHideTimer?.cancel();
+    ref.read(selectionStateProvider.notifier).exitSelectionMode();
     // Save any session history queries into all-time history
     for (final q in state.sessionHistory) {
       _addToHistory(q);
@@ -658,7 +661,12 @@ class SearchStateNotifier extends Notifier<SearchState> {
   }
 
   void _addToHistory(String query) {
+    if (query.length < _minHistoryQueryLength) return;
+    final lower = query.toLowerCase();
     final history = getSearchHistory();
+    // Remove any existing entries that are a prefix of the new query —
+    // these are typing artifacts (e.g. "ja" when saving "jarre").
+    history.removeWhere((h) => h != query && lower.startsWith(h.toLowerCase()));
     history.remove(query);
     history.insert(0, query);
     if (history.length > _maxHistoryItems) {
