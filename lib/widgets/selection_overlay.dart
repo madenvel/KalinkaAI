@@ -166,10 +166,15 @@ class MultiSelectBottomBar extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
+                            color: KalinkaColors.confirmGreen.withValues(
+                              alpha: 0.1,
+                            ),
                             border: Border.all(
                               color: selection.count > 0
-                                  ? KalinkaColors.accent
-                                  : KalinkaColors.accent.withValues(alpha: 0.3),
+                                  ? KalinkaColors.confirmGreen
+                                  : KalinkaColors.confirmGreen.withValues(
+                                      alpha: 0.3,
+                                    ),
                               width: 1,
                             ),
                           ),
@@ -178,7 +183,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
                               Icon(
                                 Icons.play_arrow,
                                 size: 16,
-                                color: KalinkaColors.accent,
+                                color: KalinkaColors.confirmGreen,
                               ),
                               const SizedBox(height: 2),
                               Text(
@@ -186,7 +191,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
                                 style: GoogleFonts.ibmPlexMono(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: KalinkaColors.accent,
+                                  color: KalinkaColors.confirmGreen,
                                 ),
                               ),
                             ],
@@ -208,10 +213,11 @@ class MultiSelectBottomBar extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
+                            color: KalinkaColors.gold.withValues(alpha: 0.1),
                             border: Border.all(
                               color: selection.count > 0
-                                  ? KalinkaColors.accent
-                                  : KalinkaColors.accent.withValues(alpha: 0.3),
+                                  ? KalinkaColors.gold
+                                  : KalinkaColors.gold.withValues(alpha: 0.3),
                               width: 1,
                             ),
                           ),
@@ -220,7 +226,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
                               Icon(
                                 Icons.arrow_upward,
                                 size: 16,
-                                color: KalinkaColors.accent,
+                                color: KalinkaColors.gold,
                               ),
                               const SizedBox(height: 2),
                               Text(
@@ -228,7 +234,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
                                 style: GoogleFonts.ibmPlexMono(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: KalinkaColors.accent,
+                                  color: KalinkaColors.gold,
                                 ),
                               ),
                             ],
@@ -250,10 +256,9 @@ class MultiSelectBottomBar extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
+                            color: KalinkaColors.pillSurface,
                             border: Border.all(
-                              color: selection.count > 0
-                                  ? KalinkaColors.gold
-                                  : KalinkaColors.gold.withValues(alpha: 0.3),
+                              color: KalinkaColors.borderElevated,
                               width: 1,
                             ),
                           ),
@@ -262,7 +267,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
                               Icon(
                                 Icons.playlist_add,
                                 size: 16,
-                                color: KalinkaColors.gold,
+                                color: KalinkaColors.textSecondary,
                               ),
                               const SizedBox(height: 2),
                               Text(
@@ -270,7 +275,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
                                 style: GoogleFonts.ibmPlexMono(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: KalinkaColors.gold,
+                                  color: KalinkaColors.textSecondary,
                                 ),
                               ),
                             ],

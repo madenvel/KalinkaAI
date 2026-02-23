@@ -7,7 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kai/main.dart';
+import 'package:kalinka/main.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
