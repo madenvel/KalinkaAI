@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data_model/data_model.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
@@ -257,74 +258,90 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
       return EmptyQueueState(onSearchTap: _activateSearch);
     }
 
-    return ListView(
-      padding: EdgeInsets.only(bottom: widget.bottomPadding + 16),
-      children: [
+    return CustomScrollView(
+      slivers: [
         // "Up next" section header with overflow button
-        QueueSectionHeader(
-          label: 'UP NEXT',
-          trackCount: upNextTracks.length,
-          showShuffleBadge: playbackMode.shuffle,
-          trailing: _buildOverflowButton(),
+        SliverToBoxAdapter(
+          child: QueueSectionHeader(
+            label: 'UP NEXT',
+            trackCount: upNextTracks.length,
+            showShuffleBadge: playbackMode.shuffle,
+            trailing: _buildOverflowButton(),
+          ),
         ),
-        // Up next items
+        // Up next items — built lazily
         if (upNextTracks.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            child: Text(
-              'Queue is empty',
-              style: KalinkaTextStyles.queueItemArtist,
-              textAlign: TextAlign.center,
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: Text(
+                'Queue is empty',
+                style: KalinkaTextStyles.queueItemArtist,
+                textAlign: TextAlign.center,
+              ),
             ),
           )
         else
-          ...List.generate(upNextTracks.length, (i) {
-            final absoluteIndex = currentIndex + i;
-            final track = upNextTracks[i];
-            return QueueItemRow(
-              key: ValueKey('upnext_${track.id}_$absoluteIndex'),
-              track: track,
-              index: absoluteIndex,
-              displayIndex: i,
-              isCurrentTrack: i == 0,
-            );
-          }),
-
-        // Previously played section
-        if (previousTracks.isNotEmpty) ...[
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Divider(),
+          SliverList.builder(
+            itemCount: upNextTracks.length,
+            itemBuilder: (context, i) {
+              final absoluteIndex = currentIndex + i;
+              final track = upNextTracks[i] as Track;
+              return QueueItemRow(
+                key: ValueKey('upnext_${track.id}_$absoluteIndex'),
+                track: track,
+                index: absoluteIndex,
+                displayIndex: i,
+                isCurrentTrack: i == 0,
+              );
+            },
           ),
-          // "Previously played" section header with clear button
-          QueueSectionHeader(
-            label: 'PREVIOUSLY PLAYED',
-            trailing: GestureDetector(
-              onTap: _clearPlayed,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Text(
-                  'CLEAR PLAYED',
-                  style: KalinkaTextStyles.clearPlayedButton,
+
+        // Previously played section — built lazily
+        if (previousTracks.isNotEmpty) ...[
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: QueueSectionHeader(
+              label: 'PREVIOUSLY PLAYED',
+              trailing: GestureDetector(
+                onTap: _clearPlayed,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    'CLEAR PLAYED',
+                    style: KalinkaTextStyles.clearPlayedButton,
+                  ),
                 ),
               ),
             ),
           ),
-          // Previously played items at 36% opacity
-          ...List.generate(previousTracks.length, (i) {
-            final track = previousTracks[i];
-            return Opacity(
-              opacity: 0.36,
-              child: QueueItemRow(
-                key: ValueKey('prev_${track.id}_$i'),
-                track: track,
-                index: i,
-                displayIndex: i,
-              ),
-            );
-          }),
+          SliverList.builder(
+            itemCount: previousTracks.length,
+            itemBuilder: (context, i) {
+              final track = previousTracks[i] as Track;
+              return Opacity(
+                opacity: 0.36,
+                child: QueueItemRow(
+                  key: ValueKey('prev_${track.id}_$i'),
+                  track: track,
+                  index: i,
+                  displayIndex: i,
+                ),
+              );
+            },
+          ),
         ],
+
+        // Bottom padding
+        SliverPadding(
+          padding: EdgeInsets.only(bottom: widget.bottomPadding + 16),
+        ),
       ],
     );
   }
