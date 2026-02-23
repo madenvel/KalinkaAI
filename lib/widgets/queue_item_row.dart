@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../data_model/kalinka_ws_api.dart';
+import '../providers/kalinka_player_api_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import 'procedural_album_art.dart';
 import 'source_badge.dart';
+import 'swipe_to_delete_row.dart';
 
 /// A single queue item row with index, thumbnail, title, artist, and duration.
 class QueueItemRow extends ConsumerWidget {
@@ -15,6 +17,7 @@ class QueueItemRow extends ConsumerWidget {
   final int index;
   final int displayIndex;
   final bool isCurrentTrack;
+  final VoidCallback? onDelete;
 
   const QueueItemRow({
     super.key,
@@ -22,6 +25,7 @@ class QueueItemRow extends ConsumerWidget {
     required this.index,
     required this.displayIndex,
     this.isCurrentTrack = false,
+    this.onDelete,
   });
 
   String _formatDuration(int seconds) {
@@ -33,6 +37,7 @@ class QueueItemRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final api = ref.read(kalinkaWsApiProvider);
+    final kalinkaProxy = ref.read(kalinkaProxyProvider);
     final urlResolver = ref.read(urlResolverProvider);
 
     final imageUrl = track.album?.image?.small;
@@ -40,7 +45,7 @@ class QueueItemRow extends ConsumerWidget {
         ? urlResolver.abs(imageUrl)
         : null;
 
-    return GestureDetector(
+    final rowContent = GestureDetector(
       onTap: () {
         KalinkaHaptics.lightImpact();
         api.sendQueueCommand(QueueCommand.play(index: index));
@@ -136,6 +141,30 @@ class QueueItemRow extends ConsumerWidget {
           ],
         ),
       ),
+    );
+
+    return SwipeToDeleteRow(
+      onDelete: () async {
+        onDelete?.call();
+        try {
+          await kalinkaProxy.remove(index);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('"${track.title}" removed'),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Failed to remove: $e')));
+          }
+        }
+      },
+      child: rowContent,
     );
   }
 }

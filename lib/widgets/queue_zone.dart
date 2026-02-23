@@ -10,7 +10,6 @@ import 'empty_queue_state.dart';
 import 'queue_item_row.dart';
 import 'queue_management_tray.dart';
 import 'queue_section_header.dart';
-import 'swipe_reveal_item.dart';
 
 /// The main queue content area, split into "Up next" and "Previously played".
 class QueueZone extends ConsumerStatefulWidget {
@@ -24,7 +23,6 @@ class QueueZone extends ConsumerStatefulWidget {
 }
 
 class _QueueZoneState extends ConsumerState<QueueZone> {
-  int _revealedIndex = -1;
   bool _trayOpen = false;
   bool _confirmClearOpen = false;
   OverlayEntry? _managementTrayEntry;
@@ -283,46 +281,12 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
           ...List.generate(upNextTracks.length, (i) {
             final absoluteIndex = currentIndex + i;
             final track = upNextTracks[i];
-            return SwipeRevealItem(
+            return QueueItemRow(
               key: ValueKey('upnext_${track.id}_$absoluteIndex'),
-              isRevealed: _revealedIndex == absoluteIndex,
-              onReveal: () => setState(() => _revealedIndex = absoluteIndex),
-              onPlayNext: () async {
-                setState(() => _revealedIndex = -1);
-                final nextIndex = currentIndex + 1;
-                if (absoluteIndex != nextIndex &&
-                    absoluteIndex != currentIndex) {
-                  ref
-                      .read(playQueueStateStoreProvider.notifier)
-                      .optimisticallyReorder(absoluteIndex, nextIndex);
-                  try {
-                    await ref
-                        .read(kalinkaProxyProvider)
-                        .move(absoluteIndex, nextIndex);
-                  } catch (e) {
-                    ref
-                        .read(playQueueStateStoreProvider.notifier)
-                        .optimisticallyReorder(nextIndex, absoluteIndex);
-                  }
-                }
-              },
-              onDelete: () async {
-                setState(() => _revealedIndex = -1);
-                final messenger = ScaffoldMessenger.of(context);
-                try {
-                  await ref.read(kalinkaProxyProvider).remove(absoluteIndex);
-                } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text('Failed to remove: $e')),
-                  );
-                }
-              },
-              child: QueueItemRow(
-                track: track,
-                index: absoluteIndex,
-                displayIndex: i,
-                isCurrentTrack: i == 0,
-              ),
+              track: track,
+              index: absoluteIndex,
+              displayIndex: i,
+              isCurrentTrack: i == 0,
             );
           }),
 

@@ -170,10 +170,8 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
         if (!_isActive) {
           KalinkaHaptics.lightImpact();
           _activateSearch();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _searchFocusNode.requestFocus();
-          });
         }
+        _searchFocusNode.requestFocus();
       },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
@@ -199,31 +197,27 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
             // Search icon
             const Icon(Icons.search, size: 18, color: KalinkaColors.accent),
             const SizedBox(width: 10),
-            // TextField or placeholder
+            // Always a TextField — avoids vertical alignment shift on activation.
+            // Hint text switches between the inspirational inactive prompt and
+            // the functional active prompt.
             Expanded(
-              child: _isActive
-                  ? TextField(
-                      controller: _textController,
-                      focusNode: _searchFocusNode,
-                      style: KalinkaTextStyles.searchBarInput,
-                      textAlignVertical: TextAlignVertical.center,
-                      cursorColor: KalinkaColors.accent,
-                      decoration: InputDecoration(
-                        hintText: 'Search music\u2026',
-                        hintStyle: KalinkaTextStyles.searchPlaceholder,
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                        isDense: true,
-                      ),
-                      onChanged: _onQueryChanged,
-                      onSubmitted: _onSubmitted,
-                    )
-                  : Text(
-                      'moody electronic, late night\u2026',
-                      style: KalinkaTextStyles.searchPlaceholder,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+              child: TextField(
+                controller: _textController,
+                focusNode: _searchFocusNode,
+                style: KalinkaTextStyles.searchBarInput,
+                cursorColor: KalinkaColors.accent,
+                decoration: InputDecoration(
+                  hintText: _isActive
+                      ? 'Search music\u2026'
+                      : 'moody electronic, late night\u2026',
+                  hintStyle: KalinkaTextStyles.searchPlaceholder,
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  isCollapsed: true,
+                ),
+                onChanged: _onQueryChanged,
+                onSubmitted: _onSubmitted,
+              ),
             ),
             const SizedBox(width: 8),
             // Mic / Clear (×) button — animated crossfade
