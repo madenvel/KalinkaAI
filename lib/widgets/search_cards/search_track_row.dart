@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/selection_state_provider.dart';
+import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
@@ -47,11 +48,7 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
       await api.add([widget.item.id]);
       await api.play();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to play: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to play: $e', isError: true);
     }
   }
 
@@ -59,21 +56,10 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      if (mounted) {
-        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('"$title" added to queue'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      final title = widget.item.track?.title ?? widget.item.name ?? 'track';
+      ref.read(toastProvider.notifier).show('"$title" added to queue');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
   }
 
@@ -81,21 +67,10 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      if (mounted) {
-        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('"$title" playing next'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      final title = widget.item.track?.title ?? widget.item.name ?? 'track';
+      ref.read(toastProvider.notifier).show('"$title" playing next');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
   }
 

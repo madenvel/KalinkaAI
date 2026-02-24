@@ -9,6 +9,7 @@ import '../../providers/browse_detail_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_state_provider.dart';
 import '../../providers/selection_state_provider.dart';
+import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
@@ -49,22 +50,11 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      if (mounted) {
-        final name = widget.item.album?.title ?? widget.item.name ?? 'album';
-        final trackCount = widget.item.album?.trackCount;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$name — ${trackCount ?? ''} tracks added to queue'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      final name = widget.item.album?.title ?? widget.item.name ?? 'album';
+      final trackCount = widget.item.album?.trackCount;
+      ref.read(toastProvider.notifier).show('$name — ${trackCount ?? ''} tracks added to queue');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
   }
 
@@ -72,21 +62,10 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      if (mounted) {
-        final name = widget.item.album?.title ?? widget.item.name ?? 'album';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$name playing next'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      final name = widget.item.album?.title ?? widget.item.name ?? 'album';
+      ref.read(toastProvider.notifier).show('$name playing next');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
   }
 
@@ -456,11 +435,7 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
       await api.add([widget.containerId]);
       await api.play(widget.index - 1);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to play: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to play: $e', isError: true);
     }
   }
 
@@ -468,32 +443,22 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      if (mounted) {
-        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('"$title" added to queue'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (_) {}
+      final title = widget.item.track?.title ?? widget.item.name ?? 'track';
+      ref.read(toastProvider.notifier).show('"$title" added to queue');
+    } catch (e) {
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
+    }
   }
 
   Future<void> _playNext() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      if (mounted) {
-        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('"$title" playing next'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (_) {}
+      final title = widget.item.track?.title ?? widget.item.name ?? 'track';
+      ref.read(toastProvider.notifier).show('"$title" playing next');
+    } catch (e) {
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
+    }
   }
 
   void _startLongPress() {

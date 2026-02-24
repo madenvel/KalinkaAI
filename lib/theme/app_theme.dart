@@ -359,6 +359,12 @@ class KalinkaTextStyles {
     color: KalinkaColors.amberLight,
   );
 
+  // Action toast notifications
+  static TextStyle toastText = GoogleFonts.ibmPlexMono(
+    fontSize: 11,
+    color: KalinkaColors.textPrimary,
+  );
+
   // Muted section header (settings, server sheet)
   static TextStyle sectionHeaderMuted = GoogleFonts.ibmPlexMono(
     fontSize: 9,

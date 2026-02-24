@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/selection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
+import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 
@@ -302,23 +303,10 @@ class MultiSelectBottomBar extends ConsumerWidget {
       final api = ref.read(kalinkaProxyProvider);
       final ids = ref.read(selectionStateProvider.notifier).resolveIdsForApi();
       await api.add(ids);
-
       ref.read(selectionStateProvider.notifier).exitSelectionMode();
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${selection.count} tracks added to queue'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      ref.read(toastProvider.notifier).show('${selection.count} tracks added to queue');
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add to queue: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to add to queue: $e', isError: true);
     }
   }
 
@@ -333,23 +321,10 @@ class MultiSelectBottomBar extends ConsumerWidget {
       await api.clear();
       await api.add(ids);
       await api.play();
-
       ref.read(selectionStateProvider.notifier).exitSelectionMode();
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Playing ${selection.count} tracks'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      ref.read(toastProvider.notifier).show('Playing ${selection.count} tracks');
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to play: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to play: $e', isError: true);
     }
   }
 
@@ -362,23 +337,10 @@ class MultiSelectBottomBar extends ConsumerWidget {
       final api = ref.read(kalinkaProxyProvider);
       final ids = ref.read(selectionStateProvider.notifier).resolveIdsForApi();
       await api.add(ids);
-
       ref.read(selectionStateProvider.notifier).exitSelectionMode();
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${selection.count} tracks playing next'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      ref.read(toastProvider.notifier).show('${selection.count} tracks playing next');
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
   }
 }

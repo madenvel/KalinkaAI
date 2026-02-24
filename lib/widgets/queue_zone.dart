@@ -4,6 +4,7 @@ import '../data_model/data_model.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
+import '../providers/toast_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
 import 'clear_all_confirm_dialog.dart';
@@ -122,28 +123,16 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
       try {
         await api.remove(i);
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Failed to clear played: $e')));
-        }
+        ref.read(toastProvider.notifier).show('Failed to clear played: $e', isError: true);
         return;
       }
     }
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Played tracks cleared')));
-    }
+    ref.read(toastProvider.notifier).show('Played tracks cleared');
   }
 
   Future<void> _clearAll() async {
     await ref.read(kalinkaProxyProvider).clear();
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Queue cleared')));
-    }
+    ref.read(toastProvider.notifier).show('Queue cleared');
   }
 
   void _activateSearch() {

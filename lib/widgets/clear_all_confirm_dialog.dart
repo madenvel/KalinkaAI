@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 
 /// Confirmation dialog for clearing the entire queue.
 /// Slides up from the bottom after a 160ms delay from the tray closing.
-class ClearAllConfirmDialog extends StatefulWidget {
+class ClearAllConfirmDialog extends ConsumerStatefulWidget {
   final VoidCallback onCancel;
   final VoidCallback onConfirmed;
   final Future<void> Function() onConfirmClearAll;
@@ -17,10 +19,11 @@ class ClearAllConfirmDialog extends StatefulWidget {
   });
 
   @override
-  State<ClearAllConfirmDialog> createState() => _ClearAllConfirmDialogState();
+  ConsumerState<ClearAllConfirmDialog> createState() =>
+      _ClearAllConfirmDialogState();
 }
 
-class _ClearAllConfirmDialogState extends State<ClearAllConfirmDialog>
+class _ClearAllConfirmDialogState extends ConsumerState<ClearAllConfirmDialog>
     with SingleTickerProviderStateMixin {
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
@@ -67,11 +70,7 @@ class _ClearAllConfirmDialogState extends State<ClearAllConfirmDialog>
       await _slideController.reverse();
       widget.onConfirmed();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to clear queue: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to clear queue: $e', isError: true);
     }
   }
 

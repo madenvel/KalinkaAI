@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../providers/kalinka_player_api_provider.dart';
+import '../../providers/toast_provider.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 
@@ -52,21 +53,10 @@ class _AiSuggestionCardState extends ConsumerState<AiSuggestionCard> {
         }
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${trackIds.length} AI tracks appended'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      ref.read(toastProvider.notifier).show('${trackIds.length} AI tracks appended');
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
-      }
+      if (mounted) setState(() => _isLoading = false);
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
   }
 

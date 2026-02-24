@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../providers/browse_navigation_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
+import '../providers/toast_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
 import 'path_bar.dart';
@@ -353,21 +354,9 @@ class _BrowseListState extends ConsumerState<BrowseList> {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([item.id]);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Added "${item.name ?? 'item'}" to queue'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      ref.read(toastProvider.notifier).show('Added "${item.name ?? 'item'}" to queue');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add to queue: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to add to queue: $e', isError: true);
     }
   }
 }

@@ -15,6 +15,7 @@ import '../widgets/queue_zone.dart';
 import '../widgets/search_results_feed.dart';
 import '../widgets/server_sheet.dart';
 import '../widgets/settings_screen.dart';
+import '../widgets/kalinka_toast_overlay.dart';
 import '../widgets/side_panel.dart';
 
 class MusicPlayerScreen extends ConsumerStatefulWidget {
@@ -188,6 +189,13 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
               MiniPlayer(onTap: _openPlayer),
             ],
           ),
+          // Toast overlay — floats above MiniPlayer, ignores pointer input
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IgnorePointer(child: KalinkaToastOverlay()),
+          ),
           // Expanded player overlay
           if (_playerOpen)
             Positioned.fill(
@@ -277,6 +285,17 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
             // Right panel: SidePanel (tabbed search/queue)
             const Expanded(child: SafeArea(child: SidePanel())),
           ],
+        ),
+        // Toast overlay — bottom-right corner on tablet
+        const Positioned(
+          right: 20,
+          bottom: 20,
+          child: IgnorePointer(
+            child: SizedBox(
+              width: 300,
+              child: KalinkaToastOverlay(isTablet: true),
+            ),
+          ),
         ),
         // Discovery screen overlay (full screen)
         if (_discoveryOpen)

@@ -15,6 +15,7 @@ import '../procedural_album_art.dart';
 import '../source_badge.dart';
 import '../swipe_to_act_row.dart';
 import 'long_press_ring_painter.dart';
+import '../../providers/toast_provider.dart';
 
 const _dimmedColor = Color(0xFF48485A);
 
@@ -84,20 +85,9 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
         }
       });
       final name = widget.item.artist?.name ?? widget.item.name ?? 'Artist';
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Top 5 by $name appended'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      ref.read(toastProvider.notifier).show('Top 5 by $name appended');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to queue: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to queue: $e', isError: true);
     }
   }
 
@@ -482,23 +472,11 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      if (!mounted) return;
-      if (mounted) {
-        final name = widget.item.album?.title ?? widget.item.name ?? 'album';
-        final trackCount = widget.item.album?.trackCount;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$name — ${trackCount ?? ''} tracks added to queue'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      final name = widget.item.album?.title ?? widget.item.name ?? 'album';
+      final trackCount = widget.item.album?.trackCount;
+      ref.read(toastProvider.notifier).show('$name — ${trackCount ?? ''} tracks added to queue');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
   }
 
@@ -506,21 +484,10 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      if (mounted) {
-        final name = widget.item.album?.title ?? widget.item.name ?? 'album';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$name playing next'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      final name = widget.item.album?.title ?? widget.item.name ?? 'album';
+      ref.read(toastProvider.notifier).show('$name playing next');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
   }
 
@@ -899,32 +866,22 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      if (mounted) {
-        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('"$title" added to queue'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (_) {}
+      final title = widget.item.track?.title ?? widget.item.name ?? 'track';
+      ref.read(toastProvider.notifier).show('"$title" added to queue');
+    } catch (e) {
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
+    }
   }
 
   Future<void> _playNext() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      if (mounted) {
-        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('"$title" playing next'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (_) {}
+      final title = widget.item.track?.title ?? widget.item.name ?? 'track';
+      ref.read(toastProvider.notifier).show('"$title" playing next');
+    } catch (e) {
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
+    }
   }
 
   Future<void> _playTrack() async {
@@ -939,11 +896,7 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
         await api.play(widget.index - 1);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to play: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to play: $e', isError: true);
     }
   }
 
@@ -1139,22 +1092,11 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
       final api = ref.read(kalinkaProxyProvider);
       final ids = widget.tracks.map((t) => t.id).toList();
       await api.add(ids);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${widget.tracks.length} tracks by ${widget.artistName} added to queue',
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      ref.read(toastProvider.notifier).show(
+        '${widget.tracks.length} tracks by ${widget.artistName} added to queue',
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
   }
 
@@ -1163,22 +1105,11 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
       final api = ref.read(kalinkaProxyProvider);
       final ids = widget.tracks.map((t) => t.id).toList();
       await api.add(ids);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${widget.tracks.length} tracks by ${widget.artistName} playing next',
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      ref.read(toastProvider.notifier).show(
+        '${widget.tracks.length} tracks by ${widget.artistName} playing next',
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
-      }
+      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
   }
 

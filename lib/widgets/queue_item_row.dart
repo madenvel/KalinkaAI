@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../data_model/kalinka_ws_api.dart';
 import '../providers/kalinka_player_api_provider.dart';
+import '../providers/toast_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
@@ -148,20 +149,9 @@ class QueueItemRow extends ConsumerWidget {
         onDelete?.call();
         try {
           await kalinkaProxy.remove(index);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('"${track.title}" removed'),
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          }
+          ref.read(toastProvider.notifier).show('"${track.title}" removed');
         } catch (e) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Failed to remove: $e')));
-          }
+          ref.read(toastProvider.notifier).show('Failed to remove: $e', isError: true);
         }
       },
       child: rowContent,
