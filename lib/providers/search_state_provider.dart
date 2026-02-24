@@ -16,6 +16,15 @@ const _maxCachedQueries = 5;
 const _cacheTtlMinutes = 5;
 const _maxCompletions = 3;
 
+/// A single server-defined section of the currently playing album,
+/// together with its first 10 browse results.
+class LibrarySection {
+  final BrowseItem sectionItem;
+  final BrowseItemsList browseResult;
+
+  const LibrarySection({required this.sectionItem, required this.browseResult});
+}
+
 /// Cached search result with timestamp
 class CachedSearchResult {
   final Map<SearchType, BrowseItemsList> results;
@@ -46,6 +55,8 @@ class SearchState {
   final bool isLoading;
   final Map<SearchType, BrowseItemsList>? searchResults;
   final List<BrowseItemsList>? browseRecommendations;
+  final List<LibrarySection>? librarySections;
+  final Set<String> expandedLibrarySectionIds;
   final String? error;
   final String? expandedAlbumId;
   final String? artistPreviewId;
@@ -70,6 +81,8 @@ class SearchState {
     this.isLoading = false,
     this.searchResults,
     this.browseRecommendations,
+    this.librarySections,
+    this.expandedLibrarySectionIds = const {},
     this.error,
     this.expandedAlbumId,
     this.artistPreviewId,
@@ -112,6 +125,8 @@ class SearchState {
     bool? isLoading,
     Map<SearchType, BrowseItemsList>? searchResults,
     List<BrowseItemsList>? browseRecommendations,
+    List<LibrarySection>? librarySections,
+    Set<String>? expandedLibrarySectionIds,
     String? error,
     String? expandedAlbumId,
     String? artistPreviewId,
@@ -145,6 +160,9 @@ class SearchState {
           : (searchResults ?? this.searchResults),
       browseRecommendations:
           browseRecommendations ?? this.browseRecommendations,
+      librarySections: librarySections ?? this.librarySections,
+      expandedLibrarySectionIds:
+          expandedLibrarySectionIds ?? this.expandedLibrarySectionIds,
       error: clearError ? null : (error ?? this.error),
       expandedAlbumId: clearExpandedAlbum
           ? null
@@ -506,50 +524,52 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
     try {
       final api = ref.read(kalinkaProxyProvider);
-      final recommendations = <BrowseItemsList>[];
 
-      if (currentTrack != null) {
-        if (currentTrack.id.isNotEmpty) {
-          try {
-            final trackBrowse = await api.browse(currentTrack.id);
-            recommendations.add(trackBrowse);
-            await Future.delayed(const Duration(milliseconds: 300));
-          } catch (e) {
-            // Continue on error
-          }
-        }
+      // Determine the ID to call getMetadata on
+      final targetId = (currentTrack?.album?.id.isNotEmpty == true)
+          ? currentTrack!.album!.id
+          : (currentTrack?.id.isNotEmpty == true ? currentTrack!.id : null);
 
-        if (currentTrack.album?.id != null &&
-            currentTrack.album!.id.isNotEmpty) {
-          try {
-            final albumBrowse = await api.browse(currentTrack.album!.id);
-            recommendations.add(albumBrowse);
-            await Future.delayed(const Duration(milliseconds: 300));
-          } catch (e) {
-            // Continue on error
-          }
-        }
+      if (targetId == null) {
+        state = state.copyWith(
+          librarySections: const [],
+          isLoading: false,
+        );
+        return;
+      }
 
-        if (currentTrack.performer?.id != null &&
-            currentTrack.performer!.id.isNotEmpty) {
-          try {
-            final artistBrowse = await api.browse(currentTrack.performer!.id);
-            recommendations.add(artistBrowse);
-          } catch (e) {
-            // Continue on error
-          }
-        }
-      } else {
-        try {
-          final rootBrowse = await api.browse('root');
-          recommendations.add(rootBrowse);
-        } catch (e) {
-          // Continue on error
-        }
+      // Fetch metadata to get server-defined sections
+      final metadata = await api.getMetadata(targetId);
+      final sections = metadata.sections;
+
+      if (sections == null || sections.isEmpty) {
+        state = state.copyWith(
+          librarySections: const [],
+          isLoading: false,
+        );
+        return;
+      }
+
+      // Fetch first 10 items for each browsable section in parallel
+      final browsableSections = sections.where((s) => s.canBrowse).toList();
+      final browseResults = await Future.wait(
+        browsableSections.map((s) => api.browse(s.id, limit: 10)),
+        eagerError: false,
+      );
+
+      final librarySections = <LibrarySection>[];
+      for (int i = 0; i < browsableSections.length; i++) {
+        librarySections.add(LibrarySection(
+          sectionItem: browsableSections[i],
+          browseResult: browseResults[i],
+        ));
       }
 
       state = state.copyWith(
-        browseRecommendations: recommendations,
+        librarySections: librarySections,
+        browseRecommendations: librarySections
+            .map((s) => s.browseResult)
+            .toList(),
         isLoading: false,
       );
     } catch (e) {
@@ -619,6 +639,16 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
   void togglePlaylistsExpanded() {
     state = state.copyWith(playlistsExpanded: !state.playlistsExpanded);
+  }
+
+  void toggleLibrarySectionExpanded(String sectionId) {
+    final updated = Set<String>.from(state.expandedLibrarySectionIds);
+    if (updated.contains(sectionId)) {
+      updated.remove(sectionId);
+    } else {
+      updated.add(sectionId);
+    }
+    state = state.copyWith(expandedLibrarySectionIds: updated);
   }
 
   void resetExpansions() {

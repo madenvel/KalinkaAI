@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/search_state_provider.dart';
@@ -5,7 +7,7 @@ import '../theme/app_theme.dart';
 import 'search_cards/search_album_row.dart';
 import 'search_cards/search_artist_row.dart';
 import 'search_cards/search_track_row.dart';
-import '../data_model/data_model.dart';
+import 'search_cards/show_more_row.dart';
 
 /// Zero-state content surface shown when search is activated but no query
 /// has been typed. Displays AI prompt suggestions, "In your library" items,
@@ -43,12 +45,25 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
     final searchState = ref.watch(searchStateProvider);
     final history = ref.read(searchStateProvider.notifier).getSearchHistory();
     final aiSuggestions = searchState.aiPromptSuggestions;
-    final browseRecs = searchState.browseRecommendations;
+    final librarySections = searchState.librarySections;
+    final expandedSectionIds = searchState.expandedLibrarySectionIds;
 
-    final libraryItemCount = browseRecs != null
-        ? _countLibraryItems(browseRecs)
-        : 0;
-    final showLibrarySection = searchState.isLoading || libraryItemCount > 0;
+    final showLibrarySection =
+        searchState.isLoading || (librarySections?.isNotEmpty == true);
+
+    // Count total items for stagger animation (headers + rows + show-more rows)
+    int libraryItemCount = 0;
+    if (librarySections != null) {
+      for (final section in librarySections) {
+        libraryItemCount += 1; // sub-section header
+        final isExpanded = expandedSectionIds.contains(section.sectionItem.id);
+        final visibleCount = isExpanded
+            ? section.browseResult.items.length
+            : min(3, section.browseResult.items.length);
+        libraryItemCount += visibleCount;
+        if (section.browseResult.items.length > 3) libraryItemCount += 1; // show-more row
+      }
+    }
 
     int itemIndex = 0;
     int totalItems =
@@ -151,13 +166,18 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
             child: Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                'IN YOUR LIBRARY',
+                'BASED ON NOW PLAYING',
                 style: KalinkaTextStyles.sectionLabel,
               ),
             ),
           ),
-          if (browseRecs != null)
-            ..._buildLibraryItems(browseRecs, itemIndex, totalItems)
+          if (librarySections != null)
+            ..._buildLibrarySections(
+              librarySections,
+              expandedSectionIds,
+              itemIndex,
+              totalItems,
+            )
           else if (searchState.isLoading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
@@ -177,48 +197,85 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
     );
   }
 
-  int _countLibraryItems(List<BrowseItemsList> recs) {
-    int count = 0;
-    for (final browseList in recs) {
-      count += browseList.items.take(4).length;
-    }
-    return count.clamp(0, 4);
-  }
-
-  List<Widget> _buildLibraryItems(
-    List<BrowseItemsList> recs,
+  List<Widget> _buildLibrarySections(
+    List<LibrarySection> sections,
+    Set<String> expandedSectionIds,
     int startIndex,
     int totalItems,
   ) {
-    final items = <BrowseItem>[];
-    for (final browseList in recs) {
-      for (final item in browseList.items) {
-        items.add(item);
-        if (items.length >= 4) break;
+    final widgets = <Widget>[];
+    int idx = startIndex;
+
+    for (final section in sections) {
+      final sectionId = section.sectionItem.id;
+      final sectionName =
+          section.sectionItem.name ??
+          section.sectionItem.catalog?.title ??
+          '';
+      final isExpanded = expandedSectionIds.contains(sectionId);
+      final allItems = section.browseResult.items;
+      final visibleItems =
+          isExpanded ? allItems : allItems.take(3).toList();
+      final remaining = min(section.browseResult.total, allItems.length) - 3;
+
+      // Sub-section label
+      widgets.add(
+        _StaggeredZeroItem(
+          index: idx++,
+          controller: _staggerController,
+          totalItems: totalItems,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 4),
+            child: Text(
+              sectionName.toUpperCase(),
+              style: KalinkaTextStyles.sectionLabel,
+            ),
+          ),
+        ),
+      );
+
+      // Item rows
+      for (final item in visibleItems) {
+        final Widget row;
+        if (item.track != null) {
+          row = SearchTrackRow(item: item);
+        } else if (item.album != null) {
+          row = SearchAlbumRow(item: item);
+        } else if (item.artist != null) {
+          row = SearchArtistRow(item: item);
+        } else {
+          row = SearchAlbumRow(item: item);
+        }
+        widgets.add(
+          _StaggeredZeroItem(
+            index: idx++,
+            controller: _staggerController,
+            totalItems: totalItems,
+            child: row,
+          ),
+        );
       }
-      if (items.length >= 4) break;
+
+      // Show more / show fewer
+      if (allItems.length > 3) {
+        widgets.add(
+          _StaggeredZeroItem(
+            index: idx++,
+            controller: _staggerController,
+            totalItems: totalItems,
+            child: ShowMoreRow(
+              remainingCount: remaining > 0 ? remaining : 0,
+              isExpanded: isExpanded,
+              onTap: () => ref
+                  .read(searchStateProvider.notifier)
+                  .toggleLibrarySectionExpanded(sectionId),
+            ),
+          ),
+        );
+      }
     }
 
-    int idx = startIndex;
-    return items.map((item) {
-      final currentIdx = idx++;
-      Widget row;
-      if (item.track != null) {
-        row = SearchTrackRow(item: item);
-      } else if (item.album != null) {
-        row = SearchAlbumRow(item: item);
-      } else if (item.artist != null) {
-        row = SearchArtistRow(item: item);
-      } else {
-        row = SearchAlbumRow(item: item);
-      }
-      return _StaggeredZeroItem(
-        index: currentIdx,
-        controller: _staggerController,
-        totalItems: totalItems,
-        child: row,
-      );
-    }).toList();
+    return widgets;
   }
 }
 
