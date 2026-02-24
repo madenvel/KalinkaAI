@@ -420,7 +420,7 @@ class _ExpandedPlaylistTracks extends ConsumerWidget {
   }
 }
 
-class _InlinePlaylistTrack extends ConsumerWidget {
+class _InlinePlaylistTrack extends ConsumerStatefulWidget {
   final BrowseItem item;
   final int index;
   final String containerId;
@@ -431,14 +431,30 @@ class _InlinePlaylistTrack extends ConsumerWidget {
     required this.containerId,
   });
 
-  Future<void> _playTrack(WidgetRef ref, BuildContext context) async {
+  @override
+  ConsumerState<_InlinePlaylistTrack> createState() =>
+      _InlinePlaylistTrackState();
+}
+
+class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
+  bool _longPressing = false;
+  double _longPressProgress = 0.0;
+  Timer? _longPressTimer;
+
+  @override
+  void dispose() {
+    _longPressTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _playTrack() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.clear();
-      await api.add([item.id]);
-      await api.play();
+      await api.add([widget.containerId]);
+      await api.play(widget.index - 1);
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to play: $e')));
@@ -446,12 +462,12 @@ class _InlinePlaylistTrack extends ConsumerWidget {
     }
   }
 
-  Future<void> _addToQueue(WidgetRef ref, BuildContext context) async {
+  Future<void> _addToQueue() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
-      await api.add([item.id]);
-      if (context.mounted) {
-        final title = item.track?.title ?? item.name ?? 'track';
+      await api.add([widget.item.id]);
+      if (mounted) {
+        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('"$title" added to queue'),
@@ -462,12 +478,12 @@ class _InlinePlaylistTrack extends ConsumerWidget {
     } catch (_) {}
   }
 
-  Future<void> _playNext(WidgetRef ref, BuildContext context) async {
+  Future<void> _playNext() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
-      await api.add([item.id]);
-      if (context.mounted) {
-        final title = item.track?.title ?? item.name ?? 'track';
+      await api.add([widget.item.id]);
+      if (mounted) {
+        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('"$title" playing next'),
@@ -478,34 +494,86 @@ class _InlinePlaylistTrack extends ConsumerWidget {
     } catch (_) {}
   }
 
+  void _startLongPress() {
+    _longPressing = true;
+    _longPressProgress = 0.0;
+    const tickDuration = Duration(milliseconds: 16);
+    _longPressTimer = Timer.periodic(tickDuration, (timer) {
+      if (!mounted || !_longPressing) {
+        timer.cancel();
+        if (mounted) setState(() => _longPressProgress = 0.0);
+        return;
+      }
+      setState(() {
+        _longPressProgress = min(1.0, _longPressProgress + 16 / 500);
+      });
+      if (_longPressProgress >= 1.0) {
+        timer.cancel();
+        HapticFeedback.mediumImpact();
+        ref
+            .read(selectionStateProvider.notifier)
+            .enterSelectionMode(widget.item.id);
+        setState(() {
+          _longPressing = false;
+          _longPressProgress = 0.0;
+        });
+      }
+    });
+  }
+
+  void _cancelLongPress() {
+    _longPressing = false;
+    _longPressTimer?.cancel();
+    if (mounted) setState(() => _longPressProgress = 0.0);
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final track = item.track;
-    final title = track?.title ?? item.name ?? 'Unknown';
-    final duration = _formatDuration(track?.duration);
+  Widget build(BuildContext context) {
+    final track = widget.item.track;
+    final title = track?.title ?? widget.item.name ?? 'Unknown';
+    final duration = _formatDuration(
+      track?.duration != null ? track!.duration * 1000 : null,
+    );
 
     final selection = ref.watch(selectionStateProvider);
     final selectionMode = selection.isActive;
-    final containerSelected = selection.isContainerSelected(containerId);
+    final isSelected = selection.selectedIds.contains(widget.item.id);
+    final containerSelected = selection.isContainerSelected(widget.containerId);
     final trackSelected =
         containerSelected &&
-        selection.isTrackInContainerSelected(containerId, item.id);
+        selection.isTrackInContainerSelected(
+          widget.containerId,
+          widget.item.id,
+        );
+    final inSelectionHighlight = isSelected || trackSelected;
 
     return SwipeToActRow(
       enabled: !selectionMode,
-      onAddToQueue: () => _addToQueue(ref, context),
-      onPlayNext: () => _playNext(ref, context),
+      onAddToQueue: _addToQueue,
+      onPlayNext: _playNext,
       child: GestureDetector(
-        onTap: selectionMode && containerSelected
-            ? () => ref
+        onTap: () {
+          if (selectionMode) {
+            if (containerSelected) {
+              ref
                   .read(selectionStateProvider.notifier)
-                  .toggleTrackInContainer(containerId, item.id)
-            : () => _playTrack(ref, context),
+                  .toggleTrackInContainer(widget.containerId, widget.item.id);
+            } else {
+              ref.read(selectionStateProvider.notifier).toggle(widget.item.id);
+            }
+          } else {
+            _playTrack();
+          }
+        },
+        onLongPressStart: selectionMode ? null : (_) => _startLongPress(),
+        onLongPressEnd: selectionMode ? null : (_) => _cancelLongPress(),
+        onLongPressCancel: selectionMode ? null : _cancelLongPress,
+        behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: selectionMode && containerSelected && trackSelected
+            color: selectionMode && inSelectionHighlight
                 ? KalinkaColors.accent.withValues(alpha: 0.05)
                 : Colors.transparent,
           ),
@@ -514,21 +582,36 @@ class _InlinePlaylistTrack extends ConsumerWidget {
               // Track number or selection indicator
               SizedBox(
                 width: 24,
-                child: selectionMode && containerSelected
-                    ? Icon(
-                        trackSelected
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (selectionMode)
+                      Icon(
+                        inSelectionHighlight
                             ? Icons.check_circle
                             : Icons.radio_button_unchecked,
                         size: 16,
-                        color: trackSelected
+                        color: inSelectionHighlight
                             ? KalinkaColors.accent
                             : KalinkaColors.textSecondary,
                       )
-                    : Text(
-                        '$index',
+                    else
+                      Text(
+                        '${widget.index}',
                         style: KalinkaTextStyles.trackRowSubtitle,
                         textAlign: TextAlign.center,
                       ),
+                    if (_longPressing && _longPressProgress > 0)
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: LongPressRingPainter(
+                            progress: _longPressProgress,
+                            color: KalinkaColors.accent,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -543,7 +626,7 @@ class _InlinePlaylistTrack extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (!(selectionMode && containerSelected)) ...[
+              if (!selectionMode) ...[
                 if (duration != null)
                   Padding(
                     padding: const EdgeInsets.only(right: 8),

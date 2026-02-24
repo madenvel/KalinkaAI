@@ -13,6 +13,7 @@ import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
+import '../swipe_to_act_row.dart';
 import 'long_press_ring_painter.dart';
 
 const _dimmedColor = Color(0xFF48485A);
@@ -466,9 +467,6 @@ class _ArtistAlbumRow extends ConsumerStatefulWidget {
 }
 
 class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
-  bool _showAddCheck = false;
-  Timer? _resetTimer;
-
   // Long-press ring animation
   bool _longPressing = false;
   double _longPressProgress = 0.0;
@@ -476,27 +474,43 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
 
   @override
   void dispose() {
-    _resetTimer?.cancel();
     _longPressTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _addAlbum() async {
+  Future<void> _addToQueue() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
       if (!mounted) return;
-      setState(() => _showAddCheck = true);
-      _resetTimer?.cancel();
-      _resetTimer = Timer(const Duration(milliseconds: 1400), () {
-        if (mounted) setState(() => _showAddCheck = false);
-      });
       if (mounted) {
         final name = widget.item.album?.title ?? widget.item.name ?? 'album';
         final trackCount = widget.item.album?.trackCount;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$name — ${trackCount ?? ''} tracks appended'),
+            content: Text('$name — ${trackCount ?? ''} tracks added to queue'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
+      }
+    }
+  }
+
+  Future<void> _playNext() async {
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      await api.add([widget.item.id]);
+      if (mounted) {
+        final name = widget.item.album?.title ?? widget.item.name ?? 'album';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$name playing next'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -581,145 +595,147 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
     ];
     final subtitleText = subtitleParts.join(' \u00B7 ');
 
+    final isSelected = selection.isContainerSelected(widget.item.id);
+    final isPartial = selection.isContainerPartial(widget.item.id);
+
     return Column(
       children: [
         // Album row
-        GestureDetector(
-          onTap: selectionMode
-              ? () => ref
-                    .read(selectionStateProvider.notifier)
-                    .toggleContainer(widget.item.id)
-              : _toggleExpand,
-          onLongPressStart: selectionMode ? null : (_) => _startLongPress(),
-          onLongPressEnd: selectionMode ? null : (_) => _cancelLongPress(),
-          onLongPressCancel: selectionMode ? null : _cancelLongPress,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: KalinkaColors.miniPlayerSurface,
-            ),
-            child: Row(
-              children: [
-                // Album art 44x44
-                SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: resolvedImageUrl != null
-                            ? Image.network(
-                                resolvedImageUrl,
-                                width: 44,
-                                height: 44,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    ProceduralAlbumArt(
-                                      trackId: widget.item.id,
-                                      size: 44,
-                                    ),
-                              )
-                            : ProceduralAlbumArt(
-                                trackId: widget.item.id,
-                                size: 44,
+        SwipeToActRow(
+          enabled: !selectionMode,
+          onAddToQueue: _addToQueue,
+          onPlayNext: _playNext,
+          child: GestureDetector(
+            onTap: selectionMode
+                ? () => ref
+                      .read(selectionStateProvider.notifier)
+                      .toggleContainer(widget.item.id)
+                : _toggleExpand,
+            onLongPressStart: selectionMode ? null : (_) => _startLongPress(),
+            onLongPressEnd: selectionMode ? null : (_) => _cancelLongPress(),
+            onLongPressCancel: selectionMode ? null : _cancelLongPress,
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: selectionMode && isSelected
+                    ? KalinkaColors.accent.withValues(alpha: 0.07)
+                    : KalinkaColors.miniPlayerSurface,
+                border: selectionMode && isSelected
+                    ? const Border(
+                        left: BorderSide(color: KalinkaColors.accent, width: 2),
+                      )
+                    : null,
+              ),
+              child: Row(
+                children: [
+                  // Album art 44x44
+                  SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: resolvedImageUrl != null
+                              ? Image.network(
+                                  resolvedImageUrl,
+                                  width: 44,
+                                  height: 44,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      ProceduralAlbumArt(
+                                        trackId: widget.item.id,
+                                        size: 44,
+                                      ),
+                                )
+                              : ProceduralAlbumArt(
+                                  trackId: widget.item.id,
+                                  size: 44,
+                                ),
+                        ),
+                        if (_longPressing && _longPressProgress > 0)
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: LongPressRingPainter(
+                                progress: _longPressProgress,
+                                color: KalinkaColors.accent,
                               ),
-                      ),
-                      if (_longPressing && _longPressProgress > 0)
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: LongPressRingPainter(
-                              progress: _longPressProgress,
-                              color: KalinkaColors.accent,
                             ),
                           ),
-                        ),
-                    ],
+                        if (selectionMode && isSelected)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: KalinkaColors.accent.withValues(alpha: 0.7),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                isPartial ? Icons.remove : Icons.check,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                // Title + subtitle
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: KalinkaTextStyles.trackRowTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (subtitleText.isNotEmpty)
+                  const SizedBox(width: 10),
+                  // Title + subtitle
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          subtitleText,
-                          style: KalinkaTextStyles.trackRowSubtitle,
+                          title,
+                          style: KalinkaTextStyles.trackRowTitle.copyWith(
+                            color: selectionMode && isSelected
+                                ? KalinkaColors.accent
+                                : null,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                    ],
+                        if (subtitleText.isNotEmpty)
+                          Text(
+                            subtitleText,
+                            style: KalinkaTextStyles.trackRowSubtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                // Gold + button (simple tap-to-add)
-                if (!selectionMode)
+                  const SizedBox(width: 8),
+                  // Chevron button
                   GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _addAlbum,
+                    onTap: _toggleExpand,
                     child: Container(
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color:
-                            (_showAddCheck
-                                    ? KalinkaColors.confirmGreen
-                                    : KalinkaColors.gold)
-                                .withValues(alpha: 0.09),
+                        color: KalinkaColors.pillSurface,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: _showAddCheck
-                              ? KalinkaColors.confirmGreen
-                              : KalinkaColors.gold,
+                          color: KalinkaColors.borderElevated,
                           width: 1,
                         ),
                       ),
-                      child: Icon(
-                        _showAddCheck ? Icons.check : Icons.add,
-                        size: 14,
-                        color: _showAddCheck
-                            ? KalinkaColors.confirmGreen
-                            : KalinkaColors.gold,
+                      child: AnimatedRotation(
+                        turns: isExpanded ? 0.5 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        child: const Icon(
+                          Icons.expand_more,
+                          size: 14,
+                          color: KalinkaColors.textSecondary,
+                        ),
                       ),
                     ),
                   ),
-                if (!selectionMode) const SizedBox(width: 6),
-                // Chevron button
-                GestureDetector(
-                  onTap: _toggleExpand,
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: KalinkaColors.pillSurface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: KalinkaColors.borderElevated,
-                        width: 1,
-                      ),
-                    ),
-                    child: AnimatedRotation(
-                      turns: isExpanded ? 0.5 : 0.0,
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      child: const Icon(
-                        Icons.expand_more,
-                        size: 14,
-                        color: KalinkaColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -868,30 +884,42 @@ class _ArtistTrackRow extends ConsumerStatefulWidget {
 }
 
 class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
-  bool _showCheck = false;
-  Timer? _resetTimer;
+  // Long-press ring animation
+  bool _longPressing = false;
+  double _longPressProgress = 0.0;
+  Timer? _longPressTimer;
 
   @override
   void dispose() {
-    _resetTimer?.cancel();
+    _longPressTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _addTrack() async {
+  Future<void> _addToQueue() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      if (!mounted) return;
-      setState(() => _showCheck = true);
-      _resetTimer?.cancel();
-      _resetTimer = Timer(const Duration(milliseconds: 1400), () {
-        if (mounted) setState(() => _showCheck = false);
-      });
       if (mounted) {
         final title = widget.item.track?.title ?? widget.item.name ?? 'track';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('"$title" appended'),
+            content: Text('"$title" added to queue'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _playNext() async {
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      await api.add([widget.item.id]);
+      if (mounted) {
+        final title = widget.item.track?.title ?? widget.item.name ?? 'track';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"$title" playing next'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -902,7 +930,14 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
   Future<void> _playTrack() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
-      await api.add([widget.item.id]);
+      await api.clear();
+      if (widget.containerId.startsWith('singles_')) {
+        await api.add([widget.item.id]);
+        await api.play();
+      } else {
+        await api.add([widget.containerId]);
+        await api.play(widget.index - 1);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -910,6 +945,39 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
         ).showSnackBar(SnackBar(content: Text('Failed to play: $e')));
       }
     }
+  }
+
+  void _startLongPress() {
+    _longPressing = true;
+    _longPressProgress = 0.0;
+    const tickDuration = Duration(milliseconds: 16);
+    _longPressTimer = Timer.periodic(tickDuration, (timer) {
+      if (!mounted || !_longPressing) {
+        timer.cancel();
+        if (mounted) setState(() => _longPressProgress = 0.0);
+        return;
+      }
+      setState(() {
+        _longPressProgress = min(1.0, _longPressProgress + 16 / 500);
+      });
+      if (_longPressProgress >= 1.0) {
+        timer.cancel();
+        HapticFeedback.mediumImpact();
+        ref
+            .read(selectionStateProvider.notifier)
+            .enterSelectionMode(widget.item.id);
+        setState(() {
+          _longPressing = false;
+          _longPressProgress = 0.0;
+        });
+      }
+    });
+  }
+
+  void _cancelLongPress() {
+    _longPressing = false;
+    _longPressTimer?.cancel();
+    if (mounted) setState(() => _longPressProgress = 0.0);
   }
 
   @override
@@ -922,6 +990,7 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
 
     final selection = ref.watch(selectionStateProvider);
     final selectionMode = selection.isActive;
+    final isSelected = selection.selectedIds.contains(widget.item.id);
     final containerSelected = selection.isContainerSelected(widget.containerId);
     final trackSelected =
         containerSelected &&
@@ -929,98 +998,106 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
           widget.containerId,
           widget.item.id,
         );
+    final inSelectionHighlight = isSelected || trackSelected;
 
-    return GestureDetector(
-      onTap: () {
-        if (selectionMode && containerSelected) {
-          ref
-              .read(selectionStateProvider.notifier)
-              .toggleTrackInContainer(widget.containerId, widget.item.id);
-        } else if (!selectionMode) {
-          _playTrack();
-        }
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 40),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        child: Row(
-          children: [
-            // Track number
-            SizedBox(
-              width: 20,
-              child: selectionMode && containerSelected
-                  ? Icon(
-                      trackSelected
-                          ? Icons.check_circle
-                          : Icons.radio_button_unchecked,
-                      size: 14,
-                      color: trackSelected
-                          ? KalinkaColors.accent
-                          : KalinkaColors.textSecondary,
-                    )
-                  : Text(
-                      '${widget.index}',
+    return SwipeToActRow(
+      enabled: !selectionMode,
+      onAddToQueue: _addToQueue,
+      onPlayNext: _playNext,
+      child: GestureDetector(
+        onTap: () {
+          if (selectionMode) {
+            if (containerSelected) {
+              ref
+                  .read(selectionStateProvider.notifier)
+                  .toggleTrackInContainer(widget.containerId, widget.item.id);
+            } else {
+              ref.read(selectionStateProvider.notifier).toggle(widget.item.id);
+            }
+          } else {
+            _playTrack();
+          }
+        },
+        onLongPressStart: selectionMode ? null : (_) => _startLongPress(),
+        onLongPressEnd: selectionMode ? null : (_) => _cancelLongPress(),
+        onLongPressCancel: selectionMode ? null : _cancelLongPress,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          constraints: const BoxConstraints(minHeight: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: selectionMode && inSelectionHighlight
+                ? KalinkaColors.accent.withValues(alpha: 0.07)
+                : KalinkaColors.inputSurface,
+          ),
+          child: Row(
+            children: [
+              // Track number / long-press indicator / selection icon
+              SizedBox(
+                width: 20,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (selectionMode)
+                      Icon(
+                        inSelectionHighlight
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                        size: 14,
+                        color: inSelectionHighlight
+                            ? KalinkaColors.accent
+                            : KalinkaColors.textSecondary,
+                      )
+                    else
+                      Text(
+                        '${widget.index}',
+                        style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+                          color: _dimmedColor,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    if (_longPressing && _longPressProgress > 0)
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: LongPressRingPainter(
+                            progress: _longPressProgress,
+                            color: KalinkaColors.accent,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Title
+              Expanded(
+                child: Text(
+                  title,
+                  style: KalinkaTextStyles.trackRowTitle.copyWith(
+                    fontSize: 12,
+                    color: selectionMode && containerSelected && !trackSelected
+                        ? KalinkaColors.textSecondary
+                        : null,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              // Duration
+              if (!selectionMode)
+                if (duration != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Text(
+                      duration,
                       style: KalinkaTextStyles.trackRowSubtitle.copyWith(
                         color: _dimmedColor,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-            ),
-            const SizedBox(width: 8),
-            // Title
-            Expanded(
-              child: Text(
-                title,
-                style: KalinkaTextStyles.trackRowTitle.copyWith(
-                  fontSize: 12,
-                  color: selectionMode && containerSelected && !trackSelected
-                      ? KalinkaColors.textSecondary
-                      : null,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            // Duration
-            if (!(selectionMode && containerSelected)) ...[
-              if (duration != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Text(
-                    duration,
-                    style: KalinkaTextStyles.trackRowSubtitle.copyWith(
-                      color: _dimmedColor,
                     ),
                   ),
-                ),
-              // Gold + button (simple tap-to-add)
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _addTrack,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: _showCheck
-                          ? KalinkaColors.confirmGreen
-                          : KalinkaColors.gold,
-                      width: 1,
-                    ),
-                  ),
-                  child: Icon(
-                    _showCheck ? Icons.check : Icons.add,
-                    size: 12,
-                    color: _showCheck
-                        ? KalinkaColors.confirmGreen
-                        : KalinkaColors.gold,
-                  ),
-                ),
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -1056,31 +1133,41 @@ class _SinglesSection extends ConsumerStatefulWidget {
 
 class _SinglesSectionState extends ConsumerState<_SinglesSection> {
   bool _expanded = false;
-  bool _showAddCheck = false;
-  Timer? _resetTimer;
 
-  @override
-  void dispose() {
-    _resetTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _addAll() async {
+  Future<void> _addToQueue() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
       final ids = widget.tracks.map((t) => t.id).toList();
       await api.add(ids);
-      if (!mounted) return;
-      setState(() => _showAddCheck = true);
-      _resetTimer?.cancel();
-      _resetTimer = Timer(const Duration(milliseconds: 1400), () {
-        if (mounted) setState(() => _showAddCheck = false);
-      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${widget.tracks.length} tracks by ${widget.artistName} appended',
+              '${widget.tracks.length} tracks by ${widget.artistName} added to queue',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to add: $e')));
+      }
+    }
+  }
+
+  Future<void> _playNext() async {
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      final ids = widget.tracks.map((t) => t.id).toList();
+      await api.add(ids);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${widget.tracks.length} tracks by ${widget.artistName} playing next',
             ),
             duration: const Duration(seconds: 2),
           ),
@@ -1101,114 +1188,89 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
     final showAllTracks = searchState.albumMoreTracksExpanded.contains(
       'singles_${widget.artistId}',
     );
+    final selectionMode = ref.watch(selectionStateProvider).isActive;
 
     return Column(
       children: [
         // Singles header row
-        GestureDetector(
-          onTap: () => setState(() => _expanded = !_expanded),
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: KalinkaColors.miniPlayerSurface,
-            ),
-            child: Row(
-              children: [
-                // List icon in 44x44 container
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: KalinkaColors.pillSurface,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.queue_music,
-                    size: 16,
-                    color: _dimmedColor,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // Title + count
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Singles & Loose Tracks',
-                        style: KalinkaTextStyles.trackRowTitle.copyWith(
-                          color: KalinkaColors.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        '${widget.tracks.length} tracks',
-                        style: KalinkaTextStyles.trackRowSubtitle,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Gold + button (simple tap-to-add)
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _addAll,
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color:
-                          (_showAddCheck
-                                  ? KalinkaColors.confirmGreen
-                                  : KalinkaColors.gold)
-                              .withValues(alpha: 0.09),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _showAddCheck
-                            ? KalinkaColors.confirmGreen
-                            : KalinkaColors.gold,
-                        width: 1,
-                      ),
-                    ),
-                    child: Icon(
-                      _showAddCheck ? Icons.check : Icons.add,
-                      size: 14,
-                      color: _showAddCheck
-                          ? KalinkaColors.confirmGreen
-                          : KalinkaColors.gold,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                // Chevron
-                GestureDetector(
-                  onTap: () => setState(() => _expanded = !_expanded),
-                  child: Container(
-                    width: 28,
-                    height: 28,
+        SwipeToActRow(
+          enabled: !selectionMode,
+          onAddToQueue: _addToQueue,
+          onPlayNext: _playNext,
+          child: GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: const BoxDecoration(
+                color: KalinkaColors.miniPlayerSurface,
+              ),
+              child: Row(
+                children: [
+                  // List icon in 44x44 container
+                  Container(
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: KalinkaColors.pillSurface,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: KalinkaColors.borderElevated,
-                        width: 1,
-                      ),
                     ),
-                    child: AnimatedRotation(
-                      turns: _expanded ? 0.5 : 0.0,
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      child: const Icon(
-                        Icons.expand_more,
-                        size: 14,
-                        color: KalinkaColors.textSecondary,
+                    child: const Icon(
+                      Icons.queue_music,
+                      size: 16,
+                      color: _dimmedColor,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  // Title + count
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Singles & Loose Tracks',
+                          style: KalinkaTextStyles.trackRowTitle.copyWith(
+                            color: KalinkaColors.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          '${widget.tracks.length} tracks',
+                          style: KalinkaTextStyles.trackRowSubtitle,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Chevron
+                  GestureDetector(
+                    onTap: () => setState(() => _expanded = !_expanded),
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: KalinkaColors.pillSurface,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: KalinkaColors.borderElevated,
+                          width: 1,
+                        ),
+                      ),
+                      child: AnimatedRotation(
+                        turns: _expanded ? 0.5 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        child: const Icon(
+                          Icons.expand_more,
+                          size: 14,
+                          color: KalinkaColors.textSecondary,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
