@@ -10,6 +10,7 @@ import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_state_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../providers/url_resolver.dart';
+import '../../providers/source_modules_provider.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
@@ -87,7 +88,9 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
       final name = widget.item.artist?.name ?? widget.item.name ?? 'Artist';
       ref.read(toastProvider.notifier).show('Top 5 by $name appended');
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to queue: $e', isError: true);
+      ref
+          .read(toastProvider.notifier)
+          .show('Failed to queue: $e', isError: true);
     }
   }
 
@@ -168,11 +171,6 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
                                 ),
                         ),
                       ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: SourceBadge(entityId: widget.item.id),
-                      ),
                     ],
                   ),
                 ),
@@ -191,8 +189,24 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (stats.isNotEmpty)
-                        Text(stats, style: KalinkaTextStyles.trackRowSubtitle),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SourceBadge(entityId: widget.item.id),
+                          if (stats.isNotEmpty) ...[
+                            if (ref.watch(sourceCountProvider) > 1)
+                              const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                stats,
+                                style: KalinkaTextStyles.trackRowSubtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -474,7 +488,9 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
       await api.add([widget.item.id]);
       final name = widget.item.album?.title ?? widget.item.name ?? 'album';
       final trackCount = widget.item.album?.trackCount;
-      ref.read(toastProvider.notifier).show('$name — ${trackCount ?? ''} tracks added to queue');
+      ref
+          .read(toastProvider.notifier)
+          .show('$name — ${trackCount ?? ''} tracks added to queue');
     } catch (e) {
       ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
@@ -635,7 +651,9 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
                           Positioned.fill(
                             child: Container(
                               decoration: BoxDecoration(
-                                color: KalinkaColors.accent.withValues(alpha: 0.7),
+                                color: KalinkaColors.accent.withValues(
+                                  alpha: 0.7,
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Icon(
@@ -896,7 +914,9 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
         await api.play(widget.index - 1);
       }
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to play: $e', isError: true);
+      ref
+          .read(toastProvider.notifier)
+          .show('Failed to play: $e', isError: true);
     }
   }
 
@@ -1088,9 +1108,11 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
       final api = ref.read(kalinkaProxyProvider);
       final ids = widget.tracks.map((t) => t.id).toList();
       await api.add(ids);
-      ref.read(toastProvider.notifier).show(
-        '${widget.tracks.length} tracks by ${widget.artistName} added to queue',
-      );
+      ref
+          .read(toastProvider.notifier)
+          .show(
+            '${widget.tracks.length} tracks by ${widget.artistName} added to queue',
+          );
     } catch (e) {
       ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
@@ -1101,9 +1123,11 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
       final api = ref.read(kalinkaProxyProvider);
       final ids = widget.tracks.map((t) => t.id).toList();
       await api.add(ids);
-      ref.read(toastProvider.notifier).show(
-        '${widget.tracks.length} tracks by ${widget.artistName} playing next',
-      );
+      ref
+          .read(toastProvider.notifier)
+          .show(
+            '${widget.tracks.length} tracks by ${widget.artistName} playing next',
+          );
     } catch (e) {
       ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }

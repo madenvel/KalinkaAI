@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../data_model/kalinka_ws_api.dart';
 import '../providers/kalinka_player_api_provider.dart';
+import '../providers/source_modules_provider.dart';
 import '../providers/toast_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/url_resolver.dart';
@@ -76,32 +77,23 @@ class QueueItemRow extends ConsumerWidget {
             SizedBox(
               width: 44,
               height: 44,
-              child: Stack(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: resolvedImageUrl != null
-                        ? Image.network(
-                            resolvedImageUrl,
-                            width: 44,
-                            height: 44,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                ProceduralAlbumArt(trackId: track.id, size: 44),
-                          )
-                        : ProceduralAlbumArt(trackId: track.id, size: 44),
-                  ),
-                  Positioned(
-                    bottom: 1,
-                    right: 1,
-                    child: SourceBadge(entityId: track.id),
-                  ),
-                ],
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: resolvedImageUrl != null
+                    ? Image.network(
+                        resolvedImageUrl,
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            ProceduralAlbumArt(trackId: track.id, size: 44),
+                      )
+                    : ProceduralAlbumArt(trackId: track.id, size: 44),
               ),
             ),
             const SizedBox(width: 10),
@@ -122,11 +114,24 @@ class QueueItemRow extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    track.performer?.name ?? 'Unknown Artist',
-                    style: KalinkaTextStyles.queueItemArtist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SourceBadge(
+                        entityId: track.id,
+                        size: SourceBadgeSize.small,
+                      ),
+                      if (ref.watch(sourceCountProvider) > 1)
+                        const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          track.performer?.name ?? 'Unknown Artist',
+                          style: KalinkaTextStyles.queueItemArtist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -151,7 +156,9 @@ class QueueItemRow extends ConsumerWidget {
           await kalinkaProxy.remove(index);
           ref.read(toastProvider.notifier).show('"${track.title}" removed');
         } catch (e) {
-          ref.read(toastProvider.notifier).show('Failed to remove: $e', isError: true);
+          ref
+              .read(toastProvider.notifier)
+              .show('Failed to remove: $e', isError: true);
         }
       },
       child: rowContent,

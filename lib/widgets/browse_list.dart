@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../providers/browse_navigation_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
+import '../providers/source_modules_provider.dart';
 import '../providers/toast_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
 import 'path_bar.dart';
 import 'procedural_album_art.dart';
+import 'source_badge.dart';
 
 /// Displays a section of browse items: collage preview -> expanded list ->
 /// inline drill-down with PathBar. Replaces SectionCollage.
@@ -311,13 +313,23 @@ class _BrowseListState extends ConsumerState<BrowseList> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (item.subname != null)
-                    Text(
-                      item.subname!,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SourceBadge(entityId: item.id),
+                        if (ref.watch(sourceCountProvider) > 1)
+                          const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            item.subname!,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                 ],
               ),
@@ -354,9 +366,13 @@ class _BrowseListState extends ConsumerState<BrowseList> {
     try {
       final api = ref.read(kalinkaProxyProvider);
       await api.add([item.id]);
-      ref.read(toastProvider.notifier).show('Added "${item.name ?? 'item'}" to queue');
+      ref
+          .read(toastProvider.notifier)
+          .show('Added "${item.name ?? 'item'}" to queue');
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to add to queue: $e', isError: true);
+      ref
+          .read(toastProvider.notifier)
+          .show('Failed to add to queue: $e', isError: true);
     }
   }
 }

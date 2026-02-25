@@ -67,11 +67,19 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
 
   void _openPlayer() {
     setState(() => _playerOpen = true);
-    _playerController.forward();
+    _playerController.animateTo(
+      1.0,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeInOutQuart,
+    );
   }
 
   void _closePlayer() {
-    _playerController.reverse();
+    _playerController.animateTo(
+      0.0,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeInOutQuart,
+    );
   }
 
   @override

@@ -9,6 +9,7 @@ import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
+import '../../providers/source_modules_provider.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
@@ -48,7 +49,9 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
       await api.add([widget.item.id]);
       await api.play();
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to play: $e', isError: true);
+      ref
+          .read(toastProvider.notifier)
+          .show('Failed to play: $e', isError: true);
     }
   }
 
@@ -212,13 +215,6 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
                           ),
                         ),
                       ),
-                    // Source badge
-                    if (!(selectionMode && isSelected))
-                      Positioned(
-                        bottom: 1,
-                        right: 1,
-                        child: SourceBadge(entityId: widget.item.id),
-                      ),
                   ],
                 ),
               ),
@@ -240,11 +236,24 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (subtitle.isNotEmpty)
-                      Text(
-                        subtitle,
-                        style: KalinkaTextStyles.trackRowSubtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SourceBadge(
+                            entityId: widget.item.id,
+                            size: SourceBadgeSize.standard,
+                          ),
+                          if (ref.watch(sourceCountProvider) > 1)
+                            const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              subtitle,
+                              style: KalinkaTextStyles.trackRowSubtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                   ],
                 ),

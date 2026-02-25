@@ -9,6 +9,7 @@ import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../utils/playback_utils.dart';
+import '../providers/source_modules_provider.dart';
 import 'procedural_album_art.dart';
 import 'server_chip.dart';
 import 'source_badge.dart';
@@ -134,6 +135,18 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
     final mimeLabel = _formatLabel(playbackState.mimeType);
     final qualityLabel = _formatAudioQuality(playbackState.audioInfo);
 
+    // Source display info for the attribution line.
+    final sourceMap = ref.watch(sourceDisplayInfoProvider);
+    final String? currentSource = (() {
+      if (currentTrack == null) return null;
+      try {
+        return EntityId.fromString(currentTrack.id).source;
+      } catch (_) {
+        return null;
+      }
+    })();
+    final sourceInfo = currentSource != null ? sourceMap[currentSource] : null;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         // Header height varies by mode.
@@ -246,64 +259,44 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                               style: KalinkaTextStyles.expandedArtist,
                               textAlign: TextAlign.center,
                             ),
-                            // Format + quality + source badges
-                            if (mimeLabel.isNotEmpty ||
-                                qualityLabel.isNotEmpty ||
-                                currentTrack != null) ...[
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (mimeLabel.isNotEmpty)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: KalinkaColors.accent,
-                                          width: 1,
+                            // Source attribution line: [Q] Qobuz · FLAC 24-bit • 96 kHz
+                            if (currentTrack != null) ...[
+                              const SizedBox(height: 4),
+                              Builder(
+                                builder: (context) {
+                                  final List<String> parts = [];
+                                  if (sourceInfo != null) {
+                                    parts.add(sourceInfo.title);
+                                  }
+                                  final List<String> fmtParts = [
+                                    if (mimeLabel.isNotEmpty) mimeLabel,
+                                    if (qualityLabel.isNotEmpty) qualityLabel,
+                                  ];
+                                  if (fmtParts.isNotEmpty) {
+                                    parts.add(fmtParts.join(' '));
+                                  }
+                                  final attributionText = parts.join(' · ');
+                                  return Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      SourceBadge(entityId: currentTrack.id),
+                                      if (attributionText.isNotEmpty) ...[
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          attributionText,
+                                          style:
+                                              KalinkaTextStyles.expandedArtist,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                      ),
-                                      child: Text(
-                                        mimeLabel,
-                                        style: KalinkaTextStyles.formatBadge,
-                                      ),
-                                    ),
-                                  if (mimeLabel.isNotEmpty &&
-                                      qualityLabel.isNotEmpty)
-                                    const SizedBox(width: 6),
-                                  if (qualityLabel.isNotEmpty)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: KalinkaColors.accent,
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        qualityLabel,
-                                        style: KalinkaTextStyles.formatBadge,
-                                      ),
-                                    ),
-                                  if ((mimeLabel.isNotEmpty ||
-                                          qualityLabel.isNotEmpty) &&
-                                      currentTrack != null)
-                                    const SizedBox(width: 6),
-                                  if (currentTrack != null)
-                                    SourceBadge(
-                                      entityId: currentTrack.id,
-                                      style: SourceBadgeStyle.pill,
-                                    ),
-                                ],
+                                      ],
+                                    ],
+                                  );
+                                },
                               ),
+                              const SizedBox(height: 8),
                             ],
                             // Flexible gap: pushes controls to the bottom
                             const Spacer(),
@@ -318,8 +311,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                   overlayRadius: 14,
                                 ),
                                 activeTrackColor: KalinkaColors.accent,
-                                inactiveTrackColor:
-                                    KalinkaColors.borderDefault,
+                                inactiveTrackColor: KalinkaColors.borderDefault,
                                 thumbColor: Colors.white,
                                 overlayColor: KalinkaColors.accent.withValues(
                                   alpha: 0.25,
@@ -331,8 +323,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                   if (!_isSeeking) {
                                     KalinkaHaptics.mediumImpact();
                                     _lastHapticSeekPosition = value;
-                                  } else if ((value -
-                                              _lastHapticSeekPosition)
+                                  } else if ((value - _lastHapticSeekPosition)
                                           .abs() >=
                                       0.05) {
                                     KalinkaHaptics.selectionClick();
@@ -425,10 +416,10 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                   onTapDown: isPlayPauseDisabled(playerState)
                                       ? null
                                       : (_) =>
-                                          playerState ==
-                                                  PlayerStateType.playing
-                                              ? KalinkaHaptics.lightImpact()
-                                              : KalinkaHaptics.mediumImpact(),
+                                            playerState ==
+                                                PlayerStateType.playing
+                                            ? KalinkaHaptics.lightImpact()
+                                            : KalinkaHaptics.mediumImpact(),
                                   onTap: isPlayPauseDisabled(playerState)
                                       ? null
                                       : () => sendPlayPauseCommand(

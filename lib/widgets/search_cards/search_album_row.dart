@@ -11,6 +11,7 @@ import '../../providers/search_state_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
+import '../../providers/source_modules_provider.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
@@ -52,7 +53,9 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
       await api.add([widget.item.id]);
       final name = widget.item.album?.title ?? widget.item.name ?? 'album';
       final trackCount = widget.item.album?.trackCount;
-      ref.read(toastProvider.notifier).show('$name — ${trackCount ?? ''} tracks added to queue');
+      ref
+          .read(toastProvider.notifier)
+          .show('$name — ${trackCount ?? ''} tracks added to queue');
     } catch (e) {
       ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
@@ -239,13 +242,6 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
                               ),
                             ),
                           ),
-                        // Source badge
-                        if (!(selectionMode && isSelected))
-                          Positioned(
-                            bottom: 2,
-                            right: 2,
-                            child: SourceBadge(entityId: widget.item.id),
-                          ),
                       ],
                     ),
                   ),
@@ -266,11 +262,23 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         if (subtitle.isNotEmpty)
-                          Text(
-                            subtitle,
-                            style: KalinkaTextStyles.trackRowSubtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (!(selectionMode && isSelected))
+                                SourceBadge(entityId: widget.item.id),
+                              if (!(selectionMode && isSelected) &&
+                                  ref.watch(sourceCountProvider) > 1)
+                                const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  subtitle,
+                                  style: KalinkaTextStyles.trackRowSubtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                         if (genre != null) ...[
                           const SizedBox(height: 4),
@@ -435,7 +443,9 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
       await api.add([widget.containerId]);
       await api.play(widget.index - 1);
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to play: $e', isError: true);
+      ref
+          .read(toastProvider.notifier)
+          .show('Failed to play: $e', isError: true);
     }
   }
 
@@ -508,7 +518,10 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
     final containerSelected = selection.isContainerSelected(widget.containerId);
     final trackSelected =
         containerSelected &&
-        selection.isTrackInContainerSelected(widget.containerId, widget.item.id);
+        selection.isTrackInContainerSelected(
+          widget.containerId,
+          widget.item.id,
+        );
     final inSelectionHighlight = isSelected || trackSelected;
 
     return SwipeToActRow(

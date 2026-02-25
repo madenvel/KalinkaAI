@@ -11,6 +11,7 @@ import '../../providers/search_state_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
+import '../../providers/source_modules_provider.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
@@ -54,7 +55,9 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
       final title =
           widget.item.playlist?.name ?? widget.item.name ?? 'playlist';
       final trackCount = widget.item.playlist?.trackCount;
-      ref.read(toastProvider.notifier).show('$title — ${trackCount ?? ''} tracks added to queue');
+      ref
+          .read(toastProvider.notifier)
+          .show('$title — ${trackCount ?? ''} tracks added to queue');
     } catch (e) {
       ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }
@@ -262,13 +265,6 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
                               ),
                             ),
                           ),
-                        // Source badge
-                        if (!(selectionMode && isSelected))
-                          Positioned(
-                            bottom: 2,
-                            right: 2,
-                            child: SourceBadge(entityId: widget.item.id),
-                          ),
                       ],
                     ),
                   ),
@@ -289,11 +285,23 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         if (subtitle.isNotEmpty)
-                          Text(
-                            subtitle,
-                            style: KalinkaTextStyles.trackRowSubtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (!(selectionMode && isSelected))
+                                SourceBadge(entityId: widget.item.id),
+                              if (!(selectionMode && isSelected) &&
+                                  ref.watch(sourceCountProvider) > 1)
+                                const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  subtitle,
+                                  style: KalinkaTextStyles.trackRowSubtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                       ],
                     ),
@@ -433,7 +441,9 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
       await api.add([widget.containerId]);
       await api.play(widget.index - 1);
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to play: $e', isError: true);
+      ref
+          .read(toastProvider.notifier)
+          .show('Failed to play: $e', isError: true);
     }
   }
 

@@ -4,22 +4,27 @@ import '../data_model/data_model.dart';
 import '../providers/source_modules_provider.dart';
 import '../theme/app_theme.dart';
 
-enum SourceBadgeStyle { dot, pill }
+enum SourceBadgeSize { standard, small }
 
-/// Displays a source attribution badge.
-///
-/// [dot]: 14x14 circle with single letter, for thumbnail overlays.
-/// [pill]: Bordered pill with full source name, for detail views.
+/// Displays a source attribution badge: a pill containing the first letter
+/// of the source name, uppercase, in the source colour.
 ///
 /// Automatically hides when only one source is configured.
+///
+/// [size.standard]: 11dp font, 5dp h-padding, 2dp v-padding (list rows, now-playing)
+/// [size.small]:    10dp font, 4dp h-padding, 1.5dp v-padding (queue rows, tiles)
 class SourceBadge extends ConsumerWidget {
   final String entityId;
-  final SourceBadgeStyle style;
+  final SourceBadgeSize size;
+
+  /// Optional border-radius override for collapsed multi-badge groups.
+  final BorderRadius? borderRadiusOverride;
 
   const SourceBadge({
     super.key,
     required this.entityId,
-    this.style = SourceBadgeStyle.dot,
+    this.size = SourceBadgeSize.standard,
+    this.borderRadiusOverride,
   });
 
   @override
@@ -38,36 +43,32 @@ class SourceBadge extends ConsumerWidget {
     final info = sourceMap[source];
     if (info == null) return const SizedBox.shrink();
 
-    return switch (style) {
-      SourceBadgeStyle.dot => _buildDot(info),
-      SourceBadgeStyle.pill => _buildPill(info),
-    };
-  }
+    final color = info.color;
+    final letter = info.abbreviation; // already first letter, uppercased
 
-  Widget _buildDot(SourceDisplayInfo info) {
-    return Container(
-      width: 14,
-      height: 14,
-      decoration: BoxDecoration(
-        color: info.color.withValues(alpha: 0.85),
-        shape: BoxShape.circle,
-        border: Border.all(color: KalinkaColors.background, width: 1),
-      ),
-      alignment: Alignment.center,
-      child: Text(info.abbreviation, style: KalinkaTextStyles.sourceBadgeDot),
-    );
-  }
+    final double fs = size == SourceBadgeSize.small ? 10.0 : 11.0;
+    final double px = size == SourceBadgeSize.small ? 4.0 : 5.0;
+    final double py = size == SourceBadgeSize.small ? 1.5 : 2.0;
+    final BorderRadius radius =
+        borderRadiusOverride ?? BorderRadius.circular(4);
 
-  Widget _buildPill(SourceDisplayInfo info) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: info.color, width: 1),
-      ),
-      child: Text(
-        info.title,
-        style: KalinkaTextStyles.formatBadge.copyWith(color: info.color),
+    return Semantics(
+      label: info.title,
+      excludeSemantics: true,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: px, vertical: py),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.14),
+          border: Border.all(color: color.withValues(alpha: 0.30), width: 1),
+          borderRadius: radius,
+        ),
+        child: Text(
+          letter,
+          style: KalinkaTextStyles.sourceBadgeLetter.copyWith(
+            fontSize: fs,
+            color: color,
+          ),
+        ),
       ),
     );
   }
