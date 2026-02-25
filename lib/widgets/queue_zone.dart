@@ -146,9 +146,9 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
         width: 30,
         height: 30,
         decoration: BoxDecoration(
-          color: KalinkaColors.inputSurface,
+          color: KalinkaColors.surfaceInput,
           borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: KalinkaColors.borderElevated),
+          border: Border.all(color: KalinkaColors.borderDefault),
         ),
         child: const Icon(
           Icons.more_vert,
@@ -355,7 +355,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
 
     return Container(
       width: double.infinity,
-      color: KalinkaColors.pillSurface,
+      color: KalinkaColors.surfaceElevated,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         mainAxisSize: MainAxisSize.min,

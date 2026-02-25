@@ -105,9 +105,9 @@ class _ToastCardState extends State<_ToastCard>
         position: _slide,
         child: Container(
           decoration: BoxDecoration(
-            color: KalinkaColors.pillSurface,
+            color: KalinkaColors.surfaceElevated,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: KalinkaColors.borderElevated, width: 1),
+            border: Border.all(color: KalinkaColors.borderDefault, width: 1),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           child: Row(
@@ -120,8 +120,8 @@ class _ToastCardState extends State<_ToastCard>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: widget.entry.isError
-                      ? KalinkaColors.statusRed
-                      : KalinkaColors.statusGreen,
+                      ? KalinkaColors.statusError
+                      : KalinkaColors.statusOnline,
                 ),
               ),
               const SizedBox(width: 10),

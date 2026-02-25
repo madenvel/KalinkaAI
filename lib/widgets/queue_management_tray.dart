@@ -101,12 +101,12 @@ class _QueueManagementTrayState extends ConsumerState<QueueManagementTray>
                   onTap: () {},
                   child: Container(
                     decoration: BoxDecoration(
-                      color: KalinkaColors.miniPlayerSurface,
+                      color: KalinkaColors.surfaceRaised,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(24),
                       ),
                       border: const Border(
-                        top: BorderSide(color: KalinkaColors.borderElevated),
+                        top: BorderSide(color: KalinkaColors.borderDefault),
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -261,7 +261,7 @@ class _QueueManagementTrayState extends ConsumerState<QueueManagementTray>
                             // Clear played row
                             _TrayRow(
                               icon: Icons.history,
-                              iconBgColor: KalinkaColors.pillSurface,
+                              iconBgColor: KalinkaColors.surfaceElevated,
                               iconColor: KalinkaColors.textSecondary,
                               label: 'Clear played',
                               sublabel: 'Remove played tracks from history',
@@ -284,10 +284,10 @@ class _QueueManagementTrayState extends ConsumerState<QueueManagementTray>
                             // Clear all row (danger)
                             _TrayRow(
                               icon: Icons.delete_outline,
-                              iconBgColor: KalinkaColors.deleteRed.withValues(
+                              iconBgColor: KalinkaColors.actionDelete.withValues(
                                 alpha: 0.12,
                               ),
-                              iconColor: KalinkaColors.deleteRed,
+                              iconColor: KalinkaColors.actionDelete,
                               label: 'Clear all',
                               sublabel: 'Remove everything from queue',
                               isDanger: true,
@@ -325,10 +325,10 @@ class _QueueManagementTrayState extends ConsumerState<QueueManagementTray>
         height: 24,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          color: value ? activeColor : KalinkaColors.pillSurface,
+          color: value ? activeColor : KalinkaColors.surfaceElevated,
           border: value
               ? null
-              : Border.all(color: KalinkaColors.borderElevated),
+              : Border.all(color: KalinkaColors.borderDefault),
         ),
         child: AnimatedAlign(
           duration: const Duration(milliseconds: 220),
@@ -399,7 +399,7 @@ class _TrayRow extends StatelessWidget {
                     label,
                     style: isDanger
                         ? KalinkaTextStyles.trayRowLabel.copyWith(
-                            color: KalinkaColors.deleteRed,
+                            color: KalinkaColors.actionDelete,
                           )
                         : KalinkaTextStyles.trayRowLabel,
                   ),
@@ -432,9 +432,9 @@ class _RepeatSegmentedControl extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: KalinkaColors.pillSurface,
+        color: KalinkaColors.surfaceElevated,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: KalinkaColors.borderElevated),
+        border: Border.all(color: KalinkaColors.borderDefault),
       ),
       padding: const EdgeInsets.all(3),
       child: Row(

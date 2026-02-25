@@ -81,7 +81,7 @@ class _EmptyQueueStateState extends State<EmptyQueueState>
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: KalinkaColors.inputSurface,
+                            color: KalinkaColors.surfaceInput,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: KalinkaColors.accent.withValues(

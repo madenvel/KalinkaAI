@@ -21,7 +21,7 @@ class SectionHeader extends StatelessWidget {
       children: [
         if (showDivider)
           const Divider(
-            color: KalinkaColors.borderDefault,
+            color: KalinkaColors.borderSubtle,
             thickness: 1,
             height: 24,
           ),

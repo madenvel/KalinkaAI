@@ -87,12 +87,12 @@ class _ServerSheetState extends ConsumerState<ServerSheet>
                   onTap: () {}, // Prevent backdrop tap from passing through
                   child: Container(
                     decoration: BoxDecoration(
-                      color: KalinkaColors.miniPlayerSurface,
+                      color: KalinkaColors.surfaceRaised,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(24),
                       ),
                       border: const Border(
-                        top: BorderSide(color: KalinkaColors.borderElevated),
+                        top: BorderSide(color: KalinkaColors.borderDefault),
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -173,7 +173,7 @@ class _ServerSheetState extends ConsumerState<ServerSheet>
                             // Connect to different server
                             _SheetRow(
                               icon: Icons.language,
-                              iconBgColor: KalinkaColors.pillSurface,
+                              iconBgColor: KalinkaColors.surfaceElevated,
                               iconColor: KalinkaColors.textSecondary,
                               label: 'Connect to different server',
                               sublabel: 'Scan network for other instances',
@@ -194,10 +194,10 @@ class _ServerSheetState extends ConsumerState<ServerSheet>
                             // Disconnect
                             _SheetRow(
                               icon: Icons.logout,
-                              iconBgColor: KalinkaColors.statusRed.withValues(
+                              iconBgColor: KalinkaColors.statusError.withValues(
                                 alpha: 0.12,
                               ),
-                              iconColor: KalinkaColors.statusRed,
+                              iconColor: KalinkaColors.statusError,
                               label: 'Disconnect',
                               sublabel: '',
                               isDanger: true,
@@ -234,16 +234,16 @@ class _ServerSheetState extends ConsumerState<ServerSheet>
     String stateLabel;
     switch (connectionState) {
       case ConnectionStatus.connected:
-        dotColor = KalinkaColors.statusGreen;
+        dotColor = KalinkaColors.statusOnline;
         stateLabel = 'Online';
       case ConnectionStatus.reconnecting:
-        dotColor = KalinkaColors.amber;
+        dotColor = KalinkaColors.statusPending;
         stateLabel = 'Reconnecting';
       case ConnectionStatus.offline:
-        dotColor = KalinkaColors.statusRed;
+        dotColor = KalinkaColors.statusError;
         stateLabel = 'Offline';
       case ConnectionStatus.connecting:
-        dotColor = KalinkaColors.amber;
+        dotColor = KalinkaColors.statusPending;
         stateLabel = 'Connecting';
       case ConnectionStatus.none:
         dotColor = KalinkaColors.textMuted;
@@ -267,9 +267,9 @@ class _ServerSheetState extends ConsumerState<ServerSheet>
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: KalinkaColors.inputSurface,
+          color: KalinkaColors.surfaceInput,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: KalinkaColors.borderElevated),
+          border: Border.all(color: KalinkaColors.borderDefault),
         ),
         child: Row(
           children: [
@@ -398,7 +398,7 @@ class _SheetRow extends StatelessWidget {
                     label,
                     style: isDanger
                         ? KalinkaTextStyles.trayRowLabel.copyWith(
-                            color: KalinkaColors.statusRed,
+                            color: KalinkaColors.statusError,
                           )
                         : KalinkaTextStyles.trayRowLabel,
                   ),

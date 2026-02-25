@@ -45,17 +45,17 @@ class _ConnectionBannerState extends ConsumerState<ConnectionBanner>
       alignment: Alignment.topCenter,
       child: switch (connectionState) {
         ConnectionStatus.reconnecting => _buildBanner(
-          bgColor: KalinkaColors.amber.withValues(alpha: 0.07),
-          borderColor: KalinkaColors.amber.withValues(alpha: 0.18),
-          dotColor: KalinkaColors.amber,
+          bgColor: KalinkaColors.statusPending.withValues(alpha: 0.07),
+          borderColor: KalinkaColors.statusPending.withValues(alpha: 0.18),
+          dotColor: KalinkaColors.statusPending,
           pulseDot: true,
           text: 'Reconnecting to $name \u00b7 retrying\u2026',
-          textColor: KalinkaColors.amberLight,
+          textColor: KalinkaColors.statusPendingLight,
         ),
         ConnectionStatus.offline => _buildBanner(
-          bgColor: KalinkaColors.statusRed.withValues(alpha: 0.08),
-          borderColor: KalinkaColors.statusRed.withValues(alpha: 0.18),
-          dotColor: KalinkaColors.statusRed,
+          bgColor: KalinkaColors.statusError.withValues(alpha: 0.08),
+          borderColor: KalinkaColors.statusError.withValues(alpha: 0.18),
+          dotColor: KalinkaColors.statusError,
           pulseDot: false,
           text: '$name unreachable \u00b7 queue shown from last sync',
           textColor: const Color(0xFFF87171),
@@ -121,7 +121,7 @@ class _ConnectionBannerState extends ConsumerState<ConnectionBanner>
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: KalinkaColors.statusRed.withValues(alpha: 0.3),
+                    color: KalinkaColors.statusError.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Text(

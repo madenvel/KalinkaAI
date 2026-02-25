@@ -117,9 +117,9 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
       curve: Curves.easeOut,
       child: Container(
         decoration: const BoxDecoration(
-          color: KalinkaColors.miniPlayerSurface,
+          color: KalinkaColors.surfaceRaised,
           border: Border(
-            top: BorderSide(color: KalinkaColors.borderElevated, width: 1),
+            top: BorderSide(color: KalinkaColors.borderDefault, width: 1),
           ),
         ),
         child: SafeArea(
@@ -202,8 +202,8 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                         color:
                                             connectionState ==
                                                 ConnectionStatus.reconnecting
-                                            ? KalinkaColors.amber
-                                            : KalinkaColors.statusRed,
+                                            ? KalinkaColors.statusPending
+                                            : KalinkaColors.statusError,
                                       ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -302,11 +302,11 @@ class _MarchingDashesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // Background
-    final bgPaint = Paint()..color = KalinkaColors.borderDefault;
+    final bgPaint = Paint()..color = KalinkaColors.borderSubtle;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
     // Red marching dashes
-    final dashPaint = Paint()..color = KalinkaColors.statusRed;
+    final dashPaint = Paint()..color = KalinkaColors.statusError;
     const dashWidth = 8.0;
     const gapWidth = 6.0;
     const period = dashWidth + gapWidth;

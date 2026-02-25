@@ -281,7 +281,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
               ),
             ),
             // Divider
-            Container(width: 1, color: KalinkaColors.borderDefault),
+            Container(width: 1, color: KalinkaColors.borderSubtle),
             // Right panel: SidePanel (tabbed search/queue)
             const Expanded(child: SafeArea(child: SidePanel())),
           ],

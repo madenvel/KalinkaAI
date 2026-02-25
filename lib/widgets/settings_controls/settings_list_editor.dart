@@ -107,9 +107,9 @@ class _SettingsListEditorState extends State<SettingsListEditor> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: KalinkaColors.pillSurface,
+                color: KalinkaColors.surfaceElevated,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: KalinkaColors.borderElevated),
+                border: Border.all(color: KalinkaColors.borderDefault),
               ),
               child: Row(
                 children: [
@@ -139,13 +139,13 @@ class _SettingsListEditorState extends State<SettingsListEditor> {
                       width: 18,
                       height: 18,
                       decoration: BoxDecoration(
-                        color: KalinkaColors.statusRed.withValues(alpha: 0.1),
+                        color: KalinkaColors.statusError.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(5),
                       ),
                       child: const Icon(
                         Icons.close,
                         size: 10,
-                        color: KalinkaColors.statusRed,
+                        color: KalinkaColors.statusError,
                       ),
                     ),
                   ),

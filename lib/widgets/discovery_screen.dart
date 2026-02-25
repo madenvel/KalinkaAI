@@ -268,7 +268,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: KalinkaColors.pillSurface,
+              color: KalinkaColors.surfaceElevated,
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
@@ -300,8 +300,8 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           _buildFullWidthButton(
             label: 'Scan again',
             color: KalinkaColors.textSecondary,
-            bgColor: KalinkaColors.pillSurface,
-            borderColor: KalinkaColors.borderElevated,
+            bgColor: KalinkaColors.surfaceElevated,
+            borderColor: KalinkaColors.borderDefault,
             onTap: () {
               ref.read(discoveryProvider.notifier).rescan();
             },
@@ -408,14 +408,14 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     Color borderColor;
     Color bgColor;
     if (isCurrent) {
-      borderColor = KalinkaColors.statusGreen.withValues(alpha: 0.3);
-      bgColor = KalinkaColors.statusGreen.withValues(alpha: 0.05);
+      borderColor = KalinkaColors.statusOnline.withValues(alpha: 0.3);
+      bgColor = KalinkaColors.statusOnline.withValues(alpha: 0.05);
     } else if (isSelected) {
       borderColor = KalinkaColors.gold.withValues(alpha: 0.5);
       bgColor = KalinkaColors.gold.withValues(alpha: 0.07);
     } else {
-      borderColor = KalinkaColors.borderElevated;
-      bgColor = KalinkaColors.miniPlayerSurface;
+      borderColor = KalinkaColors.borderDefault;
+      bgColor = KalinkaColors.surfaceRaised;
     }
 
     return GestureDetector(
@@ -436,7 +436,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               height: 38,
               decoration: BoxDecoration(
                 color: isCurrent
-                    ? KalinkaColors.statusGreen.withValues(alpha: 0.1)
+                    ? KalinkaColors.statusOnline.withValues(alpha: 0.1)
                     : isSelected
                     ? KalinkaColors.gold.withValues(alpha: 0.14)
                     : KalinkaColors.accent.withValues(alpha: 0.14),
@@ -446,7 +446,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                 Icons.dns_outlined,
                 size: 18,
                 color: isCurrent
-                    ? KalinkaColors.statusGreen
+                    ? KalinkaColors.statusOnline
                     : isSelected
                     ? KalinkaColors.gold
                     : KalinkaColors.accent,
@@ -485,16 +485,16 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: KalinkaColors.statusGreen.withValues(alpha: 0.1),
+                  color: KalinkaColors.statusOnline.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: KalinkaColors.statusGreen.withValues(alpha: 0.2),
+                    color: KalinkaColors.statusOnline.withValues(alpha: 0.2),
                   ),
                 ),
                 child: Text(
                   'CURRENT',
                   style: KalinkaTextStyles.tagPill.copyWith(
-                    color: KalinkaColors.statusGreen,
+                    color: KalinkaColors.statusOnline,
                     fontSize: 10,
                     letterSpacing: 0.8,
                   ),
@@ -521,7 +521,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           margin: const EdgeInsets.only(left: 2),
           decoration: BoxDecoration(
             color: isActive
-                ? KalinkaColors.statusGreen
+                ? KalinkaColors.statusOnline
                 : KalinkaColors.textMuted,
             borderRadius: BorderRadius.circular(1.5),
           ),
@@ -574,9 +574,9 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              color: KalinkaColors.inputSurface,
+              color: KalinkaColors.surfaceInput,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: KalinkaColors.borderElevated),
+              border: Border.all(color: KalinkaColors.borderDefault),
             ),
             child: TextField(
               controller: _hostController,
@@ -668,7 +668,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               _connectError!,
               textAlign: TextAlign.center,
               style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                color: KalinkaColors.statusRed,
+                color: KalinkaColors.statusError,
               ),
             ),
             const SizedBox(height: 16),

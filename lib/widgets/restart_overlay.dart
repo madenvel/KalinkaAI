@@ -113,7 +113,7 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
                         height: 60,
                         decoration: BoxDecoration(
                           color: restartState.isDone
-                              ? KalinkaColors.statusGreen.withValues(
+                              ? KalinkaColors.statusOnline.withValues(
                                   alpha: 0.14,
                                 )
                               : KalinkaColors.accent.withValues(alpha: 0.14),
@@ -121,7 +121,7 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
                           border: Border.all(
                             color:
                                 (restartState.isDone
-                                        ? KalinkaColors.statusGreen
+                                        ? KalinkaColors.statusOnline
                                         : KalinkaColors.accent)
                                     .withValues(alpha: 0.25),
                           ),
@@ -130,7 +130,7 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
                             ? const Icon(
                                 Icons.check_rounded,
                                 size: 28,
-                                color: KalinkaColors.statusGreen,
+                                color: KalinkaColors.statusOnline,
                               )
                             : RotationTransition(
                                 turns: _spinController,
@@ -177,7 +177,7 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
                         restartState.error!,
                         textAlign: TextAlign.center,
                         style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                          color: KalinkaColors.statusRed,
+                          color: KalinkaColors.statusError,
                         ),
                       ),
                     ],
@@ -225,7 +225,7 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
         return Container(
           height: 4,
           decoration: BoxDecoration(
-            color: KalinkaColors.pillSurface,
+            color: KalinkaColors.surfaceElevated,
             borderRadius: BorderRadius.circular(2),
           ),
           child: Align(
@@ -270,7 +270,7 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
 
       Color dotColor;
       if (isDone) {
-        dotColor = KalinkaColors.statusGreen;
+        dotColor = KalinkaColors.statusOnline;
       } else if (isActive) {
         dotColor = KalinkaColors.accent;
       } else {
@@ -317,7 +317,7 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
                       width: 1,
                       height: 14,
                       margin: const EdgeInsets.symmetric(vertical: 2),
-                      color: KalinkaColors.borderDefault,
+                      color: KalinkaColors.borderSubtle,
                     ),
                 ],
               ),

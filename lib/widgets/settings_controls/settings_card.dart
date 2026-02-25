@@ -14,9 +14,9 @@ class SettingsCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       decoration: BoxDecoration(
-        color: KalinkaColors.miniPlayerSurface,
+        color: KalinkaColors.surfaceRaised,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: KalinkaColors.borderDefault),
+        border: Border.all(color: KalinkaColors.borderSubtle),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -35,7 +35,7 @@ class SettingsCard extends StatelessWidget {
           const Divider(
             height: 1,
             thickness: 1,
-            color: KalinkaColors.borderDefault,
+            color: KalinkaColors.borderSubtle,
           ),
         );
       }

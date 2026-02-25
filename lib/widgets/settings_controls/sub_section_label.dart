@@ -15,8 +15,8 @@ class SubSectionLabel extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.02),
         border: Border(
-          top: BorderSide(color: KalinkaColors.borderDefault),
-          bottom: BorderSide(color: KalinkaColors.borderDefault),
+          top: BorderSide(color: KalinkaColors.borderSubtle),
+          bottom: BorderSide(color: KalinkaColors.borderSubtle),
         ),
       ),
       child: Text(

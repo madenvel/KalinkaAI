@@ -29,7 +29,7 @@ class _GradientProgressPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // Background track
-    final bgPaint = Paint()..color = KalinkaColors.borderDefault;
+    final bgPaint = Paint()..color = KalinkaColors.borderSubtle;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
     // Gradient fill

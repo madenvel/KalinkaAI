@@ -32,9 +32,9 @@ class CompletionStrip extends ConsumerWidget {
             : 0,
         clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
-          color: KalinkaColors.headerSurface,
+          color: KalinkaColors.surfaceBase,
           border: const Border(
-            bottom: BorderSide(color: KalinkaColors.borderDefault, width: 1),
+            bottom: BorderSide(color: KalinkaColors.borderSubtle, width: 1),
           ),
         ),
         child: SingleChildScrollView(

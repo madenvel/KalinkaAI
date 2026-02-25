@@ -319,7 +319,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                 ),
                                 activeTrackColor: KalinkaColors.accent,
                                 inactiveTrackColor:
-                                    KalinkaColors.borderElevated,
+                                    KalinkaColors.borderDefault,
                                 thumbColor: Colors.white,
                                 overlayColor: KalinkaColors.accent.withValues(
                                   alpha: 0.25,
@@ -524,7 +524,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                         activeTrackColor:
                                             KalinkaColors.textPrimary,
                                         inactiveTrackColor:
-                                            KalinkaColors.borderElevated,
+                                            KalinkaColors.borderDefault,
                                         thumbColor: KalinkaColors.textPrimary,
                                         overlayColor: KalinkaColors.textPrimary
                                             .withValues(alpha: 0.1),

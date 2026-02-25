@@ -178,7 +178,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
         duration: const Duration(milliseconds: 200),
         height: 42,
         decoration: BoxDecoration(
-          color: KalinkaColors.inputSurface,
+          color: KalinkaColors.surfaceInput,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: borderColor, width: 1.5),
           boxShadow: _isActive

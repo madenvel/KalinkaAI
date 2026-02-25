@@ -157,7 +157,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
             child: Text(
               error,
               style: KalinkaTextStyles.trackRowSubtitle.copyWith(
-                color: KalinkaColors.deleteRed,
+                color: KalinkaColors.actionDelete,
               ),
               textAlign: TextAlign.center,
             ),
@@ -663,7 +663,7 @@ class _ShimmerRowState extends State<_ShimmerRow>
     return Container(
       height: widget.height,
       decoration: BoxDecoration(
-        color: KalinkaColors.inputSurface,
+        color: KalinkaColors.surfaceInput,
         borderRadius: BorderRadius.circular(18),
       ),
       padding: const EdgeInsets.all(14),
@@ -676,7 +676,7 @@ class _ShimmerRowState extends State<_ShimmerRow>
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: KalinkaColors.pillSurface,
+                  color: KalinkaColors.surfaceElevated,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -688,7 +688,7 @@ class _ShimmerRowState extends State<_ShimmerRow>
                     width: 160,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: KalinkaColors.pillSurface,
+                      color: KalinkaColors.surfaceElevated,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -697,7 +697,7 @@ class _ShimmerRowState extends State<_ShimmerRow>
                     width: 120,
                     height: 12,
                     decoration: BoxDecoration(
-                      color: KalinkaColors.pillSurface,
+                      color: KalinkaColors.surfaceElevated,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -709,7 +709,7 @@ class _ShimmerRowState extends State<_ShimmerRow>
           Container(
             height: 28,
             decoration: BoxDecoration(
-              color: KalinkaColors.pillSurface,
+              color: KalinkaColors.surfaceElevated,
               borderRadius: BorderRadius.circular(8),
             ),
           ),
@@ -728,7 +728,7 @@ class _ShimmerRowState extends State<_ShimmerRow>
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: KalinkaColors.inputSurface,
+              color: KalinkaColors.surfaceInput,
               borderRadius: BorderRadius.circular(8),
             ),
           ),
@@ -744,7 +744,7 @@ class _ShimmerRowState extends State<_ShimmerRow>
                   height: 10,
                   margin: const EdgeInsets.only(right: 60),
                   decoration: BoxDecoration(
-                    color: KalinkaColors.inputSurface,
+                    color: KalinkaColors.surfaceInput,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -753,7 +753,7 @@ class _ShimmerRowState extends State<_ShimmerRow>
                   width: 120,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: KalinkaColors.inputSurface,
+                    color: KalinkaColors.surfaceInput,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -765,7 +765,7 @@ class _ShimmerRowState extends State<_ShimmerRow>
             width: 32,
             height: 8,
             decoration: BoxDecoration(
-              color: KalinkaColors.inputSurface,
+              color: KalinkaColors.surfaceInput,
               borderRadius: BorderRadius.circular(4),
             ),
           ),

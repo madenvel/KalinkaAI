@@ -112,7 +112,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                           children: [
                             const Icon(
                               Icons.error_outline,
-                              color: KalinkaColors.statusRed,
+                              color: KalinkaColors.statusError,
                               size: 32,
                             ),
                             const SizedBox(height: 12),
@@ -205,12 +205,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     Color dotColor;
     switch (connectionState) {
       case ConnectionStatus.connected:
-        dotColor = KalinkaColors.statusGreen;
+        dotColor = KalinkaColors.statusOnline;
       case ConnectionStatus.reconnecting:
       case ConnectionStatus.connecting:
-        dotColor = KalinkaColors.amber;
+        dotColor = KalinkaColors.statusPending;
       case ConnectionStatus.offline:
-        dotColor = KalinkaColors.statusRed;
+        dotColor = KalinkaColors.statusError;
       case ConnectionStatus.none:
         dotColor = KalinkaColors.textMuted;
     }
@@ -224,9 +224,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 20, 14),
       decoration: BoxDecoration(
-        color: KalinkaColors.headerSurface,
+        color: KalinkaColors.surfaceBase,
         border: const Border(
-          bottom: BorderSide(color: KalinkaColors.borderElevated),
+          bottom: BorderSide(color: KalinkaColors.borderDefault),
         ),
         boxShadow: [
           BoxShadow(
@@ -245,9 +245,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               width: 30,
               height: 30,
               decoration: BoxDecoration(
-                color: KalinkaColors.inputSurface,
+                color: KalinkaColors.surfaceInput,
                 borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: KalinkaColors.borderElevated),
+                border: Border.all(color: KalinkaColors.borderDefault),
               ),
               child: const Icon(
                 Icons.arrow_back,
@@ -308,8 +308,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     const tabs = ['General', 'Modules', 'Devices'];
     return Container(
       decoration: const BoxDecoration(
-        color: KalinkaColors.headerSurface,
-        border: Border(bottom: BorderSide(color: KalinkaColors.borderDefault)),
+        color: KalinkaColors.surfaceBase,
+        border: Border(bottom: BorderSide(color: KalinkaColors.borderSubtle)),
       ),
       child: Row(
         children: List.generate(tabs.length, (i) {

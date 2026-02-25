@@ -30,7 +30,7 @@ class SettingsRow extends StatelessWidget {
 
     return Container(
       decoration: showAmber
-          ? BoxDecoration(color: KalinkaColors.amber.withValues(alpha: 0.04))
+          ? BoxDecoration(color: KalinkaColors.statusPending.withValues(alpha: 0.04))
           : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,7 +41,7 @@ class SettingsRow extends StatelessWidget {
               width: 2,
               constraints: const BoxConstraints(minHeight: 44),
               decoration: BoxDecoration(
-                color: KalinkaColors.amber,
+                color: KalinkaColors.statusPending,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -99,16 +99,16 @@ class SettingsRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
             decoration: BoxDecoration(
-              color: KalinkaColors.amber.withValues(alpha: 0.12),
+              color: KalinkaColors.statusPending.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: KalinkaColors.amber.withValues(alpha: 0.2),
+                color: KalinkaColors.statusPending.withValues(alpha: 0.2),
               ),
             ),
             child: Text(
               pillText,
               style: KalinkaTextStyles.tagPill.copyWith(
-                color: KalinkaColors.amber,
+                color: KalinkaColors.statusPending,
                 fontSize: 8,
                 letterSpacing: 0.8,
               ),

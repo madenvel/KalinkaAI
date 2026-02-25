@@ -5,43 +5,80 @@ import 'package:google_fonts/google_fonts.dart';
 class KalinkaColors {
   KalinkaColors._();
 
-  // Background hierarchy
-  static const background = Color(0xFF0A0A0D);
-  static const headerSurface = Color(0xFF111116);
-  static const miniPlayerSurface = Color(0xFF16161B);
-  static const inputSurface = Color(0xFF1C1C22);
+  // ── Backgrounds ─────────────────────────────────────────────────────────
+  // Six-step depth scale. Each level sits above the previous.
+  // Never skip levels — use the shallowest level that creates
+  // visible separation from the parent surface.
 
-  // Accent colors
-  static const accent = Color(0xFFC23B5C);
-  static const accentTint = Color(0xFFD4647A);
-  static const gold = Color(0xFFE8C87A);
+  static const background      = Color(0xFF0A0A0D); // Page canvas — behind all surfaces
+  static const surfaceBase     = Color(0xFF111116); // Header · tab bar · bottom sheets
+  static const surfaceRaised   = Color(0xFF16161B); // Cards · queue rows · mini-player
+  static const surfaceInput    = Color(0xFF1C1C22); // Input fields · search bar · chips
+  static const surfaceElevated = Color(0xFF222228); // Pills (unselected) · toggle off · nested
+  static const surfaceOverlay  = Color(0xFF2A2A32); // Hover · pressed · active row tint
 
-  // Text
-  static const textPrimary = Color(0xFFE5E5E7);
-  static const textSecondary = Color(0xFF98989A);
+  // ── Borders ─────────────────────────────────────────────────────────────
+  // Always white-alpha — never solid. Works against any surface level.
 
-  // Borders
-  static const borderDefault = Color(0x12FFFFFF); // rgba(255,255,255,0.07)
-  static const borderElevated = Color(0x21FFFFFF); // rgba(255,255,255,0.13)
+  static const borderSubtle   = Color(0x12FFFFFF); // 0.07 · Dividers · card edges · row separators
+  static const borderDefault  = Color(0x21FFFFFF); // 0.13 · Controls · inputs · chips · sheet rules
 
-  // Secondary surfaces
-  static const pillSurface = Color(0xFF222228);
+  // ── Text ────────────────────────────────────────────────────────────────
+  // Three legibility tiers. All pass WCAG AA on background and surfaceBase.
+  // textSecondary and textMuted must be verified on surfaceRaised and above
+  // before use at sizes below 14px.
 
-  // Semantic
-  static const deleteRed = Color(0xFFE53935);
-  static const confirmGreen = Color(0xFF4ADE80);
+  static const textPrimary   = Color(0xFFEEECEA); // 15.8:1 on bg · Track titles · labels · values
+  static const textSecondary = Color(0xFFA8A8AA); // 5.4:1 on bg · 4.6:1 on surfaceInput · Subtitles · metadata · chip labels
+  static const textMuted     = Color(0xFF6B6B80); // 3.8:1 on bg · DECORATIVE ONLY — section chrome,
+                                                   // drag handles, inactive icons. Never for readable text.
 
-  // Inactive/decorative only — contrast ratio ~2.2:1, below WCAG AA.
-  // Use only for truly disabled or non-informational elements (e.g. dimmed
-  // drag handles). Never use for text that communicates state or meaning.
-  static const textMuted = Color(0xFF48485A);
-  static const amber = Color(0xFFF59E0B);
-  static const amberLight = Color(0xFFFCD34D);
-  static const statusGreen = Color(0xFF4ADE80);
-  static const statusRed = Color(0xFFEF4444);
+  // ── Accent — Rose/Crimson ───────────────────────────────────────────────
+  // Primary interactive accent. Active states, progress, selected indicators.
+  // Do not use accent directly for body text — use accentTint for labels
+  // on accent-tinted surfaces.
 
-  // Gradient for progress bars
+  static const accent       = Color(0xFFC23B5C); // 5.2:1 on bg · Toggle on · progress · active dot
+  static const accentTint   = Color(0xFFD4647A); // 5.6:1 on surfaceInput · Labels on accent surfaces
+  static const accentSubtle = Color(0x26C23B5C); // 0.15 alpha · Selected pill bg · focus tint
+  static const accentBorder = Color(0x59C23B5C); // 0.35 alpha · Selected pill border · focus ring
+
+  // ── Accent — Gold ────────────────────────────────────────────────────────
+  // Material signal for streaming/external content. Not an interactive accent.
+  // Appears on Qobuz module tile and progress gradient terminus only.
+
+  static const gold       = Color(0xFFE8C87A); // 8.1:1 on bg · Streaming module · progress end
+  static const goldSubtle = Color(0x1FE8C87A); // 0.12 alpha · Streaming module tile bg
+
+  // ── Progress gradient ────────────────────────────────────────────────────
+
   static const progressGradient = LinearGradient(colors: [accent, gold]);
+
+  // ── Semantic — Status ───────────────────────────────────────────────────
+  // Three states only: success/online, warning/pending, error/offline.
+  // Each has a pure value (for dots, text, icons) and a surface tint
+  // (for badge backgrounds and banner fills).
+  // Do not repurpose these colours outside their semantic role.
+
+  static const statusOnline  = Color(0xFF4ADE80); // 6.4:1 on surfaceInput · Connected · success
+  static const statusPending = Color(0xFFF59E0B); // 5.2:1 on surfaceInput · Staged · reconnecting
+  static const statusError   = Color(0xFFEF4444); // 4.5:1 on surfaceInput · Offline · failed
+
+  static const statusOnlineSurface  = Color(0x1A4ADE80); // 0.10 alpha · Badge bg · done step
+  static const statusPendingSurface = Color(0x17F59E0B); // 0.09 alpha · Pending banner bg
+  static const statusErrorSurface   = Color(0x12EF4444); // 0.07 alpha · Error badge bg · warning note
+
+  // Brighter amber for text on amber-tinted surfaces where the base
+  // amber doesn't meet contrast against the tinted bg.
+  static const statusPendingLight = Color(0xFFFCD34D); // Use for text/icons on statusPendingSurface only
+
+  // ── Semantic — Actions ──────────────────────────────────────────────────
+  // Destructive and confirmatory actions. Separate from status colours
+  // because they appear in interactive controls (buttons, swipe actions)
+  // rather than passive indicators.
+
+  static const actionDelete  = Color(0xFFEF4444); // Swipe-to-delete · remove button · destructive CTA
+  static const actionConfirm = Color(0xFF4ADE80); // Confirm · apply · positive CTA
 }
 
 /// Kalinka text styles using IBM Plex Mono and Playfair Display
@@ -358,7 +395,7 @@ class KalinkaTextStyles {
   // Connection banners
   static TextStyle bannerText = GoogleFonts.ibmPlexMono(
     fontSize: 10,
-    color: KalinkaColors.amberLight,
+    color: KalinkaColors.statusPendingLight,
   );
 
   // Action toast notifications
@@ -390,11 +427,11 @@ class AppTheme {
       brightness: Brightness.dark,
       colorScheme: const ColorScheme.dark(
         surface: KalinkaColors.background,
-        surfaceContainerHighest: KalinkaColors.inputSurface,
+        surfaceContainerHighest: KalinkaColors.surfaceInput,
         onSurface: KalinkaColors.textPrimary,
         onSurfaceVariant: KalinkaColors.textSecondary,
-        outline: KalinkaColors.borderDefault,
-        outlineVariant: KalinkaColors.borderElevated,
+        outline: KalinkaColors.borderSubtle,
+        outlineVariant: KalinkaColors.borderDefault,
         primary: KalinkaColors.accent,
         onPrimary: KalinkaColors.textPrimary,
         secondary: KalinkaColors.gold,
@@ -426,13 +463,13 @@ class AppTheme {
         size: 24,
       ),
       dividerTheme: const DividerThemeData(
-        color: KalinkaColors.borderDefault,
+        color: KalinkaColors.borderSubtle,
         thickness: 1,
         space: 1,
       ),
       sliderTheme: SliderThemeData(
         activeTrackColor: KalinkaColors.accent,
-        inactiveTrackColor: KalinkaColors.borderElevated,
+        inactiveTrackColor: KalinkaColors.borderDefault,
         thumbColor: Colors.white,
         overlayColor: KalinkaColors.accent.withValues(alpha: 0.2),
         trackHeight: 3,

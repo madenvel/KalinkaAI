@@ -52,9 +52,9 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: KalinkaColors.headerSurface,
+        color: KalinkaColors.surfaceBase,
         border: Border(
-          bottom: BorderSide(color: KalinkaColors.borderElevated, width: 1),
+          bottom: BorderSide(color: KalinkaColors.borderDefault, width: 1),
         ),
         boxShadow: [
           BoxShadow(
@@ -142,10 +142,10 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
 
   Widget _buildStateDot(ConnectionStatus state) {
     final color = switch (state) {
-      ConnectionStatus.connected => KalinkaColors.statusGreen,
+      ConnectionStatus.connected => KalinkaColors.statusOnline,
       ConnectionStatus.reconnecting ||
-      ConnectionStatus.connecting => KalinkaColors.amber,
-      ConnectionStatus.offline => KalinkaColors.statusRed,
+      ConnectionStatus.connecting => KalinkaColors.statusPending,
+      ConnectionStatus.offline => KalinkaColors.statusError,
       ConnectionStatus.none => KalinkaColors.textMuted,
     };
 

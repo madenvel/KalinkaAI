@@ -308,7 +308,7 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: KalinkaColors.borderElevated,
+                          color: KalinkaColors.borderDefault,
                           width: 1,
                         ),
                       ),

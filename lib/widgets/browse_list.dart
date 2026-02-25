@@ -161,7 +161,7 @@ class _BrowseListState extends ConsumerState<BrowseList> {
       aspectRatio: 1.0,
       child: Container(
         decoration: BoxDecoration(
-          color: KalinkaColors.inputSurface,
+          color: KalinkaColors.surfaceInput,
           borderRadius: BorderRadius.circular(12),
         ),
         child: ClipRRect(
@@ -195,7 +195,7 @@ class _BrowseListState extends ConsumerState<BrowseList> {
 
   Widget _buildPlaceholder(ThemeData theme) {
     return Container(
-      color: KalinkaColors.inputSurface,
+      color: KalinkaColors.surfaceInput,
       child: const Icon(Icons.album, size: 40, color: Color(0x4D98989A)),
     );
   }
@@ -275,7 +275,7 @@ class _BrowseListState extends ConsumerState<BrowseList> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: KalinkaColors.inputSurface,
+                  color: KalinkaColors.surfaceInput,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: ClipRRect(

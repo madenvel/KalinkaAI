@@ -47,10 +47,10 @@ class _PendingChangesBannerState extends ConsumerState<PendingChangesBanner>
           ? Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                color: KalinkaColors.amber.withValues(alpha: 0.07),
+                color: KalinkaColors.statusPending.withValues(alpha: 0.07),
                 border: Border(
                   bottom: BorderSide(
-                    color: KalinkaColors.amber.withValues(alpha: 0.18),
+                    color: KalinkaColors.statusPending.withValues(alpha: 0.18),
                   ),
                 ),
               ),
@@ -69,7 +69,7 @@ class _PendingChangesBannerState extends ConsumerState<PendingChangesBanner>
                       width: 7,
                       height: 7,
                       decoration: const BoxDecoration(
-                        color: KalinkaColors.amber,
+                        color: KalinkaColors.statusPending,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -80,7 +80,7 @@ class _PendingChangesBannerState extends ConsumerState<PendingChangesBanner>
                     child: Text(
                       '${settingsState.pendingCount} change${settingsState.pendingCount == 1 ? '' : 's'} staged \u00b7 restart required',
                       style: KalinkaTextStyles.bannerText.copyWith(
-                        color: KalinkaColors.amberLight,
+                        color: KalinkaColors.statusPendingLight,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -112,16 +112,16 @@ class _PendingChangesBannerState extends ConsumerState<PendingChangesBanner>
                         vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: KalinkaColors.amber.withValues(alpha: 0.2),
+                        color: KalinkaColors.statusPending.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: KalinkaColors.amber.withValues(alpha: 0.4),
+                          color: KalinkaColors.statusPending.withValues(alpha: 0.4),
                         ),
                       ),
                       child: Text(
                         'APPLY',
                         style: KalinkaTextStyles.bannerText.copyWith(
-                          color: KalinkaColors.amberLight,
+                          color: KalinkaColors.statusPendingLight,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 1.0,
                         ),

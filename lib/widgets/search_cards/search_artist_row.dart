@@ -59,7 +59,7 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
         );
     _topTracksColor = ColorTween(
       begin: KalinkaColors.accent,
-      end: KalinkaColors.confirmGreen,
+      end: KalinkaColors.actionConfirm,
     ).animate(_topTracksConfirmController);
   }
 
@@ -246,10 +246,10 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: KalinkaColors.pillSurface,
+                      color: KalinkaColors.surfaceElevated,
                       borderRadius: BorderRadius.circular(9),
                       border: Border.all(
-                        color: KalinkaColors.borderElevated,
+                        color: KalinkaColors.borderDefault,
                         width: 1,
                       ),
                     ),
@@ -340,7 +340,7 @@ class _ArtistExpansionContent extends ConsumerWidget {
     );
 
     return Container(
-      decoration: const BoxDecoration(color: KalinkaColors.headerSurface),
+      decoration: const BoxDecoration(color: KalinkaColors.surfaceBase),
       child: Container(
         margin: const EdgeInsets.only(left: 4),
         decoration: const BoxDecoration(
@@ -588,7 +588,7 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
               decoration: BoxDecoration(
                 color: selectionMode && isSelected
                     ? KalinkaColors.accent.withValues(alpha: 0.07)
-                    : KalinkaColors.miniPlayerSurface,
+                    : KalinkaColors.surfaceRaised,
                 border: selectionMode && isSelected
                     ? const Border(
                         left: BorderSide(color: KalinkaColors.accent, width: 2),
@@ -682,10 +682,10 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: KalinkaColors.pillSurface,
+                        color: KalinkaColors.surfaceElevated,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: KalinkaColors.borderElevated,
+                          color: KalinkaColors.borderDefault,
                           width: 1,
                         ),
                       ),
@@ -753,7 +753,7 @@ class _AlbumTrackList extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(left: 8),
       decoration: BoxDecoration(
-        color: KalinkaColors.inputSurface,
+        color: KalinkaColors.surfaceInput,
         border: Border(
           left: BorderSide(
             color: KalinkaColors.gold.withValues(alpha: 0.18),
@@ -982,7 +982,7 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
           decoration: BoxDecoration(
             color: selectionMode && inSelectionHighlight
                 ? KalinkaColors.accent.withValues(alpha: 0.07)
-                : KalinkaColors.inputSurface,
+                : KalinkaColors.surfaceInput,
           ),
           child: Row(
             children: [
@@ -1130,7 +1130,7 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: const BoxDecoration(
-                color: KalinkaColors.miniPlayerSurface,
+                color: KalinkaColors.surfaceRaised,
               ),
               child: Row(
                 children: [
@@ -1139,7 +1139,7 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: KalinkaColors.pillSurface,
+                      color: KalinkaColors.surfaceElevated,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -1177,10 +1177,10 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: KalinkaColors.pillSurface,
+                        color: KalinkaColors.surfaceElevated,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: KalinkaColors.borderElevated,
+                          color: KalinkaColors.borderDefault,
                           width: 1,
                         ),
                       ),
@@ -1229,7 +1229,7 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
     return Container(
       margin: const EdgeInsets.only(left: 8),
       decoration: BoxDecoration(
-        color: KalinkaColors.inputSurface,
+        color: KalinkaColors.surfaceInput,
         border: Border(
           left: BorderSide(
             color: KalinkaColors.gold.withValues(alpha: 0.18),

@@ -94,9 +94,9 @@ class _ClearAllConfirmDialogState extends ConsumerState<ClearAllConfirmDialog>
                     margin: const EdgeInsets.symmetric(horizontal: 20),
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: KalinkaColors.miniPlayerSurface,
+                      color: KalinkaColors.surfaceRaised,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: KalinkaColors.borderElevated),
+                      border: Border.all(color: KalinkaColors.borderDefault),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.7),
@@ -113,12 +113,12 @@ class _ClearAllConfirmDialogState extends ConsumerState<ClearAllConfirmDialog>
                           width: 52,
                           height: 52,
                           decoration: BoxDecoration(
-                            color: KalinkaColors.deleteRed.withValues(
+                            color: KalinkaColors.actionDelete.withValues(
                               alpha: 0.12,
                             ),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: KalinkaColors.deleteRed.withValues(
+                              color: KalinkaColors.actionDelete.withValues(
                                 alpha: 0.2,
                               ),
                             ),
@@ -126,7 +126,7 @@ class _ClearAllConfirmDialogState extends ConsumerState<ClearAllConfirmDialog>
                           child: const Icon(
                             Icons.delete_outline,
                             size: 24,
-                            color: KalinkaColors.deleteRed,
+                            color: KalinkaColors.actionDelete,
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -155,10 +155,10 @@ class _ClearAllConfirmDialogState extends ConsumerState<ClearAllConfirmDialog>
                                     vertical: 14,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: KalinkaColors.inputSurface,
+                                    color: KalinkaColors.surfaceInput,
                                     borderRadius: BorderRadius.circular(13),
                                     border: Border.all(
-                                      color: KalinkaColors.borderElevated,
+                                      color: KalinkaColors.borderDefault,
                                     ),
                                   ),
                                   child: Center(
@@ -182,12 +182,12 @@ class _ClearAllConfirmDialogState extends ConsumerState<ClearAllConfirmDialog>
                                     vertical: 14,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: KalinkaColors.deleteRed.withValues(
+                                    color: KalinkaColors.actionDelete.withValues(
                                       alpha: 0.14,
                                     ),
                                     borderRadius: BorderRadius.circular(13),
                                     border: Border.all(
-                                      color: KalinkaColors.deleteRed.withValues(
+                                      color: KalinkaColors.actionDelete.withValues(
                                         alpha: 0.30,
                                       ),
                                     ),
@@ -197,7 +197,7 @@ class _ClearAllConfirmDialogState extends ConsumerState<ClearAllConfirmDialog>
                                       'Clear all',
                                       style: KalinkaTextStyles.dialogButton
                                           .copyWith(
-                                            color: KalinkaColors.deleteRed,
+                                            color: KalinkaColors.actionDelete,
                                           ),
                                     ),
                                   ),

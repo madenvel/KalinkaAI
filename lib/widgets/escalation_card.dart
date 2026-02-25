@@ -66,10 +66,10 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: KalinkaColors.miniPlayerSurface,
+            color: KalinkaColors.surfaceRaised,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: KalinkaColors.statusRed.withValues(alpha: 0.25),
+              color: KalinkaColors.statusError.withValues(alpha: 0.25),
             ),
           ),
           child: Column(
@@ -83,13 +83,13 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: KalinkaColors.statusRed.withValues(alpha: 0.1),
+                      color: KalinkaColors.statusError.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
                       Icons.info_outline,
                       size: 16,
-                      color: KalinkaColors.statusRed,
+                      color: KalinkaColors.statusError,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -154,9 +154,9 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: KalinkaColors.pillSurface,
+                        color: KalinkaColors.surfaceElevated,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: KalinkaColors.borderElevated),
+                        border: Border.all(color: KalinkaColors.borderDefault),
                       ),
                       child: Text(
                         'Retry',

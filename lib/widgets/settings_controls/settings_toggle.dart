@@ -27,10 +27,10 @@ class SettingsToggle extends StatelessWidget {
         width: 42,
         height: 24,
         decoration: BoxDecoration(
-          color: value ? KalinkaColors.accent : KalinkaColors.pillSurface,
+          color: value ? KalinkaColors.accent : KalinkaColors.surfaceElevated,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: value ? KalinkaColors.accent : KalinkaColors.borderElevated,
+            color: value ? KalinkaColors.accent : KalinkaColors.borderDefault,
           ),
         ),
         child: AnimatedAlign(

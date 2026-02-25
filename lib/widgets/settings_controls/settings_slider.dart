@@ -71,7 +71,7 @@ class _SettingsSliderState extends State<SettingsSlider> {
           SliderTheme(
             data: SliderThemeData(
               activeTrackColor: KalinkaColors.accent,
-              inactiveTrackColor: KalinkaColors.pillSurface,
+              inactiveTrackColor: KalinkaColors.surfaceElevated,
               thumbColor: Colors.white,
               overlayColor: KalinkaColors.accent.withValues(alpha: 0.15),
               trackHeight: 4,

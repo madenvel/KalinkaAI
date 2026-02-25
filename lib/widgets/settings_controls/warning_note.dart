@@ -13,10 +13,10 @@ class WarningNote extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: KalinkaColors.statusRed.withValues(alpha: 0.07),
+        color: KalinkaColors.statusError.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: KalinkaColors.statusRed.withValues(alpha: 0.18),
+          color: KalinkaColors.statusError.withValues(alpha: 0.18),
         ),
       ),
       child: Text(

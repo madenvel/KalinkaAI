@@ -21,9 +21,9 @@ class SettingsNumericInput extends StatelessWidget {
       width: width,
       child: Container(
         decoration: BoxDecoration(
-          color: KalinkaColors.pillSurface,
+          color: KalinkaColors.surfaceElevated,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: KalinkaColors.borderElevated),
+          border: Border.all(color: KalinkaColors.borderDefault),
         ),
         child: TextField(
           controller: TextEditingController(text: value.toString()),

@@ -69,7 +69,7 @@ class _SettingsSectionState extends State<SettingsSection>
             decoration: widget.showTopBorder
                 ? const BoxDecoration(
                     border: Border(
-                      top: BorderSide(color: KalinkaColors.borderDefault),
+                      top: BorderSide(color: KalinkaColors.borderSubtle),
                     ),
                   )
                 : null,

@@ -78,7 +78,7 @@ class _AiSuggestionCardState extends ConsumerState<AiSuggestionCard> {
       child: Container(
         margin: const EdgeInsets.all(1.5),
         decoration: BoxDecoration(
-          color: KalinkaColors.miniPlayerSurface,
+          color: KalinkaColors.surfaceRaised,
           borderRadius: BorderRadius.circular(16.5),
         ),
         child: Stack(
@@ -166,7 +166,7 @@ class _AiSuggestionCardState extends ConsumerState<AiSuggestionCard> {
                               borderRadius: BorderRadius.circular(9),
                               border: Border.all(
                                 color: _isConfirmed
-                                    ? KalinkaColors.confirmGreen
+                                    ? KalinkaColors.actionConfirm
                                     : KalinkaColors.gold,
                                 width: 1,
                               ),
@@ -187,7 +187,7 @@ class _AiSuggestionCardState extends ConsumerState<AiSuggestionCard> {
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 1.0,
                                       color: _isConfirmed
-                                          ? KalinkaColors.confirmGreen
+                                          ? KalinkaColors.actionConfirm
                                           : KalinkaColors.gold,
                                     ),
                                   ),
@@ -216,9 +216,9 @@ class _TrackChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
-        color: KalinkaColors.inputSurface,
+        color: KalinkaColors.surfaceInput,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: KalinkaColors.borderDefault, width: 1),
+        border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

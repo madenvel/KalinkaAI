@@ -280,7 +280,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: KalinkaColors.pillSurface,
+                              color: KalinkaColors.surfaceElevated,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -302,7 +302,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: KalinkaColors.borderElevated,
+                          color: KalinkaColors.borderDefault,
                           width: 1,
                         ),
                       ),

@@ -121,7 +121,7 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
             );
           }),
           const SizedBox(height: 16),
-          Container(height: 1, color: KalinkaColors.borderDefault),
+          Container(height: 1, color: KalinkaColors.borderSubtle),
           const SizedBox(height: 16),
         ],
 
@@ -154,7 +154,7 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
         }),
 
         const SizedBox(height: 16),
-        Container(height: 1, color: KalinkaColors.borderDefault),
+        Container(height: 1, color: KalinkaColors.borderSubtle),
         const SizedBox(height: 16),
 
         // In your library section

@@ -55,7 +55,7 @@ class ModuleHeaderRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        decoration: const BoxDecoration(color: KalinkaColors.inputSurface),
+        decoration: const BoxDecoration(color: KalinkaColors.surfaceInput),
         child: Row(
           children: [
             // Icon tile
@@ -130,8 +130,8 @@ class ModuleHeaderRow extends StatelessWidget {
   }
 
   Color get _badgeColor => switch (status) {
-    ModuleStatus.ready => KalinkaColors.statusGreen,
-    ModuleStatus.error => KalinkaColors.statusRed,
+    ModuleStatus.ready => KalinkaColors.statusOnline,
+    ModuleStatus.error => KalinkaColors.statusError,
     _ => KalinkaColors.textMuted,
   };
 

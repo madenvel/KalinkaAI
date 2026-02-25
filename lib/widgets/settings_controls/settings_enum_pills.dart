@@ -35,12 +35,12 @@ class SettingsEnumPills extends StatelessWidget {
             decoration: BoxDecoration(
               color: isActive
                   ? KalinkaColors.accent.withValues(alpha: 0.15)
-                  : KalinkaColors.pillSurface,
+                  : KalinkaColors.surfaceElevated,
               borderRadius: BorderRadius.circular(7),
               border: Border.all(
                 color: isActive
                     ? KalinkaColors.accent.withValues(alpha: 0.35)
-                    : KalinkaColors.borderElevated,
+                    : KalinkaColors.borderDefault,
               ),
             ),
             child: Text(

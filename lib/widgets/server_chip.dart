@@ -131,27 +131,27 @@ class _ServerChipState extends ConsumerState<ServerChip>
     switch (state) {
       case ConnectionStatus.connected:
         return _ChipData(
-          dotColor: KalinkaColors.statusGreen,
+          dotColor: KalinkaColors.statusOnline,
           label: serverName.isNotEmpty ? serverName : 'Connected',
           labelColor: KalinkaColors.textPrimary,
-          borderColor: KalinkaColors.statusGreen.withValues(alpha: 0.25),
-          bgColor: KalinkaColors.statusGreen.withValues(alpha: 0.06),
+          borderColor: KalinkaColors.statusOnline.withValues(alpha: 0.25),
+          bgColor: KalinkaColors.statusOnline.withValues(alpha: 0.06),
         );
       case ConnectionStatus.reconnecting:
         return _ChipData(
-          dotColor: KalinkaColors.amber,
+          dotColor: KalinkaColors.statusPending,
           label: 'Reconnecting\u2026',
           labelColor: KalinkaColors.textPrimary,
-          borderColor: KalinkaColors.amber.withValues(alpha: 0.25),
-          bgColor: KalinkaColors.amber.withValues(alpha: 0.06),
+          borderColor: KalinkaColors.statusPending.withValues(alpha: 0.25),
+          bgColor: KalinkaColors.statusPending.withValues(alpha: 0.06),
         );
       case ConnectionStatus.offline:
         return _ChipData(
-          dotColor: KalinkaColors.statusRed,
+          dotColor: KalinkaColors.statusError,
           label: serverName.isNotEmpty ? serverName : 'Offline',
           labelColor: KalinkaColors.textPrimary,
-          borderColor: KalinkaColors.statusRed.withValues(alpha: 0.25),
-          bgColor: KalinkaColors.statusRed.withValues(alpha: 0.06),
+          borderColor: KalinkaColors.statusError.withValues(alpha: 0.25),
+          bgColor: KalinkaColors.statusError.withValues(alpha: 0.06),
         );
       case ConnectionStatus.none:
         return _ChipData(
@@ -159,15 +159,15 @@ class _ServerChipState extends ConsumerState<ServerChip>
           label: 'No server',
           labelColor: KalinkaColors.textMuted,
           borderColor: Colors.transparent,
-          bgColor: KalinkaColors.inputSurface,
+          bgColor: KalinkaColors.surfaceInput,
         );
       case ConnectionStatus.connecting:
         return _ChipData(
-          dotColor: KalinkaColors.amber,
+          dotColor: KalinkaColors.statusPending,
           label: 'Connecting\u2026',
           labelColor: KalinkaColors.textSecondary,
-          borderColor: KalinkaColors.amber.withValues(alpha: 0.15),
-          bgColor: KalinkaColors.amber.withValues(alpha: 0.04),
+          borderColor: KalinkaColors.statusPending.withValues(alpha: 0.15),
+          bgColor: KalinkaColors.statusPending.withValues(alpha: 0.04),
         );
     }
   }
