@@ -31,7 +31,9 @@ class KalinkaColors {
   static const deleteRed = Color(0xFFE53935);
   static const confirmGreen = Color(0xFF4ADE80);
 
-  // Status colors
+  // Inactive/decorative only — contrast ratio ~2.2:1, below WCAG AA.
+  // Use only for truly disabled or non-informational elements (e.g. dimmed
+  // drag handles). Never use for text that communicates state or meaning.
   static const textMuted = Color(0xFF48485A);
   static const amber = Color(0xFFF59E0B);
   static const amberLight = Color(0xFFFCD34D);
@@ -101,13 +103,13 @@ class KalinkaTextStyles {
   );
 
   static TextStyle formatBadge = GoogleFonts.ibmPlexMono(
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: FontWeight.w500,
-    color: KalinkaColors.accent,
+    color: KalinkaColors.accentTint,
   );
 
   static TextStyle sourceBadgeDot = GoogleFonts.ibmPlexMono(
-    fontSize: 7.5,
+    fontSize: 11,
     fontWeight: FontWeight.w700,
     color: Colors.white,
   );
@@ -126,9 +128,9 @@ class KalinkaTextStyles {
   );
 
   static TextStyle aiBadge = GoogleFonts.ibmPlexMono(
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: FontWeight.w700,
-    color: KalinkaColors.accent,
+    color: KalinkaColors.accentTint,
   );
 
   static TextStyle aiPlaylistName = GoogleFonts.playfairDisplay(
@@ -144,14 +146,14 @@ class KalinkaTextStyles {
 
   // Search results
   static TextStyle resultCountHint = GoogleFonts.ibmPlexMono(
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: FontWeight.w500,
     letterSpacing: 1.5,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle sectionLabel = GoogleFonts.ibmPlexMono(
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.5,
     color: KalinkaColors.textSecondary,
@@ -175,22 +177,22 @@ class KalinkaTextStyles {
   );
 
   static TextStyle tagPill = GoogleFonts.ibmPlexMono(
-    fontSize: 8.5,
+    fontSize: 11,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle showMoreLabel = GoogleFonts.ibmPlexMono(
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: FontWeight.w600,
-    color: KalinkaColors.accent,
+    color: KalinkaColors.accentTint,
   );
 
   static TextStyle aiCardLabel = GoogleFonts.ibmPlexMono(
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: FontWeight.w700,
     letterSpacing: 1.5,
-    color: KalinkaColors.accent,
+    color: KalinkaColors.accentTint,
   );
 
   static TextStyle aiTrackChip = GoogleFonts.ibmPlexMono(
@@ -199,15 +201,15 @@ class KalinkaTextStyles {
   );
 
   static TextStyle aiTrackChipDuration = GoogleFonts.ibmPlexMono(
-    fontSize: 9,
+    fontSize: 11,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle browseButtonLabel = GoogleFonts.ibmPlexMono(
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.0,
-    color: KalinkaColors.accent,
+    color: KalinkaColors.accentTint,
   );
 
   static TextStyle cancelButton = GoogleFonts.ibmPlexMono(
@@ -228,7 +230,7 @@ class KalinkaTextStyles {
 
   static TextStyle completionMatchHighlight = GoogleFonts.ibmPlexMono(
     fontSize: 13,
-    color: KalinkaColors.accent,
+    color: KalinkaColors.accentTint,
   );
 
   static TextStyle aiCompletionText = GoogleFonts.playfairDisplay(
@@ -251,7 +253,7 @@ class KalinkaTextStyles {
   );
 
   static TextStyle batchBarLabel = GoogleFonts.ibmPlexMono(
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: FontWeight.w500,
     letterSpacing: 1.5,
     color: KalinkaColors.textSecondary,
@@ -272,7 +274,7 @@ class KalinkaTextStyles {
   );
 
   static TextStyle traySectionLabel = GoogleFonts.ibmPlexMono(
-    fontSize: 8,
+    fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.8,
     color: KalinkaColors.textSecondary,
@@ -291,19 +293,19 @@ class KalinkaTextStyles {
 
   // Queue section headers
   static TextStyle trackCountBadge = GoogleFonts.ibmPlexMono(
-    fontSize: 9,
+    fontSize: 11,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle shuffleBadgeText = GoogleFonts.ibmPlexMono(
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: FontWeight.w500,
     letterSpacing: 0.5,
     color: KalinkaColors.gold,
   );
 
   static TextStyle clearPlayedButton = GoogleFonts.ibmPlexMono(
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.0,
     color: KalinkaColors.textSecondary,
@@ -365,12 +367,14 @@ class KalinkaTextStyles {
     color: KalinkaColors.textPrimary,
   );
 
-  // Muted section header (settings, server sheet)
+  // Status section header (frozen queue label, server sheet).
+  // Uses textSecondary (6.9:1) instead of textMuted (2.2:1) because this
+  // text communicates meaningful state, not a disabled/decorative element.
   static TextStyle sectionHeaderMuted = GoogleFonts.ibmPlexMono(
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.8,
-    color: KalinkaColors.textMuted,
+    color: KalinkaColors.textSecondary,
   );
 }
 

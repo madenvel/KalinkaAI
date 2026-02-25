@@ -66,7 +66,7 @@ class MultiSelectTopBar extends ConsumerWidget {
                       style: GoogleFonts.ibmPlexMono(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: KalinkaColors.accent,
+                        color: KalinkaColors.accentTint,
                       ),
                     ),
                     TextSpan(

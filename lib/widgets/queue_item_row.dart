@@ -65,7 +65,7 @@ class QueueItemRow extends ConsumerWidget {
                 '${displayIndex + 1}',
                 style: KalinkaTextStyles.queueItemIndex.copyWith(
                   color: isCurrentTrack
-                      ? KalinkaColors.accent
+                      ? KalinkaColors.accentTint
                       : KalinkaColors.textSecondary,
                 ),
                 textAlign: TextAlign.center,
@@ -115,7 +115,7 @@ class QueueItemRow extends ConsumerWidget {
                     track.title,
                     style: KalinkaTextStyles.queueItemTitle.copyWith(
                       color: isCurrentTrack
-                          ? KalinkaColors.accent
+                          ? KalinkaColors.accentTint
                           : KalinkaColors.textPrimary,
                     ),
                     maxLines: 1,

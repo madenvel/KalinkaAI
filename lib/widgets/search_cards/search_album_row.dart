@@ -259,7 +259,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
                           title,
                           style: KalinkaTextStyles.cardTitle.copyWith(
                             color: selectionMode && isSelected
-                                ? KalinkaColors.accent
+                                ? KalinkaColors.accentTint
                                 : null,
                           ),
                           maxLines: 1,

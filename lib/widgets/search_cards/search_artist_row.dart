@@ -658,7 +658,7 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
                           title,
                           style: KalinkaTextStyles.trackRowTitle.copyWith(
                             color: selectionMode && isSelected
-                                ? KalinkaColors.accent
+                                ? KalinkaColors.accentTint
                                 : null,
                           ),
                           maxLines: 1,
@@ -1005,9 +1005,7 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
                     else
                       Text(
                         '${widget.index}',
-                        style: KalinkaTextStyles.trackRowSubtitle.copyWith(
-                          color: _dimmedColor,
-                        ),
+                        style: KalinkaTextStyles.trackRowSubtitle,
                         textAlign: TextAlign.center,
                       ),
                     if (_longPressing && _longPressProgress > 0)
@@ -1044,9 +1042,7 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
                     padding: const EdgeInsets.only(right: 4),
                     child: Text(
                       duration,
-                      style: KalinkaTextStyles.trackRowSubtitle.copyWith(
-                        color: _dimmedColor,
-                      ),
+                      style: KalinkaTextStyles.trackRowSubtitle,
                     ),
                   ),
             ],

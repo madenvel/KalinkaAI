@@ -233,7 +233,7 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
                       title,
                       style: KalinkaTextStyles.trackRowTitle.copyWith(
                         color: selectionMode && isSelected
-                            ? KalinkaColors.accent
+                            ? KalinkaColors.accentTint
                             : null,
                       ),
                       maxLines: 1,

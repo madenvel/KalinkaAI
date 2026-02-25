@@ -183,7 +183,7 @@ class _AiSuggestionCardState extends ConsumerState<AiSuggestionCard> {
                                 : Text(
                                     _isConfirmed ? 'ADD ALL \u2713' : 'ADD ALL',
                                     style: GoogleFonts.ibmPlexMono(
-                                      fontSize: 9,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 1.0,
                                       color: _isConfirmed
