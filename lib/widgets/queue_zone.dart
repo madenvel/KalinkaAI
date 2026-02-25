@@ -169,6 +169,12 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
     final connectionState = ref.watch(connectionStateProvider);
     final connectionNotifier = ref.read(connectionStateProvider.notifier);
 
+    // No server configured — don't render queue items to avoid provider errors
+    // (e.g. right after the user taps "Disconnect").
+    if (connectionState == ConnectionStatus.none) {
+      return const SizedBox.shrink();
+    }
+
     final isOffline =
         connectionState == ConnectionStatus.reconnecting ||
         connectionState == ConnectionStatus.offline;

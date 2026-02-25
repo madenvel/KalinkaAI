@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,7 +21,11 @@ final webSocketProvider = FutureProvider.autoDispose.family<WebSocket, String>((
   final connection = ref.read(connectionStateProvider.notifier);
 
   if (!settings.isSet) {
-    throw StateError('Connection settings are not configured');
+    // Stay in loading state rather than entering error state.
+    // Riverpod rebuilds this provider when connectionSettingsProvider changes,
+    // so the loading future is abandoned and a fresh connection is attempted.
+    await Completer<void>().future; // never completes
+    throw StateError('unreachable');
   }
 
   // Defer state updates to avoid modifying providers during build.

@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/ext_device_events.dart' show ExtDeviceEvent;
 import '../data_model/playqueue_events.dart' show PlayQueueEvent;
+import '../providers/connection_settings_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/websocket_provider.dart'
@@ -86,9 +87,10 @@ Stream<String> openPlayQueueWsStream(Ref ref, CancelToken cancel) async* {
       return event.toString();
     });
   } finally {
-    // Stream ended — if not intentionally cancelled, the server dropped the
+    // Stream ended — if not intentionally cancelled AND the user hasn't
+    // deliberately disconnected (settings cleared), the server dropped the
     // connection. Trigger reconnection so the UI reflects the lost connection.
-    if (!cancel.isCancelled) {
+    if (!cancel.isCancelled && ref.read(connectionSettingsProvider).isSet) {
       conn.startReconnecting();
     }
   }
@@ -109,9 +111,10 @@ Stream<String> openExtDeviceWsStream(Ref ref, CancelToken cancel) async* {
       return event.toString();
     });
   } finally {
-    // Stream ended — if not intentionally cancelled, the server dropped the
+    // Stream ended — if not intentionally cancelled AND the user hasn't
+    // deliberately disconnected (settings cleared), the server dropped the
     // connection. Trigger reconnection so the UI reflects the lost connection.
-    if (!cancel.isCancelled) {
+    if (!cancel.isCancelled && ref.read(connectionSettingsProvider).isSet) {
       conn.startReconnecting();
     }
   }

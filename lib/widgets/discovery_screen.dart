@@ -193,7 +193,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         const SizedBox(height: 8),
         Text(
           'Scanning your local network\u2026',
-          style: KalinkaTextStyles.trayRowSublabel,
+          style: KalinkaTextStyles.trayRowSublabel.copyWith(fontSize: 12),
         ),
         const Spacer(flex: 3),
       ],
@@ -290,7 +290,8 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
             'Make sure the server is running and\nyou\'re on the same Wi-Fi.',
             textAlign: TextAlign.center,
             style: KalinkaTextStyles.trayRowSublabel.copyWith(
-              color: KalinkaColors.textMuted,
+              fontSize: 12,
+              color: KalinkaColors.textSecondary,
               height: 1.6,
             ),
           ),
@@ -336,7 +337,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         Text(
           '$serverCount server${serverCount == 1 ? '' : 's'} '
           'found on your network',
-          style: KalinkaTextStyles.trayRowSublabel,
+          style: KalinkaTextStyles.trayRowSublabel.copyWith(fontSize: 12),
         ),
         const SizedBox(height: 24),
         // Server list
@@ -379,9 +380,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               child: Text(
                 'enter address manually',
                 style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                  color: KalinkaColors.textMuted,
+                  fontSize: 12,
+                  color: KalinkaColors.textSecondary,
                   decoration: TextDecoration.underline,
-                  decorationColor: KalinkaColors.textMuted,
+                  decorationColor: KalinkaColors.textSecondary,
                 ),
               ),
             ),
@@ -409,8 +411,8 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
       borderColor = KalinkaColors.statusGreen.withValues(alpha: 0.3);
       bgColor = KalinkaColors.statusGreen.withValues(alpha: 0.05);
     } else if (isSelected) {
-      borderColor = KalinkaColors.accent.withValues(alpha: 0.5);
-      bgColor = KalinkaColors.accent.withValues(alpha: 0.07);
+      borderColor = KalinkaColors.gold.withValues(alpha: 0.5);
+      bgColor = KalinkaColors.gold.withValues(alpha: 0.07);
     } else {
       borderColor = KalinkaColors.borderElevated;
       bgColor = KalinkaColors.miniPlayerSurface;
@@ -435,6 +437,8 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               decoration: BoxDecoration(
                 color: isCurrent
                     ? KalinkaColors.statusGreen.withValues(alpha: 0.1)
+                    : isSelected
+                    ? KalinkaColors.gold.withValues(alpha: 0.14)
                     : KalinkaColors.accent.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -443,6 +447,8 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                 size: 18,
                 color: isCurrent
                     ? KalinkaColors.statusGreen
+                    : isSelected
+                    ? KalinkaColors.gold
                     : KalinkaColors.accent,
               ),
             ),
@@ -468,7 +474,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                       if (server.version != null) 'v${server.version}',
                     ].join(' \u00b7 '),
                     style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                      color: KalinkaColors.textMuted,
+                      fontSize: 12,
                     ),
                   ),
                 ],
@@ -489,7 +495,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                   'CURRENT',
                   style: KalinkaTextStyles.tagPill.copyWith(
                     color: KalinkaColors.statusGreen,
-                    fontSize: 8,
+                    fontSize: 10,
                     letterSpacing: 0.8,
                   ),
                 ),
@@ -540,17 +546,17 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: KalinkaColors.accent.withValues(alpha: 0.15),
+            color: KalinkaColors.gold.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(13),
             border: Border.all(
-              color: KalinkaColors.accent.withValues(alpha: 0.35),
+              color: KalinkaColors.gold.withValues(alpha: 0.35),
             ),
           ),
           child: Center(
             child: Text(
               hasSelection ? 'Connect to ${selected!.name}' : 'Select a server',
               style: KalinkaTextStyles.trayRowLabel.copyWith(
-                color: KalinkaColors.accent,
+                color: KalinkaColors.gold,
                 fontSize: 13,
                 letterSpacing: 0.04,
               ),
@@ -579,7 +585,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                 hintText: '192.168.50.85:8000',
                 hintStyle: KalinkaTextStyles.searchPlaceholder.copyWith(
                   fontSize: 12,
-                  color: KalinkaColors.textMuted,
+                  color: KalinkaColors.textSecondary,
                 ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
@@ -613,16 +619,16 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
             decoration: BoxDecoration(
-              color: KalinkaColors.accent.withValues(alpha: 0.15),
+              color: KalinkaColors.gold.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: KalinkaColors.accent.withValues(alpha: 0.35),
+                color: KalinkaColors.gold.withValues(alpha: 0.35),
               ),
             ),
             child: Text(
               'Connect',
               style: KalinkaTextStyles.trayRowLabel.copyWith(
-                color: KalinkaColors.accent,
+                color: KalinkaColors.gold,
                 fontSize: 12,
               ),
             ),
@@ -654,7 +660,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           const SizedBox(height: 8),
           Text(
             'Reaching ${ref.read(connectionSettingsProvider).host}',
-            style: KalinkaTextStyles.trayRowSublabel,
+            style: KalinkaTextStyles.trayRowSublabel.copyWith(fontSize: 12),
           ),
           if (_connectError != null) ...[
             const SizedBox(height: 24),
@@ -684,16 +690,16 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: KalinkaColors.accent.withValues(alpha: 0.15),
+                      color: KalinkaColors.gold.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: KalinkaColors.accent.withValues(alpha: 0.35),
+                        color: KalinkaColors.gold.withValues(alpha: 0.35),
                       ),
                     ),
                     child: Text(
                       'Try again',
                       style: KalinkaTextStyles.trayRowLabel.copyWith(
-                        color: KalinkaColors.accent,
+                        color: KalinkaColors.gold,
                         fontSize: 12,
                       ),
                     ),
