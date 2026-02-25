@@ -109,7 +109,6 @@ class SettingsRow extends StatelessWidget {
               pillText,
               style: KalinkaTextStyles.tagPill.copyWith(
                 color: KalinkaColors.statusPending,
-                fontSize: 8,
                 letterSpacing: 0.8,
               ),
             ),

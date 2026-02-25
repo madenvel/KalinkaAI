@@ -40,7 +40,7 @@ class SettingsTextInput extends StatelessWidget {
             hintText: hintText,
             hintStyle: KalinkaTextStyles.searchPlaceholder.copyWith(
               fontSize: 12,
-              color: KalinkaColors.textMuted,
+              color: KalinkaColors.textSecondary,
             ),
             border: InputBorder.none,
             focusedBorder: OutlineInputBorder(

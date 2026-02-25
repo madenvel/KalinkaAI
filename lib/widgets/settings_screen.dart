@@ -124,9 +124,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                             Text(
                               settingsState.error!,
                               textAlign: TextAlign.center,
-                              style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                                color: KalinkaColors.textMuted,
-                              ),
+                              style: KalinkaTextStyles.trayRowSublabel,
                             ),
                             const SizedBox(height: 16),
                             GestureDetector(
@@ -155,7 +153,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                                   'Retry',
                                   style: KalinkaTextStyles.trayRowLabel
                                       .copyWith(
-                                        color: KalinkaColors.accent,
+                                        color: KalinkaColors.accentTint,
                                         fontSize: 12,
                                       ),
                                 ),
@@ -326,11 +324,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       tabs[i].toUpperCase(),
                       textAlign: TextAlign.center,
                       style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
-                        fontSize: 9,
                         letterSpacing: 1.0,
                         color: isActive
                             ? KalinkaColors.accent
-                            : KalinkaColors.textMuted,
+                            : KalinkaColors.textSecondary,
                       ),
                     ),
                   ),

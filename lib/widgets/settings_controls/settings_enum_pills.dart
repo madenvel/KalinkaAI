@@ -45,10 +45,9 @@ class SettingsEnumPills extends StatelessWidget {
             ),
             child: Text(
               option,
-              style: KalinkaTextStyles.trayRowLabel.copyWith(
-                fontSize: 9,
+              style: KalinkaTextStyles.tagPill.copyWith(
                 color: isActive
-                    ? KalinkaColors.accent
+                    ? KalinkaColors.accentTint
                     : KalinkaColors.textSecondary,
                 height: 1.3,
               ),

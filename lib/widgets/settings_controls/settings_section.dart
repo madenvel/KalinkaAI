@@ -86,7 +86,7 @@ class _SettingsSectionState extends State<SettingsSection>
                   child: const Icon(
                     Icons.keyboard_arrow_down,
                     size: 12,
-                    color: KalinkaColors.textMuted,
+                    color: KalinkaColors.textSecondary,
                   ),
                 ),
                 const SizedBox(width: 7),
@@ -95,7 +95,7 @@ class _SettingsSectionState extends State<SettingsSection>
                     widget.title,
                     style: KalinkaTextStyles.trayRowSublabel.copyWith(
                       fontSize: 10,
-                      color: KalinkaColors.textMuted,
+                      color: KalinkaColors.textSecondary,
                       letterSpacing: 0.5,
                     ),
                   ),
