@@ -17,6 +17,7 @@ import '../widgets/server_sheet.dart';
 import '../widgets/settings_screen.dart';
 import '../widgets/kalinka_toast_overlay.dart';
 import '../widgets/side_panel.dart';
+import '../providers/media_notification_provider.dart';
 
 class MusicPlayerScreen extends ConsumerStatefulWidget {
   const MusicPlayerScreen({super.key});
@@ -84,6 +85,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(mediaNotificationProvider);
     return Scaffold(
       backgroundColor: KalinkaColors.background,
       body: LayoutBuilder(

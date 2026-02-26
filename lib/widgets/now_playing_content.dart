@@ -49,6 +49,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
 
   bool _isAdjustingVolume = false;
   double _localVolumeProgress = 0.0;
+  int? _volumeBeforeSeq;
 
   double _lastHapticSeekPosition = -1.0;
   double _lastHapticVolumePosition = -1.0;
@@ -104,6 +105,17 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
         setState(() {
           _isSeeking = false;
           _seekBeforeSeq = null;
+        });
+      }
+    });
+
+    // Clear the local volume position once the server acknowledges the change
+    // with a new event (seq changes). Mirrors the seek bar pattern.
+    ref.listen(extDeviceStateStoreProvider, (prev, next) {
+      if (_isAdjustingVolume && next.seq != _volumeBeforeSeq) {
+        setState(() {
+          _isAdjustingVolume = false;
+          _volumeBeforeSeq = null;
         });
       }
     });
@@ -557,9 +569,10 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                         },
                                         onChangeEnd: (_) {
                                           _lastHapticVolumePosition = -1.0;
-                                          setState(
-                                            () => _isAdjustingVolume = false,
-                                          );
+                                          setState(() {
+                                            _volumeBeforeSeq =
+                                                ref.read(extDeviceStateStoreProvider).seq;
+                                          });
                                         },
                                       ),
                                     ),
