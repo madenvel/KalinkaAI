@@ -162,7 +162,7 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
                           : 'Applying staged changes\u2026',
                       style: KalinkaTextStyles.trayRowSublabel.copyWith(
                         fontSize: 11,
-                        color: KalinkaColors.textMuted,
+                        color: KalinkaColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 28),
@@ -186,7 +186,7 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
                     Text(
                       'You can leave this screen.',
                       style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                        color: KalinkaColors.textMuted,
+                        color: KalinkaColors.textSecondary,
                         fontSize: 10,
                       ),
                     ),
@@ -336,14 +336,14 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
                         fontSize: 12,
                         color: isDone || isActive
                             ? KalinkaColors.textPrimary
-                            : KalinkaColors.textMuted,
+                            : KalinkaColors.textSecondary,
                       ),
                     ),
                     Text(
                       sublabel,
                       style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                        fontSize: 9,
-                        color: KalinkaColors.textMuted,
+                        fontSize: 10,
+                        color: KalinkaColors.textSecondary,
                       ),
                     ),
                   ],

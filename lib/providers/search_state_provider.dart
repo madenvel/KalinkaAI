@@ -199,6 +199,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
   final Map<String, CachedSearchResult> _cache = {};
   Timer? _debounceTimer;
   Timer? _completionHideTimer;
+  String? _recommendationsForTrackId;
 
   @override
   SearchState build() {
@@ -226,16 +227,14 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
   void toggle() {
     state = state.copyWith(isExpanded: !state.isExpanded);
-    if (state.isExpanded &&
-        state.query.isEmpty &&
-        state.browseRecommendations == null) {
+    if (state.isExpanded && state.query.isEmpty && _recommendationsAreStale()) {
       _loadBrowseRecommendations();
     }
   }
 
   void expand() {
     state = state.copyWith(isExpanded: true);
-    if (state.query.isEmpty && state.browseRecommendations == null) {
+    if (state.query.isEmpty && _recommendationsAreStale()) {
       _loadBrowseRecommendations();
     }
   }
@@ -250,7 +249,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
       searchPhase: SearchPhase.activated,
       aiPromptSuggestions: _stubAiPromptSuggestions,
     );
-    if (state.browseRecommendations == null) {
+    if (_recommendationsAreStale()) {
       _loadBrowseRecommendations();
     }
   }
@@ -517,24 +516,35 @@ class SearchStateNotifier extends Notifier<SearchState> {
     return null;
   }
 
+  String? _currentRecommendationsTargetId() {
+    final currentTrack = ref.read(playerStateProvider).currentTrack;
+    return (currentTrack?.album?.id.isNotEmpty == true)
+        ? currentTrack!.album!.id
+        : (currentTrack?.id.isNotEmpty == true ? currentTrack!.id : null);
+  }
+
+  bool _recommendationsAreStale() {
+    final targetId = _currentRecommendationsTargetId();
+    return state.browseRecommendations == null ||
+        _recommendationsForTrackId != targetId;
+  }
+
   Future<void> _loadBrowseRecommendations() async {
     final currentTrack = ref.read(playerStateProvider).currentTrack;
 
     state = state.copyWith(isLoading: true, clearError: true);
 
+    // Determine the ID to call getMetadata on
+    final targetId = (currentTrack?.album?.id.isNotEmpty == true)
+        ? currentTrack!.album!.id
+        : (currentTrack?.id.isNotEmpty == true ? currentTrack!.id : null);
+    _recommendationsForTrackId = targetId;
+
     try {
       final api = ref.read(kalinkaProxyProvider);
 
-      // Determine the ID to call getMetadata on
-      final targetId = (currentTrack?.album?.id.isNotEmpty == true)
-          ? currentTrack!.album!.id
-          : (currentTrack?.id.isNotEmpty == true ? currentTrack!.id : null);
-
       if (targetId == null) {
-        state = state.copyWith(
-          librarySections: const [],
-          isLoading: false,
-        );
+        state = state.copyWith(librarySections: const [], isLoading: false);
         return;
       }
 
@@ -543,10 +553,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
       final sections = metadata.sections;
 
       if (sections == null || sections.isEmpty) {
-        state = state.copyWith(
-          librarySections: const [],
-          isLoading: false,
-        );
+        state = state.copyWith(librarySections: const [], isLoading: false);
         return;
       }
 
@@ -559,10 +566,12 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
       final librarySections = <LibrarySection>[];
       for (int i = 0; i < browsableSections.length; i++) {
-        librarySections.add(LibrarySection(
-          sectionItem: browsableSections[i],
-          browseResult: browseResults[i],
-        ));
+        librarySections.add(
+          LibrarySection(
+            sectionItem: browsableSections[i],
+            browseResult: browseResults[i],
+          ),
+        );
       }
 
       state = state.copyWith(

@@ -120,14 +120,29 @@ class SettingsNotifier extends Notifier<SettingsState> {
   /// Apply staged changes: save to server, then let restart provider handle restart.
   Future<void> applyChanges() async {
     try {
-      final merged = await buildMergedConfig();
       final api = ref.read(kalinkaProxyProvider);
-      await api.saveSettings(merged);
+      final serverChanges = {
+        for (final entry in state.stagedChanges.entries)
+          _toServerKey(entry.key): entry.value,
+      };
+      await api.saveSettings(serverChanges);
       // Clear staged changes and update local config
+      final merged = await buildMergedConfig();
       state = state.copyWith(serverConfig: merged, stagedChanges: {});
     } catch (e) {
       state = state.copyWith(error: 'Failed to save: $e');
+      rethrow;
     }
+  }
+
+  /// Convert a UI key path (root.fields.base_config.fields.server.fields.port.value)
+  /// to the server's expected key format (root.base_config.server.port).
+  static String _toServerKey(String key) {
+    var result = key;
+    if (result.endsWith('.value')) {
+      result = result.substring(0, result.length - '.value'.length);
+    }
+    return result.replaceAll('.fields.', '.');
   }
 
   /// Set a nested value in a map using dot-separated key path.
