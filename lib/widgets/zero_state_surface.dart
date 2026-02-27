@@ -9,9 +9,11 @@ import 'search_cards/search_artist_row.dart';
 import 'search_cards/search_track_row.dart';
 import 'search_cards/show_more_row.dart';
 
+const bool kShowAskAiSection = false;
+
 /// Zero-state content surface shown when search is activated but no query
-/// has been typed. Displays AI prompt suggestions, "In your library" items,
-/// and optionally recent search history.
+/// has been typed. Displays "In your library" items and optionally recent
+/// search history.
 class ZeroStateSurface extends ConsumerStatefulWidget {
   const ZeroStateSurface({super.key});
 
@@ -61,15 +63,18 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
             ? section.browseResult.items.length
             : min(3, section.browseResult.items.length);
         libraryItemCount += visibleCount;
-        if (section.browseResult.items.length > 3) libraryItemCount += 1; // show-more row
+        if (section.browseResult.items.length > 3)
+          libraryItemCount += 1; // show-more row
       }
     }
 
     int itemIndex = 0;
     int totalItems =
         (history.isNotEmpty ? history.length + 1 : 0) +
-        aiSuggestions.length +
-        1 + // AI section label
+        (kShowAskAiSection
+            ? aiSuggestions.length +
+                  1 // AI section label
+            : 0) +
         (showLibrarySection ? libraryItemCount + 1 : 0);
 
     return ListView(
@@ -125,40 +130,45 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
           const SizedBox(height: 16),
         ],
 
-        // AI prompt suggestions section
-        _StaggeredZeroItem(
-          index: itemIndex++,
-          controller: _staggerController,
-          totalItems: totalItems,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text('ASK THE AI', style: KalinkaTextStyles.sectionLabel),
-          ),
-        ),
-        ...aiSuggestions.map((prompt) {
-          final idx = itemIndex++;
-          return _StaggeredZeroItem(
-            index: idx,
+        // AI prompt suggestions section (feature-flagged)
+        if (kShowAskAiSection) ...[
+          _StaggeredZeroItem(
+            index: itemIndex++,
             controller: _staggerController,
             totalItems: totalItems,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: _AiPromptChip(
-                promptText: prompt,
-                onTap: () {
-                  ref.read(searchStateProvider.notifier).reExecuteQuery(prompt);
-                },
-              ),
+              child: Text('ASK THE AI', style: KalinkaTextStyles.sectionLabel),
             ),
-          );
-        }),
-
-        const SizedBox(height: 16),
-        Container(height: 1, color: KalinkaColors.borderSubtle),
-        const SizedBox(height: 16),
+          ),
+          ...aiSuggestions.map((prompt) {
+            final idx = itemIndex++;
+            return _StaggeredZeroItem(
+              index: idx,
+              controller: _staggerController,
+              totalItems: totalItems,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _AiPromptChip(
+                  promptText: prompt,
+                  onTap: () {
+                    ref
+                        .read(searchStateProvider.notifier)
+                        .reExecuteQuery(prompt);
+                  },
+                ),
+              ),
+            );
+          }),
+        ],
 
         // In your library section
         if (showLibrarySection) ...[
+          if (history.isNotEmpty || kShowAskAiSection) ...[
+            const SizedBox(height: 16),
+            Container(height: 1, color: KalinkaColors.borderSubtle),
+            const SizedBox(height: 16),
+          ],
           _StaggeredZeroItem(
             index: itemIndex++,
             controller: _staggerController,
@@ -209,13 +219,10 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
     for (final section in sections) {
       final sectionId = section.sectionItem.id;
       final sectionName =
-          section.sectionItem.name ??
-          section.sectionItem.catalog?.title ??
-          '';
+          section.sectionItem.name ?? section.sectionItem.catalog?.title ?? '';
       final isExpanded = expandedSectionIds.contains(sectionId);
       final allItems = section.browseResult.items;
-      final visibleItems =
-          isExpanded ? allItems : allItems.take(3).toList();
+      final visibleItems = isExpanded ? allItems : allItems.take(3).toList();
       final remaining = min(section.browseResult.total, allItems.length) - 3;
 
       // Sub-section label
