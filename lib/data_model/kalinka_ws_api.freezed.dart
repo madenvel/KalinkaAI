@@ -534,7 +534,7 @@ return move(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( int? index)?  play,TResult Function( bool paused)?  pause,TResult Function()?  next,TResult Function()?  prev,TResult Function()?  stop,TResult Function( int positionMs)?  seek,TResult Function( bool? shuffle,  bool? repeatSingle,  bool? repeatAll)?  setPlaybackMode,TResult Function( int from,  int to)?  move,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( int? index)?  play,TResult Function( bool paused)?  pause,TResult Function()?  next,TResult Function()?  prev,TResult Function()?  stop,TResult Function( int positionMs)?  seek,TResult Function( bool? shuffle,  bool? repeatSingle,  bool? repeatAll)?  setPlaybackMode,TResult Function( int fromIndex,  int toIndex)?  move,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case PlayCommand() when play != null:
 return play(_that.index);case PauseCommand() when pause != null:
@@ -544,7 +544,7 @@ return prev();case StopCommand() when stop != null:
 return stop();case SeekCommand() when seek != null:
 return seek(_that.positionMs);case SetPlaybackModeCommand() when setPlaybackMode != null:
 return setPlaybackMode(_that.shuffle,_that.repeatSingle,_that.repeatAll);case MoveCommand() when move != null:
-return move(_that.from,_that.to);case _:
+return move(_that.fromIndex,_that.toIndex);case _:
   return orElse();
 
 }
@@ -562,7 +562,7 @@ return move(_that.from,_that.to);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( int? index)  play,required TResult Function( bool paused)  pause,required TResult Function()  next,required TResult Function()  prev,required TResult Function()  stop,required TResult Function( int positionMs)  seek,required TResult Function( bool? shuffle,  bool? repeatSingle,  bool? repeatAll)  setPlaybackMode,required TResult Function( int from,  int to)  move,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( int? index)  play,required TResult Function( bool paused)  pause,required TResult Function()  next,required TResult Function()  prev,required TResult Function()  stop,required TResult Function( int positionMs)  seek,required TResult Function( bool? shuffle,  bool? repeatSingle,  bool? repeatAll)  setPlaybackMode,required TResult Function( int fromIndex,  int toIndex)  move,}) {final _that = this;
 switch (_that) {
 case PlayCommand():
 return play(_that.index);case PauseCommand():
@@ -572,7 +572,7 @@ return prev();case StopCommand():
 return stop();case SeekCommand():
 return seek(_that.positionMs);case SetPlaybackModeCommand():
 return setPlaybackMode(_that.shuffle,_that.repeatSingle,_that.repeatAll);case MoveCommand():
-return move(_that.from,_that.to);}
+return move(_that.fromIndex,_that.toIndex);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -586,7 +586,7 @@ return move(_that.from,_that.to);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( int? index)?  play,TResult? Function( bool paused)?  pause,TResult? Function()?  next,TResult? Function()?  prev,TResult? Function()?  stop,TResult? Function( int positionMs)?  seek,TResult? Function( bool? shuffle,  bool? repeatSingle,  bool? repeatAll)?  setPlaybackMode,TResult? Function( int from,  int to)?  move,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( int? index)?  play,TResult? Function( bool paused)?  pause,TResult? Function()?  next,TResult? Function()?  prev,TResult? Function()?  stop,TResult? Function( int positionMs)?  seek,TResult? Function( bool? shuffle,  bool? repeatSingle,  bool? repeatAll)?  setPlaybackMode,TResult? Function( int fromIndex,  int toIndex)?  move,}) {final _that = this;
 switch (_that) {
 case PlayCommand() when play != null:
 return play(_that.index);case PauseCommand() when pause != null:
@@ -596,7 +596,7 @@ return prev();case StopCommand() when stop != null:
 return stop();case SeekCommand() when seek != null:
 return seek(_that.positionMs);case SetPlaybackModeCommand() when setPlaybackMode != null:
 return setPlaybackMode(_that.shuffle,_that.repeatSingle,_that.repeatAll);case MoveCommand() when move != null:
-return move(_that.from,_that.to);case _:
+return move(_that.fromIndex,_that.toIndex);case _:
   return null;
 
 }
@@ -1021,11 +1021,11 @@ as bool?,
 @JsonSerializable()
 
 class MoveCommand extends QueueCommand {
-  const MoveCommand({required this.from, required this.to, final  String? $type}): $type = $type ?? 'move',super._();
+  const MoveCommand({required this.fromIndex, required this.toIndex, final  String? $type}): $type = $type ?? 'move',super._();
   factory MoveCommand.fromJson(Map<String, dynamic> json) => _$MoveCommandFromJson(json);
 
- final  int from;
- final  int to;
+ final  int fromIndex;
+ final  int toIndex;
 
 @JsonKey(name: 'command')
 final String $type;
@@ -1044,16 +1044,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MoveCommand&&(identical(other.from, from) || other.from == from)&&(identical(other.to, to) || other.to == to));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MoveCommand&&(identical(other.fromIndex, fromIndex) || other.fromIndex == fromIndex)&&(identical(other.toIndex, toIndex) || other.toIndex == toIndex));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,from,to);
+int get hashCode => Object.hash(runtimeType,fromIndex,toIndex);
 
 @override
 String toString() {
-  return 'QueueCommand.move(from: $from, to: $to)';
+  return 'QueueCommand.move(fromIndex: $fromIndex, toIndex: $toIndex)';
 }
 
 
@@ -1064,7 +1064,7 @@ abstract mixin class $MoveCommandCopyWith<$Res> implements $QueueCommandCopyWith
   factory $MoveCommandCopyWith(MoveCommand value, $Res Function(MoveCommand) _then) = _$MoveCommandCopyWithImpl;
 @useResult
 $Res call({
- int from, int to
+ int fromIndex, int toIndex
 });
 
 
@@ -1081,10 +1081,10 @@ class _$MoveCommandCopyWithImpl<$Res>
 
 /// Create a copy of QueueCommand
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') $Res call({Object? from = null,Object? to = null,}) {
+@pragma('vm:prefer-inline') $Res call({Object? fromIndex = null,Object? toIndex = null,}) {
   return _then(MoveCommand(
-from: null == from ? _self.from : from // ignore: cast_nullable_to_non_nullable
-as int,to: null == to ? _self.to : to // ignore: cast_nullable_to_non_nullable
+fromIndex: null == fromIndex ? _self.fromIndex : fromIndex // ignore: cast_nullable_to_non_nullable
+as int,toIndex: null == toIndex ? _self.toIndex : toIndex // ignore: cast_nullable_to_non_nullable
 as int,
   ));
 }

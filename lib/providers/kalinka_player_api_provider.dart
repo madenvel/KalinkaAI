@@ -26,7 +26,7 @@ abstract class KalinkaPlayerProxy {
   Future<StatusMessage> previous();
   Future<StatusMessage> add(List<String> items);
   Future<StatusMessage> remove(int index);
-  Future<StatusMessage> move(int from, int to);
+  Future<StatusMessage> move(int fromIndex, int toIndex);
   Future<StatusMessage> pause({bool paused = true});
   Future<StatusMessage> stop();
   Future<TrackList> listTracks({int offset = 0, int limit = 100});
@@ -132,9 +132,12 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
   }
 
   @override
-  Future<StatusMessage> move(int from, int to) async {
+  Future<StatusMessage> move(int fromIndex, int toIndex) async {
     return client
-        .post('/queue/move', queryParameters: {'from': from, 'to': to})
+        .put(
+          '/queue/move',
+          queryParameters: {'from_index': fromIndex, 'to_index': toIndex},
+        )
         .then((response) {
           return statusMessageFromResponse(response);
         });
