@@ -90,6 +90,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
   }
 
   Future<void> _connectToServer(String name, String host, int port) async {
+    final settings = ref.read(connectionSettingsProvider.notifier);
+    final connection = ref.read(connectionStateProvider.notifier);
+    final api = ref.read(kalinkaProxyProvider);
+
     setState(() {
       _isConnecting = true;
       _connectError = null;
@@ -97,17 +101,15 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
 
     try {
       // Save connection settings
-      await ref
-          .read(connectionSettingsProvider.notifier)
-          .setDevice(name, host, port);
+      await settings.setDevice(name, host, port);
 
       // Attempt connection
-      ref.read(connectionStateProvider.notifier).connecting();
+      connection.connecting();
 
       // Try fetching modules as a health check
-      await ref.read(kalinkaProxyProvider).listModules();
+      await api.listModules();
 
-      ref.read(connectionStateProvider.notifier).connected();
+      connection.connected();
 
       // Success — close discovery
       if (mounted) {

@@ -43,37 +43,38 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
   }
 
   Future<void> _playTrack() async {
+    final api = ref.read(kalinkaProxyProvider);
+    final toast = ref.read(toastProvider.notifier);
     try {
-      final api = ref.read(kalinkaProxyProvider);
       await api.clear();
       await api.add([widget.item.id]);
       await api.play();
     } catch (e) {
-      ref
-          .read(toastProvider.notifier)
-          .show('Failed to play: $e', isError: true);
+      toast.show('Failed to play: $e', isError: true);
     }
   }
 
   Future<void> _addToQueue() async {
+    final api = ref.read(kalinkaProxyProvider);
+    final toast = ref.read(toastProvider.notifier);
     try {
-      final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
       final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-      ref.read(toastProvider.notifier).show('"$title" added to queue');
+      toast.show('"$title" added to queue');
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
+      toast.show('Failed to add: $e', isError: true);
     }
   }
 
   Future<void> _playNext() async {
+    final api = ref.read(kalinkaProxyProvider);
+    final toast = ref.read(toastProvider.notifier);
     try {
-      final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
       final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-      ref.read(toastProvider.notifier).show('"$title" playing next');
+      toast.show('"$title" playing next');
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
+      toast.show('Failed to add: $e', isError: true);
     }
   }
 
@@ -95,6 +96,7 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
       if (_longPressProgress >= 1.0) {
         timer.cancel();
         HapticFeedback.mediumImpact();
+        if (!mounted) return;
         ref
             .read(selectionStateProvider.notifier)
             .enterSelectionMode(widget.item.id);

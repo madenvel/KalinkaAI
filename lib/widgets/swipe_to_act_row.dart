@@ -34,13 +34,14 @@ class _SwipeToActRowState extends State<SwipeToActRow>
   static const double _iconPadding = 16.0;
   static const double _maxDrag = 200.0;
   static const double _hapticThreshold = _maxDrag / 3.0; // 1/3 of max drag
+  static const double _dragActivationThreshold = 14.0;
   static const double _resistanceCoefficient =
       60.0; // Controls resistance curve
 
   double _dragOffset = 0.0;
   double _rawDragOffset = 0.0; // Track raw offset before resistance
   bool _dragging = false;
-  bool _hapticTriggered = false;
+  bool _dragUnlocked = false;
 
   late AnimationController _snapController;
 
@@ -56,7 +57,8 @@ class _SwipeToActRowState extends State<SwipeToActRow>
     _snapController = AnimationController(
       vsync: this,
       lowerBound: 0.0,
-      upperBound: 1000.0, // Must cover full pixel range; default [0,1] clips the spring
+      upperBound:
+          1000.0, // Must cover full pixel range; default [0,1] clips the spring
       duration: const Duration(
         milliseconds: 500,
       ), // Duration not used with SpringSimulation
@@ -96,21 +98,25 @@ class _SwipeToActRowState extends State<SwipeToActRow>
   void _onDragUpdate(DragUpdateDetails details) {
     if (!widget.enabled) return;
 
+    bool unlockedThisFrame = false;
+
     setState(() {
       _dragging = true;
       _rawDragOffset = (_rawDragOffset + details.delta.dx).clamp(
         0.0,
         double.infinity,
       );
-      _dragOffset = _applyResistance(_rawDragOffset);
+
+      if (!_dragUnlocked && _rawDragOffset > _dragActivationThreshold) {
+        _dragUnlocked = true;
+        unlockedThisFrame = true;
+      }
+
+      _dragOffset = _dragUnlocked ? _applyResistance(_rawDragOffset) : 0.0;
     });
 
-    // Trigger haptic at 1/3 threshold
-    if (_dragOffset >= _hapticThreshold && !_hapticTriggered) {
-      _hapticTriggered = true;
-      KalinkaHaptics.mediumImpact();
-    } else if (_dragOffset < _hapticThreshold && _hapticTriggered) {
-      _hapticTriggered = false;
+    if (unlockedThisFrame) {
+      KalinkaHaptics.selectionClick();
     }
   }
 
@@ -131,6 +137,7 @@ class _SwipeToActRowState extends State<SwipeToActRow>
     );
 
     if (triggerPlayNext) {
+      KalinkaHaptics.corkPop();
       // Start confirmation overlay immediately on release — appears during
       // the spring snap-back so feedback is instant, not delayed.
       _confirmController.forward(from: 0.0);
@@ -151,7 +158,7 @@ class _SwipeToActRowState extends State<SwipeToActRow>
 
     _snapController.animateWith(simulation).then((_) {
       if (target == 0.0) {
-        _hapticTriggered = false;
+        _dragUnlocked = false;
         _rawDragOffset = 0.0;
       }
       onComplete?.call();

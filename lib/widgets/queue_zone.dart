@@ -117,22 +117,25 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
     final queueState = ref.read(playQueueStateStoreProvider);
     final currentIndex = queueState.playbackState.index ?? 0;
     final api = ref.read(kalinkaProxyProvider);
+    final toast = ref.read(toastProvider.notifier);
 
     // Remove from highest index to lowest to avoid index shifting
     for (int i = currentIndex - 1; i >= 0; i--) {
       try {
         await api.remove(i);
       } catch (e) {
-        ref.read(toastProvider.notifier).show('Failed to clear played: $e', isError: true);
+        toast.show('Failed to clear played: $e', isError: true);
         return;
       }
     }
-    ref.read(toastProvider.notifier).show('Played tracks cleared');
+    toast.show('Played tracks cleared');
   }
 
   Future<void> _clearAll() async {
-    await ref.read(kalinkaProxyProvider).clear();
-    ref.read(toastProvider.notifier).show('Queue cleared');
+    final api = ref.read(kalinkaProxyProvider);
+    final toast = ref.read(toastProvider.notifier);
+    await api.clear();
+    toast.show('Queue cleared');
   }
 
   void _activateSearch() {

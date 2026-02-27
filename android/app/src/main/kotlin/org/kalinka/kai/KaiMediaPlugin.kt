@@ -8,6 +8,15 @@ import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
+import android.os.VibrationEffect
+import android.os.VibrationEffect.Composition.DELAY_TYPE_PAUSE
+import android.os.VibrationEffect.Composition.PRIMITIVE_CLICK
+import android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_FALL
+import android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_RISE
+import android.os.VibrationEffect.Composition.PRIMITIVE_TICK
+import android.os.Vibrator
+import android.os.VibratorManager
+import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -94,7 +103,114 @@ class KaiMediaPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
                 unbindAndStop()
                 result.success(null)
             }
+            "hapticCorkPop" -> {
+                hapticCorkPop()
+                result.success(null)
+            }
+            "hapticDelete" -> {
+                hapticDelete()
+                result.success(null)
+            }
+            "hapticTick" -> {
+                hapticTick()
+                result.success(null)
+            }
             else -> result.notImplemented()
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun hapticTick() {
+        val ctx = context ?: return
+        val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ctx.getSystemService(VibratorManager::class.java).defaultVibrator
+        } else {
+            ctx.getSystemService(Vibrator::class.java)
+        }
+
+        when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                val effect = VibrationEffect.startComposition()
+                    .addPrimitive(PRIMITIVE_TICK)
+                    .compose()
+                vibrator.vibrate(effect)
+            }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> {
+                val effect = VibrationEffect.createOneShot(15, 80)
+                vibrator.vibrate(effect)
+            }
+            else -> {
+                vibrator.vibrate(15)
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
+    @Suppress("DEPRECATION")
+    private fun hapticCorkPop() {
+        val ctx = context ?: return
+        val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ctx.getSystemService(VibratorManager::class.java).defaultVibrator
+        } else {
+            ctx.getSystemService(Vibrator::class.java)
+        }
+
+        when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                // Best — Composition API: THUD for the body, faint TICK for resonance tail
+                val effect = VibrationEffect.startComposition()
+                    .addPrimitive(PRIMITIVE_QUICK_FALL)
+                    .addPrimitive(PRIMITIVE_CLICK, 0.7F, 50, DELAY_TYPE_PAUSE)
+                    .compose()
+                vibrator.vibrate(effect)
+            }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> {
+                // Good — stepped waveform envelope approximating attack→sustain→decay
+                val effect = VibrationEffect.createWaveform(
+                    longArrayOf(0, 5, 5, 15, 10),
+                    intArrayOf(0, 180, 220, 80, 0),
+                    -1
+                )
+                vibrator.vibrate(effect)
+            }
+            else -> {
+                // Pre-Oreo fallback — single pulse
+                vibrator.vibrate(30)
+            }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun hapticDelete() {
+        val ctx = context ?: return
+        val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ctx.getSystemService(VibratorManager::class.java).defaultVibrator
+        } else {
+            ctx.getSystemService(Vibrator::class.java)
+        }
+
+        when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                // Reversed: crisp TICK forewarning, then THUD landing
+                val effect = VibrationEffect.startComposition()
+                    .addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK, 0.4f, 0)
+                    .addPrimitive(VibrationEffect.Composition.PRIMITIVE_THUD, 0.9f, 30)
+                    .compose()
+                vibrator.vibrate(effect)
+            }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> {
+                // Reversed envelope: light tap → heavy thud
+                val effect = VibrationEffect.createWaveform(
+                    longArrayOf(0, 8, 20, 30),
+                    intArrayOf(0, 80, 0, 220),
+                    -1
+                )
+                vibrator.vibrate(effect)
+            }
+            else -> {
+                // Pre-Oreo fallback — single pulse
+                vibrator.vibrate(30)
+            }
         }
     }
 
