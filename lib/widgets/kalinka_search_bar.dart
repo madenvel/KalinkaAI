@@ -31,6 +31,8 @@ class KalinkaSearchBar extends ConsumerStatefulWidget {
 
 class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
     with TickerProviderStateMixin {
+  static const _searchOpenFocusDelay = Duration(milliseconds: 240);
+
   late TextEditingController _textController;
   late FocusNode _searchFocusNode;
   late AnimationController _pulseController;
@@ -170,6 +172,11 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
         if (!_isActive) {
           KalinkaHaptics.lightImpact();
           _activateSearch();
+          Future.delayed(_searchOpenFocusDelay, () {
+            if (!mounted || !_isActive) return;
+            _searchFocusNode.requestFocus();
+          });
+          return;
         }
         _searchFocusNode.requestFocus();
       },
@@ -201,22 +208,25 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
             // Hint text switches between the inspirational inactive prompt and
             // the functional active prompt.
             Expanded(
-              child: TextField(
-                controller: _textController,
-                focusNode: _searchFocusNode,
-                style: KalinkaTextStyles.searchBarInput,
-                cursorColor: KalinkaColors.accent,
-                decoration: InputDecoration(
-                  hintText: _isActive
-                      ? 'Search music\u2026'
-                      : 'moody electronic, late night\u2026',
-                  hintStyle: KalinkaTextStyles.searchPlaceholder,
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  isCollapsed: true,
+              child: IgnorePointer(
+                ignoring: !_isActive,
+                child: TextField(
+                  controller: _textController,
+                  focusNode: _searchFocusNode,
+                  style: KalinkaTextStyles.searchBarInput,
+                  cursorColor: KalinkaColors.accent,
+                  decoration: InputDecoration(
+                    hintText: _isActive
+                        ? 'Search music\u2026'
+                        : 'moody electronic, late night\u2026',
+                    hintStyle: KalinkaTextStyles.searchPlaceholder,
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isCollapsed: true,
+                  ),
+                  onChanged: _onQueryChanged,
+                  onSubmitted: _onSubmitted,
                 ),
-                onChanged: _onQueryChanged,
-                onSubmitted: _onSubmitted,
               ),
             ),
             const SizedBox(width: 8),

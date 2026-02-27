@@ -25,12 +25,15 @@ class KalinkaToastOverlay extends ConsumerWidget {
     if (toasts.isEmpty) return const SizedBox.shrink();
 
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    final bottomPadding = isTablet ? 0.0 : _kMiniPlayerHeight + bottomInset + 8.0;
+    final bottomPadding = isTablet
+        ? 0.0
+        : _kMiniPlayerHeight + bottomInset + 8.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment:
-          isTablet ? CrossAxisAlignment.end : CrossAxisAlignment.stretch,
+      crossAxisAlignment: isTablet
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.stretch,
       children: [
         for (final toast in toasts.reversed)
           Padding(
@@ -88,6 +91,11 @@ class _ToastCardState extends State<_ToastCard>
     // Trigger exit animation when the provider marks this entry as dismissing
     if (widget.entry.dismissing && !old.entry.dismissing) {
       _ctrl.reverse();
+      return;
+    }
+    // If dismissing gets canceled (e.g. aggregated toast updated), show again.
+    if (!widget.entry.dismissing && old.entry.dismissing) {
+      _ctrl.forward();
     }
   }
 

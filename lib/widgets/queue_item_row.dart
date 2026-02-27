@@ -154,7 +154,7 @@ class QueueItemRow extends ConsumerWidget {
         onDelete?.call();
         try {
           await kalinkaProxy.remove(index);
-          ref.read(toastProvider.notifier).show('"${track.title}" removed');
+          ref.read(toastProvider.notifier).showTrackRemoved(track.title);
         } catch (e) {
           ref
               .read(toastProvider.notifier)
