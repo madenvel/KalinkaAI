@@ -63,8 +63,9 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
             ? section.browseResult.items.length
             : min(3, section.browseResult.items.length);
         libraryItemCount += visibleCount;
-        if (section.browseResult.items.length > 3)
+        if (section.browseResult.items.length > 3) {
           libraryItemCount += 1; // show-more row
+        }
       }
     }
 
