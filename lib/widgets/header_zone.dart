@@ -50,6 +50,28 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<SearchState>(searchStateProvider, (previous, next) {
+      final wasActive = previous?.searchActive ?? false;
+      final isActive = next.searchActive;
+
+      if (!wasActive && isActive) {
+        if (_crossfadeController.value == 0) {
+          _crossfadeController.forward();
+        }
+
+        final searchBarState = _searchBarKey.currentState;
+        if (searchBarState != null && !searchBarState.isActive) {
+          searchBarState.activateFromExternal();
+        }
+        return;
+      }
+
+      if (wasActive && !isActive) {
+        _crossfadeController.reverse();
+        _searchBarKey.currentState?.cancelSearch();
+      }
+    });
+
     return Container(
       decoration: const BoxDecoration(
         color: KalinkaColors.surfaceBase,

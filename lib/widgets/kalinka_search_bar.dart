@@ -40,6 +40,8 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
   late AnimationController _clearMicController;
   bool _isActive = false;
 
+  bool get isActive => _isActive;
+
   @override
   void initState() {
     super.initState();
@@ -108,6 +110,19 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
   void _activateSearch() {
     setState(() => _isActive = true);
     widget.onActivate?.call();
+  }
+
+  void activateFromExternal({bool requestFocus = true}) {
+    if (!_isActive) {
+      setState(() => _isActive = true);
+    }
+
+    if (!requestFocus) return;
+
+    Future.delayed(_searchOpenFocusDelay, () {
+      if (!mounted || !_isActive) return;
+      _searchFocusNode.requestFocus();
+    });
   }
 
   void _onQueryChanged(String value) {
