@@ -13,7 +13,7 @@ import 'procedural_album_art.dart';
 import 'source_badge.dart';
 import 'swipe_to_delete_row.dart';
 
-/// A single queue item row with index, thumbnail, title, artist, and trailing slot.
+/// A single queue item row with thumbnail, title, artist, and trailing slot.
 ///
 /// Up Next rows always show a drag handle. History rows show the track duration
 /// and are rendered in a dimmed style (no handle, no swipe-to-delete).
@@ -50,24 +50,20 @@ class QueueItemRow extends ConsumerWidget {
     final urlResolver = ref.read(urlResolverProvider);
 
     final imageUrl = track.album?.image?.small;
-    final resolvedImageUrl =
-        imageUrl != null ? urlResolver.abs(imageUrl) : null;
+    final resolvedImageUrl = imageUrl != null
+        ? urlResolver.abs(imageUrl)
+        : null;
 
     // Colour tokens vary by state
     final titleColor = isHistory
         ? KalinkaColors.textMuted
         : isCurrentTrack
-            ? KalinkaColors.accentTint
-            : KalinkaColors.textPrimary;
+        ? KalinkaColors.accentTint
+        : KalinkaColors.textPrimary;
 
-    final artistColor =
-        isHistory ? KalinkaColors.textMuted : KalinkaColors.textSecondary;
-
-    final indexColor = isHistory
+    final artistColor = isHistory
         ? KalinkaColors.textMuted
-        : isCurrentTrack
-            ? KalinkaColors.accentTint
-            : KalinkaColors.textSecondary;
+        : KalinkaColors.textSecondary;
 
     final rowBg = isCurrentTrack && !isHistory
         ? KalinkaColors.accent.withValues(alpha: 0.08)
@@ -104,18 +100,7 @@ class QueueItemRow extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            // Index number
-            SizedBox(
-              width: 20,
-              child: Text(
-                '${displayIndex + 1}',
-                style: KalinkaTextStyles.queueItemIndex.copyWith(
-                  color: indexColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             // Thumbnail 44×44
             SizedBox(width: 44, height: 44, child: artwork),
             const SizedBox(width: 10),
@@ -127,10 +112,12 @@ class QueueItemRow extends ConsumerWidget {
                 children: [
                   Text(
                     track.title,
-                    style: KalinkaTextStyles.queueItemTitle
-                        .copyWith(color: titleColor),
+                    style: KalinkaTextStyles.queueItemTitle.copyWith(
+                      color: titleColor,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    softWrap: false,
                   ),
                   const SizedBox(height: 2),
                   Row(
@@ -150,6 +137,7 @@ class QueueItemRow extends ConsumerWidget {
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          softWrap: false,
                         ),
                       ),
                     ],
@@ -172,6 +160,7 @@ class QueueItemRow extends ConsumerWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  const SizedBox(width: 8),
                   Text(
                     _formatDuration(track.duration),
                     style: KalinkaTextStyles.queueItemDuration,
