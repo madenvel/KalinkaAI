@@ -92,7 +92,6 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
   Future<void> _connectToServer(String name, String host, int port) async {
     final settings = ref.read(connectionSettingsProvider.notifier);
     final connection = ref.read(connectionStateProvider.notifier);
-    final api = ref.read(kalinkaProxyProvider);
 
     setState(() {
       _isConnecting = true;
@@ -102,6 +101,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     try {
       // Save connection settings
       await settings.setDevice(name, host, port);
+
+      // Recreate API client against the newly selected server.
+      ref.invalidate(httpClientProvider);
+      ref.invalidate(kalinkaProxyProvider);
+      final api = ref.read(kalinkaProxyProvider);
 
       // Attempt connection
       connection.connecting();

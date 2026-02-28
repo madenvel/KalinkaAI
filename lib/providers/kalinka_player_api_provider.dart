@@ -533,10 +533,10 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
 
 final httpClientProvider = Provider<Dio>((ref) {
   final settings = ref.watch(connectionSettingsProvider);
-  if (!settings.isSet) {
-    throw StateError('Connection settings are not configured');
-  }
-  final dio = Dio(BaseOptions(baseUrl: settings.baseUrl.toString()));
+  final baseUrl = settings.isSet
+      ? settings.baseUrl.toString()
+      : 'http://127.0.0.1:0';
+  final dio = Dio(BaseOptions(baseUrl: baseUrl));
   return dio;
 });
 
