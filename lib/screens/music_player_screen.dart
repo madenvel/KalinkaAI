@@ -9,6 +9,7 @@ import '../widgets/discovery_screen.dart';
 import '../widgets/escalation_card.dart';
 import '../widgets/expanded_player_overlay.dart';
 import '../widgets/header_zone.dart';
+import '../widgets/kalinka_search_bar.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/now_playing_content.dart';
 import '../widgets/queue_zone.dart';
@@ -31,6 +32,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   static const _tabletBreakpoint = 900.0;
 
   late AnimationController _playerController;
+  final _searchBarKey = GlobalKey<KalinkaSearchBarState>();
 
   bool _playerOpen = false;
   bool _serverSheetOpen = false;
@@ -119,9 +121,13 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
         }
         final notifier = ref.read(searchStateProvider.notifier);
         final state = ref.read(searchStateProvider);
-        if (state.query.isNotEmpty) {
-          notifier.clearQueryMidSession();
+        final barState = _searchBarKey.currentState;
+        if (barState != null && barState.isEditingFromResults) {
+          // State 3→2 editing: cancel edit, restore committed query → State 3
+          barState.cancelSearch();
         } else if (state.searchActive) {
+          // State 2 or State 3: always return to State 1 (Ambient)
+          barState?.cancelSearch();
           notifier.deactivateSearch();
         } else if (_playerOpen) {
           _closePlayer();
@@ -133,6 +139,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
           Column(
             children: [
               HeaderZone(
+                searchBarKey: _searchBarKey,
                 onServerChipTap: () {
                   setState(() => _serverSheetOpen = true);
                 },
@@ -150,10 +157,16 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                       curve: Curves.easeOut,
                       child: const QueueZone(),
                     ),
-                    // Scrim overlay
+                    // Scrim overlay — tappable to dismiss search
                     if (searchActive)
                       Positioned.fill(
-                        child: IgnorePointer(
+                        child: GestureDetector(
+                          onTap: () {
+                            _searchBarKey.currentState?.cancelSearch();
+                            ref
+                                .read(searchStateProvider.notifier)
+                                .deactivateSearch();
+                          },
                           child: AnimatedOpacity(
                             opacity: searchActive ? 1.0 : 0.0,
                             duration: Duration(

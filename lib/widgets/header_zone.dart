@@ -5,13 +5,16 @@ import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
 import 'kalinka_search_bar.dart';
 import 'kalinka_wordmark.dart';
-import 'server_chip.dart';
 
-/// Header zone with K lettermark, search bar, and server chip / cancel toggle.
+/// Header zone with K lettermark, search bar, and connection dot.
+///
+/// The right slot is always the connection dot — it never changes between
+/// search states. Tap the dot to open the server management sheet.
 class HeaderZone extends ConsumerStatefulWidget {
   final VoidCallback? onServerChipTap;
+  final GlobalKey<KalinkaSearchBarState>? searchBarKey;
 
-  const HeaderZone({super.key, this.onServerChipTap});
+  const HeaderZone({super.key, this.onServerChipTap, this.searchBarKey});
 
   @override
   ConsumerState<HeaderZone> createState() => _HeaderZoneState();
@@ -19,33 +22,31 @@ class HeaderZone extends ConsumerStatefulWidget {
 
 class _HeaderZoneState extends ConsumerState<HeaderZone>
     with SingleTickerProviderStateMixin {
-  final _searchBarKey = GlobalKey<KalinkaSearchBarState>();
-  late AnimationController _crossfadeController;
+  late GlobalKey<KalinkaSearchBarState> _searchBarKey;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
-    _crossfadeController = AnimationController(
+    _searchBarKey = widget.searchBarKey ?? GlobalKey<KalinkaSearchBarState>();
+    _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 1200),
+    );
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 0.25).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
   }
 
   @override
   void dispose() {
-    _crossfadeController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
   void _onSearchActivated() {
     ref.read(searchStateProvider.notifier).activateSearch();
-    _crossfadeController.forward();
-  }
-
-  void _onCancelTapped() {
-    _crossfadeController.reverse();
-    _searchBarKey.currentState?.cancelSearch();
-    ref.read(searchStateProvider.notifier).deactivateSearch();
   }
 
   @override
@@ -55,20 +56,10 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
       final isActive = next.searchActive;
 
       if (!wasActive && isActive) {
-        if (_crossfadeController.value == 0) {
-          _crossfadeController.forward();
-        }
-
         final searchBarState = _searchBarKey.currentState;
         if (searchBarState != null && !searchBarState.isActive) {
           searchBarState.activateFromExternal();
         }
-        return;
-      }
-
-      if (wasActive && !isActive) {
-        _crossfadeController.reverse();
-        _searchBarKey.currentState?.cancelSearch();
       }
     });
 
@@ -80,16 +71,16 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
         ),
         boxShadow: [
           BoxShadow(
-            offset: Offset(0, 2),
-            blurRadius: 6,
-            color: Color(0x40000000),
+            offset: Offset(0, 4),
+            blurRadius: 24,
+            color: Color(0x80000000),
           ),
         ],
       ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           child: Row(
             children: [
               const KalinkaWordmark(),
@@ -98,12 +89,11 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
                 child: KalinkaSearchBar(
                   key: _searchBarKey,
                   alwaysExpanded: false,
-                  onCancel: _onCancelTapped,
                   onActivate: _onSearchActivated,
                 ),
               ),
               const SizedBox(width: 10),
-              _buildRightSlot(),
+              _buildConnectionDot(),
             ],
           ),
         ),
@@ -111,59 +101,22 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
     );
   }
 
-  Widget _buildRightSlot() {
-    return AnimatedBuilder(
-      animation: _crossfadeController,
-      builder: (context, _) {
-        final searchActive = _crossfadeController.value > 0;
-        final connectionState = ref.watch(connectionStateProvider);
-        return AnimatedSize(
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOut,
-          alignment: Alignment.centerRight,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 150),
-            switchInCurve: Curves.easeOut,
-            switchOutCurve: Curves.easeOut,
-            transitionBuilder: (child, animation) =>
-                FadeTransition(opacity: animation, child: child),
-            child: searchActive
-                ? GestureDetector(
-                    key: const ValueKey('cancel_slot'),
-                    onTap: _onCancelTapped,
-                    behavior: HitTestBehavior.opaque,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildStateDot(connectionState),
-                        const SizedBox(width: 8),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 8,
-                          ),
-                          child: Text(
-                            'Cancel',
-                            style: KalinkaTextStyles.cancelButton.copyWith(
-                              letterSpacing: -0.13,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ServerChip(
-                    key: const ValueKey('server_chip_slot'),
-                    onTap: widget.onServerChipTap,
-                  ),
-          ),
-        );
-      },
-    );
-  }
+  Widget _buildConnectionDot() {
+    final connectionState = ref.watch(connectionStateProvider);
 
-  Widget _buildStateDot(ConnectionStatus state) {
-    final color = switch (state) {
+    // Start/stop pulse based on reconnecting state
+    if (connectionState == ConnectionStatus.reconnecting) {
+      if (!_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
+      }
+    } else {
+      if (_pulseController.isAnimating) {
+        _pulseController.stop();
+        _pulseController.value = 1.0;
+      }
+    }
+
+    final color = switch (connectionState) {
       ConnectionStatus.connected => KalinkaColors.statusOnline,
       ConnectionStatus.reconnecting ||
       ConnectionStatus.connecting => KalinkaColors.statusPending,
@@ -171,15 +124,44 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
       ConnectionStatus.none => KalinkaColors.textMuted,
     };
 
-    return Container(
-      width: 8,
-      height: 8,
+    final semanticsLabel = switch (connectionState) {
+      ConnectionStatus.connected =>
+        'Server connected. Tap for server settings.',
+      ConnectionStatus.reconnecting ||
+      ConnectionStatus.connecting => 'Reconnecting to server. Tap for server settings.',
+      ConnectionStatus.offline => 'Server offline. Tap for server settings.',
+      ConnectionStatus.none => 'No server configured. Tap for server settings.',
+    };
+
+    Widget dot = Container(
+      width: 10,
+      height: 10,
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
-        boxShadow: state == ConnectionStatus.connected
-            ? [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 6)]
+        boxShadow: connectionState == ConnectionStatus.connected
+            ? [BoxShadow(color: color.withValues(alpha: 0.55), blurRadius: 6)]
             : null,
+      ),
+    );
+
+    if (connectionState == ConnectionStatus.reconnecting ||
+        connectionState == ConnectionStatus.connecting) {
+      dot = FadeTransition(opacity: _pulseAnimation, child: dot);
+    }
+
+    return Semantics(
+      label: semanticsLabel,
+      button: true,
+      child: GestureDetector(
+        onTap: widget.onServerChipTap != null
+            ? () => widget.onServerChipTap!()
+            : null,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 17, horizontal: 6),
+          child: dot,
+        ),
       ),
     );
   }
