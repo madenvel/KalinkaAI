@@ -26,12 +26,6 @@ class QueueItemRow extends ConsumerWidget {
   final bool isDragging;
   final VoidCallback? onDelete;
 
-  // Drag callbacks — only used for Up Next rows (isHistory == false).
-  final void Function(int trackIndex, Offset handleGlobalOffset)? onDragStarted;
-  final void Function(DragUpdateDetails)? onDragUpdate;
-  final void Function(DraggableDetails)? onDragEnd;
-  final void Function(Velocity, Offset)? onDragCanceled;
-
   const QueueItemRow({
     super.key,
     required this.track,
@@ -41,10 +35,6 @@ class QueueItemRow extends ConsumerWidget {
     this.isHistory = false,
     this.isDragging = false,
     this.onDelete,
-    this.onDragStarted,
-    this.onDragUpdate,
-    this.onDragEnd,
-    this.onDragCanceled,
   });
 
   String _formatDuration(int seconds) {
@@ -186,13 +176,7 @@ class QueueItemRow extends ConsumerWidget {
                     _formatDuration(track.duration),
                     style: KalinkaTextStyles.queueItemDuration,
                   ),
-                  _DragHandle(
-                    trackIndex: index,
-                    onDragStarted: onDragStarted,
-                    onDragUpdate: onDragUpdate,
-                    onDragEnd: onDragEnd,
-                    onDragCanceled: onDragCanceled,
-                  ),
+                  _DragHandle(index: displayIndex),
                 ],
               ),
           ],
@@ -218,63 +202,26 @@ class QueueItemRow extends ConsumerWidget {
   }
 }
 
-/// Drag handle widget — a 48×48 touch target wrapping the handle icon,
-/// wrapped in a [LongPressDraggable] that fires the parent's callbacks.
-class _DragHandle extends StatefulWidget {
-  final int trackIndex;
-  final void Function(int trackIndex, Offset handleGlobalOffset)? onDragStarted;
-  final void Function(DragUpdateDetails)? onDragUpdate;
-  final void Function(DraggableDetails)? onDragEnd;
-  final void Function(Velocity, Offset)? onDragCanceled;
+/// Drag handle widget — a 48×48 touch target that starts a reorder drag
+/// immediately on touch via [ReorderableDragStartListener].
+class _DragHandle extends StatelessWidget {
+  /// The index of this item within the enclosing [SliverReorderableList].
+  final int index;
 
-  const _DragHandle({
-    required this.trackIndex,
-    this.onDragStarted,
-    this.onDragUpdate,
-    this.onDragEnd,
-    this.onDragCanceled,
-  });
-
-  @override
-  State<_DragHandle> createState() => _DragHandleState();
-}
-
-class _DragHandleState extends State<_DragHandle> {
-  final _key = GlobalKey();
-
-  Offset _handleGlobalOffset() {
-    final box = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null) return Offset.zero;
-    return box.localToGlobal(Offset.zero + Offset(box.size.width / 2, box.size.height / 2));
-  }
+  const _DragHandle({required this.index});
 
   @override
   Widget build(BuildContext context) {
-    final icon = Padding(
-      key: _key,
-      padding: const EdgeInsets.all(14), // 48dp touch target around 20dp icon
-      child: const Icon(
-        Icons.drag_handle,
-        size: 20,
-        color: KalinkaColors.textMuted,
+    return ReorderableDragStartListener(
+      index: index,
+      child: const Padding(
+        padding: EdgeInsets.all(14), // 48dp touch target around 20dp icon
+        child: Icon(
+          Icons.drag_handle,
+          size: 20,
+          color: KalinkaColors.textMuted,
+        ),
       ),
-    );
-
-    if (widget.onDragStarted == null) return icon;
-
-    return LongPressDraggable<int>(
-      data: widget.trackIndex,
-      delay: const Duration(milliseconds: 150),
-      // Ghost is handled by the parent via Overlay — feedback is invisible.
-      feedback: const SizedBox.shrink(),
-      childWhenDragging: icon,
-      onDragStarted: () =>
-          widget.onDragStarted?.call(widget.trackIndex, _handleGlobalOffset()),
-      onDragUpdate: (details) => widget.onDragUpdate?.call(details),
-      onDragEnd: (details) => widget.onDragEnd?.call(details),
-      onDraggableCanceled: (velocity, offset) =>
-          widget.onDragCanceled?.call(velocity, offset),
-      child: icon,
     );
   }
 }
