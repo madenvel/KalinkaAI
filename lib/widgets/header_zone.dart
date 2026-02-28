@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/connection_state_provider.dart';
@@ -8,8 +10,8 @@ import 'kalinka_wordmark.dart';
 
 /// Header zone with K lettermark, search bar, and connection dot.
 ///
-/// The right slot is always the connection dot — it never changes between
-/// search states. Tap the dot to open the server management sheet.
+/// In search mode, the search bar expands to full-width header treatment,
+/// the wordmark swaps to a back button, and the connection dot hides.
 class HeaderZone extends ConsumerStatefulWidget {
   final VoidCallback? onServerChipTap;
   final GlobalKey<KalinkaSearchBarState>? searchBarKey;
@@ -22,9 +24,15 @@ class HeaderZone extends ConsumerStatefulWidget {
 
 class _HeaderZoneState extends ConsumerState<HeaderZone>
     with SingleTickerProviderStateMixin {
+  static const _collapsedLeftInset = 30.0;
+  static const _collapsedRightInset = 26.0;
+  static const _chevronRevealDelay = Duration(milliseconds: 120);
+
   late GlobalKey<KalinkaSearchBarState> _searchBarKey;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  Timer? _chevronTimer;
+  bool _showDelayedChevron = false;
 
   @override
   void initState() {
@@ -41,6 +49,7 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
 
   @override
   void dispose() {
+    _chevronTimer?.cancel();
     _pulseController.dispose();
     super.dispose();
   }
@@ -49,25 +58,59 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
     ref.read(searchStateProvider.notifier).activateSearch();
   }
 
+  void _dismissSearch() {
+    final barState = _searchBarKey.currentState;
+    if (barState != null && barState.isEditingFromResults) {
+      barState.cancelSearch();
+      return;
+    }
+
+    barState?.cancelSearch();
+    ref.read(searchStateProvider.notifier).deactivateSearch();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final searchActive = ref.watch(searchStateProvider).searchActive;
+
     ref.listen<SearchState>(searchStateProvider, (previous, next) {
       final wasActive = previous?.searchActive ?? false;
       final isActive = next.searchActive;
 
       if (!wasActive && isActive) {
+        _chevronTimer?.cancel();
+        setState(() => _showDelayedChevron = false);
+        _chevronTimer = Timer(_chevronRevealDelay, () {
+          if (!mounted) return;
+          setState(() => _showDelayedChevron = true);
+        });
+
         final searchBarState = _searchBarKey.currentState;
         if (searchBarState != null && !searchBarState.isActive) {
           searchBarState.activateFromExternal();
         }
+      } else if (wasActive && !isActive) {
+        _chevronTimer?.cancel();
+        if (_showDelayedChevron) {
+          setState(() => _showDelayedChevron = false);
+        }
       }
     });
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: KalinkaColors.surfaceBase,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      decoration: BoxDecoration(
+        color: searchActive
+            ? KalinkaColors.surfaceInput
+            : KalinkaColors.surfaceBase,
         border: Border(
-          bottom: BorderSide(color: KalinkaColors.borderDefault, width: 1),
+          bottom: BorderSide(
+            color: searchActive
+                ? KalinkaColors.accentBorder
+                : KalinkaColors.borderDefault,
+            width: searchActive ? 2 : 1,
+          ),
         ),
         boxShadow: [
           BoxShadow(
@@ -79,22 +122,77 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
       ),
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          child: Row(
-            children: [
-              const KalinkaWordmark(),
-              const SizedBox(width: 10),
-              Expanded(
-                child: KalinkaSearchBar(
-                  key: _searchBarKey,
-                  alwaysExpanded: false,
-                  onActivate: _onSearchActivated,
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.symmetric(
+            vertical: searchActive ? 8 : 12,
+            horizontal: searchActive ? 8 : 16,
+          ),
+          child: SizedBox(
+            height: 44,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Row(
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: AnimatedOpacity(
+                          opacity: searchActive ? 0 : 1,
+                          duration: const Duration(milliseconds: 120),
+                          curve: Curves.easeIn,
+                          child: const IgnorePointer(
+                            ignoring: true,
+                            child: KalinkaWordmark(),
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      AnimatedSlide(
+                        offset: searchActive
+                            ? const Offset(0.25, 0)
+                            : Offset.zero,
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOut,
+                        child: AnimatedOpacity(
+                          opacity: searchActive ? 0 : 1,
+                          duration: const Duration(milliseconds: 140),
+                          curve: Curves.easeIn,
+                          child: IgnorePointer(
+                            ignoring: searchActive,
+                            child: _buildConnectionDot(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              _buildConnectionDot(),
-            ],
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 200),
+                  curve: const Cubic(0.4, 0, 0.2, 1),
+                  left: searchActive ? 0 : _collapsedLeftInset,
+                  right: searchActive ? 0 : _collapsedRightInset,
+                  top: 0,
+                  bottom: 0,
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: KalinkaSearchBar(
+                      key: _searchBarKey,
+                      alwaysExpanded: false,
+                      onActivate: _onSearchActivated,
+                      onLeadingAction: _dismissSearch,
+                      showBackChevron: searchActive && _showDelayedChevron,
+                      fullBleedMode: searchActive,
+                      height: searchActive ? 44 : 36,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: searchActive ? 8 : 12,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -127,8 +225,8 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
     final semanticsLabel = switch (connectionState) {
       ConnectionStatus.connected =>
         'Server connected. Tap for server settings.',
-      ConnectionStatus.reconnecting ||
-      ConnectionStatus.connecting => 'Reconnecting to server. Tap for server settings.',
+      ConnectionStatus.reconnecting || ConnectionStatus.connecting =>
+        'Reconnecting to server. Tap for server settings.',
       ConnectionStatus.offline => 'Server offline. Tap for server settings.',
       ConnectionStatus.none => 'No server configured. Tap for server settings.',
     };

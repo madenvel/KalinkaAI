@@ -16,11 +16,21 @@ import '../utils/haptics.dart';
 class KalinkaSearchBar extends ConsumerStatefulWidget {
   final bool alwaysExpanded;
   final VoidCallback? onActivate;
+  final VoidCallback? onLeadingAction;
+  final bool showBackChevron;
+  final bool fullBleedMode;
+  final double height;
+  final EdgeInsetsGeometry? contentPadding;
 
   const KalinkaSearchBar({
     super.key,
     this.alwaysExpanded = false,
     this.onActivate,
+    this.onLeadingAction,
+    this.showBackChevron = false,
+    this.fullBleedMode = false,
+    this.height = 36,
+    this.contentPadding,
   });
 
   @override
@@ -274,19 +284,26 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
         animation: _borderAnimation,
         builder: (context, child) {
           final t = _borderAnimation.value;
+          final isFullBleed = widget.fullBleedMode;
           final borderColor = Color.lerp(
             KalinkaColors.accent.withValues(alpha: 0.38),
             KalinkaColors.accent.withValues(alpha: 0.62),
             t,
           )!;
-          final hasShadow = t > 0;
+          final hasShadow = t > 0 && !isFullBleed;
 
-          return Container(
-            height: 36,
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            height: widget.height,
             decoration: BoxDecoration(
               color: KalinkaColors.surfaceInput,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: borderColor, width: 1.5),
+              borderRadius: isFullBleed
+                  ? BorderRadius.zero
+                  : BorderRadius.circular(14),
+              border: isFullBleed
+                  ? null
+                  : Border.all(color: borderColor, width: 1.5),
               boxShadow: hasShadow
                   ? [
                       BoxShadow(
@@ -297,14 +314,58 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
                     ]
                   : null,
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding:
+                widget.contentPadding ??
+                const EdgeInsets.symmetric(horizontal: 12),
             child: child,
           );
         },
         child: Row(
           children: [
-            // Search icon
-            const Icon(Icons.search, size: 16, color: KalinkaColors.accent),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 160),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) {
+                final scale = Tween<double>(
+                  begin: 0.9,
+                  end: 1.0,
+                ).animate(animation);
+                return FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(scale: scale, child: child),
+                );
+              },
+              child: widget.showBackChevron
+                  ? GestureDetector(
+                      key: const ValueKey('search-leading-back'),
+                      onTap: widget.onLeadingAction,
+                      behavior: HitTestBehavior.opaque,
+                      child: const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: Center(
+                          child: Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 16,
+                            color: KalinkaColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    )
+                  : const SizedBox(
+                      key: ValueKey('search-leading-search'),
+                      width: 20,
+                      height: 20,
+                      child: Center(
+                        child: Icon(
+                          Icons.search,
+                          size: 16,
+                          color: KalinkaColors.accent,
+                        ),
+                      ),
+                    ),
+            ),
             const SizedBox(width: 8),
             // Text input
             Expanded(
