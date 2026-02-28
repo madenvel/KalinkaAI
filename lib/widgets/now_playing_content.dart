@@ -167,7 +167,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
         // spacing + title + artist + badges + slider + time + controls + volume + padding.
         const double belowArtHeight = 400.0;
         // Spacing above the album art inside the scroll area.
-        const double aboveArtHeight = 16.0;
+        const double aboveArtHeight = 8.0;
 
         final double maxArtByWidth = constraints.maxWidth * 0.75;
         // Only constrain by height when the panel has a finite, bounded height.
@@ -218,10 +218,10 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                     // Content — fills remaining space with controls pinned to bottom
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Column(
                           children: [
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 8),
                             // Album art
                             Container(
                               width: artSize,
@@ -570,8 +570,11 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                         onChangeEnd: (_) {
                                           _lastHapticVolumePosition = -1.0;
                                           setState(() {
-                                            _volumeBeforeSeq =
-                                                ref.read(extDeviceStateStoreProvider).seq;
+                                            _volumeBeforeSeq = ref
+                                                .read(
+                                                  extDeviceStateStoreProvider,
+                                                )
+                                                .seq;
                                           });
                                         },
                                       ),
