@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
+import '../../providers/app_state_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../providers/source_modules_provider.dart';
 import '../../theme/app_theme.dart';
+import '../berry_pulse.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
 import '../swipe_to_act_row.dart';
@@ -138,6 +140,12 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
         ? urlResolver.abs(imageUrl)
         : null;
 
+    final playerState = ref.watch(playerStateProvider);
+    final isCurrentTrack = widget.item.id.isNotEmpty &&
+        playerState.currentTrack?.id == widget.item.id;
+    final isPlaying =
+        isCurrentTrack && playerState.state == PlayerStateType.playing;
+
     return SwipeToActRow(
       enabled: !selectionMode,
       onAddToQueue: _addToQueue,
@@ -192,6 +200,29 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
                               size: 44,
                             ),
                     ),
+                    // Now-playing scrim
+                    if (isCurrentTrack)
+                      Positioned.fill(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                stops: [0.0, 0.45, 1.0],
+                                colors: [
+                                  Color(0x000A0204),
+                                  Color(0x8C0A0204),
+                                  Color(0xD10A0204),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    // Now-playing berry pulse animation
+                    if (isCurrentTrack) BerryPulse(isPlaying: isPlaying),
                     // Long-press ring
                     if (_longPressing && _longPressProgress > 0)
                       Positioned.fill(
