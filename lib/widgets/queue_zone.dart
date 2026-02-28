@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
+import '../data_model/kalinka_ws_api.dart' show QueueCommand;
 import '../providers/app_state_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
+import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/toast_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
@@ -182,16 +184,14 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
       ref
           .read(playQueueStateStoreProvider.notifier)
           .optimisticallyReorder(from, to);
-      ref.read(kalinkaProxyProvider).move(from, to);
+      ref
+          .read(kalinkaWsApiProvider)
+          .sendQueueCommand(QueueCommand.move(fromIndex: from, toIndex: to));
       KalinkaHaptics.mediumImpact();
     }
   }
 
-  Widget _proxyDecorator(
-    Widget child,
-    int index,
-    Animation<double> animation,
-  ) {
+  Widget _proxyDecorator(Widget child, int index, Animation<double> animation) {
     return AnimatedBuilder(
       animation: animation,
       builder: (context, child) {
@@ -365,10 +365,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
         if (upNextTracks.isEmpty)
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 24,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               child: Text(
                 'Queue is empty',
                 style: KalinkaTextStyles.queueItemArtist,
@@ -502,7 +499,11 @@ class _UpNextHeaderDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _kHeaderHeight;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     final t = (1.0 - shrinkOffset / maxExtent).clamp(0.0, 1.0);
     return Opacity(
       opacity: t,
@@ -544,13 +545,14 @@ class _HistoryHeaderDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _kHeaderHeight;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return ColoredBox(
       color: KalinkaColors.background,
-      child: QueueSectionHeader(
-        label: 'PREVIOUSLY PLAYED',
-        trailing: trailing,
-      ),
+      child: QueueSectionHeader(label: 'PREVIOUSLY PLAYED', trailing: trailing),
     );
   }
 
