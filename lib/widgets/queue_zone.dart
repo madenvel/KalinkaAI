@@ -237,8 +237,15 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
         ? trackList.sublist(0, currentIndex).cast<Track>()
         : <Track>[];
 
+    final nowPlayingTrack =
+        upNextTracks.isNotEmpty ? upNextTracks[0] : null;
+    final queueTracks = upNextTracks.length > 1
+        ? upNextTracks.sublist(1).cast<Track>()
+        : <Track>[];
+
     // Keep live reference for reorder callback.
-    _currentIndex = currentIndex;
+    // Queue section starts one past the currently playing track.
+    _currentIndex = currentIndex + 1;
 
     final isQueueEmpty = upNextTracks.isEmpty && previousTracks.isEmpty;
 
@@ -254,7 +261,8 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
                     opacity: 0.4,
                     child: _buildQueueContent(
                       isQueueEmpty,
-                      upNextTracks,
+                      nowPlayingTrack,
+                      queueTracks,
                       previousTracks,
                       currentIndex,
                       playbackMode,
@@ -267,7 +275,8 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
         else
           _buildQueueContent(
             isQueueEmpty,
-            upNextTracks,
+            nowPlayingTrack,
+            queueTracks,
             previousTracks,
             currentIndex,
             playbackMode,
@@ -337,7 +346,8 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
 
   Widget _buildQueueContent(
     bool isQueueEmpty,
-    List<Track> upNextTracks,
+    Track? nowPlayingTrack,
+    List<Track> queueTracks,
     List<Track> previousTracks,
     int currentIndex,
     dynamic playbackMode,
@@ -349,17 +359,40 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
+        // ── NOW PLAYING ────────────────────────────────────────────────────
+        if (nowPlayingTrack != null)
+          SliverMainAxisGroup(
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: const _NowPlayingHeaderDelegate(),
+              ),
+              SliverToBoxAdapter(
+                child: QueueItemRow(
+                  key: ValueKey('nowplaying_${nowPlayingTrack.id}'),
+                  track: nowPlayingTrack,
+                  index: currentIndex,
+                  displayIndex: 0,
+                  isCurrentTrack: true,
+                  showDragHandle: false,
+                  isDragging: _isDragging,
+                ),
+              ),
+            ],
+          ),
+
+        // ── UP NEXT ────────────────────────────────────────────────────────
         SliverMainAxisGroup(
           slivers: [
             SliverPersistentHeader(
               pinned: true,
               delegate: _UpNextHeaderDelegate(
-                trackCount: upNextTracks.length,
+                trackCount: queueTracks.length,
                 showShuffleBadge: playbackMode.shuffle,
                 trailing: _buildMenuButton(),
               ),
             ),
-            if (upNextTracks.isEmpty)
+            if (queueTracks.isEmpty)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -375,20 +408,19 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
               )
             else
               SliverReorderableList(
-                itemCount: upNextTracks.length,
+                itemCount: queueTracks.length,
                 onReorder: _onReorder,
                 onReorderStart: (i) => setState(() => _isDragging = true),
                 onReorderEnd: (i) => setState(() => _isDragging = false),
                 proxyDecorator: _proxyDecorator,
                 itemBuilder: (context, i) {
-                  final track = upNextTracks[i];
-                  final absoluteIndex = currentIndex + i;
+                  final track = queueTracks[i];
+                  final absoluteIndex = currentIndex + 1 + i;
                   return QueueItemRow(
                     key: ValueKey('upnext_${track.id}'),
                     track: track,
                     index: absoluteIndex,
                     displayIndex: i,
-                    isCurrentTrack: i == 0,
                     isDragging: _isDragging,
                   );
                 },
@@ -403,6 +435,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
           ],
         ),
 
+        // ── PREVIOUSLY PLAYED ──────────────────────────────────────────────
         if (previousTracks.isNotEmpty)
           SliverMainAxisGroup(
             slivers: [
@@ -520,6 +553,42 @@ class _UpNextHeaderDelegate extends SliverPersistentHeaderDelegate {
       trackCount != old.trackCount ||
       showShuffleBadge != old.showShuffleBadge ||
       trailing != old.trailing;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _NowPlayingHeaderDelegate — pinned "NOW PLAYING" header.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NowPlayingHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _NowPlayingHeaderDelegate();
+
+  @override
+  double get minExtent => _kHeaderHeight;
+
+  @override
+  double get maxExtent => _kHeaderHeight;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    // No trailing widget → QueueSectionHeader would shrink to ~32 px.
+    // Tighten to _kHeaderHeight so paintExtent == scrollExtent == 46 px and
+    // the SliverGeometry assertion (paintExtent < scrollExtent → hasVisualOverflow)
+    // never fires.
+    return SizedBox(
+      height: _kHeaderHeight,
+      child: ColoredBox(
+        color: KalinkaColors.background,
+        child: const QueueSectionHeader(label: 'NOW PLAYING'),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_NowPlayingHeaderDelegate old) => false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

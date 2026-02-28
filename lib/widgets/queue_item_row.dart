@@ -26,6 +26,7 @@ class QueueItemRow extends ConsumerWidget {
   final bool isCurrentTrack;
   final bool isHistory;
   final bool isDragging;
+  final bool showDragHandle;
   final VoidCallback? onDelete;
 
   const QueueItemRow({
@@ -36,6 +37,7 @@ class QueueItemRow extends ConsumerWidget {
     this.isCurrentTrack = false,
     this.isHistory = false,
     this.isDragging = false,
+    this.showDragHandle = true,
     this.onDelete,
   });
 
@@ -214,7 +216,10 @@ class QueueItemRow extends ConsumerWidget {
                     _formatDuration(track.duration),
                     style: KalinkaTextStyles.queueItemDuration,
                   ),
-                  _DragHandle(index: displayIndex),
+                  if (showDragHandle)
+                    _DragHandle(index: displayIndex)
+                  else
+                    const SizedBox(width: 8),
                 ],
               ),
           ],
