@@ -349,85 +349,85 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
-        // "UP NEXT" pinned header — collapses to 0 when "PREVIOUSLY PLAYED"
-        // scrolls up and takes its place. minExtent=0 lets it be fully pushed
-        // off by the second pinned header.
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _UpNextHeaderDelegate(
-            trackCount: upNextTracks.length,
-            showShuffleBadge: playbackMode.shuffle,
-            trailing: _buildMenuButton(),
-          ),
-        ),
-
-        // Up Next rows — reorderable with animated item shifting.
-        if (upNextTracks.isEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: Text(
-                'Queue is empty',
-                style: KalinkaTextStyles.queueItemArtist,
-                textAlign: TextAlign.center,
+        SliverMainAxisGroup(
+          slivers: [
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _UpNextHeaderDelegate(
+                trackCount: upNextTracks.length,
+                showShuffleBadge: playbackMode.shuffle,
+                trailing: _buildMenuButton(),
               ),
             ),
-          )
-        else
-          SliverReorderableList(
-            itemCount: upNextTracks.length,
-            onReorder: _onReorder,
-            onReorderStart: (i) => setState(() => _isDragging = true),
-            onReorderEnd: (i) => setState(() => _isDragging = false),
-            proxyDecorator: _proxyDecorator,
-            itemBuilder: (context, i) {
-              final track = upNextTracks[i];
-              final absoluteIndex = currentIndex + i;
-              return QueueItemRow(
-                // Stable key (no index) so Flutter can animate item transitions.
-                key: ValueKey('upnext_${track.id}'),
-                track: track,
-                index: absoluteIndex,
-                displayIndex: i,
-                isCurrentTrack: i == 0,
-                isDragging: _isDragging,
-              );
-            },
-          ),
+            if (upNextTracks.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 24,
+                  ),
+                  child: Text(
+                    'Queue is empty',
+                    style: KalinkaTextStyles.queueItemArtist,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              )
+            else
+              SliverReorderableList(
+                itemCount: upNextTracks.length,
+                onReorder: _onReorder,
+                onReorderStart: (i) => setState(() => _isDragging = true),
+                onReorderEnd: (i) => setState(() => _isDragging = false),
+                proxyDecorator: _proxyDecorator,
+                itemBuilder: (context, i) {
+                  final track = upNextTracks[i];
+                  final absoluteIndex = currentIndex + i;
+                  return QueueItemRow(
+                    key: ValueKey('upnext_${track.id}'),
+                    track: track,
+                    index: absoluteIndex,
+                    displayIndex: i,
+                    isCurrentTrack: i == 0,
+                    isDragging: _isDragging,
+                  );
+                },
+              ),
+            if (previousTracks.isNotEmpty)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Divider(),
+                ),
+              ),
+          ],
+        ),
 
-        // History section — divider then a second pinned header.
-        // Because _UpNextHeaderDelegate has minExtent=0 and
-        // _HistoryHeaderDelegate has minExtent=_kHeaderHeight, Flutter's
-        // sliver stack pushes the UP NEXT header off the top smoothly as
-        // the PREVIOUSLY PLAYED header pins — no manual breakpoint needed.
-        if (previousTracks.isNotEmpty) ...[
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Divider(),
-            ),
+        if (previousTracks.isNotEmpty)
+          SliverMainAxisGroup(
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _HistoryHeaderDelegate(
+                  trailing: _buildHistoryHeaderTrailing(),
+                ),
+              ),
+              SliverList.builder(
+                itemCount: previousTracks.length,
+                itemBuilder: (context, i) {
+                  final track = previousTracks[i];
+                  return QueueItemRow(
+                    key: ValueKey('history_${track.id}_$i'),
+                    track: track,
+                    index: i,
+                    displayIndex: i,
+                    isHistory: true,
+                    isDragging: _isDragging,
+                  );
+                },
+              ),
+            ],
           ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _HistoryHeaderDelegate(
-              trailing: _buildHistoryHeaderTrailing(),
-            ),
-          ),
-          SliverList.builder(
-            itemCount: previousTracks.length,
-            itemBuilder: (context, i) {
-              final track = previousTracks[i];
-              return QueueItemRow(
-                key: ValueKey('history_${track.id}_$i'),
-                track: track,
-                index: i,
-                displayIndex: i,
-                isHistory: true,
-                isDragging: _isDragging,
-              );
-            },
-          ),
-        ],
 
         // Bottom padding
         SliverPadding(
@@ -475,10 +475,10 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _UpNextHeaderDelegate — pinned "UP NEXT" header that can collapse to 0.
+// _UpNextHeaderDelegate — pinned "UP NEXT" header.
 //
-// minExtent=0 lets the PREVIOUSLY PLAYED header push it off the top smoothly
-// as that second pinned header rises. The content fades out as it shrinks.
+// This header keeps full height while scrolling the UP NEXT section, and then
+// yields the pinned slot as the PREVIOUSLY PLAYED section reaches the top.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _UpNextHeaderDelegate extends SliverPersistentHeaderDelegate {
@@ -493,7 +493,7 @@ class _UpNextHeaderDelegate extends SliverPersistentHeaderDelegate {
   });
 
   @override
-  double get minExtent => 0;
+  double get minExtent => _kHeaderHeight;
 
   @override
   double get maxExtent => _kHeaderHeight;
@@ -504,17 +504,13 @@ class _UpNextHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final t = (1.0 - shrinkOffset / maxExtent).clamp(0.0, 1.0);
-    return Opacity(
-      opacity: t,
-      child: ColoredBox(
-        color: KalinkaColors.background,
-        child: QueueSectionHeader(
-          label: 'UP NEXT',
-          trackCount: trackCount,
-          showShuffleBadge: showShuffleBadge,
-          trailing: trailing,
-        ),
+    return ColoredBox(
+      color: KalinkaColors.background,
+      child: QueueSectionHeader(
+        label: 'UP NEXT',
+        trackCount: trackCount,
+        showShuffleBadge: showShuffleBadge,
+        trailing: trailing,
       ),
     );
   }
@@ -529,8 +525,7 @@ class _UpNextHeaderDelegate extends SliverPersistentHeaderDelegate {
 // ─────────────────────────────────────────────────────────────────────────────
 // _HistoryHeaderDelegate — pinned "PREVIOUSLY PLAYED" header.
 //
-// Fixed minExtent=maxExtent=_kHeaderHeight. As this header pins at the top it
-// pushes _UpNextHeaderDelegate (minExtent=0) off the screen completely.
+// Fixed minExtent=maxExtent=_kHeaderHeight.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _HistoryHeaderDelegate extends SliverPersistentHeaderDelegate {
