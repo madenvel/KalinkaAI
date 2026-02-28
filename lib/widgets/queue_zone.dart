@@ -21,7 +21,7 @@ import 'queue_section_header.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Height of the pinned section header.
-const double _kHeaderHeight = 48.0;
+const double _kHeaderHeight = QueueSectionHeader.height;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QueueZone

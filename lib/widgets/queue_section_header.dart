@@ -3,6 +3,10 @@ import '../theme/app_theme.dart';
 
 /// Reusable section header for queue sections ("UP NEXT" / "PREVIOUSLY PLAYED").
 class QueueSectionHeader extends StatelessWidget {
+  static const double horizontalPadding = 20;
+  static const double verticalPadding = 8;
+  static const double height = 46;
+
   final String label;
   final int? trackCount;
   final bool showShuffleBadge;
@@ -19,7 +23,10 @@ class QueueSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: verticalPadding,
+      ),
       child: Row(
         children: [
           // Left cluster
