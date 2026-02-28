@@ -79,6 +79,16 @@ class PlayQueueState {
       case RequestMoreTracksEvent():
         // Ignore - no state change.
         return this;
+      case TrackMovedEvent(:final fromIndex, :final toIndex, :final seq):
+        final list = [...trackList];
+        final item = list.removeAt(fromIndex);
+        list.insert(toIndex, item);
+        final oldPlaybackIndex = playbackState.index ?? 0;
+        final newPlaybackIndex = _remapIndex(oldPlaybackIndex, fromIndex, toIndex);
+        final newPlaybackState = newPlaybackIndex != oldPlaybackIndex
+            ? playbackState.copyWithFields(index: newPlaybackIndex)
+            : playbackState;
+        return copyWith(trackList: list, playbackState: newPlaybackState, seq: seq);
       case PlaybackErrorEvent():
         // Ignore - no state change.
         return this;
@@ -92,6 +102,21 @@ class PlayQueueState {
           seq: seq,
         );
     }
+  }
+
+  /// Mirrors the server-side `_remap_index` logic.
+  /// Returns the new position of [idx] after an item is moved from
+  /// [fromIndex] to [toIndex] in the list.
+  int _remapIndex(int idx, int fromIndex, int toIndex) {
+    if (idx == fromIndex) return toIndex;
+    if (fromIndex < toIndex) {
+      // Item moved forward: everything in (fromIndex, toIndex] shifts back by 1
+      if (fromIndex < idx && idx <= toIndex) return idx - 1;
+    } else {
+      // Item moved backward: everything in [toIndex, fromIndex) shifts forward by 1
+      if (toIndex <= idx && idx < fromIndex) return idx + 1;
+    }
+    return idx;
   }
 
   int _estimatePosition(PlaybackState playbackState, int serverTimeNs) {
@@ -148,6 +173,12 @@ sealed class PlayQueueEvent with _$PlayQueueEvent {
     required int seq,
   }) = TracksRemovedEvent;
 
+  const factory PlayQueueEvent.trackMoved({
+    required int fromIndex,
+    required int toIndex,
+    required int seq,
+  }) = TrackMovedEvent;
+
   const factory PlayQueueEvent.playbackError({
     required String message,
     required int seq,
@@ -186,6 +217,12 @@ sealed class PlayQueueEvent with _$PlayQueueEvent {
       case 'tracks_removed':
         return PlayQueueEvent.tracksRemoved(
           indices: List<int>.from(json['indices'] as List),
+          seq: seq,
+        );
+      case 'track_moved':
+        return PlayQueueEvent.trackMoved(
+          fromIndex: json['from_index'] as int,
+          toIndex: json['to_index'] as int,
           seq: seq,
         );
       case 'playback_error':

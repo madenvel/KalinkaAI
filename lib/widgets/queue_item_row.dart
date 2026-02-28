@@ -13,13 +13,24 @@ import 'procedural_album_art.dart';
 import 'source_badge.dart';
 import 'swipe_to_delete_row.dart';
 
-/// A single queue item row with index, thumbnail, title, artist, and duration.
+/// A single queue item row with index, thumbnail, title, artist, and trailing slot.
+///
+/// Up Next rows always show a drag handle. History rows show the track duration
+/// and are rendered in a dimmed style (no handle, no swipe-to-delete).
 class QueueItemRow extends ConsumerWidget {
   final Track track;
   final int index;
   final int displayIndex;
   final bool isCurrentTrack;
+  final bool isHistory;
+  final bool isDragging;
   final VoidCallback? onDelete;
+
+  // Drag callbacks — only used for Up Next rows (isHistory == false).
+  final void Function(int trackIndex, Offset handleGlobalOffset)? onDragStarted;
+  final void Function(DragUpdateDetails)? onDragUpdate;
+  final void Function(DraggableDetails)? onDragEnd;
+  final void Function(Velocity, Offset)? onDragCanceled;
 
   const QueueItemRow({
     super.key,
@@ -27,7 +38,13 @@ class QueueItemRow extends ConsumerWidget {
     required this.index,
     required this.displayIndex,
     this.isCurrentTrack = false,
+    this.isHistory = false,
+    this.isDragging = false,
     this.onDelete,
+    this.onDragStarted,
+    this.onDragUpdate,
+    this.onDragEnd,
+    this.onDragCanceled,
   });
 
   String _formatDuration(int seconds) {
@@ -43,9 +60,49 @@ class QueueItemRow extends ConsumerWidget {
     final urlResolver = ref.read(urlResolverProvider);
 
     final imageUrl = track.album?.image?.small;
-    final resolvedImageUrl = imageUrl != null
-        ? urlResolver.abs(imageUrl)
-        : null;
+    final resolvedImageUrl =
+        imageUrl != null ? urlResolver.abs(imageUrl) : null;
+
+    // Colour tokens vary by state
+    final titleColor = isHistory
+        ? KalinkaColors.textMuted
+        : isCurrentTrack
+            ? KalinkaColors.accentTint
+            : KalinkaColors.textPrimary;
+
+    final artistColor =
+        isHistory ? KalinkaColors.textMuted : KalinkaColors.textSecondary;
+
+    final indexColor = isHistory
+        ? KalinkaColors.textMuted
+        : isCurrentTrack
+            ? KalinkaColors.accentTint
+            : KalinkaColors.textSecondary;
+
+    final rowBg = isCurrentTrack && !isHistory
+        ? KalinkaColors.accent.withValues(alpha: 0.08)
+        : KalinkaColors.background;
+
+    Widget artwork = Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(6)),
+      clipBehavior: Clip.antiAlias,
+      child: resolvedImageUrl != null
+          ? Image.network(
+              resolvedImageUrl,
+              width: 44,
+              height: 44,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) =>
+                  ProceduralAlbumArt(trackId: track.id, size: 44),
+            )
+          : ProceduralAlbumArt(trackId: track.id, size: 44),
+    );
+
+    if (isHistory) {
+      artwork = Opacity(opacity: 0.38, child: artwork);
+    }
 
     final rowContent = GestureDetector(
       onTap: () {
@@ -53,9 +110,7 @@ class QueueItemRow extends ConsumerWidget {
         api.sendQueueCommand(QueueCommand.play(index: index));
       },
       child: Container(
-        color: isCurrentTrack
-            ? KalinkaColors.accent.withValues(alpha: 0.08)
-            : KalinkaColors.background,
+        color: rowBg,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
@@ -65,37 +120,14 @@ class QueueItemRow extends ConsumerWidget {
               child: Text(
                 '${displayIndex + 1}',
                 style: KalinkaTextStyles.queueItemIndex.copyWith(
-                  color: isCurrentTrack
-                      ? KalinkaColors.accentTint
-                      : KalinkaColors.textSecondary,
+                  color: indexColor,
                 ),
                 textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(width: 8),
-            // Thumbnail 44x44
-            SizedBox(
-              width: 44,
-              height: 44,
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: resolvedImageUrl != null
-                    ? Image.network(
-                        resolvedImageUrl,
-                        width: 44,
-                        height: 44,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            ProceduralAlbumArt(trackId: track.id, size: 44),
-                      )
-                    : ProceduralAlbumArt(trackId: track.id, size: 44),
-              ),
-            ),
+            // Thumbnail 44×44
+            SizedBox(width: 44, height: 44, child: artwork),
             const SizedBox(width: 10),
             // Track info
             Expanded(
@@ -105,11 +137,8 @@ class QueueItemRow extends ConsumerWidget {
                 children: [
                   Text(
                     track.title,
-                    style: KalinkaTextStyles.queueItemTitle.copyWith(
-                      color: isCurrentTrack
-                          ? KalinkaColors.accentTint
-                          : KalinkaColors.textPrimary,
-                    ),
+                    style: KalinkaTextStyles.queueItemTitle
+                        .copyWith(color: titleColor),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -126,7 +155,9 @@ class QueueItemRow extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           track.performer?.name ?? 'Unknown Artist',
-                          style: KalinkaTextStyles.queueItemArtist,
+                          style: KalinkaTextStyles.queueItemArtist.copyWith(
+                            color: artistColor,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -136,20 +167,41 @@ class QueueItemRow extends ConsumerWidget {
                 ],
               ),
             ),
-            // Duration right-aligned
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Text(
-                _formatDuration(track.duration),
-                style: KalinkaTextStyles.queueItemDuration,
+            // Trailing: duration for History; duration + drag handle for Up Next.
+            if (isHistory)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Text(
+                  _formatDuration(track.duration),
+                  style: KalinkaTextStyles.queueItemDuration.copyWith(
+                    color: KalinkaColors.textMuted,
+                  ),
+                ),
+              )
+            else
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _formatDuration(track.duration),
+                    style: KalinkaTextStyles.queueItemDuration,
+                  ),
+                  _DragHandle(
+                    trackIndex: index,
+                    onDragStarted: onDragStarted,
+                    onDragUpdate: onDragUpdate,
+                    onDragEnd: onDragEnd,
+                    onDragCanceled: onDragCanceled,
+                  ),
+                ],
               ),
-            ),
           ],
         ),
       ),
     );
 
     return SwipeToDeleteRow(
+      enabled: !isHistory && !isDragging,
       onDelete: () async {
         onDelete?.call();
         try {
@@ -162,6 +214,67 @@ class QueueItemRow extends ConsumerWidget {
         }
       },
       child: rowContent,
+    );
+  }
+}
+
+/// Drag handle widget — a 48×48 touch target wrapping the handle icon,
+/// wrapped in a [LongPressDraggable] that fires the parent's callbacks.
+class _DragHandle extends StatefulWidget {
+  final int trackIndex;
+  final void Function(int trackIndex, Offset handleGlobalOffset)? onDragStarted;
+  final void Function(DragUpdateDetails)? onDragUpdate;
+  final void Function(DraggableDetails)? onDragEnd;
+  final void Function(Velocity, Offset)? onDragCanceled;
+
+  const _DragHandle({
+    required this.trackIndex,
+    this.onDragStarted,
+    this.onDragUpdate,
+    this.onDragEnd,
+    this.onDragCanceled,
+  });
+
+  @override
+  State<_DragHandle> createState() => _DragHandleState();
+}
+
+class _DragHandleState extends State<_DragHandle> {
+  final _key = GlobalKey();
+
+  Offset _handleGlobalOffset() {
+    final box = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return Offset.zero;
+    return box.localToGlobal(Offset.zero + Offset(box.size.width / 2, box.size.height / 2));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = Padding(
+      key: _key,
+      padding: const EdgeInsets.all(14), // 48dp touch target around 20dp icon
+      child: const Icon(
+        Icons.drag_handle,
+        size: 20,
+        color: KalinkaColors.textMuted,
+      ),
+    );
+
+    if (widget.onDragStarted == null) return icon;
+
+    return LongPressDraggable<int>(
+      data: widget.trackIndex,
+      delay: const Duration(milliseconds: 150),
+      // Ghost is handled by the parent via Overlay — feedback is invisible.
+      feedback: const SizedBox.shrink(),
+      childWhenDragging: icon,
+      onDragStarted: () =>
+          widget.onDragStarted?.call(widget.trackIndex, _handleGlobalOffset()),
+      onDragUpdate: (details) => widget.onDragUpdate?.call(details),
+      onDragEnd: (details) => widget.onDragEnd?.call(details),
+      onDraggableCanceled: (velocity, offset) =>
+          widget.onDragCanceled?.call(velocity, offset),
+      child: icon,
     );
   }
 }
