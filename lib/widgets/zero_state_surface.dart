@@ -9,7 +9,7 @@ import 'search_cards/search_artist_row.dart';
 import 'search_cards/search_track_row.dart';
 import 'search_cards/show_more_row.dart';
 
-const bool kShowAskAiSection = false;
+const bool kShowAskAiSection = true;
 
 /// Zero-state content surface shown when search is activated but no query
 /// has been typed. Displays "In your library" items and optionally recent
