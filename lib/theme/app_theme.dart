@@ -178,8 +178,14 @@ class KalinkaTextStyles {
     color: KalinkaColors.textPrimary,
   );
 
-  static TextStyle expandedArtist = GoogleFonts.ibmPlexMono(
-    fontSize: 12,
+  static TextStyle expandedArtist = GoogleFonts.playfairDisplay(
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle expandedAttribution = GoogleFonts.ibmPlexMono(
+    fontSize: 11,
     color: KalinkaColors.textSecondary,
   );
 
@@ -188,7 +194,7 @@ class KalinkaTextStyles {
     fontSize: 10,
     fontWeight: FontWeight.w600,
     letterSpacing: 2.0,
-    color: KalinkaColors.textSecondary,
+    color: KalinkaColors.textMuted,
   );
 
   static TextStyle formatBadge = GoogleFonts.ibmPlexMono(

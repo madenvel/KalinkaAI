@@ -161,31 +161,6 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Header height varies by mode.
-        final double headerHeight = widget.showOverlayHeader ? 80.0 : 52.0;
-        // Estimated height of all content below the album art:
-        // spacing + title + artist + badges + slider + time + controls + volume + padding.
-        const double belowArtHeight = 400.0;
-        // Spacing above the album art inside the scroll area.
-        const double aboveArtHeight = 8.0;
-
-        final double maxArtByWidth = constraints.maxWidth * 0.75;
-        // Only constrain by height when the panel has a finite, bounded height.
-        final double artSize;
-        if (constraints.hasBoundedHeight) {
-          final double maxArtByHeight =
-              constraints.maxHeight -
-              headerHeight -
-              aboveArtHeight -
-              belowArtHeight;
-          artSize = maxArtByWidth.clamp(
-            0.0,
-            maxArtByHeight.clamp(80.0, maxArtByWidth),
-          );
-        } else {
-          artSize = maxArtByWidth;
-        }
-
         return Container(
           color: KalinkaColors.background,
           child: Stack(
@@ -222,40 +197,57 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                         child: Column(
                           children: [
                             const SizedBox(height: 8),
-                            // Album art
-                            Container(
-                              width: artSize,
-                              height: artSize,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(22),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.5),
-                                    blurRadius: 40,
-                                    offset: const Offset(0, 20),
-                                  ),
-                                ],
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              child: resolvedImageUrl != null
-                                  ? Image.network(
-                                      resolvedImageUrl,
+                            // Album art — Expanded so it claims all vertical space
+                            // that isn't occupied by fixed-height elements below.
+                            // Inner LayoutBuilder sizes the square to fit the zone.
+                            Expanded(
+                              child: LayoutBuilder(
+                                builder: (context, artConstraints) {
+                                  final artSize =
+                                      (artConstraints.maxWidth * 0.88).clamp(
+                                        0.0,
+                                        artConstraints.maxHeight,
+                                      );
+                                  return Center(
+                                    child: Container(
                                       width: artSize,
                                       height: artSize,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          ProceduralAlbumArt(
-                                            trackId: currentTrack?.id ?? '',
-                                            size: artSize,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(22),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.5,
+                                            ),
+                                            blurRadius: 40,
+                                            offset: const Offset(0, 20),
                                           ),
-                                    )
-                                  : ProceduralAlbumArt(
-                                      trackId: currentTrack?.id ?? '',
-                                      size: artSize,
+                                        ],
+                                      ),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: resolvedImageUrl != null
+                                          ? Image.network(
+                                              resolvedImageUrl,
+                                              width: artSize,
+                                              height: artSize,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  ProceduralAlbumArt(
+                                                    trackId:
+                                                        currentTrack?.id ?? '',
+                                                    size: artSize,
+                                                  ),
+                                            )
+                                          : ProceduralAlbumArt(
+                                              trackId: currentTrack?.id ?? '',
+                                              size: artSize,
+                                            ),
                                     ),
+                                  );
+                                },
+                              ),
                             ),
-                            // Flexible gap: centres track info between art and controls
-                            const Spacer(),
+                            const SizedBox(height: 20),
                             // Track title
                             Text(
                               currentTrack?.title ?? 'No track',
@@ -298,8 +290,8 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                         const SizedBox(width: 6),
                                         Text(
                                           attributionText,
-                                          style:
-                                              KalinkaTextStyles.expandedArtist,
+                                          style: KalinkaTextStyles
+                                              .expandedAttribution,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),
@@ -308,10 +300,8 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                   );
                                 },
                               ),
-                              const SizedBox(height: 8),
                             ],
-                            // Flexible gap: pushes controls to the bottom
-                            const Spacer(),
+                            const SizedBox(height: 24),
                             // Progress bar
                             SliderTheme(
                               data: SliderThemeData(
@@ -503,7 +493,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 28),
+                            const SizedBox(height: 16),
                             // Volume row
                             if (volumeState.supported) ...[
                               Row(
