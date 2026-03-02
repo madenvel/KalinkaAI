@@ -79,10 +79,13 @@ class SearchState {
   // ── Zero-state filter system ──────────────────────────────────────────────
   /// Active scope filter pill (null = "All")
   final FilterPillType? activeScopeFilter;
+
   /// Active genre filter pill ID (null = no genre filter)
   final String? activeGenreId;
+
   /// Recently favourited tracks shown in zero-state
   final List<BrowseItem> recentlyFavourited;
+
   /// Genre pills available in the filter row (max 4)
   final List<Genre> genrePills;
 
@@ -327,10 +330,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
     if (state.activeScopeFilter == type) {
       state = state.copyWith(clearActiveScopeFilter: true);
     } else {
-      state = state.copyWith(
-        activeScopeFilter: type,
-        clearActiveGenreId: true,
-      );
+      state = state.copyWith(activeScopeFilter: type, clearActiveGenreId: true);
     }
   }
 
@@ -343,9 +343,8 @@ class SearchStateNotifier extends Notifier<SearchState> {
       // Genre + Favourites can co-exist; genre clears other scope filters
       state = state.copyWith(
         activeGenreId: genreId,
-        clearActiveScopeFilter: state.activeScopeFilter == FilterPillType.favourites
-            ? false
-            : true,
+        clearActiveScopeFilter:
+            state.activeScopeFilter == FilterPillType.favourites ? false : true,
         activeScopeFilter: state.activeScopeFilter == FilterPillType.favourites
             ? FilterPillType.favourites
             : null,
@@ -355,12 +354,16 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
   /// Load data needed for the zero-state: genre pills and recently favourited.
   Future<void> _loadZeroStateData() async {
+    final settings = ref.read(connectionSettingsProvider);
+    if (!settings.isSet) return;
     final api = ref.read(kalinkaProxyProvider);
     try {
-      final genresFuture = api.getGenres(null);
-      final favFuture = api.getFavorite(SearchType.track, limit: 4);
-      final genres = await genresFuture;
-      final fav = await favFuture;
+      // Await both concurrently; the record .wait extension ensures neither
+      // future becomes an unhandled rejection if the other fails first.
+      final (genres, fav) = await (
+        api.getGenres(null),
+        api.getFavorite(SearchType.track, limit: 4),
+      ).wait;
       state = state.copyWith(
         genrePills: genres.items.take(4).toList(),
         recentlyFavourited: fav.items,
@@ -615,6 +618,8 @@ class SearchStateNotifier extends Notifier<SearchState> {
   }
 
   Future<void> _loadBrowseRecommendations() async {
+    final settings = ref.read(connectionSettingsProvider);
+    if (!settings.isSet) return;
     final currentTrack = ref.read(playerStateProvider).currentTrack;
 
     state = state.copyWith(isLoading: true, clearError: true);

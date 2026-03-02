@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/connection_settings_provider.dart';
+import '../providers/connection_state_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/completion_strip.dart';
@@ -85,6 +86,71 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     );
   }
 
+  Widget _buildDisconnectedState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off_rounded,
+              size: 48,
+              color: KalinkaColors.textMuted,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'No server connected',
+              style: KalinkaTextStyles.emptyQueueTitle,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Scan your network to find a Kalinka server and start listening.',
+              style: KalinkaTextStyles.emptyQueueSubtitle,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            GestureDetector(
+              onTap: () => setState(() => _discoveryOpen = true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: KalinkaColors.accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: KalinkaColors.accent.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.wifi_tethering_rounded,
+                      size: 16,
+                      color: KalinkaColors.accentTint,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Scan for servers',
+                      style: KalinkaTextStyles.trayRowLabel.copyWith(
+                        color: KalinkaColors.accentTint,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.watch(mediaNotificationProvider);
@@ -105,6 +171,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     final searchState = ref.watch(searchStateProvider);
     final searchActive = searchState.searchActive;
     final settings = ref.watch(connectionSettingsProvider);
+    final connectionState = ref.watch(connectionStateProvider);
 
     return PopScope(
       canPop:
@@ -148,61 +215,67 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
               // Pinned completion strip — only visible during typing
               const CompletionStrip(),
               Expanded(
-                child: Stack(
-                  children: [
-                    // Queue (always rendered, dims when search active)
-                    AnimatedOpacity(
-                      opacity: searchActive ? 0.4 : 1.0,
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      child: const QueueZone(),
-                    ),
-                    // Scrim overlay — tappable to dismiss search
-                    if (searchActive)
-                      Positioned.fill(
-                        child: GestureDetector(
-                          onTap: () {
-                            _searchBarKey.currentState?.cancelSearch();
-                            ref
-                                .read(searchStateProvider.notifier)
-                                .deactivateSearch();
-                          },
-                          child: AnimatedOpacity(
-                            opacity: searchActive ? 1.0 : 0.0,
-                            duration: Duration(
-                              milliseconds: searchActive ? 200 : 180,
-                            ),
+                child: connectionState == ConnectionStatus.none
+                    ? _buildDisconnectedState()
+                    : Stack(
+                        children: [
+                          // Queue (always rendered, dims when search active)
+                          AnimatedOpacity(
+                            opacity: searchActive ? 0.4 : 1.0,
+                            duration: const Duration(milliseconds: 200),
                             curve: Curves.easeOut,
-                            child: const ColoredBox(color: Color(0x66000000)),
+                            child: const QueueZone(),
                           ),
-                        ),
+                          // Scrim overlay — tappable to dismiss search
+                          if (searchActive)
+                            Positioned.fill(
+                              child: GestureDetector(
+                                onTap: () {
+                                  _searchBarKey.currentState?.cancelSearch();
+                                  ref
+                                      .read(searchStateProvider.notifier)
+                                      .deactivateSearch();
+                                },
+                                child: AnimatedOpacity(
+                                  opacity: searchActive ? 1.0 : 0.0,
+                                  duration: Duration(
+                                    milliseconds: searchActive ? 200 : 180,
+                                  ),
+                                  curve: Curves.easeOut,
+                                  child: const ColoredBox(
+                                    color: Color(0x66000000),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          // Search results (slide up + fade)
+                          if (searchActive)
+                            AnimatedSlide(
+                              offset: searchActive
+                                  ? Offset.zero
+                                  : const Offset(0, 0.03),
+                              duration: Duration(
+                                milliseconds: searchActive ? 240 : 180,
+                              ),
+                              curve: searchActive
+                                  ? const Cubic(0.4, 0, 0.2, 1)
+                                  : Curves.easeIn,
+                              child: AnimatedOpacity(
+                                opacity: searchActive ? 1.0 : 0.0,
+                                duration: Duration(
+                                  milliseconds: searchActive ? 240 : 180,
+                                ),
+                                curve: searchActive
+                                    ? Curves.easeOut
+                                    : Curves.easeIn,
+                                child: const ColoredBox(
+                                  color: KalinkaColors.background,
+                                  child: SearchResultsFeed(),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    // Search results (slide up + fade)
-                    if (searchActive)
-                      AnimatedSlide(
-                        offset: searchActive
-                            ? Offset.zero
-                            : const Offset(0, 0.03),
-                        duration: Duration(
-                          milliseconds: searchActive ? 240 : 180,
-                        ),
-                        curve: searchActive
-                            ? const Cubic(0.4, 0, 0.2, 1)
-                            : Curves.easeIn,
-                        child: AnimatedOpacity(
-                          opacity: searchActive ? 1.0 : 0.0,
-                          duration: Duration(
-                            milliseconds: searchActive ? 240 : 180,
-                          ),
-                          curve: searchActive ? Curves.easeOut : Curves.easeIn,
-                          child: const ColoredBox(
-                            color: KalinkaColors.background,
-                            child: SearchResultsFeed(),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
               ),
               EscalationCard(
                 onScanForServers: () {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' show Color;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
+import 'connection_settings_provider.dart';
 import 'kalinka_player_api_provider.dart';
 
 /// Display metadata for a single source.
@@ -32,6 +33,8 @@ const _sourceColors = [
 
 /// Fetches enabled input modules from the backend.
 final sourceModulesProvider = FutureProvider<List<ModuleInfo>>((ref) async {
+  final settings = ref.watch(connectionSettingsProvider);
+  if (!settings.isSet) return <ModuleInfo>[];
   final api = ref.read(kalinkaProxyProvider);
   final modulesAndDevices = await api.listModules();
   return modulesAndDevices.inputModules.where((m) => m.enabled).toList();

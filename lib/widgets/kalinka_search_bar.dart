@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/connection_state_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
@@ -249,6 +250,8 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
   @override
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchStateProvider);
+    final connectionStatus = ref.watch(connectionStateProvider);
+    final isDisconnected = connectionStatus == ConnectionStatus.none;
 
     // Sync text field if query changed externally (e.g. history tap).
     if (_isActive &&
@@ -262,7 +265,13 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
       }
     }
 
-    return _buildSearchBar(searchState);
+    final bar = _buildSearchBar(searchState);
+
+    if (isDisconnected) {
+      return IgnorePointer(child: Opacity(opacity: 0.38, child: bar));
+    }
+
+    return bar;
   }
 
   Widget _buildSearchBar(SearchState searchState) {
