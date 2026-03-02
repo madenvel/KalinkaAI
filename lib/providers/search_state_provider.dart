@@ -39,6 +39,9 @@ class CachedSearchResult {
 /// Search surface lifecycle phase
 enum SearchPhase { inactive, activated, typing, results, cleared }
 
+/// Scope filter pills (non-genre)
+enum FilterPillType { favourites, myPlaylists }
+
 /// Stub AI prompt suggestions for zero-state
 const _stubAiPromptSuggestions = [
   'something melancholic for tonight',
@@ -73,6 +76,16 @@ class SearchState {
   final bool completionStripVisible;
   final List<String> aiPromptSuggestions;
 
+  // ── Zero-state filter system ──────────────────────────────────────────────
+  /// Active scope filter pill (null = "All")
+  final FilterPillType? activeScopeFilter;
+  /// Active genre filter pill ID (null = no genre filter)
+  final String? activeGenreId;
+  /// Recently favourited tracks shown in zero-state
+  final List<BrowseItem> recentlyFavourited;
+  /// Genre pills available in the filter row (max 4)
+  final List<Genre> genrePills;
+
   const SearchState({
     this.isExpanded = false,
     this.searchPhase = SearchPhase.inactive,
@@ -98,6 +111,10 @@ class SearchState {
     this.aiCompletionSuggestion,
     this.completionStripVisible = false,
     this.aiPromptSuggestions = const [],
+    this.activeScopeFilter,
+    this.activeGenreId,
+    this.recentlyFavourited = const [],
+    this.genrePills = const [],
   });
 
   /// Backward-compatible getter — true when search surface is active
@@ -148,6 +165,12 @@ class SearchState {
     bool clearSearchResults = false,
     bool clearAiCompletion = false,
     bool clearError = false,
+    FilterPillType? activeScopeFilter,
+    bool clearActiveScopeFilter = false,
+    String? activeGenreId,
+    bool clearActiveGenreId = false,
+    List<BrowseItem>? recentlyFavourited,
+    List<Genre>? genrePills,
   }) {
     return SearchState(
       isExpanded: isExpanded ?? this.isExpanded,
@@ -189,6 +212,14 @@ class SearchState {
       completionStripVisible:
           completionStripVisible ?? this.completionStripVisible,
       aiPromptSuggestions: aiPromptSuggestions ?? this.aiPromptSuggestions,
+      activeScopeFilter: clearActiveScopeFilter
+          ? null
+          : (activeScopeFilter ?? this.activeScopeFilter),
+      activeGenreId: clearActiveGenreId
+          ? null
+          : (activeGenreId ?? this.activeGenreId),
+      recentlyFavourited: recentlyFavourited ?? this.recentlyFavourited,
+      genrePills: genrePills ?? this.genrePills,
     );
   }
 }
@@ -252,6 +283,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
     if (_recommendationsAreStale()) {
       _loadBrowseRecommendations();
     }
+    _loadZeroStateData();
   }
 
   /// Deactivate search — exit to inactive (State 7), preserve histories
@@ -282,7 +314,60 @@ class SearchStateNotifier extends Notifier<SearchState> {
       clearAiCompletion: true,
       completionStripVisible: false,
       aiPromptSuggestions: const [],
+      clearActiveScopeFilter: true,
+      clearActiveGenreId: true,
     );
+  }
+
+  // ── Filter pill methods ───────────────────────────────────────────────────
+
+  /// Toggle a scope filter pill (Favourites, My Playlists).
+  /// Tapping the active filter deactivates it (returns to "All").
+  void toggleScopeFilter(FilterPillType type) {
+    if (state.activeScopeFilter == type) {
+      state = state.copyWith(clearActiveScopeFilter: true);
+    } else {
+      state = state.copyWith(
+        activeScopeFilter: type,
+        clearActiveGenreId: true,
+      );
+    }
+  }
+
+  /// Toggle a genre filter pill.
+  /// Tapping the active genre deactivates it.
+  void toggleGenreFilter(String genreId) {
+    if (state.activeGenreId == genreId) {
+      state = state.copyWith(clearActiveGenreId: true);
+    } else {
+      // Genre + Favourites can co-exist; genre clears other scope filters
+      state = state.copyWith(
+        activeGenreId: genreId,
+        clearActiveScopeFilter: state.activeScopeFilter == FilterPillType.favourites
+            ? false
+            : true,
+        activeScopeFilter: state.activeScopeFilter == FilterPillType.favourites
+            ? FilterPillType.favourites
+            : null,
+      );
+    }
+  }
+
+  /// Load data needed for the zero-state: genre pills and recently favourited.
+  Future<void> _loadZeroStateData() async {
+    final api = ref.read(kalinkaProxyProvider);
+    try {
+      final genresFuture = api.getGenres(null);
+      final favFuture = api.getFavorite(SearchType.track, limit: 4);
+      final genres = await genresFuture;
+      final fav = await favFuture;
+      state = state.copyWith(
+        genrePills: genres.items.take(4).toList(),
+        recentlyFavourited: fav.items,
+      );
+    } catch (_) {
+      // Non-critical — zero state still works without this data
+    }
   }
 
   /// Clear query mid-session (State 6) — user tapped ×

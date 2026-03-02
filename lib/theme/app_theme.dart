@@ -329,10 +329,11 @@ class KalinkaTextStyles {
   );
 
   // AI prompt chips (zero-state)
-  static TextStyle aiPromptChipText = GoogleFonts.playfairDisplay(
-    fontSize: 12,
+  static TextStyle aiPromptChipText = GoogleFonts.ibmPlexMono(
+    fontSize: 13,
+    fontWeight: FontWeight.w300,
     fontStyle: FontStyle.italic,
-    color: KalinkaColors.textPrimary,
+    color: KalinkaColors.accentTint,
   );
 
   // Clear all link
@@ -464,6 +465,36 @@ class KalinkaTextStyles {
     fontWeight: FontWeight.w600,
     letterSpacing: 1.8,
     color: KalinkaColors.textSecondary,
+  );
+
+  // ── Search zero-state v15 ─────────────────────────────────────────────────
+
+  /// Recent search chip label
+  static TextStyle recentChipLabel = GoogleFonts.ibmPlexMono(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: KalinkaColors.textSecondary,
+  );
+
+  /// Filter pill label — inactive state
+  static TextStyle filterPillInactive = GoogleFonts.ibmPlexMono(
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: KalinkaColors.textMuted,
+  );
+
+  /// Filter pill label — active state
+  static TextStyle filterPillActive = GoogleFonts.ibmPlexMono(
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    color: KalinkaColors.accentTint,
+  );
+
+  /// "Clear all" button in the chip row
+  static TextStyle clearAllChips = GoogleFonts.ibmPlexMono(
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: KalinkaColors.textMuted,
   );
 }
 

@@ -80,31 +80,35 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
       case SearchPhase.typing:
         // Partial results or skeleton while typing
+        Widget inner;
         if (searchState.isLoading) {
-          content = _buildSkeletonLoading();
+          inner = _buildSkeletonLoading();
         } else if (searchState.searchResults != null) {
-          content = _buildResultsFeed(context, ref, searchState);
+          inner = _buildResultsFeed(context, ref, searchState);
         } else if (searchState.browseRecommendations != null) {
-          content = _buildBrowseRecommendations(
+          inner = _buildBrowseRecommendations(
             context,
             ref,
             searchState.browseRecommendations!,
           );
         } else {
-          content = _buildSkeletonLoading();
+          inner = _buildSkeletonLoading();
         }
+        content = _wrapWithFilterPills(inner, searchState);
 
       case SearchPhase.results:
         // Full results
+        Widget inner;
         if (searchState.isLoading) {
-          content = _buildSkeletonLoading();
+          inner = _buildSkeletonLoading();
         } else if (searchState.error != null) {
-          content = _buildErrorView(searchState.error!);
+          inner = _buildErrorView(searchState.error!);
         } else if (searchState.searchResults != null) {
-          content = _buildResultsFeed(context, ref, searchState);
+          inner = _buildResultsFeed(context, ref, searchState);
         } else {
-          content = _buildSkeletonLoading();
+          inner = _buildSkeletonLoading();
         }
+        content = _wrapWithFilterPills(inner, searchState);
 
       case SearchPhase.cleared:
         // Session history only (1-2 items)
@@ -142,6 +146,25 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
             child: MultiSelectBottomBar(),
           ),
         ],
+      ],
+    );
+  }
+
+  /// Wraps results content with a pinned filter pill row when a filter is active.
+  Widget _wrapWithFilterPills(Widget inner, SearchState searchState) {
+    final hasActiveFilter = searchState.activeScopeFilter != null ||
+        searchState.activeGenreId != null;
+    if (!hasActiveFilter) return inner;
+    return Column(
+      children: [
+        SearchFilterPillRow(
+          searchState: searchState,
+          onScopeToggle: (type) =>
+              ref.read(searchStateProvider.notifier).toggleScopeFilter(type),
+          onGenreToggle: (id) =>
+              ref.read(searchStateProvider.notifier).toggleGenreFilter(id),
+        ),
+        Expanded(child: inner),
       ],
     );
   }
