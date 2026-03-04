@@ -39,12 +39,13 @@ class MediaNotificationNotifier extends Notifier<void> {
 
     // Listen for actions from native (play, pause, next, prev, stop, seek,
     // volumeAdjust).
-    final subscription = _eventChannel
-        .receiveBroadcastStream()
-        .listen(_handleNativeEvent, onError: (_) {});
+    final subscription = _eventChannel.receiveBroadcastStream().listen(
+      _handleNativeEvent,
+      onError: (_) {},
+    );
     ref.onDispose(subscription.cancel);
 
-    // Push state whenever player state or position changes.
+    // Push state whenever player state changes (play, pause, buffering, etc.).
     ref.listen(playerStateProvider, (_, __) => _pushState());
 
     // When the server sends a new event (seq changes), clear the pending seek
@@ -56,8 +57,6 @@ class MediaNotificationNotifier extends Notifier<void> {
       }
       _pushState();
     });
-
-    ref.listen(playbackTimeMsProvider, (_, __) => _pushState());
 
     // Push volume-only update when server confirms a new volume.
     ref.listen(volumeStateProvider, (_, vol) => _onServerVolumeUpdate(vol));
@@ -164,8 +163,9 @@ class MediaNotificationNotifier extends Notifier<void> {
     final urlResolver = ref.read(urlResolverProvider);
 
     final imageUrl = track?.album?.image?.small;
-    final resolvedImageUrl =
-        imageUrl != null ? urlResolver.abs(imageUrl) : null;
+    final resolvedImageUrl = imageUrl != null
+        ? urlResolver.abs(imageUrl)
+        : null;
 
     final durationMs = track != null ? (track.duration * 1000) : 0;
 
@@ -175,7 +175,8 @@ class MediaNotificationNotifier extends Notifier<void> {
       'albumArtUrl': resolvedImageUrl,
       'durationMs': durationMs,
       'positionMs': positionMs,
-      'isPlaying': playerStateType == PlayerStateType.playing ||
+      'isPlaying':
+          playerStateType == PlayerStateType.playing ||
           playerStateType == PlayerStateType.buffering,
       'currentVolume': volumeToShow,
       'maxVolume': vol.maxVolume > 0 ? vol.maxVolume : 100,
@@ -189,5 +190,5 @@ class MediaNotificationNotifier extends Notifier<void> {
 
 final mediaNotificationProvider =
     NotifierProvider<MediaNotificationNotifier, void>(
-  MediaNotificationNotifier.new,
-);
+      MediaNotificationNotifier.new,
+    );
