@@ -237,8 +237,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
         ? trackList.sublist(0, currentIndex).cast<Track>()
         : <Track>[];
 
-    final nowPlayingTrack =
-        upNextTracks.isNotEmpty ? upNextTracks[0] : null;
+    final nowPlayingTrack = upNextTracks.isNotEmpty ? upNextTracks[0] : null;
     final queueTracks = upNextTracks.length > 1
         ? upNextTracks.sublist(1).cast<Track>()
         : <Track>[];
@@ -248,6 +247,10 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
     _currentIndex = currentIndex + 1;
 
     final isQueueEmpty = upNextTracks.isEmpty && previousTracks.isEmpty;
+
+    if (isQueueEmpty) {
+      return EmptyQueueState(onSearchTap: _activateSearch);
+    }
 
     return Stack(
       children: [
@@ -260,7 +263,6 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
                   child: Opacity(
                     opacity: 0.4,
                     child: _buildQueueContent(
-                      isQueueEmpty,
                       nowPlayingTrack,
                       queueTracks,
                       previousTracks,
@@ -274,12 +276,19 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
           )
         else
           _buildQueueContent(
-            isQueueEmpty,
             nowPlayingTrack,
             queueTracks,
             previousTracks,
             currentIndex,
             playbackMode,
+          ),
+
+        // Floating menu button — always sits in the pinned header area.
+        if (!isOffline)
+          Positioned(
+            top: (_kHeaderHeight - 30) / 2,
+            right: 20,
+            child: _buildMenuButton(),
           ),
 
         if (widget.isTablet && _trayOpen)
@@ -299,27 +308,6 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
               onConfirmClearAll: _clearAll,
             ),
           ),
-      ],
-    );
-  }
-
-  Widget _buildHistoryHeaderTrailing() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTap: _clearPlayed,
-          behavior: HitTestBehavior.opaque,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Text(
-              'CLEAR PLAYED',
-              style: KalinkaTextStyles.clearPlayedButton,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        _buildMenuButton(),
       ],
     );
   }
@@ -345,17 +333,12 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
   }
 
   Widget _buildQueueContent(
-    bool isQueueEmpty,
     Track? nowPlayingTrack,
     List<Track> queueTracks,
     List<Track> previousTracks,
     int currentIndex,
     dynamic playbackMode,
   ) {
-    if (isQueueEmpty) {
-      return EmptyQueueState(onSearchTap: _activateSearch);
-    }
-
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
@@ -389,7 +372,6 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
               delegate: _UpNextHeaderDelegate(
                 trackCount: queueTracks.length,
                 showShuffleBadge: playbackMode.shuffle,
-                trailing: _buildMenuButton(),
               ),
             ),
             if (queueTracks.isEmpty)
@@ -441,9 +423,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
             slivers: [
               SliverPersistentHeader(
                 pinned: true,
-                delegate: _HistoryHeaderDelegate(
-                  trailing: _buildHistoryHeaderTrailing(),
-                ),
+                delegate: const _HistoryHeaderDelegate(),
               ),
               SliverList.builder(
                 itemCount: previousTracks.length,
@@ -517,12 +497,10 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
 class _UpNextHeaderDelegate extends SliverPersistentHeaderDelegate {
   final int trackCount;
   final bool showShuffleBadge;
-  final Widget trailing;
 
   const _UpNextHeaderDelegate({
     required this.trackCount,
     required this.showShuffleBadge,
-    required this.trailing,
   });
 
   @override
@@ -537,22 +515,22 @@ class _UpNextHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return ColoredBox(
-      color: KalinkaColors.background,
-      child: QueueSectionHeader(
-        label: 'UP NEXT',
-        trackCount: trackCount,
-        showShuffleBadge: showShuffleBadge,
-        trailing: trailing,
+    return SizedBox(
+      height: _kHeaderHeight,
+      child: ColoredBox(
+        color: KalinkaColors.background,
+        child: QueueSectionHeader(
+          label: 'UP NEXT',
+          trackCount: trackCount,
+          showShuffleBadge: showShuffleBadge,
+        ),
       ),
     );
   }
 
   @override
   bool shouldRebuild(_UpNextHeaderDelegate old) =>
-      trackCount != old.trackCount ||
-      showShuffleBadge != old.showShuffleBadge ||
-      trailing != old.trailing;
+      trackCount != old.trackCount || showShuffleBadge != old.showShuffleBadge;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -598,9 +576,7 @@ class _NowPlayingHeaderDelegate extends SliverPersistentHeaderDelegate {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _HistoryHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final Widget trailing;
-
-  const _HistoryHeaderDelegate({required this.trailing});
+  const _HistoryHeaderDelegate();
 
   @override
   double get minExtent => _kHeaderHeight;
@@ -614,12 +590,15 @@ class _HistoryHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return ColoredBox(
-      color: KalinkaColors.background,
-      child: QueueSectionHeader(label: 'PREVIOUSLY PLAYED', trailing: trailing),
+    return SizedBox(
+      height: _kHeaderHeight,
+      child: ColoredBox(
+        color: KalinkaColors.background,
+        child: const QueueSectionHeader(label: 'PREVIOUSLY PLAYED'),
+      ),
     );
   }
 
   @override
-  bool shouldRebuild(_HistoryHeaderDelegate old) => trailing != old.trailing;
+  bool shouldRebuild(_HistoryHeaderDelegate old) => false;
 }

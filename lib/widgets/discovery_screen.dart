@@ -382,7 +382,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           GestureDetector(
             onTap: () => setState(() => _showManualEntry = true),
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.only(bottom: 24),
               child: Text(
                 'enter address manually',
                 style: KalinkaTextStyles.trayRowSublabel.copyWith(
@@ -397,7 +397,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         ],
         if (_showManualEntry) ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             child: _buildManualEntryFields(),
           ),
         ],
@@ -417,15 +417,20 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
       borderColor = KalinkaColors.statusOnline.withValues(alpha: 0.3);
       bgColor = KalinkaColors.statusOnline.withValues(alpha: 0.05);
     } else if (isSelected) {
-      borderColor = KalinkaColors.gold.withValues(alpha: 0.5);
-      bgColor = KalinkaColors.gold.withValues(alpha: 0.07);
+      borderColor = KalinkaColors.accent.withValues(alpha: 0.5);
+      bgColor = KalinkaColors.accent.withValues(alpha: 0.07);
     } else {
       borderColor = KalinkaColors.borderDefault;
       bgColor = KalinkaColors.surfaceRaised;
     }
 
     return GestureDetector(
-      onTap: isCurrent ? null : () => setState(() => _selectedIndex = index),
+      onTap: isCurrent
+          ? null
+          : () => setState(() {
+                _selectedIndex = index;
+                _showManualEntry = false;
+              }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
@@ -443,8 +448,6 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               decoration: BoxDecoration(
                 color: isCurrent
                     ? KalinkaColors.statusOnline.withValues(alpha: 0.1)
-                    : isSelected
-                    ? KalinkaColors.gold.withValues(alpha: 0.14)
                     : KalinkaColors.accent.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -453,8 +456,6 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                 size: 18,
                 color: isCurrent
                     ? KalinkaColors.statusOnline
-                    : isSelected
-                    ? KalinkaColors.gold
                     : KalinkaColors.accent,
               ),
             ),
@@ -552,17 +553,17 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: KalinkaColors.gold.withValues(alpha: 0.12),
+            color: KalinkaColors.accent.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(13),
             border: Border.all(
-              color: KalinkaColors.gold.withValues(alpha: 0.35),
+              color: KalinkaColors.accent.withValues(alpha: 0.35),
             ),
           ),
           child: Center(
             child: Text(
               hasSelection ? 'Connect to ${selected!.name}' : 'Select a server',
               style: KalinkaTextStyles.trayRowLabel.copyWith(
-                color: KalinkaColors.gold,
+                color: KalinkaColors.accent,
                 fontSize: 13,
                 letterSpacing: 0.04,
               ),
@@ -625,16 +626,16 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
             decoration: BoxDecoration(
-              color: KalinkaColors.gold.withValues(alpha: 0.12),
+              color: KalinkaColors.accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: KalinkaColors.gold.withValues(alpha: 0.35),
+                color: KalinkaColors.accent.withValues(alpha: 0.35),
               ),
             ),
             child: Text(
               'Connect',
               style: KalinkaTextStyles.trayRowLabel.copyWith(
-                color: KalinkaColors.gold,
+                color: KalinkaColors.accent,
                 fontSize: 12,
               ),
             ),
