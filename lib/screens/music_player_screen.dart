@@ -48,12 +48,6 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       duration: const Duration(milliseconds: 420),
     );
 
-    _playerController.addStatusListener((status) {
-      if (status == AnimationStatus.dismissed) {
-        setState(() => _playerOpen = false);
-      }
-    });
-
     // Check for first launch — no stored server
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final settings = ref.read(connectionSettingsProvider);
@@ -79,12 +73,19 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   }
 
   void _closePlayer() {
-    _playerController.animateTo(
-      0.0,
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeInOutQuart,
-    );
-    setState(() => _playerOpen = false);
+    if (_playerController.value == 0.0) {
+      setState(() => _playerOpen = false);
+      return;
+    }
+    _playerController
+        .animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 420),
+          curve: Curves.easeInOutQuart,
+        )
+        .then((_) {
+          if (mounted) setState(() => _playerOpen = false);
+        });
   }
 
   Widget _buildDisconnectedState() {

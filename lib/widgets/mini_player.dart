@@ -246,7 +246,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     final currentTrack = playbackState.currentTrack;
     final effectiveCurrentTrack = _latchedCurrentTrack ?? currentTrack;
     final playerState = playbackState.state;
-    final playbackTimeMs = ref.watch(playbackTimeMsProvider);
     final urlResolver = ref.read(urlResolverProvider);
 
     if (_latchedCurrentTrack != null &&
@@ -291,9 +290,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
         connectionState == ConnectionStatus.offline;
 
     final durationMs = (effectiveCurrentTrack?.duration ?? 0) * 1000;
-    final progress = durationMs > 0
-        ? (playbackTimeMs / durationMs).clamp(0.0, 1.0)
-        : 0.0;
 
     final imageUrl = effectiveCurrentTrack?.album?.image?.small;
     final resolvedImageUrl = imageUrl != null
@@ -335,18 +331,32 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // 2px progress line — marching dashes when offline, gradient when online
-                  if (isOffline)
-                    AnimatedBuilder(
-                      animation: _marchController,
-                      builder: (context, _) => CustomPaint(
-                        size: const Size(double.infinity, 2),
-                        painter: _MarchingDashesPainter(
-                          progress: _marchController.value,
-                        ),
-                      ),
-                    )
-                  else
-                    GradientProgressLine(progress: progress),
+                  RepaintBoundary(
+                    child: isOffline
+                        ? AnimatedBuilder(
+                            animation: _marchController,
+                            builder: (context, _) => CustomPaint(
+                              size: const Size(double.infinity, 2),
+                              painter: _MarchingDashesPainter(
+                                progress: _marchController.value,
+                              ),
+                            ),
+                          )
+                        : Consumer(
+                            builder: (context, ref, _) {
+                              final playbackTimeMs = ref.watch(
+                                playbackTimeMsProvider,
+                              );
+                              final progress = durationMs > 0
+                                  ? (playbackTimeMs / durationMs).clamp(
+                                      0.0,
+                                      1.0,
+                                    )
+                                  : 0.0;
+                              return GradientProgressLine(progress: progress);
+                            },
+                          ),
+                  ),
 
                   // Main content — 70px + gesture detection
                   GestureDetector(

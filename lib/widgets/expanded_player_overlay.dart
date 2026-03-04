@@ -39,8 +39,7 @@ class _ExpandedPlayerOverlayState extends State<ExpandedPlayerOverlay> {
   void _onDragUpdate(DragUpdateDetails d) {
     final screenH = MediaQuery.of(context).size.height;
     final traveled = d.globalPosition.dy - _dragStartY;
-    final newVal =
-        (_animValueAtDragStart - traveled / screenH).clamp(0.0, 1.0);
+    final newVal = (_animValueAtDragStart - traveled / screenH).clamp(0.0, 1.0);
     widget.animationController.value = newVal;
 
     if (!_dismissHapticFired && newVal < _dismissValueThreshold) {
@@ -58,12 +57,13 @@ class _ExpandedPlayerOverlayState extends State<ExpandedPlayerOverlay> {
         velocity > _dismissVelocityThreshold;
 
     if (shouldDismiss) {
-      // Animate to 0; the addStatusListener in MusicPlayerScreen sets _playerOpen=false
-      widget.animationController.animateTo(
-        0.0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutQuart,
-      );
+      widget.animationController
+          .animateTo(
+            0.0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutQuart,
+          )
+          .then((_) => widget.onClose());
     } else {
       // Snap back to fully open
       widget.animationController.animateTo(
