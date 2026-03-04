@@ -173,20 +173,24 @@ class KalinkaTextStyles {
 
   // Expanded player
   static TextStyle expandedTitle = GoogleFonts.playfairDisplay(
-    fontSize: 26,
+    fontSize: 30,
     fontStyle: FontStyle.italic,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle expandedArtist = GoogleFonts.playfairDisplay(
-    fontSize: 15,
-    fontWeight: FontWeight.w500,
+    fontSize: 16,
+    color: KalinkaColors.textPrimary,
+  );
+
+  static TextStyle expandedAlbum = GoogleFonts.playfairDisplay(
+    fontSize: 13,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle expandedAttribution = GoogleFonts.ibmPlexMono(
-    fontSize: 11,
-    color: KalinkaColors.textSecondary,
+    fontSize: 12,
+    color: KalinkaColors.textMuted,
   );
 
   // Labels

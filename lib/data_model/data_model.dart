@@ -273,6 +273,7 @@ class Album {
   final String title;
   final int? duration;
   final int? trackCount;
+  final int? year;
   final AlbumImage? image;
   final Genre? genre;
   final Artist? artist;
@@ -282,6 +283,7 @@ class Album {
     required this.title,
     this.duration,
     this.trackCount,
+    this.year,
     this.image,
     this.genre,
     this.artist,
@@ -292,6 +294,7 @@ class Album {
     title: json["title"],
     duration: json["duration"],
     trackCount: json["track_count"],
+    year: json["year"],
     image: json["image"] == null ? null : AlbumImage.fromJson(json["image"]),
     genre: json["genre"] == null ? null : Genre.fromJson(json["genre"]),
     artist: json["artist"] == null ? null : Artist.fromJson(json["artist"]),
@@ -302,6 +305,7 @@ class Album {
     "title": title,
     "duration": duration,
     "track_count": trackCount,
+    "year": year,
     "image": image?.toJson(),
     "genre": genre?.toJson(),
     "artist": artist?.toJson(),

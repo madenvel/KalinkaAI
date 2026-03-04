@@ -263,6 +263,23 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                               style: KalinkaTextStyles.expandedArtist,
                               textAlign: TextAlign.center,
                             ),
+                            // Album + year
+                            if (currentTrack?.album != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                () {
+                                  final album = currentTrack!.album!;
+                                  final year = album.year;
+                                  return year != null
+                                      ? '${album.title} · $year'
+                                      : album.title;
+                                }(),
+                                style: KalinkaTextStyles.expandedAlbum,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                             // Source attribution line: [Q] Qobuz · FLAC 24-bit • 96 kHz
                             if (currentTrack != null) ...[
                               const SizedBox(height: 4),
