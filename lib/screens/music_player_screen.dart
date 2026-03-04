@@ -84,6 +84,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       duration: const Duration(milliseconds: 420),
       curve: Curves.easeInOutQuart,
     );
+    setState(() => _playerOpen = false);
   }
 
   Widget _buildDisconnectedState() {
@@ -153,7 +154,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(mediaNotificationProvider);
+    ref.read(mediaNotificationProvider);
     return Scaffold(
       backgroundColor: KalinkaColors.background,
       body: LayoutBuilder(
@@ -205,11 +206,13 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
           // Main content: Header + Banner + CompletionStrip + Content Zone + Escalation + MiniPlayer
           Column(
             children: [
-              HeaderZone(
-                searchBarKey: _searchBarKey,
-                onServerChipTap: () {
-                  setState(() => _serverSheetOpen = true);
-                },
+              RepaintBoundary(
+                child: HeaderZone(
+                  searchBarKey: _searchBarKey,
+                  onServerChipTap: () {
+                    setState(() => _serverSheetOpen = true);
+                  },
+                ),
               ),
               const ConnectionBanner(),
               // Pinned completion strip — only visible during typing
@@ -295,9 +298,11 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
           // Expanded player overlay
           if (_playerOpen)
             Positioned.fill(
-              child: ExpandedPlayerOverlay(
-                animationController: _playerController,
-                onClose: _closePlayer,
+              child: RepaintBoundary(
+                child: ExpandedPlayerOverlay(
+                  animationController: _playerController,
+                  onClose: _closePlayer,
+                ),
               ),
             ),
           // Server sheet overlay
