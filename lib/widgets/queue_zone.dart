@@ -234,7 +234,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
         ? trackList.sublist(currentIndex).cast<Track>()
         : <Track>[];
     final previousTracks = currentIndex > 0
-        ? trackList.sublist(0, currentIndex).cast<Track>()
+        ? trackList.sublist(0, currentIndex).cast<Track>().reversed.toList()
         : <Track>[];
 
     final nowPlayingTrack = upNextTracks.isNotEmpty ? upNextTracks[0] : null;
@@ -429,10 +429,11 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
                 itemCount: previousTracks.length,
                 itemBuilder: (context, i) {
                   final track = previousTracks[i];
+                  final queueIndex = currentIndex - 1 - i;
                   return QueueItemRow(
                     key: ValueKey('history_${track.id}_$i'),
                     track: track,
-                    index: i,
+                    index: queueIndex,
                     displayIndex: i,
                     isHistory: true,
                     isDragging: _isDragging,
