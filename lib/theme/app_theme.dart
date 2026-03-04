@@ -174,7 +174,6 @@ class KalinkaTextStyles {
   // Expanded player
   static TextStyle expandedTitle = GoogleFonts.playfairDisplay(
     fontSize: 30,
-    fontStyle: FontStyle.italic,
     color: KalinkaColors.textPrimary,
   );
 
