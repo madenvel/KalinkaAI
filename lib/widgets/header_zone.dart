@@ -257,7 +257,7 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
             : null,
         behavior: HitTestBehavior.opaque,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 17, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 17, horizontal: 0),
           child: dot,
         ),
       ),
