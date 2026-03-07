@@ -168,12 +168,12 @@ return replayEvent(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( PlaybackState state,  int seq)?  playbackStateChanged,TResult Function( int seq)?  requestMoreTracks,TResult Function( List<Track> tracks,  int seq)?  tracksAdded,TResult Function( List<int> indices,  int seq)?  tracksRemoved,TResult Function( int fromIndex,  int toIndex,  int seq)?  trackMoved,TResult Function( String message,  int seq)?  playbackError,TResult Function( PlaybackMode mode,  int seq)?  playbackModeChanged,TResult Function( PlayQueueState state,  int serverTimeNs,  int seq)?  replayEvent,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( PlaybackState state,  int seq)?  playbackStateChanged,TResult Function( int seq)?  requestMoreTracks,TResult Function( List<Track> tracks,  int seq,  int? index)?  tracksAdded,TResult Function( List<int> indices,  int seq)?  tracksRemoved,TResult Function( int fromIndex,  int toIndex,  int seq)?  trackMoved,TResult Function( String message,  int seq)?  playbackError,TResult Function( PlaybackMode mode,  int seq)?  playbackModeChanged,TResult Function( PlayQueueState state,  int serverTimeNs,  int seq)?  replayEvent,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case PlaybackStateChangedEvent() when playbackStateChanged != null:
 return playbackStateChanged(_that.state,_that.seq);case RequestMoreTracksEvent() when requestMoreTracks != null:
 return requestMoreTracks(_that.seq);case TracksAddedEvent() when tracksAdded != null:
-return tracksAdded(_that.tracks,_that.seq);case TracksRemovedEvent() when tracksRemoved != null:
+return tracksAdded(_that.tracks,_that.seq,_that.index);case TracksRemovedEvent() when tracksRemoved != null:
 return tracksRemoved(_that.indices,_that.seq);case TrackMovedEvent() when trackMoved != null:
 return trackMoved(_that.fromIndex,_that.toIndex,_that.seq);case PlaybackErrorEvent() when playbackError != null:
 return playbackError(_that.message,_that.seq);case PlaybackModeChangedEvent() when playbackModeChanged != null:
@@ -196,12 +196,12 @@ return replayEvent(_that.state,_that.serverTimeNs,_that.seq);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( PlaybackState state,  int seq)  playbackStateChanged,required TResult Function( int seq)  requestMoreTracks,required TResult Function( List<Track> tracks,  int seq)  tracksAdded,required TResult Function( List<int> indices,  int seq)  tracksRemoved,required TResult Function( int fromIndex,  int toIndex,  int seq)  trackMoved,required TResult Function( String message,  int seq)  playbackError,required TResult Function( PlaybackMode mode,  int seq)  playbackModeChanged,required TResult Function( PlayQueueState state,  int serverTimeNs,  int seq)  replayEvent,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( PlaybackState state,  int seq)  playbackStateChanged,required TResult Function( int seq)  requestMoreTracks,required TResult Function( List<Track> tracks,  int seq,  int? index)  tracksAdded,required TResult Function( List<int> indices,  int seq)  tracksRemoved,required TResult Function( int fromIndex,  int toIndex,  int seq)  trackMoved,required TResult Function( String message,  int seq)  playbackError,required TResult Function( PlaybackMode mode,  int seq)  playbackModeChanged,required TResult Function( PlayQueueState state,  int serverTimeNs,  int seq)  replayEvent,}) {final _that = this;
 switch (_that) {
 case PlaybackStateChangedEvent():
 return playbackStateChanged(_that.state,_that.seq);case RequestMoreTracksEvent():
 return requestMoreTracks(_that.seq);case TracksAddedEvent():
-return tracksAdded(_that.tracks,_that.seq);case TracksRemovedEvent():
+return tracksAdded(_that.tracks,_that.seq,_that.index);case TracksRemovedEvent():
 return tracksRemoved(_that.indices,_that.seq);case TrackMovedEvent():
 return trackMoved(_that.fromIndex,_that.toIndex,_that.seq);case PlaybackErrorEvent():
 return playbackError(_that.message,_that.seq);case PlaybackModeChangedEvent():
@@ -220,12 +220,12 @@ return replayEvent(_that.state,_that.serverTimeNs,_that.seq);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( PlaybackState state,  int seq)?  playbackStateChanged,TResult? Function( int seq)?  requestMoreTracks,TResult? Function( List<Track> tracks,  int seq)?  tracksAdded,TResult? Function( List<int> indices,  int seq)?  tracksRemoved,TResult? Function( int fromIndex,  int toIndex,  int seq)?  trackMoved,TResult? Function( String message,  int seq)?  playbackError,TResult? Function( PlaybackMode mode,  int seq)?  playbackModeChanged,TResult? Function( PlayQueueState state,  int serverTimeNs,  int seq)?  replayEvent,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( PlaybackState state,  int seq)?  playbackStateChanged,TResult? Function( int seq)?  requestMoreTracks,TResult? Function( List<Track> tracks,  int seq,  int? index)?  tracksAdded,TResult? Function( List<int> indices,  int seq)?  tracksRemoved,TResult? Function( int fromIndex,  int toIndex,  int seq)?  trackMoved,TResult? Function( String message,  int seq)?  playbackError,TResult? Function( PlaybackMode mode,  int seq)?  playbackModeChanged,TResult? Function( PlayQueueState state,  int serverTimeNs,  int seq)?  replayEvent,}) {final _that = this;
 switch (_that) {
 case PlaybackStateChangedEvent() when playbackStateChanged != null:
 return playbackStateChanged(_that.state,_that.seq);case RequestMoreTracksEvent() when requestMoreTracks != null:
 return requestMoreTracks(_that.seq);case TracksAddedEvent() when tracksAdded != null:
-return tracksAdded(_that.tracks,_that.seq);case TracksRemovedEvent() when tracksRemoved != null:
+return tracksAdded(_that.tracks,_that.seq,_that.index);case TracksRemovedEvent() when tracksRemoved != null:
 return tracksRemoved(_that.indices,_that.seq);case TrackMovedEvent() when trackMoved != null:
 return trackMoved(_that.fromIndex,_that.toIndex,_that.seq);case PlaybackErrorEvent() when playbackError != null:
 return playbackError(_that.message,_that.seq);case PlaybackModeChangedEvent() when playbackModeChanged != null:
@@ -376,7 +376,7 @@ as int,
 
 
 class TracksAddedEvent implements PlayQueueEvent {
-  const TracksAddedEvent({required final  List<Track> tracks, required this.seq}): _tracks = tracks;
+  const TracksAddedEvent({required final  List<Track> tracks, required this.seq, this.index}): _tracks = tracks;
   
 
  final  List<Track> _tracks;
@@ -387,6 +387,7 @@ class TracksAddedEvent implements PlayQueueEvent {
 }
 
 @override final  int seq;
+ final  int? index;
 
 /// Create a copy of PlayQueueEvent
 /// with the given fields replaced by the non-null parameter values.
@@ -398,16 +399,16 @@ $TracksAddedEventCopyWith<TracksAddedEvent> get copyWith => _$TracksAddedEventCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is TracksAddedEvent&&const DeepCollectionEquality().equals(other._tracks, _tracks)&&(identical(other.seq, seq) || other.seq == seq));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is TracksAddedEvent&&const DeepCollectionEquality().equals(other._tracks, _tracks)&&(identical(other.seq, seq) || other.seq == seq)&&(identical(other.index, index) || other.index == index));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_tracks),seq);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_tracks),seq,index);
 
 @override
 String toString() {
-  return 'PlayQueueEvent.tracksAdded(tracks: $tracks, seq: $seq)';
+  return 'PlayQueueEvent.tracksAdded(tracks: $tracks, seq: $seq, index: $index)';
 }
 
 
@@ -418,7 +419,7 @@ abstract mixin class $TracksAddedEventCopyWith<$Res> implements $PlayQueueEventC
   factory $TracksAddedEventCopyWith(TracksAddedEvent value, $Res Function(TracksAddedEvent) _then) = _$TracksAddedEventCopyWithImpl;
 @override @useResult
 $Res call({
- List<Track> tracks, int seq
+ List<Track> tracks, int seq, int? index
 });
 
 
@@ -435,11 +436,12 @@ class _$TracksAddedEventCopyWithImpl<$Res>
 
 /// Create a copy of PlayQueueEvent
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? tracks = null,Object? seq = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? tracks = null,Object? seq = null,Object? index = freezed,}) {
   return _then(TracksAddedEvent(
 tracks: null == tracks ? _self._tracks : tracks // ignore: cast_nullable_to_non_nullable
 as List<Track>,seq: null == seq ? _self.seq : seq // ignore: cast_nullable_to_non_nullable
-as int,
+as int,index: freezed == index ? _self.index : index // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 

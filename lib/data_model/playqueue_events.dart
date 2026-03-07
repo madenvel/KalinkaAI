@@ -69,12 +69,21 @@ class PlayQueueState {
           ),
           seq: seq,
         );
-      case TracksAddedEvent(:final tracks, :final seq):
-        final nextTrackList = [...trackList, ...tracks];
+      case TracksAddedEvent(:final tracks, :final seq, :final index):
+        final insertAt = _clampInsertionIndex(
+          index ?? trackList.length,
+          trackList.length,
+        );
+        final nextTrackList = [...trackList]..insertAll(insertAt, tracks);
+        final nextPlaybackState = _remapPlaybackIndexForInsertion(
+          playbackState,
+          insertAt,
+          tracks.length,
+        );
         return copyWith(
           trackList: nextTrackList,
           playbackState: _normalizePlaybackIndex(
-            playbackState,
+            nextPlaybackState,
             nextTrackList.length,
           ),
           seq: seq,
@@ -166,6 +175,33 @@ class PlayQueueState {
     return index;
   }
 
+  int _clampInsertionIndex(int index, int trackCount) {
+    if (index < 0) {
+      return 0;
+    }
+    if (index > trackCount) {
+      return trackCount;
+    }
+    return index;
+  }
+
+  PlaybackState _remapPlaybackIndexForInsertion(
+    PlaybackState state,
+    int insertionIndex,
+    int insertedCount,
+  ) {
+    if (insertedCount <= 0) {
+      return state;
+    }
+
+    final currentIndex = state.index;
+    if (currentIndex == null || insertionIndex > currentIndex) {
+      return state;
+    }
+
+    return state.copyWithFields(index: currentIndex + insertedCount);
+  }
+
   /// Mirrors the server-side `_remap_index` logic.
   /// Returns the new position of [idx] after an item is moved from
   /// [fromIndex] to [toIndex] in the list.
@@ -228,6 +264,7 @@ sealed class PlayQueueEvent with _$PlayQueueEvent {
   const factory PlayQueueEvent.tracksAdded({
     required List<Track> tracks,
     required int seq,
+    int? index,
   }) = TracksAddedEvent;
 
   const factory PlayQueueEvent.tracksRemoved({
@@ -270,11 +307,18 @@ sealed class PlayQueueEvent with _$PlayQueueEvent {
       case 'request_more_tracks':
         return PlayQueueEvent.requestMoreTracks(seq: seq);
       case 'tracks_added':
+        final rawIndex = json['index'];
+        final insertionIndex = rawIndex is int
+            ? rawIndex
+            : rawIndex is num
+            ? rawIndex.toInt()
+            : null;
         return PlayQueueEvent.tracksAdded(
           tracks: (json['tracks'] as List)
               .map((e) => Track.fromJson(e))
               .toList(),
           seq: seq,
+          index: insertionIndex,
         );
       case 'tracks_removed':
         return PlayQueueEvent.tracksRemoved(

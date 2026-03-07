@@ -24,7 +24,7 @@ abstract class KalinkaPlayerProxy {
   Future<StatusMessage> play([int? index]);
   Future<StatusMessage> next();
   Future<StatusMessage> previous();
-  Future<StatusMessage> add(List<String> items);
+  Future<StatusMessage> add(List<String> items, {int? index});
   Future<StatusMessage> remove(int index);
   Future<StatusMessage> move(int fromIndex, int toIndex);
   Future<StatusMessage> pause({bool paused = true});
@@ -110,10 +110,11 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
   }
 
   @override
-  Future<StatusMessage> add(List<String> items) async {
+  Future<StatusMessage> add(List<String> items, {int? index}) async {
     return client
         .post(
           '/queue/add',
+          queryParameters: index != null ? {'index': index} : null,
           data: items,
           options: Options(contentType: Headers.jsonContentType),
         )
