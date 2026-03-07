@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/app_state_provider.dart';
 import '../providers/connection_settings_provider.dart';
 import '../providers/connection_state_provider.dart';
+import '../providers/kalinka_player_api_provider.dart';
 import '../providers/search_state_provider.dart';
+import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/clear_all_confirm_dialog.dart';
 import '../widgets/completion_strip.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/discovery_screen.dart';
@@ -13,6 +17,7 @@ import '../widgets/header_zone.dart';
 import '../widgets/kalinka_search_bar.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/now_playing_content.dart';
+import '../widgets/queue_management_tray.dart';
 import '../widgets/queue_zone.dart';
 import '../widgets/search_results_feed.dart';
 import '../widgets/server_sheet.dart';
@@ -36,9 +41,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   final _searchBarKey = GlobalKey<KalinkaSearchBarState>();
 
   bool _playerOpen = false;
+  bool _playerFullyOpen = false;
   bool _serverSheetOpen = false;
   bool _discoveryOpen = false;
   bool _settingsOpen = false;
+  bool _queueTrayOpen = false;
+  bool _clearAllConfirmOpen = false;
 
   @override
   void initState() {
@@ -47,6 +55,17 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       vsync: this,
       duration: const Duration(milliseconds: 420),
     );
+    // Hide the base content when the player covers ≥98% of the screen.
+    // Using a value listener + threshold (not status) avoids a brief queue
+    // flash when the user starts dragging the player handle and snaps back:
+    // status changes immediately on any value change, but the threshold
+    // requires a meaningful drag before exposing the base.
+    _playerController.addListener(() {
+      final shouldHide = _playerController.value >= 0.98;
+      if (shouldHide != _playerFullyOpen) {
+        setState(() => _playerFullyOpen = shouldHide);
+      }
+    });
 
     // Check for first launch — no stored server
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -86,6 +105,29 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
         .then((_) {
           if (mounted) setState(() => _playerOpen = false);
         });
+  }
+
+  Future<void> _clearPlayed() async {
+    final queueState = ref.read(playQueueStateStoreProvider);
+    final currentIndex = queueState.playbackState.index ?? 0;
+    final api = ref.read(kalinkaProxyProvider);
+    final toast = ref.read(toastProvider.notifier);
+    for (int i = currentIndex - 1; i >= 0; i--) {
+      try {
+        await api.remove(i);
+      } catch (e) {
+        toast.show('Failed to clear played: $e', isError: true);
+        return;
+      }
+    }
+    toast.show('Played tracks cleared');
+  }
+
+  Future<void> _clearAll() async {
+    final api = ref.read(kalinkaProxyProvider);
+    final toast = ref.read(toastProvider.notifier);
+    await api.clear();
+    toast.show('Queue cleared');
   }
 
   Widget _buildDisconnectedState() {
@@ -174,12 +216,26 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     final searchActive = searchState.searchActive;
     final settings = ref.watch(connectionSettingsProvider);
     final connectionState = ref.watch(connectionStateProvider);
+    final hideBase = _playerFullyOpen || _discoveryOpen || _settingsOpen;
 
     return PopScope(
       canPop:
-          !searchActive && !_playerOpen && !_serverSheetOpen && !_settingsOpen,
+          !searchActive &&
+          !_playerOpen &&
+          !_serverSheetOpen &&
+          !_settingsOpen &&
+          !_queueTrayOpen &&
+          !_clearAllConfirmOpen,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
+        if (_clearAllConfirmOpen) {
+          setState(() => _clearAllConfirmOpen = false);
+          return;
+        }
+        if (_queueTrayOpen) {
+          setState(() => _queueTrayOpen = false);
+          return;
+        }
         if (_settingsOpen) {
           setState(() => _settingsOpen = false);
           return;
@@ -205,89 +261,104 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       child: Stack(
         children: [
           // Main content: Header + Banner + CompletionStrip + Content Zone + Escalation + MiniPlayer
-          Column(
-            children: [
-              RepaintBoundary(
-                child: HeaderZone(
-                  searchBarKey: _searchBarKey,
-                  onServerChipTap: () {
-                    setState(() => _serverSheetOpen = true);
-                  },
-                ),
-              ),
-              const ConnectionBanner(),
-              // Pinned completion strip — only visible during typing
-              const CompletionStrip(),
-              Expanded(
-                child: connectionState == ConnectionStatus.none
-                    ? _buildDisconnectedState()
-                    : Stack(
-                        children: [
-                          // Queue (always rendered, dims when search active)
-                          AnimatedOpacity(
-                            opacity: searchActive ? 0.4 : 1.0,
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOut,
-                            child: const QueueZone(),
-                          ),
-                          // Scrim overlay — tappable to dismiss search
-                          if (searchActive)
-                            Positioned.fill(
-                              child: GestureDetector(
-                                onTap: () {
-                                  _searchBarKey.currentState?.cancelSearch();
-                                  ref
-                                      .read(searchStateProvider.notifier)
-                                      .deactivateSearch();
-                                },
-                                child: AnimatedOpacity(
-                                  opacity: searchActive ? 1.0 : 0.0,
+          // Tickers stopped and painting skipped when a fully-opaque overlay covers it.
+          // Opacity(0) is used (not Offstage/Visibility) so the Column keeps its natural size
+          // and the Stack doesn't collapse, which would hide the overlays above it.
+          TickerMode(
+            enabled: !hideBase,
+            child: Opacity(
+              opacity: hideBase ? 0.0 : 1.0,
+              child: Column(
+                children: [
+                  RepaintBoundary(
+                    child: HeaderZone(
+                      searchBarKey: _searchBarKey,
+                      onServerChipTap: () {
+                        setState(() => _serverSheetOpen = true);
+                      },
+                    ),
+                  ),
+                  const ConnectionBanner(),
+                  // Pinned completion strip — only visible during typing
+                  const CompletionStrip(),
+                  Expanded(
+                    child: connectionState == ConnectionStatus.none
+                        ? _buildDisconnectedState()
+                        : Stack(
+                            children: [
+                              // Queue (always rendered, dims when search active)
+                              AnimatedOpacity(
+                                opacity: searchActive ? 0.4 : 1.0,
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                                child: RepaintBoundary(
+                                  child: QueueZone(
+                                    onOpenManagementTray: () =>
+                                        setState(() => _queueTrayOpen = true),
+                                  ),
+                                ),
+                              ),
+                              // Scrim overlay — tappable to dismiss search
+                              if (searchActive)
+                                Positioned.fill(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      _searchBarKey.currentState
+                                          ?.cancelSearch();
+                                      ref
+                                          .read(searchStateProvider.notifier)
+                                          .deactivateSearch();
+                                    },
+                                    child: AnimatedOpacity(
+                                      opacity: searchActive ? 1.0 : 0.0,
+                                      duration: Duration(
+                                        milliseconds: searchActive ? 200 : 180,
+                                      ),
+                                      curve: Curves.easeOut,
+                                      child: const ColoredBox(
+                                        color: Color(0x66000000),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              // Search results (slide up + fade)
+                              if (searchActive)
+                                AnimatedSlide(
+                                  offset: searchActive
+                                      ? Offset.zero
+                                      : const Offset(0, 0.03),
                                   duration: Duration(
-                                    milliseconds: searchActive ? 200 : 180,
+                                    milliseconds: searchActive ? 240 : 180,
                                   ),
-                                  curve: Curves.easeOut,
-                                  child: const ColoredBox(
-                                    color: Color(0x66000000),
+                                  curve: searchActive
+                                      ? const Cubic(0.4, 0, 0.2, 1)
+                                      : Curves.easeIn,
+                                  child: AnimatedOpacity(
+                                    opacity: searchActive ? 1.0 : 0.0,
+                                    duration: Duration(
+                                      milliseconds: searchActive ? 240 : 180,
+                                    ),
+                                    curve: searchActive
+                                        ? Curves.easeOut
+                                        : Curves.easeIn,
+                                    child: const ColoredBox(
+                                      color: KalinkaColors.background,
+                                      child: SearchResultsFeed(),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          // Search results (slide up + fade)
-                          if (searchActive)
-                            AnimatedSlide(
-                              offset: searchActive
-                                  ? Offset.zero
-                                  : const Offset(0, 0.03),
-                              duration: Duration(
-                                milliseconds: searchActive ? 240 : 180,
-                              ),
-                              curve: searchActive
-                                  ? const Cubic(0.4, 0, 0.2, 1)
-                                  : Curves.easeIn,
-                              child: AnimatedOpacity(
-                                opacity: searchActive ? 1.0 : 0.0,
-                                duration: Duration(
-                                  milliseconds: searchActive ? 240 : 180,
-                                ),
-                                curve: searchActive
-                                    ? Curves.easeOut
-                                    : Curves.easeIn,
-                                child: const ColoredBox(
-                                  color: KalinkaColors.background,
-                                  child: SearchResultsFeed(),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+                            ],
+                          ),
+                  ),
+                  EscalationCard(
+                    onScanForServers: () {
+                      setState(() => _discoveryOpen = true);
+                    },
+                  ),
+                  MiniPlayer(onTap: _openPlayer),
+                ],
               ),
-              EscalationCard(
-                onScanForServers: () {
-                  setState(() => _discoveryOpen = true);
-                },
-              ),
-              MiniPlayer(onTap: _openPlayer),
-            ],
+            ),
           ),
           // Toast overlay — floats above MiniPlayer, ignores pointer input
           const Positioned(
@@ -319,6 +390,28 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                 },
               ),
             ),
+          // Queue management tray overlay
+          if (_queueTrayOpen)
+            Positioned.fill(
+              child: QueueManagementTray(
+                onClose: () => setState(() => _queueTrayOpen = false),
+                onClearPlayed: _clearPlayed,
+                onClearAllRequested: () {
+                  Future.delayed(const Duration(milliseconds: 160), () {
+                    if (mounted) setState(() => _clearAllConfirmOpen = true);
+                  });
+                },
+              ),
+            ),
+          // Clear-all confirm dialog
+          if (_clearAllConfirmOpen)
+            Positioned.fill(
+              child: ClearAllConfirmDialog(
+                onCancel: () => setState(() => _clearAllConfirmOpen = false),
+                onConfirmed: () => setState(() => _clearAllConfirmOpen = false),
+                onConfirmClearAll: _clearAll,
+              ),
+            ),
           // Discovery screen overlay
           if (_discoveryOpen)
             Positioned.fill(
@@ -347,45 +440,63 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       children: [
         Row(
           children: [
-            // Left panel: Now Playing with local overlays
+            // Left panel: Now Playing with local overlays.
+            // SizedBox.expand() clamps infinity to the available size on both
+            // axes, giving RepaintBoundary tight constraints so it becomes a
+            // Flutter relayout boundary. Without this, layout invalidations
+            // (e.g. progress slider ticks) propagate up to the Row and cause
+            // the right panel to relayout and repaint unnecessarily.
             Expanded(
-              child: Stack(
-                children: [
-                  SafeArea(
-                    child: NowPlayingContent(
-                      isTablet: true,
-                      onServerChipTap: () {
-                        setState(() => _serverSheetOpen = true);
-                      },
-                    ),
+              child: SizedBox.expand(
+                child: RepaintBoundary(
+                  child: Stack(
+                    children: [
+                      SafeArea(
+                        child: NowPlayingContent(
+                          isTablet: true,
+                          onServerChipTap: () {
+                            setState(() => _serverSheetOpen = true);
+                          },
+                        ),
+                      ),
+                      // Server sheet overlay (left panel only)
+                      if (_serverSheetOpen)
+                        Positioned.fill(
+                          child: ServerSheet(
+                            onClose: () =>
+                                setState(() => _serverSheetOpen = false),
+                            onOpenDiscovery: () {
+                              setState(() => _discoveryOpen = true);
+                            },
+                            onOpenSettings: () {
+                              setState(() => _settingsOpen = true);
+                            },
+                          ),
+                        ),
+                      // Settings screen overlay (left panel only)
+                      if (_settingsOpen)
+                        Positioned.fill(
+                          child: SettingsScreen(
+                            onClose: () =>
+                                setState(() => _settingsOpen = false),
+                          ),
+                        ),
+                    ],
                   ),
-                  // Server sheet overlay (left panel only)
-                  if (_serverSheetOpen)
-                    Positioned.fill(
-                      child: ServerSheet(
-                        onClose: () => setState(() => _serverSheetOpen = false),
-                        onOpenDiscovery: () {
-                          setState(() => _discoveryOpen = true);
-                        },
-                        onOpenSettings: () {
-                          setState(() => _settingsOpen = true);
-                        },
-                      ),
-                    ),
-                  // Settings screen overlay (left panel only)
-                  if (_settingsOpen)
-                    Positioned.fill(
-                      child: SettingsScreen(
-                        onClose: () => setState(() => _settingsOpen = false),
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
             // Divider
             Container(width: 1, color: KalinkaColors.borderSubtle),
-            // Right panel: SidePanel (tabbed search/queue)
-            const Expanded(child: SafeArea(child: SidePanel())),
+            // Right panel: SidePanel (tabbed search/queue).
+            // SizedBox.expand() here for the same reason: tight constraints
+            // make RepaintBoundary a relayout boundary so layout invalidations
+            // within SidePanel don't cross into the left panel.
+            Expanded(
+              child: SizedBox.expand(
+                child: RepaintBoundary(child: SafeArea(child: SidePanel())),
+              ),
+            ),
           ],
         ),
         // Toast overlay — bottom-right corner on tablet

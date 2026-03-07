@@ -31,8 +31,14 @@ const double _kHeaderHeight = QueueSectionHeader.height;
 class QueueZone extends ConsumerStatefulWidget {
   final double bottomPadding;
   final bool isTablet;
+  final VoidCallback? onOpenManagementTray;
 
-  const QueueZone({super.key, this.bottomPadding = 72, this.isTablet = false});
+  const QueueZone({
+    super.key,
+    this.bottomPadding = 72,
+    this.isTablet = false,
+    this.onOpenManagementTray,
+  });
 
   @override
   ConsumerState<QueueZone> createState() => _QueueZoneState();
@@ -42,8 +48,6 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
   // ── Overlay / tray state ──────────────────────────────────────────────────
   bool _trayOpen = false;
   bool _confirmClearOpen = false;
-  OverlayEntry? _managementTrayEntry;
-  OverlayEntry? _clearAllConfirmEntry;
 
   // ── Scroll ────────────────────────────────────────────────────────────────
   final _scrollController = ScrollController();
@@ -70,74 +74,24 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
       setState(() => _trayOpen = true);
       return;
     }
-
-    if (_managementTrayEntry != null) return;
-
-    _managementTrayEntry = OverlayEntry(
-      builder: (context) => Positioned.fill(
-        child: DefaultTextStyle.merge(
-          style: const TextStyle(decoration: TextDecoration.none),
-          child: QueueManagementTray(
-            onClose: _closeManagementTray,
-            onClearPlayed: _clearPlayed,
-            onClearAllRequested: _showClearAllConfirm,
-          ),
-        ),
-      ),
-    );
-
-    Overlay.of(context, rootOverlay: true).insert(_managementTrayEntry!);
+    widget.onOpenManagementTray?.call();
   }
 
   void _closeManagementTray() {
-    if (widget.isTablet) {
-      if (!_trayOpen) return;
-      setState(() => _trayOpen = false);
-      return;
-    }
-
-    _managementTrayEntry?.remove();
-    _managementTrayEntry = null;
+    if (!widget.isTablet || !_trayOpen) return;
+    setState(() => _trayOpen = false);
   }
 
   void _showClearAllConfirm() {
     Future.delayed(const Duration(milliseconds: 160), () {
-      if (!mounted) return;
-
-      if (widget.isTablet) {
-        if (_confirmClearOpen) return;
-        setState(() => _confirmClearOpen = true);
-        return;
-      }
-
-      if (!mounted || _clearAllConfirmEntry != null) return;
-
-      _clearAllConfirmEntry = OverlayEntry(
-        builder: (context) => Positioned.fill(
-          child: DefaultTextStyle.merge(
-            style: const TextStyle(decoration: TextDecoration.none),
-            child: ClearAllConfirmDialog(
-              onCancel: _closeClearAllConfirm,
-              onConfirmed: _closeClearAllConfirm,
-              onConfirmClearAll: _clearAll,
-            ),
-          ),
-        ),
-      );
-
-      Overlay.of(context, rootOverlay: true).insert(_clearAllConfirmEntry!);
+      if (!mounted || !widget.isTablet || _confirmClearOpen) return;
+      setState(() => _confirmClearOpen = true);
     });
   }
 
   void _closeClearAllConfirm() {
-    if (widget.isTablet) {
-      if (!_confirmClearOpen) return;
-      setState(() => _confirmClearOpen = false);
-      return;
-    }
-
-    _clearAllConfirmEntry?.remove();
-    _clearAllConfirmEntry = null;
+    if (!widget.isTablet || !_confirmClearOpen) return;
+    setState(() => _confirmClearOpen = false);
   }
 
   // ── Queue actions ─────────────────────────────────────────────────────────
@@ -214,11 +168,19 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
 
   @override
   Widget build(BuildContext context) {
-    final queueState = ref.watch(playQueueStateStoreProvider);
-    final trackList = queueState.trackList;
-    final playbackIndex = queueState.playbackState.index ?? 0;
+    final queueSnapshot = ref.watch(
+      playQueueStateStoreProvider.select(
+        (s) => (
+          trackList: s.trackList,
+          playbackIndex: s.playbackState.index ?? 0,
+          shuffleEnabled: s.playbackMode.shuffle,
+        ),
+      ),
+    );
+    final trackList = queueSnapshot.trackList;
+    final playbackIndex = queueSnapshot.playbackIndex;
     final currentIndex = playbackIndex.clamp(0, trackList.length);
-    final playbackMode = queueState.playbackMode;
+    final shuffleEnabled = queueSnapshot.shuffleEnabled;
     final connectionState = ref.watch(connectionStateProvider);
     final connectionNotifier = ref.read(connectionStateProvider.notifier);
 
@@ -267,7 +229,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
                       queueTracks,
                       previousTracks,
                       currentIndex,
-                      playbackMode,
+                      shuffleEnabled,
                     ),
                   ),
                 ),
@@ -280,7 +242,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
             queueTracks,
             previousTracks,
             currentIndex,
-            playbackMode,
+            shuffleEnabled,
           ),
 
         // Floating menu button — always sits in the pinned header area.
@@ -337,7 +299,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
     List<Track> queueTracks,
     List<Track> previousTracks,
     int currentIndex,
-    dynamic playbackMode,
+    bool shuffleEnabled,
   ) {
     return CustomScrollView(
       controller: _scrollController,
@@ -371,7 +333,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
               pinned: true,
               delegate: _UpNextHeaderDelegate(
                 trackCount: queueTracks.length,
-                showShuffleBadge: playbackMode.shuffle,
+                showShuffleBadge: shuffleEnabled,
               ),
             ),
             if (queueTracks.isEmpty)

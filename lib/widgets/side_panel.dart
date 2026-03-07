@@ -43,11 +43,22 @@ class SidePanel extends ConsumerWidget {
           ),
         ),
         const Divider(height: 1),
-        // Content
+        // Content — IndexedStack keeps both panels mounted so queue scroll
+        // position is preserved between tab switches. TickerMode stops
+        // BerryPulse (and any other tickers) in the inactive panel.
         Expanded(
-          child: activePanel == TabletPanel.search
-              ? _buildSearchPanel()
-              : const QueueZone(bottomPadding: 0, isTablet: true),
+          child: IndexedStack(
+            index: activePanel == TabletPanel.queue ? 0 : 1,
+            children: [
+              TickerMode(
+                enabled: activePanel == TabletPanel.queue,
+                child: const RepaintBoundary(
+                  child: QueueZone(bottomPadding: 0, isTablet: true),
+                ),
+              ),
+              RepaintBoundary(child: _buildSearchPanel()),
+            ],
+          ),
         ),
       ],
     );

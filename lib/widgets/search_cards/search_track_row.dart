@@ -141,7 +141,8 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
         : null;
 
     final playerState = ref.watch(playerStateProvider);
-    final isCurrentTrack = widget.item.id.isNotEmpty &&
+    final isCurrentTrack =
+        widget.item.id.isNotEmpty &&
         playerState.currentTrack?.id == widget.item.id;
     final isPlaying =
         isCurrentTrack && playerState.state == PlayerStateType.playing;

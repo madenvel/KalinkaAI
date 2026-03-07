@@ -24,7 +24,7 @@ class _ConnectionBannerState extends ConsumerState<ConnectionBanner>
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
+    );
   }
 
   @override
@@ -38,6 +38,15 @@ class _ConnectionBannerState extends ConsumerState<ConnectionBanner>
     final connectionState = ref.watch(connectionStateProvider);
     final settings = ref.watch(connectionSettingsProvider);
     final name = settings.name.isNotEmpty ? settings.name : settings.host;
+
+    if (connectionState == ConnectionStatus.reconnecting) {
+      if (!_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
+      }
+    } else if (_pulseController.isAnimating) {
+      _pulseController.stop();
+      _pulseController.value = 1.0;
+    }
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 240),

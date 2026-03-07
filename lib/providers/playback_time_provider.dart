@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data_model/data_model.dart' show PlaybackState, PlayerStateType;
+import '../data_model/data_model.dart' show PlayerStateType;
 import '../providers/app_state_provider.dart' show playerStateProvider;
 import '../providers/monotonic_clock_provider.dart' show monotonicClockProvider;
 
@@ -34,57 +34,93 @@ final playbackTimeMsProvider = NotifierProvider<PlaybackTimeMsNotifier, int>(
   PlaybackTimeMsNotifier.new,
 );
 
+typedef _PlaybackTimingSnapshot = ({
+  PlayerStateType? playerState,
+  int positionMs,
+  int timestampMs,
+});
+
+final _playbackTimingSnapshotProvider = Provider<_PlaybackTimingSnapshot>((
+  ref,
+) {
+  // Keep this snapshot primitive-only so unrelated object identity churn
+  // (e.g. currentTrack instances) does not retrigger the playback ticker.
+  return ref.watch(
+    playerStateProvider.select(
+      (s) => (
+        playerState: s.state,
+        positionMs: s.position ?? 0,
+        timestampMs: s.timestampNs,
+      ),
+    ),
+  );
+});
+
 class PlaybackTimeMsNotifier extends Notifier<int> {
-  int getDeltaMs(PlaybackState playerState) {
-    if (playerState.state == PlayerStateType.playing) {
-      int delta =
+  Timer? _tick;
+  bool _disposeRegistered = false;
+
+  int _computeTimeMs(_PlaybackTimingSnapshot snapshot) {
+    if (snapshot.playerState == PlayerStateType.playing) {
+      final deltaMs =
           ref.read(monotonicClockProvider).elapsedMilliseconds -
-          playerState.timestampNs;
-      return delta;
+          snapshot.timestampMs;
+      return snapshot.positionMs + (deltaMs > 0 ? deltaMs : 0);
     }
-    return 0;
+    return snapshot.positionMs;
+  }
+
+  void _cancelTick() {
+    _tick?.cancel();
+    _tick = null;
+  }
+
+  void _emitCurrentTime() {
+    state = _computeTimeMs(ref.read(_playbackTimingSnapshotProvider));
+  }
+
+  void _restartTicking({
+    required AppLifecycleState lifecycle,
+    required _PlaybackTimingSnapshot snapshot,
+  }) {
+    _cancelTick();
+
+    if (lifecycle != AppLifecycleState.resumed ||
+        snapshot.playerState != PlayerStateType.playing) {
+      return;
+    }
+
+    final currentMs = _computeTimeMs(snapshot);
+    final msUntilNextSecond = 1000 - (currentMs % 1000);
+
+    _tick = Timer(Duration(milliseconds: msUntilNextSecond), () {
+      if (ref.read(appLifecycleProvider) != AppLifecycleState.resumed) {
+        _cancelTick();
+        return;
+      }
+
+      _emitCurrentTime();
+      _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (ref.read(appLifecycleProvider) != AppLifecycleState.resumed) {
+          _cancelTick();
+          return;
+        }
+        _emitCurrentTime();
+      });
+    });
   }
 
   @override
   int build() {
-    Timer? tick;
+    final snapshot = ref.watch(_playbackTimingSnapshotProvider);
+    final lifecycle = ref.watch(appLifecycleProvider);
 
-    bool isDisposed = false;
-    final playerState = ref.watch(playerStateProvider);
-    final baseTimeMs = playerState.position ?? 0;
-    state = baseTimeMs + getDeltaMs(playerState);
+    if (!_disposeRegistered) {
+      _disposeRegistered = true;
+      ref.onDispose(_cancelTick);
+    }
 
-    // Start/stop ticking based on lifecycle.
-    ref.listen<AppLifecycleState>(appLifecycleProvider, (prev, next) {
-      if (next == AppLifecycleState.resumed) {
-        state = baseTimeMs + getDeltaMs(playerState);
-
-        if (playerState.state == PlayerStateType.playing) {
-          final msUntilNextSecond = 1000 - (state % 1000);
-          tick = Timer(Duration(milliseconds: msUntilNextSecond), () {
-            final lifecycle = ref.read(appLifecycleProvider);
-            if (isDisposed || lifecycle != AppLifecycleState.resumed) {
-              return;
-            }
-
-            state = baseTimeMs + getDeltaMs(playerState);
-            tick = Timer.periodic(const Duration(seconds: 1), (_) {
-              state = baseTimeMs + getDeltaMs(playerState);
-            });
-          });
-        }
-      } else {
-        tick?.cancel();
-        tick = null;
-      }
-    }, fireImmediately: true);
-
-    ref.onDispose(() {
-      tick?.cancel();
-      tick = null;
-      isDisposed = true;
-    });
-
-    return state;
+    _restartTicking(lifecycle: lifecycle, snapshot: snapshot);
+    return _computeTimeMs(snapshot);
   }
 }

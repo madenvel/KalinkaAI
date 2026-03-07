@@ -77,7 +77,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     _marchController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
-    )..repeat();
+    );
 
     _carouselController = AnimationController(
       vsync: this,
@@ -88,6 +88,20 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     _carouselController.value =
         0.0; // AnimationController defaults to lowerBound
     _carouselController.addListener(() => setState(() {}));
+  }
+
+  void _setMarching(bool enabled) {
+    if (enabled) {
+      if (!_marchController.isAnimating) {
+        _marchController.repeat();
+      }
+      return;
+    }
+
+    if (_marchController.isAnimating) {
+      _marchController.stop();
+      _marchController.value = 0.0;
+    }
   }
 
   @override
@@ -241,11 +255,47 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
 
   @override
   Widget build(BuildContext context) {
-    final queueState = ref.watch(playQueueStateStoreProvider);
-    final playbackState = queueState.playbackState;
-    final currentTrack = playbackState.currentTrack;
+    final queueSnapshot = ref.watch(
+      playQueueStateStoreProvider.select(
+        (s) => (
+          trackList: s.trackList,
+          playbackIndex: s.playbackState.index ?? 0,
+          playerState: s.playbackState.state,
+          fallbackTrackId: s.playbackState.currentTrack?.id,
+          fallbackTrackTitle: s.playbackState.currentTrack?.title,
+          fallbackTrackArtist: s.playbackState.currentTrack?.performer?.name,
+          fallbackTrackDurationSec: s.playbackState.currentTrack?.duration ?? 0,
+          fallbackTrackImageSmall:
+              s.playbackState.currentTrack?.album?.image?.small,
+        ),
+      ),
+    );
+    final trackList = queueSnapshot.trackList;
+    final playbackIndex = queueSnapshot.playbackIndex;
+
+    Track? currentTrack;
+    if (playbackIndex >= 0 && playbackIndex < trackList.length) {
+      currentTrack = trackList[playbackIndex];
+    } else if (queueSnapshot.fallbackTrackId != null) {
+      currentTrack = Track(
+        id: queueSnapshot.fallbackTrackId!,
+        title: queueSnapshot.fallbackTrackTitle ?? 'No track',
+        duration: queueSnapshot.fallbackTrackDurationSec,
+        performer: queueSnapshot.fallbackTrackArtist == null
+            ? null
+            : Artist(id: '', name: queueSnapshot.fallbackTrackArtist!),
+        album: queueSnapshot.fallbackTrackImageSmall == null
+            ? null
+            : Album(
+                id: '',
+                title: '',
+                image: AlbumImage(small: queueSnapshot.fallbackTrackImageSmall),
+              ),
+      );
+    }
+
     final effectiveCurrentTrack = _latchedCurrentTrack ?? currentTrack;
-    final playerState = playbackState.state;
+    final playerState = queueSnapshot.playerState;
     final urlResolver = ref.read(urlResolverProvider);
 
     if (_latchedCurrentTrack != null &&
@@ -259,8 +309,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     }
 
     // Queue peek for carousel incoming-track preview.
-    final trackList = queueState.trackList;
-    final currentIndex = playbackState.index ?? 0;
+    final currentIndex = playbackIndex;
     final nextTrack = currentIndex + 1 < trackList.length
         ? trackList[currentIndex + 1]
         : null;
@@ -288,6 +337,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     final isOffline =
         connectionState == ConnectionStatus.reconnecting ||
         connectionState == ConnectionStatus.offline;
+    _setMarching(isOffline);
 
     final durationMs = (effectiveCurrentTrack?.duration ?? 0) * 1000;
 

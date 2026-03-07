@@ -73,7 +73,8 @@ class QueueItemRow extends ConsumerWidget {
         ? KalinkaColors.accent.withValues(alpha: 0.08)
         : KalinkaColors.background;
 
-    final isPlaying = isCurrentTrack &&
+    final isPlaying =
+        isCurrentTrack &&
         ref.watch(
           playerStateProvider.select((s) => s.state == PlayerStateType.playing),
         );
@@ -113,7 +114,7 @@ class QueueItemRow extends ConsumerWidget {
                 ),
               ),
               // Layer 3 — berry pulse animation
-              BerryPulse(isPlaying: isPlaying),
+              // BerryPulse(isPlaying: isPlaying),
             ],
           ),
         ),

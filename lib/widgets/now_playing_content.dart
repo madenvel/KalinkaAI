@@ -4,15 +4,16 @@ import '../data_model/data_model.dart';
 import '../data_model/kalinka_ws_api.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
-import '../providers/playback_time_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../utils/playback_utils.dart';
 import '../providers/source_modules_provider.dart';
+import 'playback_progress_slider.dart';
 import 'procedural_album_art.dart';
 import 'server_chip.dart';
 import 'source_badge.dart';
+import 'volume_control_slider.dart';
 
 /// Core now-playing UI: album art, track info, transport controls, volume.
 /// Used embedded in tablet layout and wrapped with animation in phone overlay.
@@ -42,20 +43,6 @@ class NowPlayingContent extends ConsumerStatefulWidget {
 }
 
 class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
-  bool _isAdjustingVolume = false;
-  double _localVolumeProgress = 0.0;
-  int? _volumeBeforeSeq;
-  ProviderSubscription? _extDeviceStateStoreProviderSubscription;
-
-  double _lastHapticVolumePosition = -1.0;
-
-  String _formatTime(int milliseconds) {
-    final seconds = milliseconds ~/ 1000;
-    final minutes = seconds ~/ 60;
-    final remaining = seconds % 60;
-    return '$minutes:${remaining.toString().padLeft(2, '0')}';
-  }
-
   String _formatLabel(String? mimeType) {
     if (mimeType == null) return '';
     if (mimeType.contains('flac')) return 'FLAC';
@@ -72,7 +59,6 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
 
     final bitsPerSample = audioInfo.bitsPerSample;
     final sampleRate = audioInfo.sampleRate;
-
     final parts = <String>[];
     if (bitsPerSample > 0) {
       parts.add('$bitsPerSample-bit');
@@ -89,39 +75,26 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    // Clear the local volume position once the server acknowledges the change
-    // with a new event (seq changes). Mirrors the seek bar pattern.
-    _extDeviceStateStoreProviderSubscription = ref.listenManual(
-      extDeviceStateStoreProvider,
-      (prev, next) {
-        if (_isAdjustingVolume && next.seq != _volumeBeforeSeq) {
-          setState(() {
-            _isAdjustingVolume = false;
-            _volumeBeforeSeq = null;
-          });
-        }
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _extDeviceStateStoreProviderSubscription?.close();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final queueState = ref.watch(playQueueStateStoreProvider);
-
-    final playbackState = queueState.playbackState;
+    // Use only primitive-typed selectors so Riverpod's == comparison works by
+    // value. Object-typed selectors (Track, AudioInfo) fail because play/pause
+    // events may produce new instances with identical content but different
+    // references, causing false-positive rebuilds of the whole screen.
+    // Play/pause/buffering is handled exclusively by _TransportControls.
+    ref.watch(
+      playerStateProvider.select(
+        (s) => (
+          trackId: s.currentTrack?.id,
+          mimeType: s.mimeType,
+          bitsPerSample: s.audioInfo?.bitsPerSample,
+          sampleRate: s.audioInfo?.sampleRate,
+        ),
+      ),
+    );
+    // Read full state without watching — content is current because the
+    // selector above already gated the rebuild on a meaningful change.
+    final playbackState = ref.read(playerStateProvider);
     final currentTrack = playbackState.currentTrack;
-    final playerState = playbackState.state;
-    final playbackMode = queueState.playbackMode;
-    final volumeState = ref.watch(volumeStateProvider);
-    final api = ref.read(kalinkaWsApiProvider);
     final urlResolver = ref.read(urlResolverProvider);
 
     final durationMs = (currentTrack?.duration ?? 0) * 1000;
@@ -161,10 +134,6 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
               mimeLabel: mimeLabel,
               qualityLabel: qualityLabel,
               durationMs: durationMs,
-              playerState: playerState,
-              playbackMode: playbackMode,
-              volumeState: volumeState,
-              api: api,
             ),
           ],
         ),
@@ -179,10 +148,6 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
     required String mimeLabel,
     required String qualityLabel,
     required int durationMs,
-    required PlayerStateType? playerState,
-    required PlaybackMode playbackMode,
-    required DeviceVolume volumeState,
-    required KalinkaWsApi api,
   }) {
     return Expanded(
       child: Padding(
@@ -202,19 +167,11 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
               qualityLabel: qualityLabel,
             ),
             const SizedBox(height: 24),
-            _NowPlayingProgressSection(
-              durationMs: durationMs,
-              formatTime: _formatTime,
-            ),
+            PlaybackProgressSlider(durationMs: durationMs),
             const SizedBox(height: 20),
-            _buildTransportRow(
-              api: api,
-              playerState: playerState,
-              playbackMode: playbackMode,
-            ),
+            const _TransportControls(),
             const SizedBox(height: 16),
-            if (volumeState.supported)
-              _buildVolumeRow(volumeState: volumeState),
+            const NowPlayingVolumeControl(),
             const SizedBox(height: 24),
           ],
         ),
@@ -307,178 +264,6 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
     );
   }
 
-  Widget _buildTransportRow({
-    required KalinkaWsApi api,
-    required PlayerStateType? playerState,
-    required PlaybackMode playbackMode,
-  }) {
-    final isShuffle = playbackMode.shuffle;
-    final isRepeatAll = playbackMode.repeatAll;
-    final isRepeatOne = playbackMode.repeatSingle;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        GestureDetector(
-          onTapDown: (_) => isShuffle
-              ? KalinkaHaptics.lightImpact()
-              : KalinkaHaptics.mediumImpact(),
-          onTap: () {
-            api.sendQueueCommand(
-              QueueCommand.setPlaybackMode(
-                shuffle: !isShuffle,
-                repeatAll: playbackMode.repeatAll,
-                repeatSingle: playbackMode.repeatSingle,
-              ),
-            );
-          },
-          child: Icon(
-            Icons.shuffle,
-            size: 22,
-            color: isShuffle ? KalinkaColors.gold : KalinkaColors.textSecondary,
-          ),
-        ),
-        GestureDetector(
-          onTapDown: (_) => KalinkaHaptics.mediumImpact(),
-          onTap: () => api.sendQueueCommand(const QueueCommand.prev()),
-          child: const Icon(
-            Icons.skip_previous_rounded,
-            size: 36,
-            color: KalinkaColors.textPrimary,
-          ),
-        ),
-        GestureDetector(
-          onTapDown: isPlayPauseDisabled(playerState)
-              ? null
-              : (_) => playerState == PlayerStateType.playing
-                    ? KalinkaHaptics.lightImpact()
-                    : KalinkaHaptics.mediumImpact(),
-          onTap: isPlayPauseDisabled(playerState)
-              ? null
-              : () => sendPlayPauseCommand(ref, playerState),
-          child: Container(
-            width: 68,
-            height: 68,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              playerState == PlayerStateType.playing
-                  ? Icons.pause_rounded
-                  : Icons.play_arrow_rounded,
-              size: 38,
-              color: KalinkaColors.background,
-            ),
-          ),
-        ),
-        GestureDetector(
-          onTapDown: (_) => KalinkaHaptics.mediumImpact(),
-          onTap: () => api.sendQueueCommand(const QueueCommand.next()),
-          child: const Icon(
-            Icons.skip_next_rounded,
-            size: 36,
-            color: KalinkaColors.textPrimary,
-          ),
-        ),
-        GestureDetector(
-          onTap: () {
-            KalinkaHaptics.selectionClick();
-            final bool newRepeatAll;
-            final bool newRepeatSingle;
-            if (isRepeatOne) {
-              newRepeatAll = false;
-              newRepeatSingle = false;
-            } else if (isRepeatAll) {
-              newRepeatAll = false;
-              newRepeatSingle = true;
-            } else {
-              newRepeatAll = true;
-              newRepeatSingle = false;
-            }
-            api.sendQueueCommand(
-              QueueCommand.setPlaybackMode(
-                shuffle: playbackMode.shuffle,
-                repeatAll: newRepeatAll,
-                repeatSingle: newRepeatSingle,
-              ),
-            );
-          },
-          child: Icon(
-            isRepeatOne ? Icons.repeat_one : Icons.repeat,
-            size: 22,
-            color: (isRepeatAll || isRepeatOne)
-                ? KalinkaColors.accent
-                : KalinkaColors.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVolumeRow({required DeviceVolume volumeState}) {
-    return Row(
-      children: [
-        const Icon(
-          Icons.volume_down,
-          size: 20,
-          color: KalinkaColors.textSecondary,
-        ),
-        Expanded(
-          child: SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 3,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-              activeTrackColor: KalinkaColors.textPrimary,
-              inactiveTrackColor: KalinkaColors.borderDefault,
-              thumbColor: KalinkaColors.textPrimary,
-              overlayColor: KalinkaColors.textPrimary.withValues(alpha: 0.1),
-            ),
-            child: Slider(
-              value: _isAdjustingVolume
-                  ? _localVolumeProgress
-                  : (volumeState.maxVolume > 0
-                        ? (volumeState.currentVolume / volumeState.maxVolume)
-                              .clamp(0.0, 1.0)
-                        : 0.0),
-              onChanged: (value) {
-                if (!_isAdjustingVolume) {
-                  KalinkaHaptics.lightImpact();
-                  _lastHapticVolumePosition = value;
-                } else if ((value - _lastHapticVolumePosition).abs() >= 0.10) {
-                  KalinkaHaptics.selectionClick();
-                  _lastHapticVolumePosition = value;
-                }
-                final newVolume = (value * volumeState.maxVolume).round();
-                setState(() {
-                  _isAdjustingVolume = true;
-                  _localVolumeProgress = value;
-                });
-                ref
-                    .read(kalinkaWsApiProvider)
-                    .sendDeviceCommand(
-                      DeviceCommand.setVolume(volume: newVolume),
-                    );
-              },
-              onChangeEnd: (_) {
-                _lastHapticVolumePosition = -1.0;
-                setState(() {
-                  _volumeBeforeSeq = ref.read(extDeviceStateStoreProvider).seq;
-                });
-              },
-            ),
-          ),
-        ),
-        const Icon(
-          Icons.volume_up,
-          size: 20,
-          color: KalinkaColors.textSecondary,
-        ),
-      ],
-    );
-  }
-
   Widget _buildHeader() {
     if (widget.showOverlayHeader) {
       return Padding(
@@ -541,121 +326,119 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
   }
 }
 
-class _NowPlayingProgressSection extends ConsumerStatefulWidget {
-  final int durationMs;
-  final String Function(int milliseconds) formatTime;
-
-  const _NowPlayingProgressSection({
-    required this.durationMs,
-    required this.formatTime,
-  });
+/// Transport controls row (shuffle, prev, play/pause, next, repeat).
+/// Extracted so only this widget rebuilds on playerState / playbackMode changes,
+/// leaving the rest of NowPlayingContent (album art, metadata) untouched.
+class _TransportControls extends ConsumerWidget {
+  const _TransportControls();
 
   @override
-  ConsumerState<_NowPlayingProgressSection> createState() =>
-      _NowPlayingProgressSectionState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playerState = ref.watch(playerStateProvider.select((s) => s.state));
+    final playbackMode = ref.watch(playbackModeProvider);
+    final api = ref.read(kalinkaWsApiProvider);
 
-class _NowPlayingProgressSectionState
-    extends ConsumerState<_NowPlayingProgressSection> {
-  bool _isSeeking = false;
-  double _seekProgress = 0.0;
-  int _seekPositionMs = 0;
-  int? _seekBeforeSeq;
-  double _lastHapticSeekPosition = -1.0;
-  ProviderSubscription? _playQueueStateStoreProviderSubscription;
-
-  @override
-  void initState() {
-    super.initState();
-    // Clear the local seek position once the server acknowledges the seek
-    // with a new event (seq changes). This prevents the thumb from jumping
-    // back to the old position before the server reply arrives.
-    _playQueueStateStoreProviderSubscription = ref.listenManual(
-      playQueueStateStoreProvider,
-      (prev, next) {
-        if (_isSeeking && next.seq != _seekBeforeSeq) {
-          setState(() {
-            _isSeeking = false;
-            _seekBeforeSeq = null;
-          });
-        }
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _playQueueStateStoreProviderSubscription?.close();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final playbackTimeMs = ref.watch(playbackTimeMsProvider);
-    final positionMs = _isSeeking ? _seekPositionMs : playbackTimeMs;
-    final progress = _isSeeking
-        ? _seekProgress
-        : (widget.durationMs > 0
-              ? (positionMs / widget.durationMs).clamp(0.0, 1.0)
-              : 0.0);
+    final isShuffle = playbackMode.shuffle;
+    final isRepeatAll = playbackMode.repeatAll;
+    final isRepeatOne = playbackMode.repeatSingle;
 
     return RepaintBoundary(
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 3,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-              activeTrackColor: KalinkaColors.accent,
-              inactiveTrackColor: KalinkaColors.borderDefault,
-              thumbColor: Colors.white,
-              overlayColor: KalinkaColors.accent.withValues(alpha: 0.25),
-            ),
-            child: Slider(
-              value: progress,
-              onChanged: (value) {
-                if (!_isSeeking) {
-                  KalinkaHaptics.mediumImpact();
-                  _lastHapticSeekPosition = value;
-                } else if ((value - _lastHapticSeekPosition).abs() >= 0.05) {
-                  KalinkaHaptics.selectionClick();
-                  _lastHapticSeekPosition = value;
-                }
-                setState(() {
-                  _isSeeking = true;
-                  _seekProgress = value;
-                  _seekPositionMs = (value * widget.durationMs).toInt();
-                });
-              },
-              onChangeEnd: (value) {
-                KalinkaHaptics.lightImpact();
-                final newPositionMs = (value * widget.durationMs).toInt();
-                setState(() {
-                  _seekBeforeSeq = ref.read(playQueueStateStoreProvider).seq;
-                });
-                ref
-                    .read(kalinkaWsApiProvider)
-                    .sendQueueCommand(
-                      QueueCommand.seek(positionMs: newPositionMs),
-                    );
-              },
+          GestureDetector(
+            onTapDown: (_) => isShuffle
+                ? KalinkaHaptics.lightImpact()
+                : KalinkaHaptics.mediumImpact(),
+            onTap: () {
+              api.sendQueueCommand(
+                QueueCommand.setPlaybackMode(
+                  shuffle: !isShuffle,
+                  repeatAll: playbackMode.repeatAll,
+                  repeatSingle: playbackMode.repeatSingle,
+                ),
+              );
+            },
+            child: Icon(
+              Icons.shuffle,
+              size: 22,
+              color: isShuffle
+                  ? KalinkaColors.gold
+                  : KalinkaColors.textSecondary,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  widget.formatTime(positionMs),
-                  style: KalinkaTextStyles.timeLabel,
+          GestureDetector(
+            onTapDown: (_) => KalinkaHaptics.mediumImpact(),
+            onTap: () => api.sendQueueCommand(const QueueCommand.prev()),
+            child: const Icon(
+              Icons.skip_previous_rounded,
+              size: 36,
+              color: KalinkaColors.textPrimary,
+            ),
+          ),
+          GestureDetector(
+            onTapDown: isPlayPauseDisabled(playerState)
+                ? null
+                : (_) => playerState == PlayerStateType.playing
+                      ? KalinkaHaptics.lightImpact()
+                      : KalinkaHaptics.mediumImpact(),
+            onTap: isPlayPauseDisabled(playerState)
+                ? null
+                : () => sendPlayPauseCommand(ref, playerState),
+            child: Container(
+              width: 68,
+              height: 68,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                playerState == PlayerStateType.playing
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
+                size: 38,
+                color: KalinkaColors.background,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTapDown: (_) => KalinkaHaptics.mediumImpact(),
+            onTap: () => api.sendQueueCommand(const QueueCommand.next()),
+            child: const Icon(
+              Icons.skip_next_rounded,
+              size: 36,
+              color: KalinkaColors.textPrimary,
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              KalinkaHaptics.selectionClick();
+              final bool newRepeatAll;
+              final bool newRepeatSingle;
+              if (isRepeatOne) {
+                newRepeatAll = false;
+                newRepeatSingle = false;
+              } else if (isRepeatAll) {
+                newRepeatAll = false;
+                newRepeatSingle = true;
+              } else {
+                newRepeatAll = true;
+                newRepeatSingle = false;
+              }
+              api.sendQueueCommand(
+                QueueCommand.setPlaybackMode(
+                  shuffle: playbackMode.shuffle,
+                  repeatAll: newRepeatAll,
+                  repeatSingle: newRepeatSingle,
                 ),
-                Text(
-                  widget.formatTime(widget.durationMs),
-                  style: KalinkaTextStyles.timeLabel,
-                ),
-              ],
+              );
+            },
+            child: Icon(
+              isRepeatOne ? Icons.repeat_one : Icons.repeat,
+              size: 22,
+              color: (isRepeatAll || isRepeatOne)
+                  ? KalinkaColors.accent
+                  : KalinkaColors.textSecondary,
             ),
           ),
         ],
