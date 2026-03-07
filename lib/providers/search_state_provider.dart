@@ -86,6 +86,9 @@ class SearchState {
   /// Recently favourited tracks shown in zero-state
   final List<BrowseItem> recentlyFavourited;
 
+  /// Whether the "show more" in the recently favourited section is expanded
+  final bool recentlyFavouritedExpanded;
+
   /// Genre pills available in the filter row (max 4)
   final List<Genre> genrePills;
 
@@ -117,6 +120,7 @@ class SearchState {
     this.activeScopeFilter,
     this.activeGenreId,
     this.recentlyFavourited = const [],
+    this.recentlyFavouritedExpanded = false,
     this.genrePills = const [],
   });
 
@@ -173,6 +177,7 @@ class SearchState {
     String? activeGenreId,
     bool clearActiveGenreId = false,
     List<BrowseItem>? recentlyFavourited,
+    bool? recentlyFavouritedExpanded,
     List<Genre>? genrePills,
   }) {
     return SearchState(
@@ -222,6 +227,8 @@ class SearchState {
           ? null
           : (activeGenreId ?? this.activeGenreId),
       recentlyFavourited: recentlyFavourited ?? this.recentlyFavourited,
+      recentlyFavouritedExpanded:
+          recentlyFavouritedExpanded ?? this.recentlyFavouritedExpanded,
       genrePills: genrePills ?? this.genrePills,
     );
   }
@@ -319,6 +326,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
       aiPromptSuggestions: const [],
       clearActiveScopeFilter: true,
       clearActiveGenreId: true,
+      recentlyFavouritedExpanded: false,
     );
   }
 
@@ -352,21 +360,53 @@ class SearchStateNotifier extends Notifier<SearchState> {
     }
   }
 
+  void toggleRecentlyFavouritedExpanded() {
+    state = state.copyWith(
+      recentlyFavouritedExpanded: !state.recentlyFavouritedExpanded,
+    );
+  }
+
   /// Load data needed for the zero-state: genre pills and recently favourited.
   Future<void> _loadZeroStateData() async {
     final settings = ref.read(connectionSettingsProvider);
     if (!settings.isSet) return;
     final api = ref.read(kalinkaProxyProvider);
     try {
-      // Await both concurrently; the record .wait extension ensures neither
-      // future becomes an unhandled rejection if the other fails first.
-      final (genres, fav) = await (
+      final (genres, tracks, albums, artists, playlists) = await (
         api.getGenres(null),
-        api.getFavorite(SearchType.track, limit: 4),
+        api.getFavorite(SearchType.track, limit: 5),
+        api.getFavorite(SearchType.album, limit: 5),
+        api.getFavorite(SearchType.artist, limit: 5),
+        api.getFavorite(SearchType.playlist, limit: 5),
       ).wait;
+
+      // Merge all items from each type
+      final all = [
+        ...tracks.items,
+        ...albums.items,
+        ...artists.items,
+        ...playlists.items,
+      ];
+
+      // Filter out items older than 30 days (when timestamp is available)
+      final cutoffSeconds =
+          DateTime.now().millisecondsSinceEpoch ~/ 1000 - 30 * 24 * 3600;
+      final filtered = all.where((item) {
+        if (item.timestamp == 0) return true;
+        return item.timestamp >= cutoffSeconds;
+      }).toList();
+
+      // Sort by timestamp descending; items with timestamp == 0 go last
+      filtered.sort((a, b) {
+        if (a.timestamp == 0 && b.timestamp == 0) return 0;
+        if (a.timestamp == 0) return 1;
+        if (b.timestamp == 0) return -1;
+        return b.timestamp.compareTo(a.timestamp);
+      });
+
       state = state.copyWith(
         genrePills: genres.items.take(4).toList(),
-        recentlyFavourited: fav.items,
+        recentlyFavourited: filtered,
       );
     } catch (_) {
       // Non-critical — zero state still works without this data

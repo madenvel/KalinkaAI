@@ -5,11 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../providers/search_state_provider.dart';
-import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
-import 'procedural_album_art.dart';
 import 'search_cards/search_album_row.dart';
 import 'search_cards/search_artist_row.dart';
+import 'search_cards/search_playlist_row.dart';
 import 'search_cards/search_track_row.dart';
 import 'search_cards/show_more_row.dart';
 
@@ -112,7 +111,10 @@ class _RecentChipsSection extends StatelessWidget {
               onTap: onClearAll,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                child: Text('Clear all', style: KalinkaTextStyles.clearAllChips),
+                child: Text(
+                  'Clear all',
+                  style: KalinkaTextStyles.clearAllChips,
+                ),
               ),
             ),
           ],
@@ -124,11 +126,13 @@ class _RecentChipsSection extends StatelessWidget {
           runSpacing: 6,
           children: history
               .take(8)
-              .map((q) => _RecentChip(
-                    query: q,
-                    onTap: () => onTap(q),
-                    onDelete: () => onDelete(q),
-                  ))
+              .map(
+                (q) => _RecentChip(
+                  query: q,
+                  onTap: () => onTap(q),
+                  onDelete: () => onDelete(q),
+                ),
+              )
               .toList(),
         ),
         const SizedBox(height: 8),
@@ -258,9 +262,7 @@ class SearchFilterPillRow extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: KalinkaColors.surfaceBase,
-        border: Border(
-          bottom: BorderSide(color: Color(0x1AFFFFFF), width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0x1AFFFFFF), width: 1)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 8, 0, 10),
       child: Row(
@@ -303,14 +305,16 @@ class SearchFilterPillRow extends StatelessWidget {
                     isActive: activeScopeFilter == FilterPillType.myPlaylists,
                     onTap: () => onScopeToggle(FilterPillType.myPlaylists),
                   ),
-                  ...searchState.genrePills.expand((genre) => [
-                    const SizedBox(width: 6),
-                    _FilterPill(
-                      label: genre.name,
-                      isActive: activeGenreId == genre.id,
-                      onTap: () => onGenreToggle(genre.id),
-                    ),
-                  ]),
+                  ...searchState.genrePills.expand(
+                    (genre) => [
+                      const SizedBox(width: 6),
+                      _FilterPill(
+                        label: genre.name,
+                        isActive: activeGenreId == genre.id,
+                        onTap: () => onGenreToggle(genre.id),
+                      ),
+                    ],
+                  ),
                   const SizedBox(width: 16),
                 ],
               ),
@@ -412,11 +416,12 @@ class _ZeroStateContent extends ConsumerWidget {
     // Check if there's any content at all under current filter
     final librarySections = searchState.librarySections;
     final favItems = _filteredFavourites(searchState, genreId);
-    final hasContent = history.isNotEmpty
-        || (showAskAi && searchState.aiPromptSuggestions.isNotEmpty)
-        || (showNowPlaying && librarySections?.isNotEmpty == true)
-        || (showRecentlyFavourited && favItems.isNotEmpty)
-        || isMyPlaylists;
+    final hasContent =
+        history.isNotEmpty ||
+        (showAskAi && searchState.aiPromptSuggestions.isNotEmpty) ||
+        (showNowPlaying && librarySections?.isNotEmpty == true) ||
+        (showRecentlyFavourited && favItems.isNotEmpty) ||
+        isMyPlaylists;
 
     if (!isAll && !hasContent) {
       return const Center(
@@ -440,7 +445,8 @@ class _ZeroStateContent extends ConsumerWidget {
           visible: history.isNotEmpty,
           child: _RecentChipsSection(
             history: history,
-            onTap: (q) => ref.read(searchStateProvider.notifier).reExecuteQuery(q),
+            onTap: (q) =>
+                ref.read(searchStateProvider.notifier).reExecuteQuery(q),
             onDelete: (q) {
               ref.read(searchStateProvider.notifier).removeHistoryItem(q);
               onHistoryChanged();
@@ -476,9 +482,9 @@ class _ZeroStateContent extends ConsumerWidget {
 
         // BASED ON NOW PLAYING
         _AnimatedSection(
-          visible: showNowPlaying &&
-              (searchState.isLoading ||
-                  librarySections?.isNotEmpty == true),
+          visible:
+              showNowPlaying &&
+              (searchState.isLoading || librarySections?.isNotEmpty == true),
           child: _BasedOnNowPlayingSection(
             searchState: searchState,
             staggerController: staggerController,
@@ -491,7 +497,10 @@ class _ZeroStateContent extends ConsumerWidget {
           visible: showRecentlyFavourited && favItems.isNotEmpty,
           child: _RecentlyFavouritedSection(
             items: favItems,
-            expanded: isFavourites,
+            isExpanded: searchState.recentlyFavouritedExpanded,
+            onToggleExpand: () => ref
+                .read(searchStateProvider.notifier)
+                .toggleRecentlyFavouritedExpanded(),
           ),
         ),
 
@@ -517,8 +526,8 @@ class _ZeroStateContent extends ConsumerWidget {
   List<BrowseItem> _filteredFavourites(SearchState state, String? genreId) {
     if (genreId == null) return state.recentlyFavourited;
     return state.recentlyFavourited.where((item) {
-      final albumGenreId = item.track?.album?.genre?.id
-          ?? item.album?.genre?.id;
+      final albumGenreId =
+          item.track?.album?.genre?.id ?? item.album?.genre?.id;
       return albumGenreId == genreId;
     }).toList();
   }
@@ -587,10 +596,7 @@ class _AnimatedSectionState extends State<_AnimatedSection>
         return ClipRect(
           child: Align(
             heightFactor: _opacity.value,
-            child: Opacity(
-              opacity: _opacity.value,
-              child: child,
-            ),
+            child: Opacity(opacity: _opacity.value, child: child),
           ),
         );
       },
@@ -710,16 +716,20 @@ class _BasedOnNowPlayingSection extends StatelessWidget {
 
 class _RecentlyFavouritedSection extends StatelessWidget {
   final List<BrowseItem> items;
-  final bool expanded; // true when Favourites filter is active
+  final bool isExpanded;
+  final VoidCallback onToggleExpand;
 
   const _RecentlyFavouritedSection({
     required this.items,
-    required this.expanded,
+    required this.isExpanded,
+    required this.onToggleExpand,
   });
 
   @override
   Widget build(BuildContext context) {
-    final displayItems = expanded ? items.take(12).toList() : items.take(4).toList();
+    const visibleCount = 5;
+    final displayItems = isExpanded ? items : items.take(visibleCount).toList();
+    final extraCount = items.length - visibleCount;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -728,155 +738,38 @@ class _RecentlyFavouritedSection extends StatelessWidget {
         Row(
           children: [
             Text('RECENTLY FAVOURITED', style: KalinkaTextStyles.sectionLabel),
-            if (expanded) ...[
-              const Spacer(),
-              Text(
-                'Showing recent 30 days',
-                style: KalinkaTextStyles.filterPillInactive,
-              ),
-            ],
+            const Spacer(),
+            Text(
+              'Showing recent 30 days',
+              style: KalinkaTextStyles.filterPillInactive,
+            ),
           ],
         ),
         const SizedBox(height: 12),
-        ...displayItems.map((item) => _FavouritedRow(item: item)),
+        ...displayItems.map((item) => _buildRow(item)),
+        if (items.length > visibleCount)
+          ShowMoreRow(
+            remainingCount: extraCount > 0 ? extraCount : 0,
+            isExpanded: isExpanded,
+            onTap: onToggleExpand,
+          ),
       ],
     );
   }
-}
 
-class _FavouritedRow extends ConsumerWidget {
-  final BrowseItem item;
-
-  const _FavouritedRow({required this.item});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final track = item.track;
-    final album = item.album;
-    final artist = item.artist;
-
-    final title = track?.title ?? album?.title ?? artist?.name ?? item.name ?? 'Unknown';
-    final artistName = track?.performer?.name ?? album?.artist?.name ?? '';
-    final albumTitle = track?.album?.title ?? album?.title ?? '';
-    final duration = track?.duration;
-
-    final urlResolver = ref.read(urlResolverProvider);
-    final imageUrl = item.image?.small;
-    final resolvedImageUrl = imageUrl != null ? urlResolver.abs(imageUrl) : null;
-    final itemId = item.id;
-
-    final subtitle = [artistName, if (track != null) albumTitle]
-        .where((s) => s.isNotEmpty)
-        .join(' \u00B7 ');
-
-    return Semantics(
-      label: '$title${artistName.isNotEmpty ? ' by $artistName' : ''}, favourited recently',
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          children: [
-            // Artwork with subtle crimson border tint
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: KalinkaColors.accent.withValues(alpha: 0.30),
-                  width: 1,
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(5),
-                child: resolvedImageUrl != null
-                    ? Image.network(
-                        resolvedImageUrl,
-                        width: 40,
-                        height: 40,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => ProceduralAlbumArt(
-                          trackId: itemId,
-                          size: 40,
-                        ),
-                      )
-                    : ProceduralAlbumArt(trackId: itemId, size: 40),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Text content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Primary line: title + duration
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: KalinkaTextStyles.trackRowTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (duration != null) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          _formatDuration(duration),
-                          style: KalinkaTextStyles.trackRowSubtitle,
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  // Secondary line: artist · album + accent dot
-                  if (subtitle.isNotEmpty)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            subtitle,
-                            style: KalinkaTextStyles.trackRowSubtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Semantics(
-                          excludeSemantics: true,
-                          child: _AccentDot(),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatDuration(int seconds) {
-    final m = seconds ~/ 60;
-    final s = seconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
-}
-
-/// 4dp accent dot placed at end of secondary metadata line.
-class _AccentDot extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 4,
-      height: 4,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: KalinkaColors.accent.withValues(alpha: 0.55),
-      ),
-    );
+  Widget _buildRow(BrowseItem item) {
+    switch (item.browseType) {
+      case BrowseType.track:
+        return SearchTrackRow(item: item);
+      case BrowseType.album:
+        return SearchAlbumRow(item: item);
+      case BrowseType.artist:
+        return SearchArtistRow(item: item);
+      case BrowseType.playlist:
+        return SearchPlaylistRow(item: item);
+      default:
+        return SearchTrackRow(item: item);
+    }
   }
 }
 
@@ -906,11 +799,7 @@ class _AiPromptChip extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.auto_awesome,
-              size: 14,
-              color: KalinkaColors.accentTint,
-            ),
+            Icon(Icons.auto_awesome, size: 14, color: KalinkaColors.accentTint),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -921,11 +810,7 @@ class _AiPromptChip extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(
-              Icons.arrow_forward,
-              size: 14,
-              color: KalinkaColors.textMuted,
-            ),
+            Icon(Icons.arrow_forward, size: 14, color: KalinkaColors.textMuted),
           ],
         ),
       ),

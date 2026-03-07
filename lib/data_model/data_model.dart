@@ -785,6 +785,7 @@ class BrowseItem {
   final String? subname;
   final bool canBrowse;
   final bool canAdd;
+  final int timestamp;
 
   final Track? track;
   final Album? album;
@@ -799,6 +800,7 @@ class BrowseItem {
     this.subname,
     required this.canBrowse,
     required this.canAdd,
+    this.timestamp = 0,
     this.track,
     this.album,
     this.artist,
@@ -813,6 +815,7 @@ class BrowseItem {
     subname: null,
     canBrowse: false,
     canAdd: false,
+    timestamp: 0,
     track: null,
     album: null,
     artist: null,
@@ -827,6 +830,7 @@ class BrowseItem {
     String? subname,
     bool? canBrowse,
     bool? canAdd,
+    int? timestamp,
     Track? track,
     Album? album,
     Artist? artist,
@@ -840,6 +844,7 @@ class BrowseItem {
       subname: subname ?? this.subname,
       canBrowse: canBrowse ?? this.canBrowse,
       canAdd: canAdd ?? this.canAdd,
+      timestamp: timestamp ?? this.timestamp,
       track: track ?? this.track,
       album: album ?? this.album,
       artist: artist ?? this.artist,
@@ -917,6 +922,7 @@ class BrowseItem {
     subname: json["subname"],
     canBrowse: json["can_browse"],
     canAdd: json["can_add"],
+    timestamp: json["timestamp"] ?? 0,
     track: json["track"] == null ? null : Track.fromJson(json["track"]),
     album: json["album"] == null ? null : Album.fromJson(json["album"]),
     artist: json["artist"] == null ? null : Artist.fromJson(json["artist"]),
@@ -937,6 +943,7 @@ class BrowseItem {
     "subname": subname,
     "can_browse": canBrowse,
     "can_add": canAdd,
+    "timestamp": timestamp,
     "track": track?.toJson(),
     "album": album?.toJson(),
     "artist": artist?.toJson(),
