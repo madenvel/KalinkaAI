@@ -79,15 +79,31 @@ class PlayQueueStateStore extends Notifier<PlayQueueState> {
     return idx;
   }
 
+  static int _clampPlaybackIndex(int index, int trackCount) {
+    if (trackCount <= 0) return 0;
+    if (index < 0) return 0;
+    final maxIndex = trackCount - 1;
+    if (index > maxIndex) return maxIndex;
+    return index;
+  }
+
   void optimisticallyReorder(int oldIndex, int newIndex) {
     final list = [...state.trackList];
     final item = list.removeAt(oldIndex);
     list.insert(newIndex, item);
     _pendingMoves.add((from: oldIndex, to: newIndex));
     final oldPlaybackIndex = state.playbackState.index ?? 0;
-    final newPlaybackIndex = _remapIndex(oldPlaybackIndex, oldIndex, newIndex);
-    final newPlaybackState = newPlaybackIndex != oldPlaybackIndex
-        ? state.playbackState.copyWithFields(index: newPlaybackIndex)
+    final remappedPlaybackIndex = _remapIndex(
+      oldPlaybackIndex,
+      oldIndex,
+      newIndex,
+    );
+    final normalizedPlaybackIndex = _clampPlaybackIndex(
+      remappedPlaybackIndex,
+      list.length,
+    );
+    final newPlaybackState = normalizedPlaybackIndex != oldPlaybackIndex
+        ? state.playbackState.copyWithFields(index: normalizedPlaybackIndex)
         : state.playbackState;
     state = state.copyWith(
       trackList: list,

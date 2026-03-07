@@ -60,18 +60,36 @@ class PlayQueueState {
   PlayQueueState apply(PlayQueueEvent event, int timestamp) {
     switch (event) {
       case PlaybackStateChangedEvent(:final state, :final seq):
+        final nextPlaybackState = state.copyWith(state)
+          ..timestampNs = timestamp;
         return copyWith(
-          playbackState: state.copyWith(state)..timestampNs = timestamp,
+          playbackState: _normalizePlaybackIndex(
+            nextPlaybackState,
+            trackList.length,
+          ),
           seq: seq,
         );
       case TracksAddedEvent(:final tracks, :final seq):
-        return copyWith(trackList: [...trackList, ...tracks], seq: seq);
-      case TracksRemovedEvent(:final indices, :final seq):
+        final nextTrackList = [...trackList, ...tracks];
         return copyWith(
-          trackList: [
-            for (var i = 0; i < trackList.length; i++)
-              if (!indices.contains(i)) trackList[i],
-          ],
+          trackList: nextTrackList,
+          playbackState: _normalizePlaybackIndex(
+            playbackState,
+            nextTrackList.length,
+          ),
+          seq: seq,
+        );
+      case TracksRemovedEvent(:final indices, :final seq):
+        final nextTrackList = [
+          for (var i = 0; i < trackList.length; i++)
+            if (!indices.contains(i)) trackList[i],
+        ];
+        return copyWith(
+          trackList: nextTrackList,
+          playbackState: _normalizePlaybackIndex(
+            playbackState,
+            nextTrackList.length,
+          ),
           seq: seq,
         );
       case PlaybackModeChangedEvent(:final mode, :final seq):
@@ -84,24 +102,68 @@ class PlayQueueState {
         final item = list.removeAt(fromIndex);
         list.insert(toIndex, item);
         final oldPlaybackIndex = playbackState.index ?? 0;
-        final newPlaybackIndex = _remapIndex(oldPlaybackIndex, fromIndex, toIndex);
+        final newPlaybackIndex = _remapIndex(
+          oldPlaybackIndex,
+          fromIndex,
+          toIndex,
+        );
         final newPlaybackState = newPlaybackIndex != oldPlaybackIndex
             ? playbackState.copyWithFields(index: newPlaybackIndex)
             : playbackState;
-        return copyWith(trackList: list, playbackState: newPlaybackState, seq: seq);
+        return copyWith(
+          trackList: list,
+          playbackState: _normalizePlaybackIndex(newPlaybackState, list.length),
+          seq: seq,
+        );
       case PlaybackErrorEvent():
         // Ignore - no state change.
         return this;
       case ReplayPlayQueueEvent(:final state, :final serverTimeNs, :final seq):
+        final nextPlaybackState =
+            state.playbackState.copyWith(state.playbackState)
+              ..timestampNs = timestamp
+              ..position = _estimatePosition(state.playbackState, serverTimeNs);
         return PlayQueueState(
-          playbackState: state.playbackState.copyWith(state.playbackState)
-            ..timestampNs = timestamp
-            ..position = _estimatePosition(state.playbackState, serverTimeNs),
+          playbackState: _normalizePlaybackIndex(
+            nextPlaybackState,
+            state.trackList.length,
+          ),
           trackList: state.trackList,
           playbackMode: state.playbackMode,
           seq: seq,
         );
     }
+  }
+
+  PlaybackState _normalizePlaybackIndex(
+    PlaybackState nextPlaybackState,
+    int trackCount,
+  ) {
+    final currentIndex = nextPlaybackState.index;
+    if (currentIndex == null) {
+      return nextPlaybackState;
+    }
+
+    final normalizedIndex = _clampPlaybackIndex(currentIndex, trackCount);
+    if (normalizedIndex == currentIndex) {
+      return nextPlaybackState;
+    }
+
+    return nextPlaybackState.copyWithFields(index: normalizedIndex);
+  }
+
+  int _clampPlaybackIndex(int index, int trackCount) {
+    if (trackCount <= 0) {
+      return 0;
+    }
+    if (index < 0) {
+      return 0;
+    }
+    final maxIndex = trackCount - 1;
+    if (index > maxIndex) {
+      return maxIndex;
+    }
+    return index;
   }
 
   /// Mirrors the server-side `_remap_index` logic.

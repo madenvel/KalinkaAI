@@ -245,6 +245,12 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     final trackList = queueState.trackList;
     final currentIndex = queueState.playbackState.index ?? 0;
 
+    final hasCurrentInQueue =
+        currentIndex >= 0 && currentIndex < trackList.length;
+    if (!hasCurrentInQueue) {
+      return null;
+    }
+
     if (isNext) {
       return currentIndex + 1 < trackList.length
           ? trackList[currentIndex + 1]
@@ -310,10 +316,14 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
 
     // Queue peek for carousel incoming-track preview.
     final currentIndex = playbackIndex;
-    final nextTrack = currentIndex + 1 < trackList.length
+    final hasCurrentInQueue =
+        currentIndex >= 0 && currentIndex < trackList.length;
+    final nextTrack = hasCurrentInQueue && currentIndex + 1 < trackList.length
         ? trackList[currentIndex + 1]
         : null;
-    final prevTrack = currentIndex > 0 ? trackList[currentIndex - 1] : null;
+    final prevTrack = hasCurrentInQueue && currentIndex > 0
+        ? trackList[currentIndex - 1]
+        : null;
     final incomingTrack = _swipeIsNext == null
         ? null
         : _incomingTrackSnapshot ??
