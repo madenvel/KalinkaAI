@@ -5,6 +5,7 @@ import '../providers/selection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/play_next.dart';
 import '../utils/haptics.dart';
 
 /// Top bar shown during multi-select mode.
@@ -304,9 +305,13 @@ class MultiSelectBottomBar extends ConsumerWidget {
       final ids = ref.read(selectionStateProvider.notifier).resolveIdsForApi();
       await api.add(ids);
       ref.read(selectionStateProvider.notifier).exitSelectionMode();
-      ref.read(toastProvider.notifier).show('${selection.count} tracks added to queue');
+      ref
+          .read(toastProvider.notifier)
+          .show('${selection.count} tracks added to queue');
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to add to queue: $e', isError: true);
+      ref
+          .read(toastProvider.notifier)
+          .show('Failed to add to queue: $e', isError: true);
     }
   }
 
@@ -322,9 +327,13 @@ class MultiSelectBottomBar extends ConsumerWidget {
       await api.add(ids);
       await api.play();
       ref.read(selectionStateProvider.notifier).exitSelectionMode();
-      ref.read(toastProvider.notifier).show('Playing ${selection.count} tracks');
+      ref
+          .read(toastProvider.notifier)
+          .show('Playing ${selection.count} tracks');
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to play: $e', isError: true);
+      ref
+          .read(toastProvider.notifier)
+          .show('Failed to play: $e', isError: true);
     }
   }
 
@@ -336,9 +345,11 @@ class MultiSelectBottomBar extends ConsumerWidget {
     try {
       final api = ref.read(kalinkaProxyProvider);
       final ids = ref.read(selectionStateProvider.notifier).resolveIdsForApi();
-      await api.add(ids);
+      await api.add(ids, index: playNextInsertIndex(ref));
       ref.read(selectionStateProvider.notifier).exitSelectionMode();
-      ref.read(toastProvider.notifier).show('${selection.count} tracks playing next');
+      ref
+          .read(toastProvider.notifier)
+          .show('${selection.count} tracks playing next');
     } catch (e) {
       ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
     }

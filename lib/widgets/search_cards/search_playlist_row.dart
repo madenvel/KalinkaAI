@@ -13,6 +13,7 @@ import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../providers/source_modules_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/play_next.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
 import '../swipe_to_act_row.dart';
@@ -66,7 +67,7 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
   Future<void> _playNext() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
-      await api.add([widget.item.id]);
+      await api.add([widget.item.id], index: playNextInsertIndex(ref));
       final title =
           widget.item.playlist?.name ?? widget.item.name ?? 'playlist';
       ref.read(toastProvider.notifier).show('$title playing next');
@@ -461,7 +462,7 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
   Future<void> _playNext() async {
     try {
       final api = ref.read(kalinkaProxyProvider);
-      await api.add([widget.item.id]);
+      await api.add([widget.item.id], index: playNextInsertIndex(ref));
       final title = widget.item.track?.title ?? widget.item.name ?? 'track';
       ref.read(toastProvider.notifier).show('"$title" playing next');
     } catch (e) {

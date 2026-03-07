@@ -12,6 +12,7 @@ import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../providers/source_modules_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/play_next.dart';
 import '../berry_pulse.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
@@ -72,7 +73,7 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
     final api = ref.read(kalinkaProxyProvider);
     final toast = ref.read(toastProvider.notifier);
     try {
-      await api.add([widget.item.id]);
+      await api.add([widget.item.id], index: playNextInsertIndex(ref));
       final title = widget.item.track?.title ?? widget.item.name ?? 'track';
       toast.show('"$title" playing next');
     } catch (e) {
