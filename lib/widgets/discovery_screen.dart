@@ -193,7 +193,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         _buildScanningArt(),
         const SizedBox(height: 32),
         Text(
-          'Looking for kalinka',
+          'Looking for Kalinka',
           style: KalinkaTextStyles.expandedTitle.copyWith(fontSize: 22),
         ),
         const SizedBox(height: 8),
@@ -292,7 +292,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'No kalinka servers found on this network.\n'
+            'No Kalinka servers found on this network.\n'
             'Make sure the server is running and\nyou\'re on the same Wi-Fi.',
             textAlign: TextAlign.center,
             style: KalinkaTextStyles.trayRowSublabel.copyWith(
@@ -336,7 +336,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
       children: [
         const SizedBox(height: 32),
         Text(
-          'Looking for kalinka',
+          'Looking for Kalinka',
           style: KalinkaTextStyles.expandedTitle.copyWith(fontSize: 22),
         ),
         const SizedBox(height: 8),
@@ -384,7 +384,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
             child: Padding(
               padding: const EdgeInsets.only(bottom: 24),
               child: Text(
-                'enter address manually',
+                'Enter Address Manually',
                 style: KalinkaTextStyles.trayRowSublabel.copyWith(
                   fontSize: 12,
                   color: KalinkaColors.textSecondary,
@@ -411,6 +411,14 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     bool isSelected,
     bool isCurrent,
   ) {
+    final latencyLabel = server.latencyMs > 0
+        ? '${server.latencyMs}ms'
+        : 'Latency Unknown';
+    final version = server.version;
+    final versionLabel = (version != null && version.isNotEmpty)
+        ? 'v$version'
+        : 'Version unknown';
+
     Color borderColor;
     Color bgColor;
     if (isCurrent) {
@@ -428,9 +436,9 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
       onTap: isCurrent
           ? null
           : () => setState(() {
-                _selectedIndex = index;
-                _showManualEntry = false;
-              }),
+              _selectedIndex = index;
+              _showManualEntry = false;
+            }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
@@ -475,14 +483,22 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    [
-                      '${server.host}:${server.port}',
-                      if (server.latencyMs > 0) '${server.latencyMs}ms',
-                      if (server.version != null) 'v${server.version}',
-                    ].join(' \u00b7 '),
+                    '${server.host} \u00b7 $latencyLabel',
                     style: KalinkaTextStyles.trayRowSublabel.copyWith(
                       fontSize: 12,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    versionLabel,
+                    style: KalinkaTextStyles.trayRowSublabel.copyWith(
+                      fontSize: 12,
+                      color: KalinkaColors.textMuted,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

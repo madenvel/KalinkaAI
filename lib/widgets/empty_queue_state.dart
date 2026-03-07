@@ -57,14 +57,14 @@ class _EmptyQueueStateState extends State<EmptyQueueState>
                   const SizedBox(height: 24),
                   // Title
                   Text(
-                    'nothing queued',
+                    'Nothing Queued',
                     style: KalinkaTextStyles.emptyQueueTitle,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   // Subtitle
                   Text(
-                    'search to add music',
+                    'Search to Add Music',
                     style: KalinkaTextStyles.emptyQueueSubtitle,
                     textAlign: TextAlign.center,
                   ),
@@ -112,12 +112,8 @@ class _EmptyQueueStateState extends State<EmptyQueueState>
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'tap to search',
-                                style: TextStyle(
-                                  fontFamily: 'IBMPlexMono',
-                                  fontSize: 12,
-                                  color: KalinkaColors.textSecondary,
-                                ),
+                                'Tap to Search',
+                                style: KalinkaTextStyles.recentChipLabel,
                               ),
                             ],
                           ),

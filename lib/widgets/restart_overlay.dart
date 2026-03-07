@@ -3,7 +3,6 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../providers/restart_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
@@ -148,11 +147,7 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
                       restartState.isDone
                           ? 'Restart complete'
                           : 'Restarting server',
-                      style: GoogleFonts.playfairDisplay(
-                        fontSize: 20,
-                        fontStyle: FontStyle.italic,
-                        color: KalinkaColors.textPrimary,
-                      ),
+                      style: KalinkaTextStyles.dialogTitle,
                     ),
                     const SizedBox(height: 6),
                     // Subtitle

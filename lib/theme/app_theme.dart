@@ -33,11 +33,11 @@ class KalinkaColors {
   // Always white-alpha — never solid. Works against any surface level.
 
   static const borderSubtle = Color(
-    0x12FFFFFF,
-  ); // 0.07 · Dividers · card edges · row separators
+    0x1EFFFFFF,
+  ); // 0.12 · Dividers · card edges · row separators
   static const borderDefault = Color(
-    0x21FFFFFF,
-  ); // 0.13 · Controls · inputs · chips · sheet rules
+    0x33FFFFFF,
+  ); // 0.20 · Controls · inputs · chips · sheet rules
 
   // ── Text ────────────────────────────────────────────────────────────────
   // Three legibility tiers. All pass WCAG AA on background and surfaceBase.
@@ -48,12 +48,11 @@ class KalinkaColors {
     0xFFEEECEA,
   ); // 15.8:1 on bg · Track titles · labels · values
   static const textSecondary = Color(
-    0xFFA8A8AA,
-  ); // 5.4:1 on bg · 4.6:1 on surfaceInput · Subtitles · metadata · chip labels
+    0xFFBABABC,
+  ); // 7.0:1 on bg · Subtitles · metadata · chip labels
   static const textMuted = Color(
-    0xFF6B6B80,
-  ); // 3.8:1 on bg · DECORATIVE ONLY — section chrome,
-  // drag handles, inactive icons. Never for readable text.
+    0xFF888899,
+  ); // 5.0:1 on bg · Section chrome · drag handles · inactive icons
 
   // ── Accent — Rose/Crimson ───────────────────────────────────────────────
   // Primary interactive accent. Active states, progress, selected indicators.
@@ -189,7 +188,7 @@ class KalinkaTextStyles {
 
   static TextStyle expandedAttribution = GoogleFonts.ibmPlexMono(
     fontSize: 12,
-    color: KalinkaColors.textMuted,
+    color: KalinkaColors.textSecondary,
   );
 
   // Labels
@@ -197,7 +196,7 @@ class KalinkaTextStyles {
     fontSize: 10,
     fontWeight: FontWeight.w600,
     letterSpacing: 2.0,
-    color: KalinkaColors.textMuted,
+    color: KalinkaColors.textSecondary,
   );
 
   static TextStyle formatBadge = GoogleFonts.ibmPlexMono(
@@ -233,7 +232,6 @@ class KalinkaTextStyles {
 
   static TextStyle aiPlaylistName = GoogleFonts.playfairDisplay(
     fontSize: 16,
-    fontStyle: FontStyle.italic,
     color: KalinkaColors.textPrimary,
   );
 
@@ -333,7 +331,6 @@ class KalinkaTextStyles {
 
   static TextStyle aiCompletionText = GoogleFonts.playfairDisplay(
     fontSize: 12,
-    fontStyle: FontStyle.italic,
     color: KalinkaColors.textPrimary,
   );
 
@@ -341,7 +338,6 @@ class KalinkaTextStyles {
   static TextStyle aiPromptChipText = GoogleFonts.ibmPlexMono(
     fontSize: 13,
     fontWeight: FontWeight.w300,
-    fontStyle: FontStyle.italic,
     color: KalinkaColors.accentTint,
   );
 
@@ -413,13 +409,11 @@ class KalinkaTextStyles {
   // Empty queue state
   static TextStyle emptyQueueTitle = GoogleFonts.playfairDisplay(
     fontSize: 22,
-    fontStyle: FontStyle.italic,
-    color: KalinkaColors.textSecondary,
+    color: KalinkaColors.textPrimary,
   );
 
   static TextStyle emptyQueueSubtitle = GoogleFonts.ibmPlexMono(
-    fontSize: 10,
-    letterSpacing: 0.6,
+    fontSize: 12,
     color: KalinkaColors.textSecondary,
   );
 
@@ -489,7 +483,7 @@ class KalinkaTextStyles {
   static TextStyle filterPillInactive = GoogleFonts.ibmPlexMono(
     fontSize: 11,
     fontWeight: FontWeight.w400,
-    color: KalinkaColors.textMuted,
+    color: KalinkaColors.textSecondary,
   );
 
   /// Filter pill label — active state

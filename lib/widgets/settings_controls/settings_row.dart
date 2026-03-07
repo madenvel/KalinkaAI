@@ -26,7 +26,7 @@ class SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showAmber = isStaged || differsFromDefault;
-    final pillText = isStaged ? 'staged' : 'differs from default';
+    final pillText = isStaged ? 'Staged' : 'Differs from Default';
 
     return Container(
       decoration: showAmber
