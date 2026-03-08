@@ -34,7 +34,6 @@ class SearchResultsFeed extends ConsumerStatefulWidget {
 
 class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     with SingleTickerProviderStateMixin {
-  final ScrollController _scrollController = ScrollController();
   late AnimationController _staggerController;
   int _previousResultCount = -1;
 
@@ -49,7 +48,6 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
   @override
   void dispose() {
-    _scrollController.dispose();
     _staggerController.dispose();
     super.dispose();
   }
@@ -171,7 +169,6 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
   Widget _buildErrorView(String error) {
     return ListView(
-      controller: _scrollController,
       children: [
         const SizedBox(height: 40),
         Center(
@@ -197,7 +194,6 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     }
 
     return ListView(
-      controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: sessionHistory.take(2).map((query) {
         return GestureDetector(
@@ -238,7 +234,6 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
   Widget _buildSkeletonLoading() {
     return ListView(
-      controller: _scrollController,
       padding: EdgeInsets.fromLTRB(16, 16, 16, widget.bottomPadding),
       children: [
         // AI card skeleton (taller, full-width)
@@ -263,8 +258,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
     if (!hasResults) {
       return ListView(
-        controller: _scrollController,
-        children: [
+          children: [
           const SizedBox(height: 60),
           Center(
             child: Column(
@@ -321,7 +315,6 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     int itemIndex = 0;
 
     return ListView(
-      controller: _scrollController,
       padding: EdgeInsets.fromLTRB(16, 0, 16, widget.bottomPadding),
       children: [
         // Result count hint
@@ -558,8 +551,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
   ) {
     if (recommendations.isEmpty) {
       return ListView(
-        controller: _scrollController,
-        children: const [
+          children: const [
           Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: Text('No recommendations available')),
@@ -581,7 +573,6 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     }
 
     return ListView(
-      controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: sections.map((section) {
         return Padding(
