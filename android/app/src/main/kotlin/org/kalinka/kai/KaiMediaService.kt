@@ -82,6 +82,7 @@ class KaiMediaService : Service() {
     private var currentDurationMs: Long = 0
     private var currentPositionMs: Long = 0
     private var currentIsPlaying: Boolean = false
+    private var currentPlayerState: String = "STOPPED"  // PLAYING, PAUSED, BUFFERING, STOPPED, ERROR
     private var currentVolume: Int = 50
     private var maxVolume: Int = 100
     private var currentAlbumArt: Bitmap? = null
@@ -119,7 +120,7 @@ class KaiMediaService : Service() {
         MediaButtonReceiver.handleIntent(mediaSession, intent)
 
         when (intent?.action) {
-            ACTION_PLAY -> sendQueueCommand("""{"command":"play"}""")
+            ACTION_PLAY -> sendResumeOrPlay()
             ACTION_PAUSE -> sendQueueCommand("""{"command":"pause","paused":true}""")
             ACTION_NEXT -> sendQueueCommand("""{"command":"next"}""")
             ACTION_PREV -> sendQueueCommand("""{"command":"prev"}""")
@@ -245,6 +246,14 @@ class KaiMediaService : Service() {
         deviceWs?.send(json)
     }
 
+    private fun sendResumeOrPlay() {
+        if (currentPlayerState == "PAUSED") {
+            sendQueueCommand("""{"command":"pause","paused":false}""")
+        } else {
+            sendQueueCommand("""{"command":"play"}""")
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Event handling
     // -------------------------------------------------------------------------
@@ -289,6 +298,7 @@ class KaiMediaService : Service() {
         val stateStr = stateJson.optString("state", "")
         val newIsPlaying = stateStr == "PLAYING" || stateStr == "BUFFERING"
         val isStopped = stateStr == "STOPPED" || stateStr == "ERROR"
+        currentPlayerState = stateStr
         val trackJson0 = stateJson.optJSONObject("current_track")
         Log.d(TAG, "updateFromPlaybackState: state=$stateStr isPlaying=$newIsPlaying isStopped=$isStopped hasTrack=${trackJson0 != null} title=${trackJson0?.optString("title")}")
 
@@ -400,7 +410,7 @@ class KaiMediaService : Service() {
         val mediaButtonReceiver = ComponentName(this, MediaButtonReceiver::class.java)
         mediaSession = MediaSessionCompat(this, "KaiMediaSession", mediaButtonReceiver, null).apply {
             setCallback(object : MediaSessionCompat.Callback() {
-                override fun onPlay() { sendQueueCommand("""{"command":"play"}""") }
+                override fun onPlay() { sendResumeOrPlay() }
                 override fun onPause() { sendQueueCommand("""{"command":"pause","paused":true}""") }
                 override fun onSkipToNext() { sendQueueCommand("""{"command":"next"}""") }
                 override fun onSkipToPrevious() { sendQueueCommand("""{"command":"prev"}""") }
