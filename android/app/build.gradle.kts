@@ -45,4 +45,5 @@ flutter {
 
 dependencies {
     implementation("androidx.media:media:1.7.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
