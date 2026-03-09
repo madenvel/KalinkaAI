@@ -91,6 +91,15 @@ class KaiMediaService : Service() {
     private var volumeChangeModeActive = false
     private val clearVolumeModeRunnable = Runnable { volumeChangeModeActive = false }
 
+    // --- Volume send debounce ---
+    private var pendingVolumeToSend: Int? = null
+    private val sendVolumeRunnable = Runnable {
+        pendingVolumeToSend?.let { vol ->
+            pendingVolumeToSend = null
+            sendDeviceCommand("""{"command":"set_volume","volume":$vol}""")
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Lifecycle
     // -------------------------------------------------------------------------
@@ -414,16 +423,22 @@ class KaiMediaService : Service() {
                 val newVol = (currentVolume + direction).coerceIn(0, maxVol)
                 currentVolume = newVol
                 enterVolumeSuppressMode()
-                sendDeviceCommand("""{"command":"set_volume","volume":$newVol}""")
+                scheduleVolumeCommand(newVol)
             }
             override fun onSetVolumeTo(volume: Int) {
                 val newVol = volume.coerceIn(0, maxVol)
                 currentVolume = newVol
                 enterVolumeSuppressMode()
-                sendDeviceCommand("""{"command":"set_volume","volume":$newVol}""")
+                scheduleVolumeCommand(newVol)
             }
         }
         mediaSession.setPlaybackToRemote(volumeProvider)
+    }
+
+    private fun scheduleVolumeCommand(volume: Int) {
+        pendingVolumeToSend = volume
+        mainHandler.removeCallbacks(sendVolumeRunnable)
+        mainHandler.postDelayed(sendVolumeRunnable, 50L)
     }
 
     private fun enterVolumeSuppressMode() {

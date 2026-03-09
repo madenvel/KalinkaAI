@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,6 +24,8 @@ class _NowPlayingVolumeControlState
   int? _volumeBeforeSeq;
   double _lastHapticVolumePosition = -1.0;
   ProviderSubscription? _extDeviceStateStoreProviderSubscription;
+  Timer? _volumeDebounceTimer;
+  int? _pendingVolume;
 
   @override
   void initState() {
@@ -42,6 +46,7 @@ class _NowPlayingVolumeControlState
 
   @override
   void dispose() {
+    _volumeDebounceTimer?.cancel();
     _extDeviceStateStoreProviderSubscription?.close();
     super.dispose();
   }
@@ -93,13 +98,35 @@ class _NowPlayingVolumeControlState
                     _localVolumeProgress = value;
                   });
 
+                  _pendingVolume = newVolume;
+                  _volumeDebounceTimer?.cancel();
+                  _volumeDebounceTimer = Timer(
+                    const Duration(milliseconds: 50),
+                    () {
+                      final vol = _pendingVolume;
+                      if (vol != null) {
+                        _pendingVolume = null;
+                        ref
+                            .read(kalinkaWsApiProvider)
+                            .sendDeviceCommand(
+                              DeviceCommand.setVolume(volume: vol),
+                            );
+                      }
+                    },
+                  );
+                },
+                onChangeEnd: (value) {
+                  _volumeDebounceTimer?.cancel();
+                  _volumeDebounceTimer = null;
+                  final vol =
+                      _pendingVolume ??
+                      (value * volumeState.maxVolume).round();
+                  _pendingVolume = null;
                   ref
                       .read(kalinkaWsApiProvider)
                       .sendDeviceCommand(
-                        DeviceCommand.setVolume(volume: newVolume),
+                        DeviceCommand.setVolume(volume: vol),
                       );
-                },
-                onChangeEnd: (_) {
                   _lastHapticVolumePosition = -1.0;
                   setState(() {
                     _volumeBeforeSeq = ref
