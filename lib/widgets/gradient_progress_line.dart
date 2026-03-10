@@ -9,7 +9,7 @@ class GradientProgressLine extends StatelessWidget {
   const GradientProgressLine({
     super.key,
     required this.progress,
-    this.height = 2,
+    this.height = 3,
   });
 
   @override
