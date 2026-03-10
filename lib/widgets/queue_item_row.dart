@@ -47,6 +47,37 @@ class QueueItemRow extends ConsumerWidget {
     return '$minutes:${remaining.toString().padLeft(2, '0')}';
   }
 
+  int get _upNextPosition => displayIndex + 1;
+
+  double get _titleFadeFactor {
+    // Position 1 -> 0.0, position 15+ -> 1.0
+    return ((_upNextPosition - 1) / 14).clamp(0.0, 1.0);
+  }
+
+  Color _titleColor() {
+    if (isHistory) return KalinkaColors.textMuted;
+    if (isCurrentTrack) {
+      // Requested now-playing accent tone.
+      return const Color(0xFFFF6B7A);
+    }
+
+    // Smooth progressive fade for Up Next titles.
+    return Color.lerp(
+      const Color(0xFFE6E6E6),
+      const Color(0xFFB0B0B0),
+      _titleFadeFactor,
+    )!;
+  }
+
+  double _upNextArtworkOpacity() {
+    if (isCurrentTrack) return 1.0;
+    if (isHistory) return 0.85;
+
+    if (_upNextPosition <= 3) return 1.0;
+    if (_upNextPosition <= 8) return 0.95;
+    return 0.9;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final api = ref.read(kalinkaWsApiProvider);
@@ -59,11 +90,7 @@ class QueueItemRow extends ConsumerWidget {
         : null;
 
     // Colour tokens vary by state
-    final titleColor = isHistory
-        ? KalinkaColors.textMuted
-        : isCurrentTrack
-        ? KalinkaColors.accentTint
-        : KalinkaColors.textPrimary;
+    final titleColor = _titleColor();
 
     final artistColor = isHistory
         ? KalinkaColors.textMuted
@@ -137,9 +164,7 @@ class QueueItemRow extends ConsumerWidget {
             : ProceduralAlbumArt(trackId: track.id, size: 44),
       );
 
-      if (isHistory) {
-        artwork = Opacity(opacity: 0.38, child: artwork);
-      }
+      artwork = Opacity(opacity: _upNextArtworkOpacity(), child: artwork);
     }
 
     final rowContent = GestureDetector(
@@ -215,11 +240,15 @@ class QueueItemRow extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Text(
                     _formatDuration(track.duration),
-                    style: KalinkaTextStyles.queueItemDuration,
+                    // Keep Up Next duration fixed for fast scanning.
+                    style: KalinkaTextStyles.queueItemDuration.copyWith(
+                      color: KalinkaColors.textSecondary,
+                    ),
                   ),
-                  if (showDragHandle)
-                    _DragHandle(index: displayIndex)
-                  else
+                  if (showDragHandle) ...[
+                    const SizedBox(width: 7),
+                    _DragHandle(index: displayIndex),
+                  ] else
                     const SizedBox(width: 8),
                 ],
               ),
@@ -246,8 +275,7 @@ class QueueItemRow extends ConsumerWidget {
   }
 }
 
-/// Drag handle widget — a 48×48 touch target that starts a reorder drag
-/// immediately on touch via [ReorderableDragStartListener].
+/// Drag handle widget aligned to the 44px artwork centerline.
 class _DragHandle extends StatelessWidget {
   /// The index of this item within the enclosing [SliverReorderableList].
   final int index;
@@ -258,12 +286,15 @@ class _DragHandle extends StatelessWidget {
   Widget build(BuildContext context) {
     return ReorderableDragStartListener(
       index: index,
-      child: const Padding(
-        padding: EdgeInsets.all(14), // 48dp touch target around 20dp icon
-        child: Icon(
-          Icons.drag_handle,
-          size: 20,
-          color: KalinkaColors.textMuted,
+      child: const SizedBox(
+        width: 48,
+        height: 44,
+        child: Center(
+          child: Icon(
+            Icons.drag_handle,
+            size: 20,
+            color: KalinkaColors.textMuted,
+          ),
         ),
       ),
     );
