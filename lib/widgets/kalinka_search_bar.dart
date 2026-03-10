@@ -265,7 +265,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
       }
     }
 
-    final bar = _buildSearchBar(searchState);
+    final bar = _buildSearchBar();
 
     if (isDisconnected) {
       return IgnorePointer(child: Opacity(opacity: 0.38, child: bar));
@@ -274,7 +274,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
     return bar;
   }
 
-  Widget _buildSearchBar(SearchState searchState) {
+  Widget _buildSearchBar() {
     return GestureDetector(
       onTap: () {
         if (!_isActive) {
@@ -286,6 +286,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
           });
           return;
         }
+
         _searchFocusNode.requestFocus();
       },
       behavior: HitTestBehavior.opaque,

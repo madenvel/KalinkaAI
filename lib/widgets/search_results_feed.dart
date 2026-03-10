@@ -52,6 +52,17 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     super.dispose();
   }
 
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+
+    if (notification.metrics.pixels > 0.5) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      ref.read(searchStateProvider.notifier).setKeyboardVisible(false);
+    }
+
+    return false;
+  }
+
   void _triggerStagger(int itemCount) {
     if (itemCount == _previousResultCount) return;
     _previousResultCount = itemCount;
@@ -115,16 +126,19 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
     return Stack(
       children: [
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
-          switchInCurve: Curves.easeOut,
-          switchOutCurve: Curves.easeOut,
-          transitionBuilder: (child, animation) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          child: KeyedSubtree(
-            key: ValueKey(searchState.searchPhase),
-            child: content,
+        NotificationListener<ScrollNotification>(
+          onNotification: _onScrollNotification,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeOut,
+            transitionBuilder: (child, animation) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            child: KeyedSubtree(
+              key: ValueKey(searchState.searchPhase),
+              child: content,
+            ),
           ),
         ),
         if (selection.isActive) ...[
@@ -150,7 +164,8 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
   /// Wraps results content with a pinned filter pill row when a filter is active.
   Widget _wrapWithFilterPills(Widget inner, SearchState searchState) {
-    final hasActiveFilter = searchState.activeScopeFilter != null ||
+    final hasActiveFilter =
+        searchState.activeScopeFilter != null ||
         searchState.activeGenreId != null;
     if (!hasActiveFilter) return inner;
     return Column(
@@ -258,7 +273,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
     if (!hasResults) {
       return ListView(
-          children: [
+        children: [
           const SizedBox(height: 60),
           Center(
             child: Column(
@@ -551,7 +566,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
   ) {
     if (recommendations.isEmpty) {
       return ListView(
-          children: const [
+        children: const [
           Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: Text('No recommendations available')),
