@@ -50,8 +50,8 @@ class QueueItemRow extends ConsumerWidget {
   int get _upNextPosition => displayIndex + 1;
 
   double get _titleFadeFactor {
-    // Position 1 -> 0.0, position 15+ -> 1.0
-    return ((_upNextPosition - 1) / 14).clamp(0.0, 1.0);
+    // Position 1 -> 0.0, position 8+ -> 1.0
+    return ((_upNextPosition - 1) / 8).clamp(0.0, 1.0);
   }
 
   Color _titleColor() {
@@ -71,11 +71,11 @@ class QueueItemRow extends ConsumerWidget {
 
   double _upNextArtworkOpacity() {
     if (isCurrentTrack) return 1.0;
-    if (isHistory) return 0.85;
+    if (isHistory) return 0.75;
 
     if (_upNextPosition <= 3) return 1.0;
-    if (_upNextPosition <= 8) return 0.95;
-    return 0.9;
+    if (_upNextPosition <= 8) return 0.85;
+    return 0.8;
   }
 
   @override

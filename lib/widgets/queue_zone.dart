@@ -373,7 +373,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
               const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Divider(),
+                  child: Divider(color: Color(0x26FFFFFF)),
                 ),
               ),
           ],

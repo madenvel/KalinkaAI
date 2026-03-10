@@ -37,7 +37,7 @@ class QueueSectionHeader extends StatelessWidget {
                 if (trackCount != null) ...[
                   const SizedBox(width: 6),
                   Text(
-                    '($trackCount)',
+                    '· $trackCount',
                     style: KalinkaTextStyles.trackCountBadge,
                   ),
                 ],
