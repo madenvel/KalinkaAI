@@ -50,29 +50,25 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
   }
 
   Future<void> _addToQueue() async {
+    final api = ref.read(kalinkaProxyProvider);
+    final title = widget.item.playlist?.name ?? widget.item.name ?? 'playlist';
+    final trackCount = widget.item.playlist?.trackCount;
     try {
-      final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      final title =
-          widget.item.playlist?.name ?? widget.item.name ?? 'playlist';
-      final trackCount = widget.item.playlist?.trackCount;
-      ref
-          .read(toastProvider.notifier)
-          .show('$title — ${trackCount ?? ''} tracks added to queue');
+      this.showSafeToast('$title — ${trackCount ?? ''} tracks added to queue');
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
+      this.showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
   Future<void> _playNext() async {
+    final api = ref.read(kalinkaProxyProvider);
+    final title = widget.item.playlist?.name ?? widget.item.name ?? 'playlist';
     try {
-      final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id], index: playNextInsertIndex(ref));
-      final title =
-          widget.item.playlist?.name ?? widget.item.name ?? 'playlist';
-      ref.read(toastProvider.notifier).show('$title playing next');
+      this.showSafeToast('$title playing next');
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
+      this.showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
@@ -436,37 +432,35 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
   }
 
   Future<void> _playTrack() async {
+    final api = ref.read(kalinkaProxyProvider);
     try {
-      final api = ref.read(kalinkaProxyProvider);
       await api.clear();
       await api.add([widget.containerId]);
       await api.play(widget.index - 1);
     } catch (e) {
-      ref
-          .read(toastProvider.notifier)
-          .show('Failed to play: $e', isError: true);
+      this.showSafeToast('Failed to play: $e', isError: true);
     }
   }
 
   Future<void> _addToQueue() async {
+    final api = ref.read(kalinkaProxyProvider);
+    final title = widget.item.track?.title ?? widget.item.name ?? 'track';
     try {
-      final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id]);
-      final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-      ref.read(toastProvider.notifier).show('"$title" added to queue');
+      this.showSafeToast('"$title" added to queue');
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
+      this.showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
   Future<void> _playNext() async {
+    final api = ref.read(kalinkaProxyProvider);
+    final title = widget.item.track?.title ?? widget.item.name ?? 'track';
     try {
-      final api = ref.read(kalinkaProxyProvider);
       await api.add([widget.item.id], index: playNextInsertIndex(ref));
-      final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-      ref.read(toastProvider.notifier).show('"$title" playing next');
+      this.showSafeToast('"$title" playing next');
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
+      this.showSafeToast('Failed to add: $e', isError: true);
     }
   }
 

@@ -300,18 +300,25 @@ class MultiSelectBottomBar extends ConsumerWidget {
     WidgetRef ref,
     SelectionState selection,
   ) async {
+    final api = ref.read(kalinkaProxyProvider);
+    final selectionNotifier = ref.read(selectionStateProvider.notifier);
+    final ids = selectionNotifier.resolveIdsForApi();
     try {
-      final api = ref.read(kalinkaProxyProvider);
-      final ids = ref.read(selectionStateProvider.notifier).resolveIdsForApi();
       await api.add(ids);
-      ref.read(selectionStateProvider.notifier).exitSelectionMode();
-      ref
-          .read(toastProvider.notifier)
-          .show('${selection.count} tracks added to queue');
+      if (!context.mounted) return;
+      selectionNotifier.exitSelectionMode();
+      showToastIfMounted(
+        context,
+        ref,
+        '${selection.count} tracks added to queue',
+      );
     } catch (e) {
-      ref
-          .read(toastProvider.notifier)
-          .show('Failed to add to queue: $e', isError: true);
+      showToastIfMounted(
+        context,
+        ref,
+        'Failed to add to queue: $e',
+        isError: true,
+      );
     }
   }
 
@@ -320,20 +327,18 @@ class MultiSelectBottomBar extends ConsumerWidget {
     WidgetRef ref,
     SelectionState selection,
   ) async {
+    final api = ref.read(kalinkaProxyProvider);
+    final selectionNotifier = ref.read(selectionStateProvider.notifier);
+    final ids = selectionNotifier.resolveIdsForApi();
     try {
-      final api = ref.read(kalinkaProxyProvider);
-      final ids = ref.read(selectionStateProvider.notifier).resolveIdsForApi();
       await api.clear();
       await api.add(ids);
       await api.play();
-      ref.read(selectionStateProvider.notifier).exitSelectionMode();
-      ref
-          .read(toastProvider.notifier)
-          .show('Playing ${selection.count} tracks');
+      if (!context.mounted) return;
+      selectionNotifier.exitSelectionMode();
+      showToastIfMounted(context, ref, 'Playing ${selection.count} tracks');
     } catch (e) {
-      ref
-          .read(toastProvider.notifier)
-          .show('Failed to play: $e', isError: true);
+      showToastIfMounted(context, ref, 'Failed to play: $e', isError: true);
     }
   }
 
@@ -342,16 +347,20 @@ class MultiSelectBottomBar extends ConsumerWidget {
     WidgetRef ref,
     SelectionState selection,
   ) async {
+    final api = ref.read(kalinkaProxyProvider);
+    final selectionNotifier = ref.read(selectionStateProvider.notifier);
+    final ids = selectionNotifier.resolveIdsForApi();
     try {
-      final api = ref.read(kalinkaProxyProvider);
-      final ids = ref.read(selectionStateProvider.notifier).resolveIdsForApi();
       await api.add(ids, index: playNextInsertIndex(ref));
-      ref.read(selectionStateProvider.notifier).exitSelectionMode();
-      ref
-          .read(toastProvider.notifier)
-          .show('${selection.count} tracks playing next');
+      if (!context.mounted) return;
+      selectionNotifier.exitSelectionMode();
+      showToastIfMounted(
+        context,
+        ref,
+        '${selection.count} tracks playing next',
+      );
     } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to add: $e', isError: true);
+      showToastIfMounted(context, ref, 'Failed to add: $e', isError: true);
     }
   }
 }

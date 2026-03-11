@@ -363,16 +363,13 @@ class _BrowseListState extends ConsumerState<BrowseList> {
   }
 
   Future<void> _addToQueue(BrowseItem item) async {
+    final api = ref.read(kalinkaProxyProvider);
+    final itemName = item.name ?? 'item';
     try {
-      final api = ref.read(kalinkaProxyProvider);
       await api.add([item.id]);
-      ref
-          .read(toastProvider.notifier)
-          .show('Added "${item.name ?? 'item'}" to queue');
+      this.showSafeToast('Added "$itemName" to queue');
     } catch (e) {
-      ref
-          .read(toastProvider.notifier)
-          .show('Failed to add to queue: $e', isError: true);
+      this.showSafeToast('Failed to add to queue: $e', isError: true);
     }
   }
 }

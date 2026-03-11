@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// A single in-app toast notification.
@@ -38,12 +39,26 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
   String? _trackDeletionToastId;
   final List<String> _deletedTrackTitles = [];
   int _counter = 0;
+  bool _isDisposed = false;
 
   @override
-  List<ToastEntry> build() => [];
+  List<ToastEntry> build() {
+    _isDisposed = false;
+    ref.onDispose(() {
+      _isDisposed = true;
+      for (final timer in _timers.values) {
+        timer.cancel();
+      }
+      _timers.clear();
+      _trackDeletionToastId = null;
+      _deletedTrackTitles.clear();
+    });
+    return [];
+  }
 
   /// Show a toast. Success toasts dismiss after 2 s; error toasts after 3 s.
   void show(String message, {bool isError = false}) {
+    if (_isDisposed) return;
     final id = _appendToast(message: message, isError: isError);
     final displayMs = isError ? _errorDisplayMs : _successDisplayMs;
     _restartDisplayTimer(id, displayMs);
@@ -51,6 +66,7 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
 
   /// Aggregate sequential queue track deletions into a single toast.
   void showTrackRemoved(String title) {
+    if (_isDisposed) return;
     _deletedTrackTitles.add(_shortenTitle(title));
     final message = _buildTrackDeletedMessage();
 
@@ -73,17 +89,19 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
   }
 
   void _beginDismiss(String id) {
+    if (_isDisposed) return;
     state = [
       for (final e in state)
         if (e.id == id) e.copyWith(dismissing: true) else e,
     ];
-    _timers[id] = Timer(
-      const Duration(milliseconds: _animationExtraMs),
-      () => _remove(id),
-    );
+    _timers[id] = Timer(const Duration(milliseconds: _animationExtraMs), () {
+      if (_isDisposed) return;
+      _remove(id);
+    });
   }
 
   void _remove(String id) {
+    if (_isDisposed) return;
     _timers.remove(id)?.cancel();
     if (id == _trackDeletionToastId) {
       _trackDeletionToastId = null;
@@ -93,6 +111,7 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
   }
 
   String _appendToast({required String message, required bool isError}) {
+    if (_isDisposed) return '';
     final id = '${DateTime.now().millisecondsSinceEpoch}_${_counter++}';
     final entry = ToastEntry(id: id, message: message, isError: isError);
 
@@ -113,11 +132,12 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
   }
 
   void _restartDisplayTimer(String id, int displayMs) {
+    if (_isDisposed || id.isEmpty) return;
     _timers.remove(id)?.cancel();
-    _timers[id] = Timer(
-      Duration(milliseconds: displayMs),
-      () => _beginDismiss(id),
-    );
+    _timers[id] = Timer(Duration(milliseconds: displayMs), () {
+      if (_isDisposed) return;
+      _beginDismiss(id);
+    });
   }
 
   String _buildTrackDeletedMessage() {
@@ -144,3 +164,21 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
 final toastProvider = NotifierProvider<ToastNotifier, List<ToastEntry>>(
   ToastNotifier.new,
 );
+
+extension ConsumerStateToastX<T extends ConsumerStatefulWidget>
+    on ConsumerState<T> {
+  void showSafeToast(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ref.read(toastProvider.notifier).show(message, isError: isError);
+  }
+}
+
+void showToastIfMounted(
+  BuildContext context,
+  WidgetRef ref,
+  String message, {
+  bool isError = false,
+}) {
+  if (!context.mounted) return;
+  ref.read(toastProvider.notifier).show(message, isError: isError);
+}
