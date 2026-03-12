@@ -230,7 +230,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
                             child: Container(
                               decoration: BoxDecoration(
                                 color: KalinkaColors.accent.withValues(
-                                  alpha: 0.7,
+                                  alpha: 0.4,
                                 ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
