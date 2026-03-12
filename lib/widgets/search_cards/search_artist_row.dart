@@ -933,7 +933,7 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
         HapticFeedback.mediumImpact();
         ref
             .read(selectionStateProvider.notifier)
-            .enterSelectionMode(widget.item.id);
+            .toggleContainer(widget.containerId);
         setState(() {
           _longPressing = false;
           _longPressProgress = 0.0;

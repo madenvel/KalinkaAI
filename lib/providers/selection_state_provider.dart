@@ -105,12 +105,39 @@ class SelectionStateNotifier extends Notifier<SelectionState> {
     } else {
       trackExcl.add(trackId);
     }
-    if (trackExcl.isEmpty) {
-      exclusions.remove(containerId);
-    } else {
-      exclusions[containerId] = trackExcl;
+    
+    // Check if all tracks are now excluded by comparing to browse data
+    bool shouldDeselect = false;
+    if (trackExcl.isNotEmpty) {
+      final browseData = ref.read(browseDetailProvider(containerId));
+      final items = browseData.value?.items ?? [];
+      final trackItems = items.where((item) => item.track != null).toList();
+      // If all track items are excluded, deselect the container
+      shouldDeselect = trackExcl.length == trackItems.length &&
+          trackItems.every((item) => trackExcl.contains(item.id));
     }
-    state = state.copyWith(containerExclusions: exclusions);
+    
+    if (shouldDeselect) {
+      // All tracks excluded - deselect the container
+      final containers = {...state.selectedContainerIds};
+      containers.remove(containerId);
+      exclusions.remove(containerId);
+      if (containers.isEmpty && state.selectedIds.isEmpty) {
+        state = const SelectionState();
+        return;
+      }
+      state = state.copyWith(
+        selectedContainerIds: containers,
+        containerExclusions: exclusions,
+      );
+    } else {
+      if (trackExcl.isEmpty) {
+        exclusions.remove(containerId);
+      } else {
+        exclusions[containerId] = trackExcl;
+      }
+      state = state.copyWith(containerExclusions: exclusions);
+    }
   }
 
   void selectAll(Iterable<String> ids) {

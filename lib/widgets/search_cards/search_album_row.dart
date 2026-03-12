@@ -360,7 +360,9 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(left: 16),
       decoration: const BoxDecoration(
-        border: Border(left: BorderSide(color: KalinkaColors.accent, width: 2)),
+        border: Border(
+          left: BorderSide(color: KalinkaColors.accentBorder, width: 1),
+        ),
       ),
       child: tracksAsync.when(
         data: (browseList) {
@@ -486,7 +488,7 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
         HapticFeedback.mediumImpact();
         ref
             .read(selectionStateProvider.notifier)
-            .enterSelectionMode(widget.item.id);
+            .toggleContainer(widget.containerId);
         setState(() {
           _longPressing = false;
           _longPressProgress = 0.0;
