@@ -52,7 +52,7 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
       await api.add([widget.item.id]);
       await api.play();
     } catch (e) {
-      this.showSafeToast('Failed to play: $e', isError: true);
+      showSafeToast('Failed to play: $e', isError: true);
     }
   }
 
@@ -61,9 +61,9 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
     try {
       await api.add([widget.item.id]);
-      this.showSafeToast('"$title" added to queue');
+      showSafeToast('"$title" added to queue');
     } catch (e) {
-      this.showSafeToast('Failed to add: $e', isError: true);
+      showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
@@ -72,9 +72,9 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
     try {
       await api.add([widget.item.id], index: playNextInsertIndex(ref));
-      this.showSafeToast('"$title" playing next');
+      showSafeToast('"$title" playing next');
     } catch (e) {
-      this.showSafeToast('Failed to add: $e', isError: true);
+      showSafeToast('Failed to add: $e', isError: true);
     }
   }
 

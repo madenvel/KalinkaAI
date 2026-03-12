@@ -54,9 +54,9 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
     final trackCount = widget.item.album?.trackCount;
     try {
       await api.add([widget.item.id]);
-      this.showSafeToast('$name — ${trackCount ?? ''} tracks added to queue');
+      showSafeToast('$name — ${trackCount ?? ''} tracks added to queue');
     } catch (e) {
-      this.showSafeToast('Failed to add: $e', isError: true);
+      showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
@@ -65,9 +65,9 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
     final name = widget.item.album?.title ?? widget.item.name ?? 'album';
     try {
       await api.add([widget.item.id], index: playNextInsertIndex(ref));
-      this.showSafeToast('$name playing next');
+      showSafeToast('$name playing next');
     } catch (e) {
-      this.showSafeToast('Failed to add: $e', isError: true);
+      showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
@@ -444,7 +444,7 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
       await api.add([widget.containerId]);
       await api.play(widget.index - 1);
     } catch (e) {
-      this.showSafeToast('Failed to play: $e', isError: true);
+      showSafeToast('Failed to play: $e', isError: true);
     }
   }
 
@@ -453,9 +453,9 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
     try {
       await api.add([widget.item.id]);
-      this.showSafeToast('"$title" added to queue');
+      showSafeToast('"$title" added to queue');
     } catch (e) {
-      this.showSafeToast('Failed to add: $e', isError: true);
+      showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
@@ -464,9 +464,9 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
     try {
       await api.add([widget.item.id], index: playNextInsertIndex(ref));
-      this.showSafeToast('"$title" playing next');
+      showSafeToast('"$title" playing next');
     } catch (e) {
-      this.showSafeToast('Failed to add: $e', isError: true);
+      showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
@@ -488,7 +488,7 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
         HapticFeedback.mediumImpact();
         ref
             .read(selectionStateProvider.notifier)
-            .toggleContainer(widget.containerId);
+            .selectSingleTrackInContainer(widget.containerId, widget.item.id);
         setState(() {
           _longPressing = false;
           _longPressProgress = 0.0;

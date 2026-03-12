@@ -96,6 +96,28 @@ class SelectionStateNotifier extends Notifier<SelectionState> {
     );
   }
 
+  /// Select a single track within a container (marks container as partially selected).
+  /// All other tracks in the container are excluded.
+  void selectSingleTrackInContainer(String containerId, String trackId) {
+    final browseData = ref.read(browseDetailProvider(containerId));
+    final items = browseData.value?.items ?? [];
+    final trackItems = items.where((item) => item.track != null).toList();
+
+    // Build exclusion set with all OTHER tracks excluded
+    final exclusions = <String>{};
+    for (final item in trackItems) {
+      if (item.id != trackId) {
+        exclusions.add(item.id);
+      }
+    }
+
+    state = SelectionState(
+      isActive: true,
+      selectedContainerIds: {containerId},
+      containerExclusions: exclusions.isEmpty ? {} : {containerId: exclusions},
+    );
+  }
+
   void toggleTrackInContainer(String containerId, String trackId) {
     if (!state.selectedContainerIds.contains(containerId)) return;
     final exclusions = Map<String, Set<String>>.from(state.containerExclusions);
@@ -105,7 +127,7 @@ class SelectionStateNotifier extends Notifier<SelectionState> {
     } else {
       trackExcl.add(trackId);
     }
-    
+
     // Check if all tracks are now excluded by comparing to browse data
     bool shouldDeselect = false;
     if (trackExcl.isNotEmpty) {
@@ -113,10 +135,11 @@ class SelectionStateNotifier extends Notifier<SelectionState> {
       final items = browseData.value?.items ?? [];
       final trackItems = items.where((item) => item.track != null).toList();
       // If all track items are excluded, deselect the container
-      shouldDeselect = trackExcl.length == trackItems.length &&
+      shouldDeselect =
+          trackExcl.length == trackItems.length &&
           trackItems.every((item) => trackExcl.contains(item.id));
     }
-    
+
     if (shouldDeselect) {
       // All tracks excluded - deselect the container
       final containers = {...state.selectedContainerIds};

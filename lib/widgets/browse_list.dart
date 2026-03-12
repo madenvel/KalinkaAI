@@ -367,9 +367,9 @@ class _BrowseListState extends ConsumerState<BrowseList> {
     final itemName = item.name ?? 'item';
     try {
       await api.add([item.id]);
-      this.showSafeToast('Added "$itemName" to queue');
+      showSafeToast('Added "$itemName" to queue');
     } catch (e) {
-      this.showSafeToast('Failed to add to queue: $e', isError: true);
+      showSafeToast('Failed to add to queue: $e', isError: true);
     }
   }
 }

@@ -87,9 +87,9 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
           _topTracksConfirmController.reset();
         }
       });
-      this.showSafeToast('Top 5 by $name appended');
+      showSafeToast('Top 5 by $name appended');
     } catch (e) {
-      this.showSafeToast('Failed to queue: $e', isError: true);
+      showSafeToast('Failed to queue: $e', isError: true);
     }
   }
 
@@ -487,9 +487,9 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
     final trackCount = widget.item.album?.trackCount;
     try {
       await api.add([widget.item.id]);
-      this.showSafeToast('$name — ${trackCount ?? ''} tracks added to queue');
+      showSafeToast('$name — ${trackCount ?? ''} tracks added to queue');
     } catch (e) {
-      this.showSafeToast('Failed to add: $e', isError: true);
+      showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
@@ -498,9 +498,9 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
     final name = widget.item.album?.title ?? widget.item.name ?? 'album';
     try {
       await api.add([widget.item.id], index: playNextInsertIndex(ref));
-      this.showSafeToast('$name playing next');
+      showSafeToast('$name playing next');
     } catch (e) {
-      this.showSafeToast('Failed to add: $e', isError: true);
+      showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
@@ -882,9 +882,9 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
     try {
       await api.add([widget.item.id]);
-      this.showSafeToast('"$title" added to queue');
+      showSafeToast('"$title" added to queue');
     } catch (e) {
-      this.showSafeToast('Failed to add: $e', isError: true);
+      showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
@@ -893,9 +893,9 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
     try {
       await api.add([widget.item.id], index: playNextInsertIndex(ref));
-      this.showSafeToast('"$title" playing next');
+      showSafeToast('"$title" playing next');
     } catch (e) {
-      this.showSafeToast('Failed to add: $e', isError: true);
+      showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
@@ -911,7 +911,7 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
         await api.play(widget.index - 1);
       }
     } catch (e) {
-      this.showSafeToast('Failed to play: $e', isError: true);
+      showSafeToast('Failed to play: $e', isError: true);
     }
   }
 
@@ -933,7 +933,7 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
         HapticFeedback.mediumImpact();
         ref
             .read(selectionStateProvider.notifier)
-            .toggleContainer(widget.containerId);
+            .selectSingleTrackInContainer(widget.containerId, widget.item.id);
         setState(() {
           _longPressing = false;
           _longPressProgress = 0.0;
@@ -1105,9 +1105,9 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
         '${widget.tracks.length} tracks by ${widget.artistName} added to queue';
     try {
       await api.add(ids);
-      this.showSafeToast(message);
+      showSafeToast(message);
     } catch (e) {
-      this.showSafeToast('Failed to add: $e', isError: true);
+      showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
@@ -1118,9 +1118,9 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
         '${widget.tracks.length} tracks by ${widget.artistName} playing next';
     try {
       await api.add(ids, index: playNextInsertIndex(ref));
-      this.showSafeToast(message);
+      showSafeToast(message);
     } catch (e) {
-      this.showSafeToast('Failed to add: $e', isError: true);
+      showSafeToast('Failed to add: $e', isError: true);
     }
   }
 

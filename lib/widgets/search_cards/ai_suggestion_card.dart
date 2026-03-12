@@ -53,12 +53,12 @@ class _AiSuggestionCardState extends ConsumerState<AiSuggestionCard> {
         }
       });
 
-      this.showSafeToast('${trackIds.length} AI tracks appended');
+      showSafeToast('${trackIds.length} AI tracks appended');
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
       }
-      this.showSafeToast('Failed to add: $e', isError: true);
+      showSafeToast('Failed to add: $e', isError: true);
     }
   }
 
