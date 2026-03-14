@@ -95,13 +95,10 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
         child: SettingsScreen(),
       ),
       transitionsBuilder: (_, anim, __, child) {
-        final slide = Tween<Offset>(
-          begin: const Offset(1, 0),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(
-          parent: anim,
-          curve: const Cubic(0.4, 0, 0.2, 1),
-        ));
+        final slide = Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+            .animate(
+              CurvedAnimation(parent: anim, curve: const Cubic(0.4, 0, 0.2, 1)),
+            );
         return SlideTransition(position: slide, child: child);
       },
     );
@@ -118,10 +115,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
         Navigator.of(context).push(_settingsRoute());
       case ServerSheetAction.openDiscovery:
         final settings = ref.read(connectionSettingsProvider);
-        Navigator.of(context).push(_discoveryRoute(
-          allowCancel: settings.isSet,
-          currentServerHost: settings.isSet ? settings.host : null,
-        ));
+        Navigator.of(context).push(
+          _discoveryRoute(
+            allowCancel: settings.isSet,
+            currentServerHost: settings.isSet ? settings.host : null,
+          ),
+        );
       case null:
         break;
     }
@@ -220,10 +219,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             GestureDetector(
               onTap: () {
                 final settings = ref.read(connectionSettingsProvider);
-                Navigator.of(context).push(_discoveryRoute(
-                  allowCancel: settings.isSet,
-                  currentServerHost: settings.isSet ? settings.host : null,
-                ));
+                Navigator.of(context).push(
+                  _discoveryRoute(
+                    allowCancel: settings.isSet,
+                    currentServerHost: settings.isSet ? settings.host : null,
+                  ),
+                );
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -333,8 +334,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                             Positioned.fill(
                               child: GestureDetector(
                                 onTap: () {
-                                  _searchBarKey.currentState
-                                      ?.cancelSearch();
+                                  _searchBarKey.currentState?.cancelSearch();
                                   ref
                                       .read(searchStateProvider.notifier)
                                       .deactivateSearch();
@@ -383,10 +383,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
               EscalationCard(
                 onScanForServers: () {
                   final settings = ref.read(connectionSettingsProvider);
-                  Navigator.of(context).push(_discoveryRoute(
-                    allowCancel: settings.isSet,
-                    currentServerHost: settings.isSet ? settings.host : null,
-                  ));
+                  Navigator.of(context).push(
+                    _discoveryRoute(
+                      allowCancel: settings.isSet,
+                      currentServerHost: settings.isSet ? settings.host : null,
+                    ),
+                  );
                 },
               ),
               MiniPlayer(onTap: _showExpandedPlayer),
