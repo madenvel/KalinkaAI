@@ -7,7 +7,6 @@ import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/toast_provider.dart';
-import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import 'clear_all_confirm_dialog.dart';
@@ -115,10 +114,6 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
     toast.show('Queue cleared');
   }
 
-  void _activateSearch() {
-    ref.read(searchStateProvider.notifier).activateSearch();
-  }
-
   // ── Reorder ───────────────────────────────────────────────────────────────
 
   void _onReorder(int oldIndex, int newIndex) {
@@ -177,12 +172,10 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
     final currentIndex = playbackIndex.clamp(0, trackList.length);
     final shuffleEnabled = queueSnapshot.shuffleEnabled;
     final connectionState = ref.watch(connectionStateProvider);
-    final connectionNotifier = ref.read(connectionStateProvider.notifier);
 
-    if (connectionState == ConnectionStatus.none) {
-      return const SizedBox.shrink();
-    }
-
+    final isOfflineOrNone =
+        connectionState == ConnectionStatus.offline ||
+        connectionState == ConnectionStatus.none;
     final isOffline =
         connectionState == ConnectionStatus.reconnecting ||
         connectionState == ConnectionStatus.offline;
@@ -206,30 +199,29 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
     final isQueueEmpty = upNextTracks.isEmpty && previousTracks.isEmpty;
 
     if (isQueueEmpty) {
-      return EmptyQueueState(onSearchTap: _activateSearch);
+      return EmptyQueueState(isOffline: isOfflineOrNone);
+    }
+
+    if (connectionState == ConnectionStatus.none) {
+      return const SizedBox.shrink();
     }
 
     return Stack(
       children: [
         if (isOffline)
-          Column(
-            children: [
-              _buildFrozenLabel(connectionNotifier),
-              Expanded(
-                child: IgnorePointer(
-                  child: Opacity(
-                    opacity: 0.4,
-                    child: _buildQueueContent(
-                      nowPlayingTrack,
-                      queueTracks,
-                      previousTracks,
-                      currentIndex,
-                      shuffleEnabled,
-                    ),
-                  ),
+          Expanded(
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: 0.4,
+                child: _buildQueueContent(
+                  nowPlayingTrack,
+                  queueTracks,
+                  previousTracks,
+                  currentIndex,
+                  shuffleEnabled,
                 ),
               ),
-            ],
+            ),
           )
         else
           _buildQueueContent(
@@ -247,7 +239,6 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
             right: 20,
             child: _buildMenuButton(),
           ),
-
       ],
     );
   }
@@ -388,42 +379,6 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
           padding: EdgeInsets.only(bottom: widget.bottomPadding + 16),
         ),
       ],
-    );
-  }
-
-  // ── Frozen offline label ──────────────────────────────────────────────────
-
-  Widget _buildFrozenLabel(ConnectionStateNotifier notifier) {
-    final lastConnected = notifier.lastConnectedAt;
-    String syncText = 'Read-only';
-    if (lastConnected != null) {
-      final elapsed = DateTime.now().difference(lastConnected);
-      if (elapsed.inMinutes < 1) {
-        syncText = 'Read-only \u00b7 last synced just now';
-      } else {
-        syncText = 'Read-only \u00b7 last synced ${elapsed.inMinutes} min ago';
-      }
-    }
-
-    return Container(
-      width: double.infinity,
-      color: KalinkaColors.surfaceElevated,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.lock_outline,
-            size: 11,
-            color: KalinkaColors.textMuted,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            syncText.toUpperCase(),
-            style: KalinkaTextStyles.sectionHeaderMuted,
-          ),
-        ],
-      ),
     );
   }
 }

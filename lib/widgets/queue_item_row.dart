@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../data_model/kalinka_ws_api.dart';
-import '../providers/app_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/source_modules_provider.dart';
 import '../providers/toast_provider.dart';
@@ -10,7 +9,6 @@ import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
-import 'berry_pulse.dart';
 import 'procedural_album_art.dart';
 import 'source_badge.dart';
 import 'swipe_to_delete_row.dart';
@@ -97,13 +95,9 @@ class QueueItemRow extends ConsumerWidget {
         : KalinkaColors.textSecondary;
 
     // No tinted background — active row uses a left border accent strip only.
-    final rowBg = KalinkaColors.background;
-
-    final isPlaying =
-        isCurrentTrack &&
-        ref.watch(
-          playerStateProvider.select((s) => s.state == PlayerStateType.playing),
-        );
+    final rowBg = isCurrentTrack
+        ? KalinkaColors.accent.withValues(alpha: 0.08)
+        : KalinkaColors.background;
 
     Widget artwork;
     if (isCurrentTrack && !isHistory) {
@@ -125,22 +119,20 @@ class QueueItemRow extends ConsumerWidget {
                     )
                   : ProceduralAlbumArt(trackId: track.id, size: 44),
               // Layer 2 — scrim
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: [0.0, 0.45, 1.0],
-                    colors: [
-                      Color(0x000A0204),
-                      Color(0x8C0A0204),
-                      Color(0xD10A0204),
-                    ],
-                  ),
-                ),
-              ),
-              // Layer 3 — berry pulse animation
-              // BerryPulse(isPlaying: isPlaying),
+              // const DecoratedBox(
+              //   decoration: BoxDecoration(
+              //     gradient: LinearGradient(
+              //       begin: Alignment.topCenter,
+              //       end: Alignment.bottomCenter,
+              //       stops: [0.0, 0.45, 1.0],
+              //       colors: [
+              //         Color(0x000A0204),
+              //         Color(0x8C0A0204),
+              //         Color(0xD10A0204),
+              //       ],
+              //     ),
+              //   ),
+              // ),
             ],
           ),
         ),

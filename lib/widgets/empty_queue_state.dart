@@ -2,43 +2,18 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 /// Empty queue state — shown when the queue contains no tracks.
-/// Displays procedural art, title, subtitle, and a pulsing search hint chip.
-class EmptyQueueState extends StatefulWidget {
-  final VoidCallback? onSearchTap;
+/// Displays procedural art, title, and subtitle.
+///
+/// When [isOffline] is true (no server connection), the content is dimmed and
+/// the subtitle prompts the user to connect rather than search.
+class EmptyQueueState extends StatelessWidget {
+  final bool isOffline;
 
-  const EmptyQueueState({super.key, this.onSearchTap});
-
-  @override
-  State<EmptyQueueState> createState() => _EmptyQueueStateState();
-}
-
-class _EmptyQueueStateState extends State<EmptyQueueState>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
-    )..repeat(reverse: true);
-
-    _pulseAnimation = Tween<double>(begin: 0.0, end: 6.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
+  const EmptyQueueState({super.key, this.isOffline = false});
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
+    final content = LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -64,62 +39,11 @@ class _EmptyQueueStateState extends State<EmptyQueueState>
                   const SizedBox(height: 8),
                   // Subtitle
                   Text(
-                    'Search to Add Music',
+                    isOffline
+                        ? 'Connect to Server to See Music'
+                        : 'Search to Add Music',
                     style: KalinkaTextStyles.emptyQueueSubtitle,
                     textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  // Search hint chip with pulse
-                  AnimatedBuilder(
-                    animation: _pulseAnimation,
-                    builder: (context, child) {
-                      return GestureDetector(
-                        onTap: widget.onSearchTap,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: KalinkaColors.surfaceInput,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: KalinkaColors.accent.withValues(
-                                alpha: 0.30,
-                              ),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: KalinkaColors.accent.withValues(
-                                  alpha:
-                                      0.04 +
-                                      (_pulseAnimation.value / 6.0) * 0.11,
-                                ),
-                                blurRadius: _pulseAnimation.value,
-                                spreadRadius: _pulseAnimation.value * 0.5,
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.search,
-                                size: 13,
-                                color: KalinkaColors.accent.withValues(
-                                  alpha: 0.7,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Tap to Search',
-                                style: KalinkaTextStyles.recentChipLabel,
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
                   ),
                 ],
               ),
@@ -128,6 +52,11 @@ class _EmptyQueueStateState extends State<EmptyQueueState>
         );
       },
     );
+
+    if (isOffline) {
+      return Opacity(opacity: 0.45, child: content);
+    }
+    return content;
   }
 }
 

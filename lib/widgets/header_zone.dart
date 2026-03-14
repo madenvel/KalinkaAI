@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/app_state_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
@@ -23,7 +24,7 @@ class HeaderZone extends ConsumerStatefulWidget {
 }
 
 class _HeaderZoneState extends ConsumerState<HeaderZone>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const _collapsedLeftInset = 30.0;
   static const _collapsedRightInset = 26.0;
   static const _chevronRevealDelay = Duration(milliseconds: 120);
@@ -31,6 +32,8 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
   late GlobalKey<KalinkaSearchBarState> _searchBarKey;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  late AnimationController _searchGlowController;
+  late Animation<double> _searchGlowAnimation;
   Timer? _chevronTimer;
   bool _showDelayedChevron = false;
 
@@ -45,12 +48,20 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
     _pulseAnimation = Tween<double>(begin: 1.0, end: 0.25).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+    _searchGlowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
+    _searchGlowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _searchGlowController, curve: Curves.easeInOut),
+    );
   }
 
   @override
   void dispose() {
     _chevronTimer?.cancel();
     _pulseController.dispose();
+    _searchGlowController.dispose();
     super.dispose();
   }
 
@@ -72,6 +83,24 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
   @override
   Widget build(BuildContext context) {
     final searchActive = ref.watch(searchStateProvider).searchActive;
+    final isQueueEmpty = ref.watch(
+      playQueueStateStoreProvider.select((s) => s.trackList.isEmpty),
+    );
+    final connectionState = ref.watch(connectionStateProvider);
+    final isOffline =
+        connectionState == ConnectionStatus.offline ||
+        connectionState == ConnectionStatus.none;
+    final shouldGlow = isQueueEmpty && !searchActive && !isOffline;
+    if (shouldGlow) {
+      if (!_searchGlowController.isAnimating) {
+        _searchGlowController.repeat(reverse: true);
+      }
+    } else {
+      if (_searchGlowController.isAnimating) {
+        _searchGlowController.stop();
+        _searchGlowController.value = 0.0;
+      }
+    }
 
     ref.listen<SearchState>(searchStateProvider, (previous, next) {
       final wasActive = previous?.searchActive ?? false;
@@ -177,16 +206,39 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
                   bottom: 0,
                   child: Align(
                     alignment: Alignment.center,
-                    child: KalinkaSearchBar(
-                      key: _searchBarKey,
-                      alwaysExpanded: false,
-                      onActivate: _onSearchActivated,
-                      onLeadingAction: _dismissSearch,
-                      showBackChevron: searchActive && _showDelayedChevron,
-                      fullBleedMode: searchActive,
-                      height: searchActive ? 44 : 36,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: searchActive ? 8 : 12,
+                    child: AnimatedBuilder(
+                      animation: _searchGlowAnimation,
+                      builder: (context, child) {
+                        final glow = _searchGlowAnimation.value;
+                        return DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: glow > 0
+                                ? [
+                                    BoxShadow(
+                                      color: KalinkaColors.accent.withValues(
+                                        alpha: glow * 0.28,
+                                      ),
+                                      blurRadius: 14 * glow,
+                                      spreadRadius: 3 * glow,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: child!,
+                        );
+                      },
+                      child: KalinkaSearchBar(
+                        key: _searchBarKey,
+                        alwaysExpanded: false,
+                        onActivate: _onSearchActivated,
+                        onLeadingAction: _dismissSearch,
+                        showBackChevron: searchActive && _showDelayedChevron,
+                        fullBleedMode: searchActive,
+                        height: searchActive ? 44 : 36,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: searchActive ? 8 : 12,
+                        ),
                       ),
                     ),
                   ),
@@ -218,7 +270,7 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
       ConnectionStatus.connected => KalinkaColors.statusOnline,
       ConnectionStatus.reconnecting ||
       ConnectionStatus.connecting => KalinkaColors.statusPending,
-      ConnectionStatus.offline => KalinkaColors.statusError,
+      ConnectionStatus.offline ||
       ConnectionStatus.none => KalinkaColors.textMuted,
     };
 

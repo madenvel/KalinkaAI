@@ -122,7 +122,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                           children: [
                             const Icon(
                               Icons.error_outline,
-                              color: KalinkaColors.statusError,
+                              color: KalinkaColors.statusOffline,
                               size: 32,
                             ),
                             const SizedBox(height: 12),
@@ -218,7 +218,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       case ConnectionStatus.connecting:
         dotColor = KalinkaColors.statusPending;
       case ConnectionStatus.offline:
-        dotColor = KalinkaColors.statusError;
+        dotColor = KalinkaColors.statusOffline;
       case ConnectionStatus.none:
         dotColor = KalinkaColors.textMuted;
     }

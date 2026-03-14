@@ -62,12 +62,12 @@ class _ConnectionBannerState extends ConsumerState<ConnectionBanner>
           textColor: KalinkaColors.statusPendingLight,
         ),
         ConnectionStatus.offline => _buildBanner(
-          bgColor: KalinkaColors.statusError.withValues(alpha: 0.08),
-          borderColor: KalinkaColors.statusError.withValues(alpha: 0.18),
-          dotColor: KalinkaColors.statusError,
+          bgColor: KalinkaColors.surfaceElevated.withValues(alpha: 0.9),
+          borderColor: KalinkaColors.statusOffline.withValues(alpha: 0.18),
+          dotColor: KalinkaColors.statusOffline,
           pulseDot: false,
-          text: '$name unreachable \u00b7 queue shown from last sync',
-          textColor: const Color(0xFFF87171),
+          text: '$name unavailable',
+          textColor: KalinkaColors.textSecondary,
           showRetry: true,
         ),
         _ => const SizedBox.shrink(),
@@ -108,41 +108,16 @@ class _ConnectionBannerState extends ConsumerState<ConnectionBanner>
           const SizedBox(width: 8),
           // Text
           Expanded(
-            child: Text(
-              text,
-              style: KalinkaTextStyles.bannerText.copyWith(color: textColor),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          // Retry button (offline only)
-          if (showRetry) ...[
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () {
-                ref.read(connectionStateProvider.notifier).retryNow();
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: KalinkaColors.statusError.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Text(
-                  'Retry',
-                  style: KalinkaTextStyles.bannerText.copyWith(
-                    color: textColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Text(
+                text,
+                style: KalinkaTextStyles.bannerText.copyWith(color: textColor),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ],
+          ),
         ],
       ),
     );

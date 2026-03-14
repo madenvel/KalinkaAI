@@ -172,7 +172,7 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
                         restartState.error!,
                         textAlign: TextAlign.center,
                         style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                          color: KalinkaColors.statusError,
+                          color: KalinkaColors.statusOffline,
                         ),
                       ),
                     ],

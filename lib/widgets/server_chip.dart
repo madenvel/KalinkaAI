@@ -147,11 +147,11 @@ class _ServerChipState extends ConsumerState<ServerChip>
         );
       case ConnectionStatus.offline:
         return _ChipData(
-          dotColor: KalinkaColors.statusError,
+          dotColor: KalinkaColors.statusOffline,
           label: serverName.isNotEmpty ? serverName : 'Offline',
           labelColor: KalinkaColors.textPrimary,
-          borderColor: KalinkaColors.statusError.withValues(alpha: 0.25),
-          bgColor: KalinkaColors.statusError.withValues(alpha: 0.06),
+          borderColor: KalinkaColors.statusOffline.withValues(alpha: 0.25),
+          bgColor: KalinkaColors.statusOffline.withValues(alpha: 0.06),
         );
       case ConnectionStatus.none:
         return _ChipData(

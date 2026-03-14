@@ -99,7 +99,7 @@ class KalinkaColors {
   static const statusPending = Color(
     0xFFC8943A,
   ); // Amber · Staged · reconnecting
-  static const statusError = Color(0xFFC84444); // Red · Offline · failed
+  static const statusOffline = Color(0xFF858585); // Offline
 
   static const statusOnlineSurface = Color(
     0x1A5AAE78,
@@ -107,7 +107,7 @@ class KalinkaColors {
   static const statusPendingSurface = Color(
     0x17C8943A,
   ); // 0.09 alpha · Pending banner bg
-  static const statusErrorSurface = Color(
+  static const statusOfflineSurface = Color(
     0x12C84444,
   ); // 0.07 alpha · Error badge bg · warning note
 

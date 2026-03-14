@@ -53,7 +53,8 @@ class _SettingsListEditorState extends State<SettingsListEditor> {
       // This lets an in-progress edit survive a provider rebuild while still
       // resetting values when an external change occurs (e.g. Discard).
       for (int i = 0; i < newLen; i++) {
-        if (!_focusNodes[i].hasFocus && _controllers[i].text != widget.items[i]) {
+        if (!_focusNodes[i].hasFocus &&
+            _controllers[i].text != widget.items[i]) {
           _controllers[i].text = widget.items[i];
         }
       }
@@ -139,13 +140,15 @@ class _SettingsListEditorState extends State<SettingsListEditor> {
                       width: 18,
                       height: 18,
                       decoration: BoxDecoration(
-                        color: KalinkaColors.statusError.withValues(alpha: 0.1),
+                        color: KalinkaColors.statusOffline.withValues(
+                          alpha: 0.1,
+                        ),
                         borderRadius: BorderRadius.circular(5),
                       ),
                       child: const Icon(
                         Icons.close,
                         size: 10,
-                        color: KalinkaColors.statusError,
+                        color: KalinkaColors.statusOffline,
                       ),
                     ),
                   ),

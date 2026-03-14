@@ -128,7 +128,7 @@ class _ToastCardState extends State<_ToastCard>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: widget.entry.isError
-                      ? KalinkaColors.statusError
+                      ? KalinkaColors.statusOffline
                       : KalinkaColors.statusOnline,
                 ),
               ),

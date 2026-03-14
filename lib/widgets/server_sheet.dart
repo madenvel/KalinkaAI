@@ -27,10 +27,7 @@ class ServerSheetContent extends ConsumerWidget {
         // Section label
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-          child: Text(
-            'SERVER',
-            style: KalinkaTextStyles.sectionHeaderMuted,
-          ),
+          child: Text('SERVER', style: KalinkaTextStyles.sectionHeaderMuted),
         ),
         // Status card
         _ServerStatusCard(
@@ -54,8 +51,7 @@ class ServerSheetContent extends ConsumerWidget {
           iconColor: KalinkaColors.accent,
           label: 'Server settings',
           sublabel: 'Modules, audio, enrichment',
-          onTap: () =>
-              Navigator.pop(context, ServerSheetAction.openSettings),
+          onTap: () => Navigator.pop(context, ServerSheetAction.openSettings),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -71,8 +67,7 @@ class ServerSheetContent extends ConsumerWidget {
           iconColor: KalinkaColors.textSecondary,
           label: 'Connect to different server',
           sublabel: 'Scan network for other instances',
-          onTap: () =>
-              Navigator.pop(context, ServerSheetAction.openDiscovery),
+          onTap: () => Navigator.pop(context, ServerSheetAction.openDiscovery),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -84,15 +79,13 @@ class ServerSheetContent extends ConsumerWidget {
         // Disconnect
         _SheetRow(
           icon: Icons.logout,
-          iconBgColor: KalinkaColors.statusError.withValues(alpha: 0.12),
-          iconColor: KalinkaColors.statusError,
+          iconBgColor: KalinkaColors.statusOffline.withValues(alpha: 0.12),
+          iconColor: KalinkaColors.statusOffline,
           label: 'Disconnect',
           sublabel: '',
           isDanger: true,
           onTap: () async {
-            await ref
-                .read(connectionSettingsProvider.notifier)
-                .clearDevice();
+            await ref.read(connectionSettingsProvider.notifier).clearDevice();
             ref.read(connectionStateProvider.notifier).disconnected();
             if (context.mounted) Navigator.pop(context);
           },
@@ -125,7 +118,7 @@ class _ServerStatusCard extends StatelessWidget {
         dotColor = KalinkaColors.statusPending;
         stateLabel = 'Reconnecting';
       case ConnectionStatus.offline:
-        dotColor = KalinkaColors.statusError;
+        dotColor = KalinkaColors.statusOffline;
         stateLabel = 'Offline';
       case ConnectionStatus.connecting:
         dotColor = KalinkaColors.statusPending;
@@ -143,8 +136,7 @@ class _ServerStatusCard extends StatelessWidget {
     final detailParts = <String>[
       if (settings.host.isNotEmpty) '${settings.host}:${settings.port}',
       if (versionText != null) 'v$versionText',
-      if (latencyText != null &&
-          connectionState == ConnectionStatus.connected)
+      if (latencyText != null && connectionState == ConnectionStatus.connected)
         latencyText,
     ];
 
@@ -393,10 +385,7 @@ class _TabletServerSheetContent extends ConsumerWidget {
         // Section label
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-          child: Text(
-            'SERVER',
-            style: KalinkaTextStyles.sectionHeaderMuted,
-          ),
+          child: Text('SERVER', style: KalinkaTextStyles.sectionHeaderMuted),
         ),
         // Status card
         _ServerStatusCard(
@@ -444,15 +433,13 @@ class _TabletServerSheetContent extends ConsumerWidget {
         ),
         _SheetRow(
           icon: Icons.logout,
-          iconBgColor: KalinkaColors.statusError.withValues(alpha: 0.12),
-          iconColor: KalinkaColors.statusError,
+          iconBgColor: KalinkaColors.statusOffline.withValues(alpha: 0.12),
+          iconColor: KalinkaColors.statusOffline,
           label: 'Disconnect',
           sublabel: '',
           isDanger: true,
           onTap: () async {
-            await ref
-                .read(connectionSettingsProvider.notifier)
-                .clearDevice();
+            await ref.read(connectionSettingsProvider.notifier).clearDevice();
             ref.read(connectionStateProvider.notifier).disconnected();
             await onClose();
           },
@@ -517,7 +504,7 @@ class _SheetRow extends StatelessWidget {
                     label,
                     style: isDanger
                         ? KalinkaTextStyles.trayRowLabel.copyWith(
-                            color: KalinkaColors.statusError,
+                            color: KalinkaColors.statusOffline,
                           )
                         : KalinkaTextStyles.trayRowLabel,
                   ),

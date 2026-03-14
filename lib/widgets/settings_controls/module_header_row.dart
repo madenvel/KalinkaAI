@@ -131,7 +131,7 @@ class ModuleHeaderRow extends StatelessWidget {
 
   Color get _badgeColor => switch (status) {
     ModuleStatus.ready => KalinkaColors.statusOnline,
-    ModuleStatus.error => KalinkaColors.statusError,
+    ModuleStatus.error => KalinkaColors.statusOffline,
     _ => KalinkaColors.textMuted,
   };
 

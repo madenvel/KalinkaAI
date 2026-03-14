@@ -660,7 +660,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               _connectError!,
               textAlign: TextAlign.center,
               style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                color: KalinkaColors.statusError,
+                color: KalinkaColors.statusOffline,
               ),
             ),
             const SizedBox(height: 16),

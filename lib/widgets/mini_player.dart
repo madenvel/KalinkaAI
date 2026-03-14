@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../data_model/kalinka_ws_api.dart';
 import '../providers/app_state_provider.dart';
-import '../providers/connection_settings_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/playback_time_provider.dart';
@@ -41,7 +40,6 @@ class MiniPlayer extends ConsumerStatefulWidget {
 class _MiniPlayerState extends ConsumerState<MiniPlayer>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   Timer? _keyboardDismissTimer;
-  late AnimationController _marchController;
 
   // ── Carousel swipe state ──────────────────────────────────────────────────
   /// Normalized offset: -1.0 = next track centred, 0 = current, +1.0 = prev centred.
@@ -74,11 +72,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    _marchController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    );
-
     _carouselController = AnimationController(
       vsync: this,
       lowerBound: -1.2,
@@ -90,25 +83,10 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     _carouselController.addListener(() => setState(() {}));
   }
 
-  void _setMarching(bool enabled) {
-    if (enabled) {
-      if (!_marchController.isAnimating) {
-        _marchController.repeat();
-      }
-      return;
-    }
-
-    if (_marchController.isAnimating) {
-      _marchController.stop();
-      _marchController.value = 0.0;
-    }
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _keyboardDismissTimer?.cancel();
-    _marchController.dispose();
     _carouselController.dispose();
     super.dispose();
   }
@@ -343,11 +321,14 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
         KalinkaHaptics.mediumImpact();
       }
     });
-    final settings = ref.watch(connectionSettingsProvider);
     final isOffline =
         connectionState == ConnectionStatus.reconnecting ||
         connectionState == ConnectionStatus.offline;
-    _setMarching(isOffline);
+    final progressLineMode = connectionState == ConnectionStatus.reconnecting
+        ? GradientProgressLineMode.reconnecting
+        : connectionState == ConnectionStatus.offline
+        ? GradientProgressLineMode.offline
+        : GradientProgressLineMode.normal;
 
     final durationMs = (effectiveCurrentTrack?.duration ?? 0) * 1000;
 
@@ -359,15 +340,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     final carouselOffset = _carouselController.value; // -1..1
 
     // Precompute offline subtitle so it isn't repeated in two branches.
-    final String offlineSubtitle =
-        connectionState == ConnectionStatus.reconnecting
-        ? 'Reconnecting to ${settings.name.isNotEmpty ? settings.name : settings.host}\u2026'
-        : '${settings.name.isNotEmpty ? settings.name : settings.host} unreachable';
-    final Color offlineSubtitleColor =
-        connectionState == ConnectionStatus.reconnecting
-        ? KalinkaColors.statusPending
-        : KalinkaColors.statusError;
-
     return AnimatedSize(
       duration: Duration(milliseconds: shouldHide ? 120 : 200),
       curve: Curves.easeOut,
@@ -390,32 +362,22 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 2px progress line — marching dashes when offline, gradient when online
+                  // 2px progress line with connection-aware rendering.
                   RepaintBoundary(
-                    child: isOffline
-                        ? AnimatedBuilder(
-                            animation: _marchController,
-                            builder: (context, _) => CustomPaint(
-                              size: const Size(double.infinity, 2),
-                              painter: _MarchingDashesPainter(
-                                progress: _marchController.value,
-                              ),
-                            ),
-                          )
-                        : Consumer(
-                            builder: (context, ref, _) {
-                              final playbackTimeMs = ref.watch(
-                                playbackTimeMsProvider,
-                              );
-                              final progress = durationMs > 0
-                                  ? (playbackTimeMs / durationMs).clamp(
-                                      0.0,
-                                      1.0,
-                                    )
-                                  : 0.0;
-                              return GradientProgressLine(progress: progress);
-                            },
-                          ),
+                    child: Consumer(
+                      builder: (context, ref, _) {
+                        final playbackTimeMs = ref.watch(
+                          playbackTimeMsProvider,
+                        );
+                        final progress = durationMs > 0
+                            ? (playbackTimeMs / durationMs).clamp(0.0, 1.0)
+                            : 0.0;
+                        return GradientProgressLine(
+                          progress: progress,
+                          mode: progressLineMode,
+                        );
+                      },
+                    ),
                   ),
 
                   // Main content — 70px + gesture detection
@@ -442,30 +404,35 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                         child: Row(
                           children: [
                             // ── Album art — stationary, updates via server event ──
-                            Container(
-                              width: 46,
-                              height: 46,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
+                            Opacity(
+                              opacity: isOffline ? 0.4 : 1.0,
+                              child: Container(
+                                width: 46,
+                                height: 46,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: resolvedImageUrl != null
+                                    ? Image.network(
+                                        resolvedImageUrl,
+                                        width: 46,
+                                        height: 46,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            ProceduralAlbumArt(
+                                              trackId:
+                                                  effectiveCurrentTrack?.id ??
+                                                  '',
+                                              size: 46,
+                                            ),
+                                      )
+                                    : ProceduralAlbumArt(
+                                        trackId:
+                                            effectiveCurrentTrack?.id ?? '',
+                                        size: 46,
+                                      ),
                               ),
-                              clipBehavior: Clip.antiAlias,
-                              child: resolvedImageUrl != null
-                                  ? Image.network(
-                                      resolvedImageUrl,
-                                      width: 46,
-                                      height: 46,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          ProceduralAlbumArt(
-                                            trackId:
-                                                effectiveCurrentTrack?.id ?? '',
-                                            size: 46,
-                                          ),
-                                    )
-                                  : ProceduralAlbumArt(
-                                      trackId: effectiveCurrentTrack?.id ?? '',
-                                      size: 46,
-                                    ),
                             ),
                             const SizedBox(width: 10),
 
@@ -490,17 +457,11 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                           ),
                                           child: _TrackLabel(
                                             title: effectiveCurrentTrack?.title,
-                                            subtitle: isOffline
-                                                ? offlineSubtitle
-                                                : effectiveCurrentTrack
-                                                      ?.performer
-                                                      ?.name,
-                                            subtitleColor: isOffline
-                                                ? offlineSubtitleColor
-                                                : null,
-                                            entityId: isOffline
-                                                ? null
-                                                : effectiveCurrentTrack?.id,
+                                            subtitle: effectiveCurrentTrack
+                                                ?.performer
+                                                ?.name,
+                                            entityId: effectiveCurrentTrack?.id,
+                                            dimmed: isOffline,
                                           ),
                                         ),
 
@@ -608,8 +569,8 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
 class _TrackLabel extends StatelessWidget {
   final String? title;
   final String? subtitle;
-  final Color? subtitleColor;
   final CrossAxisAlignment crossAxisAlignment;
+  final bool dimmed;
 
   /// When set, a [SourceBadge] is appended to the subtitle line.
   final String? entityId;
@@ -617,15 +578,22 @@ class _TrackLabel extends StatelessWidget {
   const _TrackLabel({
     this.title,
     this.subtitle,
-    this.subtitleColor,
     this.crossAxisAlignment = CrossAxisAlignment.start,
     this.entityId,
+    this.dimmed = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final subtitleStyle = subtitleColor != null
-        ? KalinkaTextStyles.miniPlayerArtist.copyWith(color: subtitleColor)
+    final titleStyle = dimmed
+        ? KalinkaTextStyles.miniPlayerTitle.copyWith(
+            color: KalinkaColors.textSecondary,
+          )
+        : KalinkaTextStyles.miniPlayerTitle;
+    final subtitleStyle = dimmed
+        ? KalinkaTextStyles.miniPlayerArtist.copyWith(
+            color: KalinkaColors.textSecondary,
+          )
         : KalinkaTextStyles.miniPlayerArtist;
 
     return SizedBox.expand(
@@ -635,7 +603,7 @@ class _TrackLabel extends StatelessWidget {
         children: [
           Text(
             title ?? 'No track',
-            style: KalinkaTextStyles.miniPlayerTitle,
+            style: titleStyle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -665,40 +633,4 @@ class _TrackLabel extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Marching red dashes for the offline progress line.
-class _MarchingDashesPainter extends CustomPainter {
-  final double progress;
-
-  _MarchingDashesPainter({required this.progress});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()..color = KalinkaColors.borderSubtle;
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
-
-    final dashPaint = Paint()..color = KalinkaColors.statusError;
-    const dashWidth = 8.0;
-    const gapWidth = 6.0;
-    const period = dashWidth + gapWidth;
-    final offset = progress * period;
-
-    var x = -period + offset;
-    while (x < size.width) {
-      final left = math.max(0.0, x);
-      final right = math.min(size.width, x + dashWidth);
-      if (right > left) {
-        canvas.drawRect(
-          Rect.fromLTWH(left, 0, right - left, size.height),
-          dashPaint,
-        );
-      }
-      x += period;
-    }
-  }
-
-  @override
-  bool shouldRepaint(_MarchingDashesPainter oldDelegate) =>
-      oldDelegate.progress != progress;
 }

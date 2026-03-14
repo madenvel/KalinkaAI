@@ -62,14 +62,14 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
         );
       },
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: KalinkaColors.surfaceRaised,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: KalinkaColors.statusError.withValues(alpha: 0.25),
+              color: KalinkaColors.statusOffline.withValues(alpha: 0.25),
             ),
           ),
           child: Column(
@@ -83,23 +83,24 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: KalinkaColors.statusError.withValues(alpha: 0.1),
+                      color: KalinkaColors.statusOffline.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
                       Icons.info_outline,
                       size: 16,
-                      color: KalinkaColors.statusError,
+                      color: KalinkaColors.statusOffline,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      '$name is unreachable',
+                      '$name is unavailable',
                       style: KalinkaTextStyles.trayRowLabel.copyWith(
                         fontSize: 13,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
+                      softWrap: false,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -108,7 +109,7 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
               const SizedBox(height: 10),
               Text(
                 'The server hasn\'t responded for over 30 seconds. '
-                'It may have gone offline or moved to a different address.',
+                'It may be offline or unreachable on the network.',
                 style: KalinkaTextStyles.trayRowSublabel.copyWith(
                   fontSize: 10,
                   height: 1.5,
@@ -140,7 +141,7 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const Spacer(),
                   // Retry — muted
                   GestureDetector(
                     onTap: () {
@@ -162,23 +163,6 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
                           color: KalinkaColors.textSecondary,
                           fontSize: 12,
                         ),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  // Dismiss link
-                  GestureDetector(
-                    onTap: () {
-                      ref
-                          .read(connectionStateProvider.notifier)
-                          .markEscalationDismissed();
-                    },
-                    child: Text(
-                      'Dismiss',
-                      style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                        color: KalinkaColors.textMuted,
-                        decoration: TextDecoration.underline,
-                        decorationColor: KalinkaColors.textMuted,
                       ),
                     ),
                   ),

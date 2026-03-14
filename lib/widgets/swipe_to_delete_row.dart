@@ -226,7 +226,7 @@ class _SwipeToDeleteRowState extends State<SwipeToDeleteRow>
           (_deleteIconSize - _deleteIconMinSize) * progress;
 
       // Bin red from palette
-      const bgColor = KalinkaColors.statusError;
+      const bgColor = KalinkaColors.statusOffline;
 
       inner = GestureDetector(
         onHorizontalDragUpdate: _onDragUpdate,
