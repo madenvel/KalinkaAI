@@ -251,7 +251,10 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchStateProvider);
     final connectionStatus = ref.watch(connectionStateProvider);
-    final isDisconnected = connectionStatus == ConnectionStatus.none;
+    final isDisconnected =
+        connectionStatus == ConnectionStatus.none ||
+        connectionStatus == ConnectionStatus.reconnecting ||
+        connectionStatus == ConnectionStatus.offline;
 
     // Sync text field if query changed externally (e.g. history tap).
     if (_isActive &&

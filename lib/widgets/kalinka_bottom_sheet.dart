@@ -93,6 +93,7 @@ Future<T?> showKalinkaConfirmDialog<T>({
         ),
       );
     },
-    pageBuilder: (ctx, _, __) => builder(ctx),
+    pageBuilder: (ctx, _, __) =>
+        Material(type: MaterialType.transparency, child: builder(ctx)),
   );
 }

@@ -87,10 +87,10 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
       playQueueStateStoreProvider.select((s) => s.trackList.isEmpty),
     );
     final connectionState = ref.watch(connectionStateProvider);
-    final isOffline =
-        connectionState == ConnectionStatus.offline ||
-        connectionState == ConnectionStatus.none;
-    final shouldGlow = isQueueEmpty && !searchActive && !isOffline;
+    final shouldGlow =
+        isQueueEmpty &&
+        !searchActive &&
+        connectionState == ConnectionStatus.connected;
     if (shouldGlow) {
       if (!_searchGlowController.isAnimating) {
         _searchGlowController.repeat(reverse: true);
@@ -209,21 +209,17 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
                     child: AnimatedBuilder(
                       animation: _searchGlowAnimation,
                       builder: (context, child) {
-                        final glow = _searchGlowAnimation.value;
+                        final t = _searchGlowAnimation.value;
                         return DecoratedBox(
+                          position: DecorationPosition.foreground,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(14),
-                            boxShadow: glow > 0
-                                ? [
-                                    BoxShadow(
-                                      color: KalinkaColors.accent.withValues(
-                                        alpha: glow * 0.28,
-                                      ),
-                                      blurRadius: 14 * glow,
-                                      spreadRadius: 3 * glow,
-                                    ),
-                                  ]
-                                : null,
+                            border: Border.all(
+                              color: KalinkaColors.accent.withValues(
+                                alpha: t * 0.50,
+                              ),
+                              width: 1.5,
+                            ),
                           ),
                           child: child!,
                         );
