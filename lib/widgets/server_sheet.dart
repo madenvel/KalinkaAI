@@ -117,7 +117,7 @@ class _ServerSheetState extends ConsumerState<ServerSheet>
                                 height: 4,
                                 margin: const EdgeInsets.only(top: 12),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF2A2A32),
+                                  color: KalinkaColors.surfaceOverlay,
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
@@ -173,7 +173,7 @@ class _ServerSheetState extends ConsumerState<ServerSheet>
                             // Connect to different server
                             _SheetRow(
                               icon: Icons.language,
-                              iconBgColor: KalinkaColors.surfaceElevated,
+                              iconBgColor: KalinkaColors.surfaceOverlay,
                               iconColor: KalinkaColors.textSecondary,
                               label: 'Connect to different server',
                               sublabel: 'Scan network for other instances',

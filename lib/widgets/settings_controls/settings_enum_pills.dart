@@ -34,12 +34,12 @@ class SettingsEnumPills extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: isActive
-                  ? KalinkaColors.accent.withValues(alpha: 0.15)
-                  : KalinkaColors.surfaceElevated,
+                  ? KalinkaColors.surfaceElevated
+                  : KalinkaColors.surfaceOverlay,
               borderRadius: BorderRadius.circular(7),
               border: Border.all(
                 color: isActive
-                    ? KalinkaColors.accent.withValues(alpha: 0.35)
+                    ? KalinkaColors.accent
                     : KalinkaColors.borderDefault,
               ),
             ),
@@ -47,7 +47,7 @@ class SettingsEnumPills extends StatelessWidget {
               option,
               style: KalinkaTextStyles.tagPill.copyWith(
                 color: isActive
-                    ? KalinkaColors.accentTint
+                    ? KalinkaColors.accent
                     : KalinkaColors.textSecondary,
                 height: 1.3,
               ),

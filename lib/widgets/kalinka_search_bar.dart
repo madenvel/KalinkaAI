@@ -467,9 +467,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
-                color: _isAiModeActive
-                    ? KalinkaColors.accentSubtle
-                    : const Color(0x0DFFFFFF),
+                color: const Color(0x0DFFFFFF),
                 border: Border.all(
                   color: _isAiModeActive
                       ? KalinkaColors.accentBorder

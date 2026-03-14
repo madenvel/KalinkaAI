@@ -45,6 +45,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   bool _serverSheetOpen = false;
   bool _discoveryOpen = false;
   bool _settingsOpen = false;
+  bool _settingsClosing = false;
   bool _queueTrayOpen = false;
   bool _clearAllConfirmOpen = false;
 
@@ -163,11 +164,9 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: KalinkaColors.accent.withValues(alpha: 0.15),
+                  color: Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: KalinkaColors.accent.withValues(alpha: 0.35),
-                  ),
+                  border: Border.all(color: KalinkaColors.accent),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -216,7 +215,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     final searchActive = searchState.searchActive;
     final settings = ref.watch(connectionSettingsProvider);
     final connectionState = ref.watch(connectionStateProvider);
-    final hideBase = _playerFullyOpen || _discoveryOpen || _settingsOpen;
+    final hideBase = _playerFullyOpen || _discoveryOpen || (_settingsOpen && !_settingsClosing);
 
     return PopScope(
       canPop:
@@ -237,7 +236,10 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
           return;
         }
         if (_settingsOpen) {
-          setState(() => _settingsOpen = false);
+          setState(() {
+            _settingsOpen = false;
+            _settingsClosing = false;
+          });
           return;
         }
         if (_serverSheetOpen) {
@@ -425,7 +427,11 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
           if (_settingsOpen)
             Positioned.fill(
               child: SettingsScreen(
-                onClose: () => setState(() => _settingsOpen = false),
+                onClose: () => setState(() {
+                  _settingsOpen = false;
+                  _settingsClosing = false;
+                }),
+                onDismissing: () => setState(() => _settingsClosing = true),
               ),
             ),
         ],

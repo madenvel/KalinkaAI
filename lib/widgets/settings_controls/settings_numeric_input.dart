@@ -34,9 +34,7 @@ class SettingsNumericInput extends StatelessWidget {
             border: InputBorder.none,
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(7),
-              borderSide: BorderSide(
-                color: KalinkaColors.accent.withValues(alpha: 0.45),
-              ),
+              borderSide: const BorderSide(color: Color(0x55FFFFFF)),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 10,

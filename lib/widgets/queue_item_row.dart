@@ -57,14 +57,14 @@ class QueueItemRow extends ConsumerWidget {
   Color _titleColor() {
     if (isHistory) return KalinkaColors.textMuted;
     if (isCurrentTrack) {
-      // Requested now-playing accent tone.
-      return const Color(0xFFFF6B7A);
+      // Single accent use per queue screen — now-playing indicator.
+      return KalinkaColors.textPrimary;
     }
 
     // Smooth progressive fade for Up Next titles.
     return Color.lerp(
-      const Color(0xFFE6E6E6),
-      const Color(0xFFB0B0B0),
+      KalinkaColors.textPrimary,
+      KalinkaColors.textSecondary,
       _titleFadeFactor,
     )!;
   }
@@ -96,9 +96,8 @@ class QueueItemRow extends ConsumerWidget {
         ? KalinkaColors.textMuted
         : KalinkaColors.textSecondary;
 
-    final rowBg = isCurrentTrack && !isHistory
-        ? KalinkaColors.accent.withValues(alpha: 0.08)
-        : KalinkaColors.background;
+    // No tinted background — active row uses a left border accent strip only.
+    final rowBg = KalinkaColors.background;
 
     final isPlaying =
         isCurrentTrack &&
@@ -173,7 +172,14 @@ class QueueItemRow extends ConsumerWidget {
         api.sendQueueCommand(QueueCommand.play(index: index));
       },
       child: Container(
-        color: rowBg,
+        decoration: BoxDecoration(
+          color: rowBg,
+          border: isCurrentTrack && !isHistory
+              ? const Border(
+                  left: BorderSide(color: KalinkaColors.accentBorder, width: 2),
+                )
+              : null,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [

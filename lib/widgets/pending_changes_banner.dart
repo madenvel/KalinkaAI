@@ -96,26 +96,30 @@ class _PendingChangesBannerState extends ConsumerState<PendingChangesBanner>
                       'Discard',
                       style: KalinkaTextStyles.bannerText.copyWith(
                         color: KalinkaColors.textMuted,
-                        fontSize: 9,
+                        fontSize: 10,
                         decoration: TextDecoration.underline,
                         decorationColor: KalinkaColors.textMuted,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 15),
                   // Apply button
                   GestureDetector(
                     onTap: widget.onApply,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 5,
+                        vertical: 7,
                       ),
                       decoration: BoxDecoration(
-                        color: KalinkaColors.statusPending.withValues(alpha: 0.2),
+                        color: KalinkaColors.statusPending.withValues(
+                          alpha: 0.2,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: KalinkaColors.statusPending.withValues(alpha: 0.4),
+                          color: KalinkaColors.statusPending.withValues(
+                            alpha: 0.4,
+                          ),
                         ),
                       ),
                       child: Text(

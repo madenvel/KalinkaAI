@@ -14,7 +14,7 @@ class FooterNote extends StatelessWidget {
       child: Text(
         text,
         style: KalinkaTextStyles.trayRowSublabel.copyWith(
-          fontSize: 10,
+          fontSize: 11,
           color: KalinkaColors.textMuted,
           height: 1.7,
         ),

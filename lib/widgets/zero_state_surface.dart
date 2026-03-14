@@ -353,9 +353,9 @@ class _FilterPill extends StatelessWidget {
           height: 30,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: isActive
-                ? KalinkaColors.accentSubtle
-                : const Color(0x0DFFFFFF), // rgba(255,255,255,0.05)
+            color: const Color(
+              0x0DFFFFFF,
+            ), // rgba(255,255,255,0.05) — outline-only active state
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isActive
@@ -791,15 +791,12 @@ class _AiPromptChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          color: KalinkaColors.accent.withValues(alpha: 0.07),
-          border: Border.all(
-            color: KalinkaColors.accent.withValues(alpha: 0.18),
-            width: 1,
-          ),
+          color: KalinkaColors.surfaceRaised,
+          border: Border.all(color: KalinkaColors.borderDefault, width: 1),
         ),
         child: Row(
           children: [
-            Icon(Icons.auto_awesome, size: 14, color: KalinkaColors.accentTint),
+            Icon(Icons.auto_awesome, size: 14, color: KalinkaColors.textMuted),
             const SizedBox(width: 10),
             Expanded(
               child: Text(

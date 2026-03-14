@@ -30,7 +30,9 @@ class SettingsRow extends StatelessWidget {
 
     return Container(
       decoration: showAmber
-          ? BoxDecoration(color: KalinkaColors.statusPending.withValues(alpha: 0.04))
+          ? BoxDecoration(
+              color: KalinkaColors.statusPending.withValues(alpha: 0.04),
+            )
           : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -38,7 +40,7 @@ class SettingsRow extends StatelessWidget {
           // Amber left bar
           if (showAmber)
             Container(
-              width: 2,
+              width: 1,
               constraints: const BoxConstraints(minHeight: 44),
               decoration: BoxDecoration(
                 color: KalinkaColors.statusPending,
@@ -99,7 +101,7 @@ class SettingsRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
             decoration: BoxDecoration(
-              color: KalinkaColors.statusPending.withValues(alpha: 0.12),
+              color: KalinkaColors.statusPending.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: KalinkaColors.statusPending.withValues(alpha: 0.2),

@@ -34,10 +34,10 @@ class _ProceduralAlbumArtPainter extends CustomPainter {
     final hash = trackId.hashCode;
     final rng = Random(hash);
 
-    // Generate a deep hue in the rose/crimson/gold range (320-400°, wrapping
-    // through red to amber) to stay in harmony with the app accent and gold.
-    final hue = (320.0 + rng.nextDouble() * 80.0) % 360.0;
-    final baseColor = HSLColor.fromAHSL(1.0, hue, 0.65, 0.18).toColor();
+    // Generate a deep hue in the berry/brass range (340-400°, wrapping
+    // through crimson red to warm gold) matching Kalinka Berry & Brass accents.
+    final hue = (340.0 + rng.nextDouble() * 60.0) % 360.0;
+    final baseColor = HSLColor.fromAHSL(1.0, hue, 0.60, 0.16).toColor();
     const nearBlack = KalinkaColors.background;
 
     // Radial gradient background

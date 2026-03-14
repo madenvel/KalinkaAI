@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Kalinka color palette — viburnum-inspired dark theme
+/// Kalinka color palette — high-contrast grayscale with berry & brass accents
 class KalinkaColors {
   KalinkaColors._();
 
@@ -11,76 +11,78 @@ class KalinkaColors {
   // visible separation from the parent surface.
 
   static const background = Color(
-    0xFF0A0A0D,
-  ); // Page canvas — behind all surfaces
+    0xFF080808,
+  ); // Page canvas — near-black, behind all surfaces
   static const surfaceBase = Color(
-    0xFF111116,
+    0xFF111111,
   ); // Header · tab bar · bottom sheets
   static const surfaceRaised = Color(
-    0xFF16161B,
+    0xFF1A1A1C,
   ); // Cards · queue rows · mini-player
   static const surfaceInput = Color(
-    0xFF1C1C22,
+    0xFF1C1C1C,
   ); // Input fields · search bar · chips
   static const surfaceElevated = Color(
-    0xFF222228,
+    0xFF222225,
   ); // Pills (unselected) · toggle off · nested
   static const surfaceOverlay = Color(
-    0xFF2A2A32,
+    0xFF282828,
   ); // Hover · pressed · active row tint
 
   // ── Borders ─────────────────────────────────────────────────────────────
-  // Always white-alpha — never solid. Works against any surface level.
+  // Pure white alpha — clean neutral separation.
 
   static const borderSubtle = Color(
-    0x1EFFFFFF,
-  ); // 0.12 · Dividers · card edges · row separators
+    0x11FFFFFF,
+  ); // 0.07 alpha · Dividers · card edges · row separators
   static const borderDefault = Color(
-    0x33FFFFFF,
-  ); // 0.20 · Controls · inputs · chips · sheet rules
+    0xFF323235,
+  ); // 0.13 alpha · Controls · inputs · chips · sheet rules
 
   // ── Text ────────────────────────────────────────────────────────────────
-  // Three legibility tiers. All pass WCAG AA on background and surfaceBase.
-  // textSecondary and textMuted must be verified on surfaceRaised and above
-  // before use at sizes below 14px.
+  // Pure near-white on near-black — maximum contrast.
 
   static const textPrimary = Color(
-    0xFFEEECEA,
-  ); // 15.8:1 on bg · Track titles · labels · values
+    0xFFF2F2F2,
+  ); // ~18:1 on bg · Track titles · labels · values
   static const textSecondary = Color(
-    0xFFBABABC,
-  ); // 7.0:1 on bg · Subtitles · metadata · chip labels
+    0xFF919191,
+  ); // ~7:1 on bg · Subtitles · metadata · chip labels
   static const textMuted = Color(
-    0xFF888899,
-  ); // 5.0:1 on bg · Section chrome · drag handles · inactive icons
+    0xFF858585,
+  ); // ~3.5:1 on bg · Section chrome · drag handles · inactive icons
 
-  // ── Accent — Rose/Crimson ───────────────────────────────────────────────
-  // Primary interactive accent. Active states, progress, selected indicators.
+  // Playfair Display headings only — "Looking for Kalinka", "nothing queued",
+  // dialog titles. Pure off-white for high-contrast headings.
+  // Do not use for body text or monospace content.
+  static const frost = Color(0xFFEEEEEE);
+
+  // ── Accent — Kalinka Berry ──────────────────────────────────────────────
+  // Primary interactive accent — deep natural red of guelder-rose berries.
+  // Active states, progress, selected indicators.
   // Do not use accent directly for body text — use accentTint for labels
-  // on accent-tinted surfaces.
+  // on accent-tinted surfaces. Use sparingly — max 2 tinted surfaces at once.
 
-  static const accent = Color(
-    0xFFC23B5C,
-  ); // 5.2:1 on bg · Toggle on · progress · active dot
+  static const accent = Color(0xFFC2394B); // Toggle on · progress · active dot
   static const accentTint = Color(
-    0xFFD4647A,
-  ); // 5.6:1 on surfaceInput · Labels on accent surfaces
+    0xFFD8556A,
+  ); // Bright berry · Labels on accent surfaces
   static const accentSubtle = Color(
-    0x26C23B5C,
-  ); // 0.15 alpha · Selected pill bg · focus tint
+    0x14C2394B,
+  ); // 0.08 alpha · Now-playing row · active pill bg only
   static const accentBorder = Color(
-    0x59C23B5C,
-  ); // 0.35 alpha · Selected pill border · focus ring
+    0x66C2394B,
+  ); // 0.40 alpha · Focused inputs · selected cards
 
-  // ── Accent — Gold ────────────────────────────────────────────────────────
-  // Material signal for streaming/external content. Not an interactive accent.
-  // Appears on Qobuz module tile and progress gradient terminus only.
+  // ── Accent — Warm Brass ──────────────────────────────────────────────────
+  // Secondary signal for streaming/external content — gold-plated connector
+  // warmth. Appears on module tiles and progress gradient terminus.
 
   static const gold = Color(
-    0xFFE8C87A,
-  ); // 8.1:1 on bg · Streaming module · progress end
+    0xFFBFA85A,
+  ); // Brass · streaming module · progress end
   static const goldSubtle = Color(
-    0x1FE8C87A,
+    0x1FBFA85A,
   ); // 0.12 alpha · Streaming module tile bg
 
   // ── Progress gradient ────────────────────────────────────────────────────
@@ -88,35 +90,31 @@ class KalinkaColors {
   static const progressGradient = LinearGradient(colors: [accent, gold]);
 
   // ── Semantic — Status ───────────────────────────────────────────────────
-  // Three states only: success/online, warning/pending, error/offline.
-  // Each has a pure value (for dots, text, icons) and a surface tint
-  // (for badge backgrounds and banner fills).
-  // Do not repurpose these colours outside their semantic role.
+  // Three states only: online, pending, error.
+  // Leaf green for "online" — Kalinka guelder-rose leaves, alive in winter.
 
   static const statusOnline = Color(
-    0xFF4ADE80,
-  ); // 6.4:1 on surfaceInput · Connected · success
+    0xFF5AAE78,
+  ); // Leaf green · Connected · success
   static const statusPending = Color(
-    0xFFF59E0B,
-  ); // 5.2:1 on surfaceInput · Staged · reconnecting
-  static const statusError = Color(
-    0xFFEF4444,
-  ); // 4.5:1 on surfaceInput · Offline · failed
+    0xFFC8943A,
+  ); // Amber · Staged · reconnecting
+  static const statusError = Color(0xFFC84444); // Red · Offline · failed
 
   static const statusOnlineSurface = Color(
-    0x1A4ADE80,
+    0x1A5AAE78,
   ); // 0.10 alpha · Badge bg · done step
   static const statusPendingSurface = Color(
-    0x17F59E0B,
+    0x17C8943A,
   ); // 0.09 alpha · Pending banner bg
   static const statusErrorSurface = Color(
-    0x12EF4444,
+    0x12C84444,
   ); // 0.07 alpha · Error badge bg · warning note
 
   // Brighter amber for text on amber-tinted surfaces where the base
   // amber doesn't meet contrast against the tinted bg.
   static const statusPendingLight = Color(
-    0xFFFCD34D,
+    0xFFE8B86A,
   ); // Use for text/icons on statusPendingSurface only
 
   // ── Semantic — Actions ──────────────────────────────────────────────────
@@ -125,11 +123,11 @@ class KalinkaColors {
   // rather than passive indicators.
 
   static const actionDelete = Color(
-    0xFFEF4444,
+    0xFFC84444,
   ); // Swipe-to-delete · remove button · destructive CTA
   static const actionConfirm = Color(
-    0xFF4ADE80,
-  ); // Confirm · apply · positive CTA
+    0xFF5AAE78,
+  ); // Confirm · apply · positive CTA (leaf green matches statusOnline)
 }
 
 /// Kalinka text styles using IBM Plex Mono and Playfair Display
@@ -202,7 +200,7 @@ class KalinkaTextStyles {
   static TextStyle formatBadge = GoogleFonts.ibmPlexMono(
     fontSize: 11,
     fontWeight: FontWeight.w500,
-    color: KalinkaColors.accentTint,
+    color: KalinkaColors.textSecondary,
   );
 
   static TextStyle sourceBadgeLetter = GoogleFonts.ibmPlexMono(
@@ -227,7 +225,7 @@ class KalinkaTextStyles {
   static TextStyle aiBadge = GoogleFonts.ibmPlexMono(
     fontSize: 11,
     fontWeight: FontWeight.w700,
-    color: KalinkaColors.accentTint,
+    color: KalinkaColors.textSecondary,
   );
 
   static TextStyle aiPlaylistName = GoogleFonts.playfairDisplay(
@@ -281,14 +279,14 @@ class KalinkaTextStyles {
   static TextStyle showMoreLabel = GoogleFonts.ibmPlexMono(
     fontSize: 11,
     fontWeight: FontWeight.w600,
-    color: KalinkaColors.accentTint,
+    color: KalinkaColors.textSecondary,
   );
 
   static TextStyle aiCardLabel = GoogleFonts.ibmPlexMono(
     fontSize: 11,
     fontWeight: FontWeight.w700,
     letterSpacing: 1.5,
-    color: KalinkaColors.accentTint,
+    color: KalinkaColors.textSecondary,
   );
 
   static TextStyle aiTrackChip = GoogleFonts.ibmPlexMono(
@@ -305,7 +303,7 @@ class KalinkaTextStyles {
     fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.0,
-    color: KalinkaColors.accentTint,
+    color: KalinkaColors.textSecondary,
   );
 
   static TextStyle cancelButton = GoogleFonts.ibmPlexMono(
@@ -326,7 +324,7 @@ class KalinkaTextStyles {
 
   static TextStyle completionMatchHighlight = GoogleFonts.ibmPlexMono(
     fontSize: 13,
-    color: KalinkaColors.accentTint,
+    color: KalinkaColors.textPrimary,
   );
 
   static TextStyle aiCompletionText = GoogleFonts.playfairDisplay(
@@ -338,7 +336,7 @@ class KalinkaTextStyles {
   static TextStyle aiPromptChipText = GoogleFonts.ibmPlexMono(
     fontSize: 13,
     fontWeight: FontWeight.w300,
-    color: KalinkaColors.accentTint,
+    color: KalinkaColors.textSecondary,
   );
 
   // Clear all link
@@ -396,7 +394,7 @@ class KalinkaTextStyles {
     fontSize: 11,
     fontWeight: FontWeight.w500,
     letterSpacing: 0.5,
-    color: KalinkaColors.gold,
+    color: KalinkaColors.textSecondary,
   );
 
   static TextStyle clearPlayedButton = GoogleFonts.ibmPlexMono(
@@ -409,7 +407,7 @@ class KalinkaTextStyles {
   // Empty queue state
   static TextStyle emptyQueueTitle = GoogleFonts.playfairDisplay(
     fontSize: 22,
-    color: KalinkaColors.textPrimary,
+    color: KalinkaColors.frost,
   );
 
   static TextStyle emptyQueueSubtitle = GoogleFonts.ibmPlexMono(
@@ -420,7 +418,7 @@ class KalinkaTextStyles {
   // Confirm dialog
   static TextStyle dialogTitle = GoogleFonts.playfairDisplay(
     fontSize: 20,
-    color: KalinkaColors.textPrimary,
+    color: KalinkaColors.frost,
   );
 
   static TextStyle dialogBody = GoogleFonts.ibmPlexMono(
@@ -435,7 +433,7 @@ class KalinkaTextStyles {
   );
 
   // Lettermark
-  static TextStyle lettermark = GoogleFonts.instrumentSerif(
+  static TextStyle lettermark = GoogleFonts.playfairDisplay(
     fontSize: 22,
     fontStyle: FontStyle.italic,
     color: KalinkaColors.textPrimary,

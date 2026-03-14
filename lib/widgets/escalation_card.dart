@@ -127,16 +127,14 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: KalinkaColors.accent.withValues(alpha: 0.15),
+                        color: Colors.transparent,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: KalinkaColors.accent.withValues(alpha: 0.35),
-                        ),
+                        border: Border.all(color: KalinkaColors.accent),
                       ),
                       child: Text(
                         'Scan for servers',
                         style: KalinkaTextStyles.trayRowLabel.copyWith(
-                          color: KalinkaColors.accent,
+                          color: KalinkaColors.accentTint,
                           fontSize: 12,
                         ),
                       ),

@@ -115,14 +115,14 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
                               ? KalinkaColors.statusOnline.withValues(
                                   alpha: 0.14,
                                 )
-                              : KalinkaColors.accent.withValues(alpha: 0.14),
+                              : KalinkaColors.surfaceRaised,
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(
-                            color:
-                                (restartState.isDone
-                                        ? KalinkaColors.statusOnline
-                                        : KalinkaColors.accent)
-                                    .withValues(alpha: 0.25),
+                            color: restartState.isDone
+                                ? KalinkaColors.statusOnline.withValues(
+                                    alpha: 0.25,
+                                  )
+                                : KalinkaColors.borderDefault,
                           ),
                         ),
                         child: restartState.isDone
@@ -136,7 +136,7 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
                                 child: const Icon(
                                   Icons.autorenew_rounded,
                                   size: 28,
-                                  color: KalinkaColors.accent,
+                                  color: KalinkaColors.textSecondary,
                                 ),
                               ),
                       ),
@@ -231,15 +231,8 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
               width: constraints.maxWidth * progress,
               height: 4,
               decoration: BoxDecoration(
+                color: progress > 0 ? KalinkaColors.accent : null,
                 borderRadius: BorderRadius.circular(2),
-                gradient: progress > 0
-                    ? const LinearGradient(
-                        colors: [
-                          KalinkaColors.accent,
-                          KalinkaColors.accentTint,
-                        ],
-                      )
-                    : null,
               ),
             ),
           ),
@@ -267,7 +260,7 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
       if (isDone) {
         dotColor = KalinkaColors.statusOnline;
       } else if (isActive) {
-        dotColor = KalinkaColors.accent;
+        dotColor = KalinkaColors.textSecondary;
       } else {
         dotColor = KalinkaColors.textMuted;
       }

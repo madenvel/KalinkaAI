@@ -17,8 +17,13 @@ import 'settings_tabs/modules_tab.dart';
 /// Slides in from the right, loads server config on init.
 class SettingsScreen extends ConsumerStatefulWidget {
   final VoidCallback onClose;
+  final VoidCallback? onDismissing;
 
-  const SettingsScreen({super.key, required this.onClose});
+  const SettingsScreen({
+    super.key,
+    required this.onClose,
+    this.onDismissing,
+  });
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -60,6 +65,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   Future<void> _animateClose() async {
+    widget.onDismissing?.call();
     await _slideController.reverse();
     widget.onClose();
   }

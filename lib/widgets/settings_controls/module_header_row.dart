@@ -29,13 +29,13 @@ class ModuleHeaderRow extends StatelessWidget {
   static (IconData, Color) iconForModule(String moduleName) {
     final name = moduleName.toLowerCase();
     if (name.contains('local') || name.contains('file')) {
-      return (Icons.folder_outlined, KalinkaColors.accent);
+      return (Icons.folder_outlined, KalinkaColors.textSecondary);
     }
     if (name.contains('qobuz')) {
       return (Icons.music_note_outlined, KalinkaColors.gold);
     }
     if (name.contains('tidal')) {
-      return (Icons.waves_outlined, const Color(0xFF4ADE80));
+      return (Icons.waves_outlined, const Color(0xFF4AC4D0));
     }
     if (name.contains('spotify')) {
       return (Icons.music_note_outlined, const Color(0xFF1DB954));
