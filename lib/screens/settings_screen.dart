@@ -6,24 +6,22 @@ import '../providers/restart_provider.dart';
 import '../providers/server_info_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
-import 'pending_changes_banner.dart';
-import 'restart_overlay.dart';
-import 'settings_tabs/devices_tab.dart';
-import 'settings_tabs/general_tab.dart';
-import 'settings_tabs/modules_tab.dart';
+import '../widgets/pending_changes_banner.dart';
+import '../widgets/restart_overlay.dart';
+import '../widgets/settings_tabs/devices_tab.dart';
+import '../widgets/settings_tabs/general_tab.dart';
+import '../widgets/settings_tabs/modules_tab.dart';
 
 /// Full-screen settings overlay with tabbed content (General / Modules / Devices).
 ///
 /// Slides in from the right, loads server config on init.
 class SettingsScreen extends ConsumerStatefulWidget {
-  final VoidCallback onClose;
+  /// Optional close callback for tablet Stack overlay mode.
+  /// When null (phone Navigator route), [Navigator.pop] is used instead.
+  final VoidCallback? onClose;
   final VoidCallback? onDismissing;
 
-  const SettingsScreen({
-    super.key,
-    required this.onClose,
-    this.onDismissing,
-  });
+  const SettingsScreen({super.key, this.onClose, this.onDismissing});
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -65,9 +63,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   Future<void> _animateClose() async {
-    widget.onDismissing?.call();
-    await _slideController.reverse();
-    widget.onClose();
+    if (widget.onClose != null) {
+      // Tablet Stack overlay mode — animate out, then remove via callback.
+      widget.onDismissing?.call();
+      await _slideController.reverse();
+      widget.onClose!();
+    } else {
+      // Phone Navigator route mode — route transition handles animation.
+      Navigator.pop(context);
+    }
   }
 
   void _onApply() {

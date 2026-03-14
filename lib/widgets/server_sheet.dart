@@ -6,230 +6,115 @@ import '../providers/server_info_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 
-/// Server management bottom sheet — opened by tapping the server chip.
-///
-/// Shows server status, and provides actions for settings, switching servers,
-/// and disconnecting.
-class ServerSheet extends ConsumerStatefulWidget {
-  final VoidCallback onClose;
-  final VoidCallback onOpenDiscovery;
-  final VoidCallback onOpenSettings;
+/// Actions that can be returned from the server sheet.
+enum ServerSheetAction { openSettings, openDiscovery }
 
-  const ServerSheet({
-    super.key,
-    required this.onClose,
-    required this.onOpenDiscovery,
-    required this.onOpenSettings,
-  });
+/// Content body for the server sheet — used directly by [showKalinkaBottomSheet]
+/// on phone, and wrapped by [ServerSheet] (with animation/scrim) on tablet.
+class ServerSheetContent extends ConsumerWidget {
+  const ServerSheetContent({super.key});
 
   @override
-  ConsumerState<ServerSheet> createState() => _ServerSheetState();
-}
-
-class _ServerSheetState extends ConsumerState<ServerSheet>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _slideController;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _slideController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 320),
-    );
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
-        .animate(
-          CurvedAnimation(
-            parent: _slideController,
-            curve: const Cubic(0.4, 0, 0.2, 1),
-          ),
-        );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _slideController,
-        curve: const Interval(0.0, 0.75, curve: Curves.easeOut),
-      ),
-    );
-    _slideController.forward();
-  }
-
-  @override
-  void dispose() {
-    _slideController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _animateClose() async {
-    await _slideController.reverse();
-    widget.onClose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final connectionState = ref.watch(connectionStateProvider);
     final settings = ref.watch(connectionSettingsProvider);
     final serverInfo = ref.watch(serverInfoProvider);
 
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: GestureDetector(
-        onTap: _animateClose,
-        child: Container(
-          color: Colors.black.withValues(alpha: 0.60),
-          child: Column(
-            children: [
-              const Spacer(),
-              SlideTransition(
-                position: _slideAnimation,
-                child: GestureDetector(
-                  onTap: () {}, // Prevent backdrop tap from passing through
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: KalinkaColors.surfaceRaised,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(24),
-                      ),
-                      border: const Border(
-                        top: BorderSide(color: KalinkaColors.borderDefault),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.7),
-                          blurRadius: 60,
-                          offset: const Offset(0, -20),
-                        ),
-                      ],
-                    ),
-                    child: SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Drag handle
-                            Center(
-                              child: Container(
-                                width: 36,
-                                height: 4,
-                                margin: const EdgeInsets.only(top: 12),
-                                decoration: BoxDecoration(
-                                  color: KalinkaColors.surfaceOverlay,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                            ),
-                            // Section label
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-                              child: Text(
-                                'SERVER',
-                                style: KalinkaTextStyles.sectionHeaderMuted,
-                              ),
-                            ),
-                            // Status card
-                            _buildStatusCard(
-                              connectionState,
-                              settings,
-                              serverInfo,
-                            ),
-                            const SizedBox(height: 4),
-                            // Separator
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: Divider(
-                                color: Colors.white.withValues(alpha: 0.07),
-                                height: 1,
-                              ),
-                            ),
-                            // Server settings row
-                            _SheetRow(
-                              icon: Icons.settings_outlined,
-                              iconBgColor: KalinkaColors.accent.withValues(
-                                alpha: 0.14,
-                              ),
-                              iconColor: KalinkaColors.accent,
-                              label: 'Server settings',
-                              sublabel: 'Modules, audio, enrichment',
-                              onTap: () async {
-                                await _animateClose();
-                                widget.onOpenSettings();
-                              },
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: Divider(
-                                color: Colors.white.withValues(alpha: 0.07),
-                                height: 1,
-                              ),
-                            ),
-                            // Connect to different server
-                            _SheetRow(
-                              icon: Icons.language,
-                              iconBgColor: KalinkaColors.surfaceOverlay,
-                              iconColor: KalinkaColors.textSecondary,
-                              label: 'Connect to different server',
-                              sublabel: 'Scan network for other instances',
-                              onTap: () async {
-                                await _animateClose();
-                                widget.onOpenDiscovery();
-                              },
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: Divider(
-                                color: Colors.white.withValues(alpha: 0.07),
-                                height: 1,
-                              ),
-                            ),
-                            // Disconnect
-                            _SheetRow(
-                              icon: Icons.logout,
-                              iconBgColor: KalinkaColors.statusError.withValues(
-                                alpha: 0.12,
-                              ),
-                              iconColor: KalinkaColors.statusError,
-                              label: 'Disconnect',
-                              sublabel: '',
-                              isDanger: true,
-                              onTap: () async {
-                                await ref
-                                    .read(connectionSettingsProvider.notifier)
-                                    .clearDevice();
-                                ref
-                                    .read(connectionStateProvider.notifier)
-                                    .disconnected();
-                                await _animateClose();
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Section label
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+          child: Text(
+            'SERVER',
+            style: KalinkaTextStyles.sectionHeaderMuted,
           ),
         ),
-      ),
+        // Status card
+        _ServerStatusCard(
+          connectionState: connectionState,
+          settings: settings,
+          serverInfo: serverInfo,
+        ),
+        const SizedBox(height: 4),
+        // Separator
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Divider(
+            color: Colors.white.withValues(alpha: 0.07),
+            height: 1,
+          ),
+        ),
+        // Server settings row
+        _SheetRow(
+          icon: Icons.settings_outlined,
+          iconBgColor: KalinkaColors.accent.withValues(alpha: 0.14),
+          iconColor: KalinkaColors.accent,
+          label: 'Server settings',
+          sublabel: 'Modules, audio, enrichment',
+          onTap: () =>
+              Navigator.pop(context, ServerSheetAction.openSettings),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Divider(
+            color: Colors.white.withValues(alpha: 0.07),
+            height: 1,
+          ),
+        ),
+        // Connect to different server
+        _SheetRow(
+          icon: Icons.language,
+          iconBgColor: KalinkaColors.surfaceOverlay,
+          iconColor: KalinkaColors.textSecondary,
+          label: 'Connect to different server',
+          sublabel: 'Scan network for other instances',
+          onTap: () =>
+              Navigator.pop(context, ServerSheetAction.openDiscovery),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Divider(
+            color: Colors.white.withValues(alpha: 0.07),
+            height: 1,
+          ),
+        ),
+        // Disconnect
+        _SheetRow(
+          icon: Icons.logout,
+          iconBgColor: KalinkaColors.statusError.withValues(alpha: 0.12),
+          iconColor: KalinkaColors.statusError,
+          label: 'Disconnect',
+          sublabel: '',
+          isDanger: true,
+          onTap: () async {
+            await ref
+                .read(connectionSettingsProvider.notifier)
+                .clearDevice();
+            ref.read(connectionStateProvider.notifier).disconnected();
+            if (context.mounted) Navigator.pop(context);
+          },
+        ),
+      ],
     );
   }
+}
 
-  Widget _buildStatusCard(
-    ConnectionStatus connectionState,
-    ConnectionSettings settings,
-    AsyncValue<ServerInfo> serverInfo,
-  ) {
+class _ServerStatusCard extends StatelessWidget {
+  final ConnectionStatus connectionState;
+  final ConnectionSettings settings;
+  final AsyncValue<ServerInfo> serverInfo;
+
+  const _ServerStatusCard({
+    required this.connectionState,
+    required this.settings,
+    required this.serverInfo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     Color dotColor;
     String stateLabel;
     switch (connectionState) {
@@ -258,7 +143,8 @@ class _ServerSheetState extends ConsumerState<ServerSheet>
     final detailParts = <String>[
       if (settings.host.isNotEmpty) '${settings.host}:${settings.port}',
       if (versionText != null) 'v$versionText',
-      if (latencyText != null && connectionState == ConnectionStatus.connected)
+      if (latencyText != null &&
+          connectionState == ConnectionStatus.connected)
         latencyText,
     ];
 
@@ -339,6 +225,239 @@ class _ServerSheetState extends ConsumerState<ServerSheet>
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Tablet-only: server sheet with its own animation and scrim.
+///
+/// On phone, use [showKalinkaBottomSheet] with [ServerSheetContent] instead.
+class ServerSheet extends ConsumerStatefulWidget {
+  final VoidCallback onClose;
+  final VoidCallback onOpenDiscovery;
+  final VoidCallback onOpenSettings;
+
+  const ServerSheet({
+    super.key,
+    required this.onClose,
+    required this.onOpenDiscovery,
+    required this.onOpenSettings,
+  });
+
+  @override
+  ConsumerState<ServerSheet> createState() => _ServerSheetState();
+}
+
+class _ServerSheetState extends ConsumerState<ServerSheet>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _slideController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _slideController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+    _slideAnimation = Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _slideController,
+            curve: const Cubic(0.4, 0, 0.2, 1),
+          ),
+        );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _slideController,
+        curve: const Interval(0.0, 0.75, curve: Curves.easeOut),
+      ),
+    );
+    _slideController.forward();
+  }
+
+  @override
+  void dispose() {
+    _slideController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _animateClose() async {
+    await _slideController.reverse();
+    widget.onClose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: GestureDetector(
+        onTap: _animateClose,
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.60),
+          child: Column(
+            children: [
+              const Spacer(),
+              SlideTransition(
+                position: _slideAnimation,
+                child: GestureDetector(
+                  onTap: () {}, // Prevent backdrop tap from passing through
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: KalinkaColors.surfaceRaised,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(24),
+                      ),
+                      border: const Border(
+                        top: BorderSide(color: KalinkaColors.borderDefault),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.7),
+                          blurRadius: 60,
+                          offset: const Offset(0, -20),
+                        ),
+                      ],
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Drag handle
+                            Center(
+                              child: Container(
+                                width: 36,
+                                height: 4,
+                                margin: const EdgeInsets.only(top: 12),
+                                decoration: BoxDecoration(
+                                  color: KalinkaColors.surfaceOverlay,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                            _TabletServerSheetContent(
+                              onClose: _animateClose,
+                              onOpenSettings: () async {
+                                await _animateClose();
+                                widget.onOpenSettings();
+                              },
+                              onOpenDiscovery: () async {
+                                await _animateClose();
+                                widget.onOpenDiscovery();
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tablet-specific content that uses callback-based actions (animate-close
+/// before triggering the next screen), unlike [ServerSheetContent] which
+/// uses Navigator.pop with result values.
+class _TabletServerSheetContent extends ConsumerWidget {
+  final Future<void> Function() onClose;
+  final VoidCallback onOpenSettings;
+  final VoidCallback onOpenDiscovery;
+
+  const _TabletServerSheetContent({
+    required this.onClose,
+    required this.onOpenSettings,
+    required this.onOpenDiscovery,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final connectionState = ref.watch(connectionStateProvider);
+    final settings = ref.watch(connectionSettingsProvider);
+    final serverInfo = ref.watch(serverInfoProvider);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Section label
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+          child: Text(
+            'SERVER',
+            style: KalinkaTextStyles.sectionHeaderMuted,
+          ),
+        ),
+        // Status card
+        _ServerStatusCard(
+          connectionState: connectionState,
+          settings: settings,
+          serverInfo: serverInfo,
+        ),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Divider(
+            color: Colors.white.withValues(alpha: 0.07),
+            height: 1,
+          ),
+        ),
+        _SheetRow(
+          icon: Icons.settings_outlined,
+          iconBgColor: KalinkaColors.accent.withValues(alpha: 0.14),
+          iconColor: KalinkaColors.accent,
+          label: 'Server settings',
+          sublabel: 'Modules, audio, enrichment',
+          onTap: onOpenSettings,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Divider(
+            color: Colors.white.withValues(alpha: 0.07),
+            height: 1,
+          ),
+        ),
+        _SheetRow(
+          icon: Icons.language,
+          iconBgColor: KalinkaColors.surfaceOverlay,
+          iconColor: KalinkaColors.textSecondary,
+          label: 'Connect to different server',
+          sublabel: 'Scan network for other instances',
+          onTap: onOpenDiscovery,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Divider(
+            color: Colors.white.withValues(alpha: 0.07),
+            height: 1,
+          ),
+        ),
+        _SheetRow(
+          icon: Icons.logout,
+          iconBgColor: KalinkaColors.statusError.withValues(alpha: 0.12),
+          iconColor: KalinkaColors.statusError,
+          label: 'Disconnect',
+          sublabel: '',
+          isDanger: true,
+          onTap: () async {
+            await ref
+                .read(connectionSettingsProvider.notifier)
+                .clearDevice();
+            ref.read(connectionStateProvider.notifier).disconnected();
+            await onClose();
+          },
+        ),
+      ],
     );
   }
 }

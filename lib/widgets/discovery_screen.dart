@@ -11,13 +11,15 @@ import 'sonar_animation.dart';
 ///
 /// Used on first launch (no cancel) and when switching servers (with cancel).
 class DiscoveryScreen extends ConsumerStatefulWidget {
-  final VoidCallback onClose;
+  /// Optional close callback for tablet Stack overlay mode.
+  /// When null (phone Navigator route), [Navigator.pop] is used instead.
+  final VoidCallback? onClose;
   final bool allowCancel;
   final String? currentServerHost;
 
   const DiscoveryScreen({
     super.key,
-    required this.onClose,
+    this.onClose,
     this.allowCancel = true,
     this.currentServerHost,
   });
@@ -102,8 +104,14 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
   }
 
   Future<void> _animateClose() async {
-    await _fadeController.reverse();
-    widget.onClose();
+    if (widget.onClose != null) {
+      // Tablet Stack overlay mode — animate out, then remove via callback.
+      await _fadeController.reverse();
+      widget.onClose!();
+    } else {
+      // Phone Navigator route mode — route transition handles animation.
+      Navigator.pop(context);
+    }
   }
 
   @override

@@ -7,65 +7,15 @@ import '../providers/kalinka_ws_api_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 
-/// Management tray — slides up from the bottom with playback and queue controls.
-class QueueManagementTray extends ConsumerStatefulWidget {
-  final VoidCallback onClose;
-  final VoidCallback onClearPlayed;
-  final VoidCallback onClearAllRequested;
+/// Actions that can be returned from the queue management tray.
+enum TrayAction { clearPlayed, clearAll }
 
-  const QueueManagementTray({
-    super.key,
-    required this.onClose,
-    required this.onClearPlayed,
-    required this.onClearAllRequested,
-  });
+/// Content body for the queue management tray — used directly by
+/// [showKalinkaBottomSheet] on phone.
+class QueueManagementTrayContent extends ConsumerWidget {
+  const QueueManagementTrayContent({super.key});
 
-  @override
-  ConsumerState<QueueManagementTray> createState() =>
-      _QueueManagementTrayState();
-}
-
-class _QueueManagementTrayState extends ConsumerState<QueueManagementTray>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _slideController;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _slideController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 320),
-    );
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
-        .animate(
-          CurvedAnimation(
-            parent: _slideController,
-            curve: const Cubic(0.4, 0, 0.2, 1),
-          ),
-        );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _slideController,
-        curve: const Interval(0.0, 0.75, curve: Curves.easeOut),
-      ),
-    );
-    _slideController.forward();
-  }
-
-  @override
-  void dispose() {
-    _slideController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _animateClose() async {
-    await _slideController.reverse();
-    widget.onClose();
-  }
-
-  void _setRepeatMode({required bool repeatAll, required bool repeatSingle}) {
+  void _setRepeatMode(WidgetRef ref, {required bool repeatAll, required bool repeatSingle}) {
     final playbackMode = ref.read(playbackModeProvider);
     ref
         .read(kalinkaWsApiProvider)
@@ -79,224 +29,143 @@ class _QueueManagementTrayState extends ConsumerState<QueueManagementTray>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final playbackMode = ref.watch(playbackModeProvider);
     final isRepeatAll = playbackMode.repeatAll;
     final isRepeatOne = playbackMode.repeatSingle;
     final isShuffle = playbackMode.shuffle;
 
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: GestureDetector(
-        onTap: _animateClose,
-        child: Container(
-          color: Colors.black.withValues(alpha: 0.60),
-          child: Column(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 16),
+        // Section: PLAYBACK
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          child: Text(
+            'PLAYBACK',
+            style: KalinkaTextStyles.traySectionLabel,
+          ),
+        ),
+
+        // Shuffle row
+        _TrayRow(
+          icon: Icons.shuffle,
+          iconBgColor: KalinkaColors.gold.withValues(alpha: 0.14),
+          iconColor: KalinkaColors.gold,
+          label: 'Shuffle',
+          sublabel: isShuffle
+              ? 'On \u2014 playing in random order'
+              : 'Off \u2014 plays in order',
+          trailing: _buildToggleSwitch(
+            value: isShuffle,
+            activeColor: KalinkaColors.gold,
+            onTap: () {
+              isShuffle
+                  ? KalinkaHaptics.lightImpact()
+                  : KalinkaHaptics.mediumImpact();
+              // Shuffle not yet wired to API
+            },
+          ),
+        ),
+        // Divider between rows
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Divider(
+            color: Colors.white.withValues(alpha: 0.07),
+            height: 1,
+          ),
+        ),
+        // Repeat row — segmented control
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+          child: Row(
             children: [
-              const Spacer(),
-              SlideTransition(
-                position: _slideAnimation,
-                child: GestureDetector(
-                  // Prevent backdrop tap from passing through
-                  onTap: () {},
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: KalinkaColors.surfaceRaised,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(24),
-                      ),
-                      border: const Border(
-                        top: BorderSide(color: KalinkaColors.borderDefault),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.7),
-                          blurRadius: 60,
-                          offset: const Offset(0, -20),
-                        ),
-                      ],
-                    ),
-                    child: SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Drag handle
-                            Center(
-                              child: Container(
-                                width: 36,
-                                height: 4,
-                                margin: const EdgeInsets.only(top: 12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF2A2A32),
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            // Section: PLAYBACK
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                              child: Text(
-                                'PLAYBACK',
-                                style: KalinkaTextStyles.traySectionLabel,
-                              ),
-                            ),
-
-                            // Shuffle row
-                            _TrayRow(
-                              icon: Icons.shuffle,
-                              iconBgColor: KalinkaColors.gold.withValues(
-                                alpha: 0.14,
-                              ),
-                              iconColor: KalinkaColors.gold,
-                              label: 'Shuffle',
-                              sublabel: isShuffle
-                                  ? 'On \u2014 playing in random order'
-                                  : 'Off \u2014 plays in order',
-                              trailing: _buildToggleSwitch(
-                                value: isShuffle,
-                                activeColor: KalinkaColors.gold,
-                                onTap: () {
-                                  isShuffle
-                                      ? KalinkaHaptics.lightImpact()
-                                      : KalinkaHaptics.mediumImpact();
-                                  // Shuffle not yet wired to API
-                                },
-                              ),
-                            ),
-                            // Divider between rows
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: Divider(
-                                color: Colors.white.withValues(alpha: 0.07),
-                                height: 1,
-                              ),
-                            ),
-                            // Repeat row — segmented control
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 13,
-                              ),
-                              child: Row(
-                                children: [
-                                  // Icon container
-                                  Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: KalinkaColors.accent.withValues(
-                                        alpha: 0.14,
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Icon(
-                                      isRepeatOne
-                                          ? Icons.repeat_one
-                                          : Icons.repeat,
-                                      size: 16,
-                                      color: KalinkaColors.accent,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  // Label
-                                  Text(
-                                    'Repeat',
-                                    style: KalinkaTextStyles.trayRowLabel,
-                                  ),
-                                  const Spacer(),
-                                  // Segmented control
-                                  _RepeatSegmentedControl(
-                                    repeatAll: isRepeatAll,
-                                    repeatOne: isRepeatOne,
-                                    onChanged: (repeatAll, repeatSingle) {
-                                      _setRepeatMode(
-                                        repeatAll: repeatAll,
-                                        repeatSingle: repeatSingle,
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 8),
-                            // Section divider
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: Divider(
-                                color: Colors.white.withValues(alpha: 0.07),
-                                height: 1,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Section: QUEUE
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                              child: Text(
-                                'QUEUE',
-                                style: KalinkaTextStyles.traySectionLabel,
-                              ),
-                            ),
-
-                            // Clear played row
-                            _TrayRow(
-                              icon: Icons.history,
-                              iconBgColor: KalinkaColors.surfaceElevated,
-                              iconColor: KalinkaColors.textSecondary,
-                              label: 'Clear played',
-                              sublabel: 'Remove played tracks from history',
-                              onTap: () async {
-                                KalinkaHaptics.mediumImpact();
-                                await _animateClose();
-                                widget.onClearPlayed();
-                              },
-                            ),
-                            // Divider between rows
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: Divider(
-                                color: Colors.white.withValues(alpha: 0.07),
-                                height: 1,
-                              ),
-                            ),
-                            // Clear all row (danger)
-                            _TrayRow(
-                              icon: Icons.delete_outline,
-                              iconBgColor: KalinkaColors.actionDelete
-                                  .withValues(alpha: 0.12),
-                              iconColor: KalinkaColors.actionDelete,
-                              label: 'Clear all',
-                              sublabel: 'Remove everything from queue',
-                              isDanger: true,
-                              onTap: () async {
-                                KalinkaHaptics.heavyImpact();
-                                await _animateClose();
-                                widget.onClearAllRequested();
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+              // Icon container
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: KalinkaColors.accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
                 ),
+                child: Icon(
+                  isRepeatOne ? Icons.repeat_one : Icons.repeat,
+                  size: 16,
+                  color: KalinkaColors.accent,
+                ),
+              ),
+              const SizedBox(width: 14),
+              // Label
+              Text('Repeat', style: KalinkaTextStyles.trayRowLabel),
+              const Spacer(),
+              // Segmented control
+              _RepeatSegmentedControl(
+                repeatAll: isRepeatAll,
+                repeatOne: isRepeatOne,
+                onChanged: (repeatAll, repeatSingle) {
+                  _setRepeatMode(ref, repeatAll: repeatAll, repeatSingle: repeatSingle);
+                },
               ),
             ],
           ),
         ),
-      ),
+
+        const SizedBox(height: 8),
+        // Section divider
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Divider(
+            color: Colors.white.withValues(alpha: 0.07),
+            height: 1,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Section: QUEUE
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          child: Text(
+            'QUEUE',
+            style: KalinkaTextStyles.traySectionLabel,
+          ),
+        ),
+
+        // Clear played row
+        _TrayRow(
+          icon: Icons.history,
+          iconBgColor: KalinkaColors.surfaceElevated,
+          iconColor: KalinkaColors.textSecondary,
+          label: 'Clear played',
+          sublabel: 'Remove played tracks from history',
+          onTap: () {
+            KalinkaHaptics.mediumImpact();
+            Navigator.pop(context, TrayAction.clearPlayed);
+          },
+        ),
+        // Divider between rows
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Divider(
+            color: Colors.white.withValues(alpha: 0.07),
+            height: 1,
+          ),
+        ),
+        // Clear all row (danger)
+        _TrayRow(
+          icon: Icons.delete_outline,
+          iconBgColor: KalinkaColors.actionDelete.withValues(alpha: 0.12),
+          iconColor: KalinkaColors.actionDelete,
+          label: 'Clear all',
+          sublabel: 'Remove everything from queue',
+          isDanger: true,
+          onTap: () {
+            KalinkaHaptics.heavyImpact();
+            Navigator.pop(context, TrayAction.clearAll);
+          },
+        ),
+      ],
     );
   }
 

@@ -4,218 +4,150 @@ import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 
-/// Confirmation dialog for clearing the entire queue.
-/// Slides up from the bottom after a 160ms delay from the tray closing.
-class ClearAllConfirmDialog extends ConsumerStatefulWidget {
-  final VoidCallback onCancel;
-  final VoidCallback onConfirmed;
+/// Confirmation dialog content for clearing the entire queue.
+///
+/// Returns `true` if the user confirmed and the clear succeeded,
+/// `false` or `null` if cancelled.
+class ClearAllConfirmDialog extends ConsumerWidget {
   final Future<void> Function() onConfirmClearAll;
 
   const ClearAllConfirmDialog({
     super.key,
-    required this.onCancel,
-    required this.onConfirmed,
     required this.onConfirmClearAll,
   });
 
   @override
-  ConsumerState<ClearAllConfirmDialog> createState() =>
-      _ClearAllConfirmDialogState();
-}
-
-class _ClearAllConfirmDialogState extends ConsumerState<ClearAllConfirmDialog>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _slideController;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _slideController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-    );
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
-        .animate(
-          CurvedAnimation(
-            parent: _slideController,
-            curve: const Cubic(0.4, 0, 0.2, 1),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: KalinkaColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: KalinkaColors.borderDefault),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.7),
+                blurRadius: 60,
+                offset: const Offset(0, -20),
+              ),
+            ],
           ),
-        );
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
-    _slideController.forward();
-  }
-
-  @override
-  void dispose() {
-    _slideController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _animateClose() async {
-    KalinkaHaptics.lightImpact();
-    await _slideController.reverse();
-    widget.onCancel();
-  }
-
-  Future<void> _doClearAll() async {
-    KalinkaHaptics.heavyImpact();
-    try {
-      await widget.onConfirmClearAll();
-      if (!mounted) return;
-      await _slideController.reverse();
-      widget.onConfirmed();
-    } catch (e) {
-      ref.read(toastProvider.notifier).show('Failed to clear queue: $e', isError: true);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: GestureDetector(
-        onTap: _animateClose,
-        child: Container(
-          color: Colors.black.withValues(alpha: 0.60),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Spacer(),
-              SlideTransition(
-                position: _slideAnimation,
-                child: GestureDetector(
-                  // Prevent backdrop tap from passing through
-                  onTap: () {},
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: KalinkaColors.surfaceRaised,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: KalinkaColors.borderDefault),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.7),
-                          blurRadius: 60,
-                          offset: const Offset(0, -20),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Trash icon
-                        Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            color: KalinkaColors.actionDelete.withValues(
-                              alpha: 0.12,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: KalinkaColors.actionDelete.withValues(
-                                alpha: 0.2,
-                              ),
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.delete_outline,
-                            size: 24,
-                            color: KalinkaColors.actionDelete,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        // Title
-                        Text(
-                          'Clear entire queue?',
-                          style: KalinkaTextStyles.dialogTitle,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        // Body
-                        Text(
-                          'This will remove all tracks including your play history. This cannot be undone.',
-                          style: KalinkaTextStyles.dialogBody,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 22),
-                        // Buttons
-                        Row(
-                          children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: _animateClose,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: KalinkaColors.surfaceInput,
-                                    borderRadius: BorderRadius.circular(13),
-                                    border: Border.all(
-                                      color: KalinkaColors.borderDefault,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      'Cancel',
-                                      style: KalinkaTextStyles.dialogButton
-                                          .copyWith(
-                                            color: KalinkaColors.textSecondary,
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: _doClearAll,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: KalinkaColors.actionDelete.withValues(
-                                      alpha: 0.14,
-                                    ),
-                                    borderRadius: BorderRadius.circular(13),
-                                    border: Border.all(
-                                      color: KalinkaColors.actionDelete.withValues(
-                                        alpha: 0.30,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      'Clear all',
-                                      style: KalinkaTextStyles.dialogButton
-                                          .copyWith(
-                                            color: KalinkaColors.actionDelete,
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+              // Trash icon
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: KalinkaColors.actionDelete.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: KalinkaColors.actionDelete.withValues(alpha: 0.2),
                   ),
                 ),
+                child: const Icon(
+                  Icons.delete_outline,
+                  size: 24,
+                  color: KalinkaColors.actionDelete,
+                ),
               ),
-              SizedBox(height: MediaQuery.of(context).padding.bottom + 28),
+              const SizedBox(height: 14),
+              // Title
+              Text(
+                'Clear entire queue?',
+                style: KalinkaTextStyles.dialogTitle,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              // Body
+              Text(
+                'This will remove all tracks including your play history. This cannot be undone.',
+                style: KalinkaTextStyles.dialogBody,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 22),
+              // Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        KalinkaHaptics.lightImpact();
+                        Navigator.pop(context, false);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: KalinkaColors.surfaceInput,
+                          borderRadius: BorderRadius.circular(13),
+                          border: Border.all(
+                            color: KalinkaColors.borderDefault,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Cancel',
+                            style: KalinkaTextStyles.dialogButton.copyWith(
+                              color: KalinkaColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        KalinkaHaptics.heavyImpact();
+                        try {
+                          await onConfirmClearAll();
+                          if (context.mounted) Navigator.pop(context, true);
+                        } catch (e) {
+                          if (context.mounted) {
+                            ref.read(toastProvider.notifier).show(
+                              'Failed to clear queue: $e',
+                              isError: true,
+                            );
+                          }
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: KalinkaColors.actionDelete.withValues(
+                            alpha: 0.14,
+                          ),
+                          borderRadius: BorderRadius.circular(13),
+                          border: Border.all(
+                            color: KalinkaColors.actionDelete.withValues(
+                              alpha: 0.30,
+                            ),
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Clear all',
+                            style: KalinkaTextStyles.dialogButton.copyWith(
+                              color: KalinkaColors.actionDelete,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
-      ),
+        SizedBox(height: MediaQuery.of(context).padding.bottom + 28),
+      ],
     );
   }
 }

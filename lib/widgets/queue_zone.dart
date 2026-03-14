@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import 'clear_all_confirm_dialog.dart';
 import 'empty_queue_state.dart';
+import 'kalinka_bottom_sheet.dart';
 import 'queue_item_row.dart';
 import 'queue_management_tray.dart';
 import 'queue_section_header.dart';
@@ -45,10 +46,6 @@ class QueueZone extends ConsumerStatefulWidget {
 }
 
 class _QueueZoneState extends ConsumerState<QueueZone> {
-  // ── Overlay / tray state ──────────────────────────────────────────────────
-  bool _trayOpen = false;
-  bool _confirmClearOpen = false;
-
   // ── Scroll ────────────────────────────────────────────────────────────────
   final _scrollController = ScrollController();
 
@@ -61,37 +58,35 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
   @override
   void dispose() {
     _scrollController.dispose();
-    _closeManagementTray();
-    _closeClearAllConfirm();
     super.dispose();
   }
 
   // ── Management tray ───────────────────────────────────────────────────────
 
-  void _openManagementTray() {
-    if (widget.isTablet) {
-      if (_trayOpen) return;
-      setState(() => _trayOpen = true);
+  Future<void> _openManagementTray() async {
+    if (!widget.isTablet) {
+      widget.onOpenManagementTray?.call();
       return;
     }
-    widget.onOpenManagementTray?.call();
-  }
-
-  void _closeManagementTray() {
-    if (!widget.isTablet || !_trayOpen) return;
-    setState(() => _trayOpen = false);
-  }
-
-  void _showClearAllConfirm() {
-    Future.delayed(const Duration(milliseconds: 160), () {
-      if (!mounted || !widget.isTablet || _confirmClearOpen) return;
-      setState(() => _confirmClearOpen = true);
-    });
-  }
-
-  void _closeClearAllConfirm() {
-    if (!widget.isTablet || !_confirmClearOpen) return;
-    setState(() => _confirmClearOpen = false);
+    // Tablet: use modal bottom sheet (appears over right panel)
+    final result = await showKalinkaBottomSheet<TrayAction>(
+      context: context,
+      contentBuilder: (_) => const QueueManagementTrayContent(),
+    );
+    if (!mounted) return;
+    switch (result) {
+      case TrayAction.clearPlayed:
+        await _clearPlayed();
+      case TrayAction.clearAll:
+        await Future.delayed(const Duration(milliseconds: 160));
+        if (!mounted) return;
+        await showKalinkaConfirmDialog<bool>(
+          context: context,
+          builder: (_) => ClearAllConfirmDialog(onConfirmClearAll: _clearAll),
+        );
+      case null:
+        break;
+    }
   }
 
   // ── Queue actions ─────────────────────────────────────────────────────────
@@ -253,23 +248,6 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
             child: _buildMenuButton(),
           ),
 
-        if (widget.isTablet && _trayOpen)
-          Positioned.fill(
-            child: QueueManagementTray(
-              onClose: _closeManagementTray,
-              onClearPlayed: _clearPlayed,
-              onClearAllRequested: _showClearAllConfirm,
-            ),
-          ),
-
-        if (widget.isTablet && _confirmClearOpen)
-          Positioned.fill(
-            child: ClearAllConfirmDialog(
-              onCancel: _closeClearAllConfirm,
-              onConfirmed: _closeClearAllConfirm,
-              onConfirmClearAll: _clearAll,
-            ),
-          ),
       ],
     );
   }
