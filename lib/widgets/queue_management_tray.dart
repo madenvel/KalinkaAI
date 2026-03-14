@@ -136,17 +136,7 @@ class _QueueManagementTrayState extends ConsumerState<QueueManagementTray>
                                 ),
                               ),
                             ),
-                            // Title
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
-                              child: Center(
-                                child: Text(
-                                  'QUEUE OPTIONS',
-                                  style: KalinkaTextStyles.trayTitle,
-                                ),
-                              ),
-                            ),
-
+                            const SizedBox(height: 16),
                             // Section: PLAYBACK
                             Padding(
                               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
@@ -284,9 +274,8 @@ class _QueueManagementTrayState extends ConsumerState<QueueManagementTray>
                             // Clear all row (danger)
                             _TrayRow(
                               icon: Icons.delete_outline,
-                              iconBgColor: KalinkaColors.actionDelete.withValues(
-                                alpha: 0.12,
-                              ),
+                              iconBgColor: KalinkaColors.actionDelete
+                                  .withValues(alpha: 0.12),
                               iconColor: KalinkaColors.actionDelete,
                               label: 'Clear all',
                               sublabel: 'Remove everything from queue',
@@ -326,9 +315,7 @@ class _QueueManagementTrayState extends ConsumerState<QueueManagementTray>
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: value ? activeColor : KalinkaColors.surfaceElevated,
-          border: value
-              ? null
-              : Border.all(color: KalinkaColors.borderDefault),
+          border: value ? null : Border.all(color: KalinkaColors.borderDefault),
         ),
         child: AnimatedAlign(
           duration: const Duration(milliseconds: 220),
