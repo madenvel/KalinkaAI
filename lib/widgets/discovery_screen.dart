@@ -5,6 +5,7 @@ import '../providers/connection_state_provider.dart';
 import '../providers/discovery_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../theme/app_theme.dart';
+import 'sonar_animation.dart';
 
 /// Full-screen discovery overlay for finding and connecting to Kalinka servers.
 ///
@@ -29,11 +30,6 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     with TickerProviderStateMixin {
   late AnimationController _fadeController;
 
-  // Scanning ring animations
-  late AnimationController _ring1Controller;
-  late AnimationController _ring2Controller;
-  late AnimationController _ring3Controller;
-
   int? _selectedIndex;
   bool _showManualEntry = false;
   bool _isConnecting = false;
@@ -51,27 +47,6 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
       duration: const Duration(milliseconds: 280),
     )..forward();
 
-    _ring1Controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
-    _ring2Controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    );
-    _ring3Controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    );
-
-    // Stagger ring animations
-    Future.delayed(const Duration(milliseconds: 660), () {
-      if (mounted) _ring2Controller.repeat();
-    });
-    Future.delayed(const Duration(milliseconds: 1320), () {
-      if (mounted) _ring3Controller.repeat();
-    });
-
     // Start scanning
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(discoveryProvider.notifier).startScan();
@@ -81,9 +56,6 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
   @override
   void dispose() {
     _fadeController.dispose();
-    _ring1Controller.dispose();
-    _ring2Controller.dispose();
-    _ring3Controller.dispose();
     _hostController.dispose();
     _portController.dispose();
     super.dispose();
@@ -137,11 +109,20 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
   @override
   Widget build(BuildContext context) {
     final discoveryState = ref.watch(discoveryProvider);
+    final showGradient = _isConnecting || discoveryState.isScanning;
 
     return FadeTransition(
       opacity: _fadeController,
       child: Container(
-        color: KalinkaColors.background,
+        decoration: BoxDecoration(
+          gradient: showGradient
+              ? const RadialGradient(
+                  center: Alignment(0, -0.16),
+                  radius: 0.42,
+                  colors: [Color(0xFF0F0F12), Color(0xFF000000)],
+                )
+              : null,
+        ),
         child: SafeArea(
           child: Column(
             children: [
@@ -194,7 +175,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         const SizedBox(height: 32),
         Text(
           'Looking for Kalinka',
-          style: KalinkaTextStyles.expandedTitle.copyWith(fontSize: 22),
+          style: KalinkaTextStyles.expandedTitle.copyWith(
+            fontSize: 22,
+            color: KalinkaColors.frost,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
@@ -208,58 +192,36 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
 
   Widget _buildScanningArt() {
     return SizedBox(
-      width: 110,
-      height: 110,
+      width: 180,
+      height: 180,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          _buildRing(_ring1Controller),
-          _buildRing(_ring2Controller),
-          _buildRing(_ring3Controller),
+          SonarAnimation(
+            minRadius: 28,
+            maxRadius: 88,
+            interval: const Duration(milliseconds: 600),
+            fadingFactor: 1.4,
+            color: KalinkaColors.accentTint.withValues(alpha: 0.85),
+            ringCount: 3,
+            strokeWidth: 2.4,
+          ),
           // Centre icon
           Container(
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: KalinkaColors.accent.withValues(alpha: 0.14),
+              color: KalinkaColors.accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
               Icons.dns_outlined,
               size: 24,
-              color: KalinkaColors.accent,
+              color: KalinkaColors.accentTint,
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildRing(AnimationController controller) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final t = controller.value;
-        final scale = 0.5 + 0.95 * t;
-        final opacity = (0.9 * (1.0 - t)).clamp(0.0, 1.0);
-        return Transform.scale(
-          scale: scale,
-          child: Opacity(
-            opacity: opacity,
-            child: Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: KalinkaColors.accent.withValues(alpha: 0.3),
-                  width: 1.5,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -337,7 +299,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         const SizedBox(height: 32),
         Text(
           'Looking for Kalinka',
-          style: KalinkaTextStyles.expandedTitle.copyWith(fontSize: 22),
+          style: KalinkaTextStyles.expandedTitle.copyWith(
+            fontSize: 22,
+            color: KalinkaColors.frost,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
@@ -456,7 +421,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               decoration: BoxDecoration(
                 color: isCurrent
                     ? KalinkaColors.statusOnline.withValues(alpha: 0.1)
-                    : KalinkaColors.accent.withValues(alpha: 0.14),
+                    : KalinkaColors.surfaceRaised,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
@@ -569,17 +534,15 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: KalinkaColors.accent.withValues(alpha: 0.12),
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(13),
-            border: Border.all(
-              color: KalinkaColors.accent.withValues(alpha: 0.35),
-            ),
+            border: Border.all(color: KalinkaColors.accent),
           ),
           child: Center(
             child: Text(
               hasSelection ? 'Connect to ${selected!.name}' : 'Select a server',
               style: KalinkaTextStyles.trayRowLabel.copyWith(
-                color: KalinkaColors.accent,
+                color: KalinkaColors.accentTint,
                 fontSize: 13,
                 letterSpacing: 0.04,
               ),
@@ -642,16 +605,14 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
             decoration: BoxDecoration(
-              color: KalinkaColors.accent.withValues(alpha: 0.12),
+              color: Colors.transparent,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: KalinkaColors.accent.withValues(alpha: 0.35),
-              ),
+              border: Border.all(color: KalinkaColors.accent),
             ),
             child: Text(
               'Connect',
               style: KalinkaTextStyles.trayRowLabel.copyWith(
-                color: KalinkaColors.accent,
+                color: KalinkaColors.accentTint,
                 fontSize: 12,
               ),
             ),
@@ -713,16 +674,14 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: KalinkaColors.gold.withValues(alpha: 0.12),
+                      color: KalinkaColors.surfaceElevated,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: KalinkaColors.gold.withValues(alpha: 0.35),
-                      ),
+                      border: Border.all(color: KalinkaColors.borderDefault),
                     ),
                     child: Text(
                       'Try again',
                       style: KalinkaTextStyles.trayRowLabel.copyWith(
-                        color: KalinkaColors.gold,
+                        color: KalinkaColors.textSecondary,
                         fontSize: 12,
                       ),
                     ),
