@@ -17,6 +17,18 @@ final connectionStateProvider =
       ConnectionStateNotifier.new,
     );
 
+/// Incremented each time a reconnect attempt fires. `webSocketProvider` watches
+/// this so that only timer-driven ticks (or a manual retry) trigger new socket
+/// connection attempts — preventing Riverpod's autoDispose rebuild loop.
+final retryEpochProvider =
+    NotifierProvider<_RetryEpochNotifier, int>(_RetryEpochNotifier.new);
+
+class _RetryEpochNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+  void increment() => state++;
+}
+
 class ConnectionStateNotifier extends Notifier<ConnectionStatus> {
   Timer? _retryTimer;
   int _retryCount = 0;
@@ -79,7 +91,10 @@ class ConnectionStateNotifier extends Notifier<ConnectionStatus> {
 
   /// Begin automatic reconnect attempts every 5 seconds.
   void startReconnecting() {
-    if (state == ConnectionStatus.reconnecting) return;
+    if (state == ConnectionStatus.reconnecting ||
+        state == ConnectionStatus.offline) {
+      return;
+    }
     _retryCount = 0;
     _reconnectStartedAt = DateTime.now();
     state = ConnectionStatus.reconnecting;
@@ -113,6 +128,7 @@ class ConnectionStateNotifier extends Notifier<ConnectionStatus> {
     if (ref.read(appLifecycleProvider) != AppLifecycleState.resumed) return;
     _retryCount++;
     _logger.d('Reconnect attempt #$_retryCount');
+    ref.read(retryEpochProvider.notifier).increment();
 
     try {
       final proxy = ref.read(kalinkaProxyProvider);

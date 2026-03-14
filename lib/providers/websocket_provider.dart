@@ -3,7 +3,8 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/connection_settings_provider.dart';
-import '../providers/connection_state_provider.dart';
+import '../providers/connection_state_provider.dart'
+    show ConnectionStatus, connectionStateProvider, retryEpochProvider;
 import 'package:logger/logger.dart';
 
 final logger = Logger();
@@ -13,7 +14,7 @@ final logger = Logger();
 /// This keeps all connection semantics (host/port, ws vs wss) in one place,
 /// and disposes the socket when the provider is torn down. Callers can
 /// transform the returned socket into a `Stream<String>` similar to
-final webSocketProvider = FutureProvider.autoDispose.family<WebSocket, String>((
+final webSocketProvider = FutureProvider.family<WebSocket, String>((
   ref,
   path,
 ) async {
@@ -28,8 +29,25 @@ final webSocketProvider = FutureProvider.autoDispose.family<WebSocket, String>((
     throw StateError('unreachable');
   }
 
+  // Rebuild this provider each time connection_state_provider schedules a
+  // retry. Without this, the rapid autoDispose dispose+recreate loop driven
+  // by wire_event_provider rebuilds would bypass the 5-second timer.
+  ref.watch(retryEpochProvider);
+
+  // While offline (30 s escalation reached), hang until a manual retry
+  // increments the epoch and rebuilds this provider.
+  final currentStatus = ref.read(connectionStateProvider);
+  if (currentStatus == ConnectionStatus.offline) {
+    await Completer<void>().future; // never completes until rebuilt
+    throw StateError('unreachable');
+  }
+
   // Defer state updates to avoid modifying providers during build.
-  Future.microtask(connection.connecting);
+  // Skip during reconnection — calling connecting() would cancel the retry
+  // timer that drives epoch increments.
+  if (currentStatus != ConnectionStatus.reconnecting) {
+    Future.microtask(connection.connecting);
+  }
 
   final uri = Uri(
     scheme: 'ws',
