@@ -256,9 +256,10 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
             ? () => widget.onServerChipTap!()
             : null,
         behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 17, horizontal: 0),
-          child: dot,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Align(alignment: Alignment.centerRight, child: dot),
         ),
       ),
     );
