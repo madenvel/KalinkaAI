@@ -547,7 +547,7 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow> {
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: selectionMode && inSelectionHighlight
                 ? KalinkaColors.accent.withValues(alpha: 0.05)

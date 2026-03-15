@@ -125,7 +125,7 @@ class _RecentChipsSection extends StatelessWidget {
           spacing: 6,
           runSpacing: 6,
           children: history
-              .take(8)
+              .take(5)
               .map(
                 (q) => _RecentChip(
                   query: q,
@@ -791,12 +791,16 @@ class _AiPromptChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          color: KalinkaColors.surfaceRaised,
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF1C1C1C), Color(0xFF222222)],
+          ),
           border: Border.all(color: KalinkaColors.borderDefault, width: 1),
         ),
         child: Row(
           children: [
-            Icon(Icons.auto_awesome, size: 14, color: KalinkaColors.textMuted),
+            Icon(Icons.auto_awesome, size: 14, color: KalinkaColors.gold),
             const SizedBox(width: 10),
             Expanded(
               child: Text(

@@ -51,6 +51,9 @@ class KalinkaColors {
   static const textMuted = Color(
     0xFF858585,
   ); // ~3.5:1 on bg · Section chrome · drag handles · inactive icons
+  static const textSectionLabel = Color(
+    0xFFB0B0B0,
+  ); // ~5:1 on bg · Queue section headers
 
   // Playfair Display headings only — "Looking for Kalinka", "nothing queued",
   // dialog titles. Pure off-white for high-contrast headings.
@@ -250,7 +253,7 @@ class KalinkaTextStyles {
     fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.5,
-    color: KalinkaColors.textSecondary,
+    color: KalinkaColors.textSectionLabel,
   );
 
   static TextStyle trackRowTitle = GoogleFonts.ibmPlexMono(
@@ -336,7 +339,7 @@ class KalinkaTextStyles {
   static TextStyle aiPromptChipText = GoogleFonts.ibmPlexMono(
     fontSize: 13,
     fontWeight: FontWeight.w300,
-    color: KalinkaColors.textSecondary,
+    color: KalinkaColors.textSectionLabel,
   );
 
   // Clear all link

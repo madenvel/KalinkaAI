@@ -138,7 +138,7 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
             color: searchActive
                 ? KalinkaColors.accentBorder
                 : KalinkaColors.borderDefault,
-            width: searchActive ? 2 : 1,
+            width: 1,
           ),
         ),
         boxShadow: [

@@ -58,7 +58,11 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
     if (notification.metrics.pixels > 0.5) {
       FocusManager.instance.primaryFocus?.unfocus();
-      ref.read(searchStateProvider.notifier).setKeyboardVisible(false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(searchStateProvider.notifier).setKeyboardVisible(false);
+        }
+      });
     }
 
     return false;

@@ -473,20 +473,32 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
                 color: const Color(0x0DFFFFFF),
                 border: Border.all(
                   color: _isAiModeActive
-                      ? KalinkaColors.accentBorder
+                      ? KalinkaColors.gold.withValues(alpha: 0.6)
                       : KalinkaColors.borderDefault,
                   width: 1,
                 ),
               ),
-              child: Text(
-                _isAiModeActive ? 'AI \u25CF' : 'AI \u25CB',
-                style: KalinkaTextStyles.aiBadge.copyWith(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: _isAiModeActive
-                      ? KalinkaColors.accentTint
-                      : KalinkaColors.textMuted,
-                ),
+              child: Builder(
+                builder: (context) {
+                  final aiColor = _isAiModeActive
+                      ? KalinkaColors.gold
+                      : KalinkaColors.textMuted;
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_awesome, size: 10, color: aiColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        'AI',
+                        style: KalinkaTextStyles.aiBadge.copyWith(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: aiColor,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
