@@ -50,6 +50,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
 
   // ── Drag state ────────────────────────────────────────────────────────────
   bool _isDragging = false;
+  bool _managementTrayOpen = false;
 
   // ── Live references (updated each build, used by reorder callback) ────────
   int _currentIndex = 0;
@@ -67,13 +68,12 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
       widget.onOpenManagementTray?.call();
       return;
     }
-    // Tablet: use modal bottom sheet (appears over right panel)
-    final result = await showKalinkaBottomSheet<TrayAction>(
-      context: context,
-      contentBuilder: (_) => const QueueManagementTrayContent(),
-    );
-    if (!mounted) return;
-    switch (result) {
+    if (_managementTrayOpen) return;
+    setState(() => _managementTrayOpen = true);
+  }
+
+  Future<void> _onTabletTrayAction(TrayAction action) async {
+    switch (action) {
       case TrayAction.clearPlayed:
         await _clearPlayed();
       case TrayAction.clearAll:
@@ -83,8 +83,6 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
           context: context,
           builder: (_) => ClearAllConfirmDialog(onConfirmClearAll: _clearAll),
         );
-      case null:
-        break;
     }
   }
 
@@ -238,6 +236,19 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
             top: (_kHeaderHeight - 30) / 2,
             right: 20,
             child: _buildMenuButton(),
+          ),
+        if (widget.isTablet && _managementTrayOpen)
+          Positioned.fill(
+            child: TabletQueueManagementTray(
+              onClose: () {
+                if (mounted) {
+                  setState(() => _managementTrayOpen = false);
+                }
+              },
+              onAction: (action) {
+                _onTabletTrayAction(action);
+              },
+            ),
           ),
       ],
     );
