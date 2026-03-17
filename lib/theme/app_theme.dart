@@ -82,7 +82,7 @@ class KalinkaColors {
   // warmth. Appears on module tiles and progress gradient terminus.
 
   static const gold = Color(
-    0xFFBFA85A,
+    0xFFF0D58A,
   ); // Brass · streaming module · progress end
   static const goldSubtle = Color(
     0x1FBFA85A,
@@ -133,86 +133,188 @@ class KalinkaColors {
   ); // Confirm · apply · positive CTA (leaf green matches statusOnline)
 }
 
-/// Kalinka text styles using IBM Plex Mono and Playfair Display
+class KalinkaFonts {
+  KalinkaFonts._();
+
+  // Swap these family names to update typography app-wide.
+  static const sansFamily = 'IBM Plex Sans';
+  static const monoFamily = 'IBM Plex Mono';
+  static const displayFamily = 'Playfair Display';
+
+  static TextStyle sans({
+    TextStyle? textStyle,
+    Color? color,
+    double? fontSize,
+    FontWeight? fontWeight,
+    FontStyle? fontStyle,
+    double? letterSpacing,
+    double? height,
+  }) {
+    return _style(
+      sansFamily,
+      textStyle: textStyle,
+      color: color,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      fontStyle: fontStyle,
+      letterSpacing: letterSpacing,
+      height: height,
+    );
+  }
+
+  static TextStyle mono({
+    TextStyle? textStyle,
+    Color? color,
+    double? fontSize,
+    FontWeight? fontWeight,
+    FontStyle? fontStyle,
+    double? letterSpacing,
+    double? height,
+  }) {
+    return _style(
+      monoFamily,
+      textStyle: textStyle,
+      color: color,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      fontStyle: fontStyle,
+      letterSpacing: letterSpacing,
+      height: height,
+    );
+  }
+
+  static TextStyle display({
+    TextStyle? textStyle,
+    Color? color,
+    double? fontSize,
+    FontWeight? fontWeight,
+    FontStyle? fontStyle,
+    double? letterSpacing,
+    double? height,
+  }) {
+    return _style(
+      displayFamily,
+      textStyle: textStyle,
+      color: color,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      fontStyle: fontStyle,
+      letterSpacing: letterSpacing,
+      height: height,
+    );
+  }
+
+  static TextTheme monoTextTheme([TextTheme? textTheme]) {
+    return GoogleFonts.getTextTheme(monoFamily, textTheme);
+  }
+
+  static TextTheme sansTextTheme([TextTheme? textTheme]) {
+    return GoogleFonts.getTextTheme(sansFamily, textTheme);
+  }
+
+  static TextStyle _style(
+    String fontFamily, {
+    TextStyle? textStyle,
+    Color? color,
+    double? fontSize,
+    FontWeight? fontWeight,
+    FontStyle? fontStyle,
+    double? letterSpacing,
+    double? height,
+  }) {
+    return GoogleFonts.getFont(
+      fontFamily,
+      textStyle: textStyle,
+      color: color,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      fontStyle: fontStyle,
+      letterSpacing: letterSpacing,
+      height: height,
+    );
+  }
+}
+
+/// Kalinka text styles using centralized font roles.
 class KalinkaTextStyles {
   KalinkaTextStyles._();
 
   // Queue items
-  static TextStyle queueItemTitle = GoogleFonts.ibmPlexMono(
-    fontSize: 13,
+  static TextStyle queueItemTitle = KalinkaFonts.sans(
+    fontSize: 14,
     fontWeight: FontWeight.w400,
     color: KalinkaColors.textPrimary,
   );
 
-  static TextStyle queueItemArtist = GoogleFonts.ibmPlexMono(
-    fontSize: 10,
+  static TextStyle queueItemArtist = KalinkaFonts.sans(
+    fontSize: 11,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle queueItemIndex = GoogleFonts.ibmPlexMono(
+  static TextStyle queueItemIndex = KalinkaFonts.mono(
     fontSize: 12,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle queueItemDuration = GoogleFonts.ibmPlexMono(
+  static TextStyle queueItemDuration = KalinkaFonts.mono(
     fontSize: 11,
     color: KalinkaColors.textSecondary,
   );
 
   // Mini player
-  static TextStyle miniPlayerTitle = GoogleFonts.ibmPlexMono(
-    fontSize: 13,
+  static TextStyle miniPlayerTitle = KalinkaFonts.sans(
+    fontSize: 14,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.textPrimary,
   );
 
-  static TextStyle miniPlayerArtist = GoogleFonts.ibmPlexMono(
-    fontSize: 10,
+  static TextStyle miniPlayerArtist = KalinkaFonts.sans(
+    fontSize: 11,
     color: KalinkaColors.textSecondary,
   );
 
   // Expanded player
-  static TextStyle expandedTitle = GoogleFonts.playfairDisplay(
+  static TextStyle expandedTitle = KalinkaFonts.display(
     fontSize: 30,
     color: KalinkaColors.textPrimary,
   );
 
-  static TextStyle expandedArtist = GoogleFonts.playfairDisplay(
-    fontSize: 16,
+  static TextStyle expandedArtist = KalinkaFonts.sans(
+    fontSize: 17,
     color: KalinkaColors.textPrimary,
   );
 
-  static TextStyle expandedAlbum = GoogleFonts.playfairDisplay(
-    fontSize: 13,
+  static TextStyle expandedAlbum = KalinkaFonts.sans(
+    fontSize: 14,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle expandedAttribution = GoogleFonts.ibmPlexMono(
+  static TextStyle expandedAttribution = KalinkaFonts.mono(
     fontSize: 12,
     color: KalinkaColors.textSecondary,
   );
 
   // Labels
-  static TextStyle nowPlayingLabel = GoogleFonts.ibmPlexMono(
+  static TextStyle nowPlayingLabel = KalinkaFonts.mono(
     fontSize: 10,
     fontWeight: FontWeight.w600,
     letterSpacing: 2.0,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle formatBadge = GoogleFonts.ibmPlexMono(
+  static TextStyle formatBadge = KalinkaFonts.mono(
     fontSize: 11,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle sourceBadgeLetter = GoogleFonts.ibmPlexMono(
+  static TextStyle sourceBadgeLetter = KalinkaFonts.mono(
     fontSize: 11,
     fontWeight: FontWeight.w500,
     height: 1,
   );
 
-  static TextStyle sectionHeader = GoogleFonts.ibmPlexMono(
+  static TextStyle sectionHeader = KalinkaFonts.mono(
     fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.0,
@@ -220,135 +322,135 @@ class KalinkaTextStyles {
   );
 
   // Search
-  static TextStyle searchPlaceholder = GoogleFonts.ibmPlexMono(
+  static TextStyle searchPlaceholder = KalinkaFonts.mono(
     fontSize: 13,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle aiBadge = GoogleFonts.ibmPlexMono(
+  static TextStyle aiBadge = KalinkaFonts.mono(
     fontSize: 11,
     fontWeight: FontWeight.w700,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle aiPlaylistName = GoogleFonts.playfairDisplay(
+  static TextStyle aiPlaylistName = KalinkaFonts.display(
     fontSize: 16,
     color: KalinkaColors.textPrimary,
   );
 
-  static TextStyle searchTab = GoogleFonts.ibmPlexMono(
-    fontSize: 12,
+  static TextStyle searchTab = KalinkaFonts.sans(
+    fontSize: 13,
     fontWeight: FontWeight.w500,
   );
 
   // Search results
-  static TextStyle resultCountHint = GoogleFonts.ibmPlexMono(
+  static TextStyle resultCountHint = KalinkaFonts.mono(
     fontSize: 11,
     fontWeight: FontWeight.w500,
     letterSpacing: 1.5,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle sectionLabel = GoogleFonts.ibmPlexMono(
+  static TextStyle sectionLabel = KalinkaFonts.mono(
     fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.5,
     color: KalinkaColors.textSectionLabel,
   );
 
-  static TextStyle trackRowTitle = GoogleFonts.ibmPlexMono(
-    fontSize: 13,
+  static TextStyle trackRowTitle = KalinkaFonts.sans(
+    fontSize: 14,
     fontWeight: FontWeight.w400,
     color: KalinkaColors.textPrimary,
   );
 
-  static TextStyle trackRowSubtitle = GoogleFonts.ibmPlexMono(
-    fontSize: 10,
+  static TextStyle trackRowSubtitle = KalinkaFonts.sans(
+    fontSize: 11,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle cardTitle = GoogleFonts.ibmPlexMono(
-    fontSize: 14,
+  static TextStyle cardTitle = KalinkaFonts.sans(
+    fontSize: 15,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.textPrimary,
   );
 
-  static TextStyle tagPill = GoogleFonts.ibmPlexMono(
-    fontSize: 11,
+  static TextStyle tagPill = KalinkaFonts.sans(
+    fontSize: 12,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle showMoreLabel = GoogleFonts.ibmPlexMono(
-    fontSize: 11,
+  static TextStyle showMoreLabel = KalinkaFonts.sans(
+    fontSize: 12,
     fontWeight: FontWeight.w600,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle aiCardLabel = GoogleFonts.ibmPlexMono(
+  static TextStyle aiCardLabel = KalinkaFonts.mono(
     fontSize: 11,
     fontWeight: FontWeight.w700,
     letterSpacing: 1.5,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle aiTrackChip = GoogleFonts.ibmPlexMono(
-    fontSize: 11,
+  static TextStyle aiTrackChip = KalinkaFonts.sans(
+    fontSize: 12,
     color: KalinkaColors.textPrimary,
   );
 
-  static TextStyle aiTrackChipDuration = GoogleFonts.ibmPlexMono(
+  static TextStyle aiTrackChipDuration = KalinkaFonts.mono(
     fontSize: 11,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle browseButtonLabel = GoogleFonts.ibmPlexMono(
-    fontSize: 11,
+  static TextStyle browseButtonLabel = KalinkaFonts.sans(
+    fontSize: 12,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.0,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle cancelButton = GoogleFonts.ibmPlexMono(
-    fontSize: 12,
+  static TextStyle cancelButton = KalinkaFonts.sans(
+    fontSize: 13,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle searchBarInput = GoogleFonts.ibmPlexMono(
+  static TextStyle searchBarInput = KalinkaFonts.mono(
     fontSize: 13,
     color: KalinkaColors.textPrimary,
   );
 
   // Completion strip
-  static TextStyle completionText = GoogleFonts.ibmPlexMono(
+  static TextStyle completionText = KalinkaFonts.mono(
     fontSize: 13,
     color: KalinkaColors.textPrimary,
   );
 
-  static TextStyle completionMatchHighlight = GoogleFonts.ibmPlexMono(
+  static TextStyle completionMatchHighlight = KalinkaFonts.mono(
     fontSize: 13,
     color: KalinkaColors.textPrimary,
   );
 
-  static TextStyle aiCompletionText = GoogleFonts.playfairDisplay(
-    fontSize: 12,
+  static TextStyle aiCompletionText = KalinkaFonts.sans(
+    fontSize: 13,
     color: KalinkaColors.textPrimary,
   );
 
   // AI prompt chips (zero-state)
-  static TextStyle aiPromptChipText = GoogleFonts.ibmPlexMono(
-    fontSize: 13,
+  static TextStyle aiPromptChipText = KalinkaFonts.sans(
+    fontSize: 14,
     fontWeight: FontWeight.w300,
     color: KalinkaColors.textSectionLabel,
   );
 
   // Clear all link
-  static TextStyle clearAllLink = GoogleFonts.ibmPlexMono(
-    fontSize: 10,
+  static TextStyle clearAllLink = KalinkaFonts.sans(
+    fontSize: 11,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle batchBarLabel = GoogleFonts.ibmPlexMono(
+  static TextStyle batchBarLabel = KalinkaFonts.mono(
     fontSize: 11,
     fontWeight: FontWeight.w500,
     letterSpacing: 1.5,
@@ -356,115 +458,108 @@ class KalinkaTextStyles {
   );
 
   // Time
-  static TextStyle timeLabel = GoogleFonts.ibmPlexMono(
+  static TextStyle timeLabel = KalinkaFonts.mono(
     fontSize: 11,
     color: KalinkaColors.textSecondary,
   );
 
   // Queue management tray
-  static TextStyle trayTitle = GoogleFonts.ibmPlexMono(
+  static TextStyle trayTitle = KalinkaFonts.mono(
     fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.2,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle traySectionLabel = GoogleFonts.ibmPlexMono(
+  static TextStyle traySectionLabel = KalinkaFonts.mono(
     fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.8,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle trayRowLabel = GoogleFonts.ibmPlexMono(
-    fontSize: 13,
+  static TextStyle trayRowLabel = KalinkaFonts.sans(
+    fontSize: 14,
     letterSpacing: -0.1,
     color: KalinkaColors.textPrimary,
   );
 
-  static TextStyle trayRowSublabel = GoogleFonts.ibmPlexMono(
-    fontSize: 10,
-    color: KalinkaColors.textSecondary,
-  );
-
-  // Queue section headers
-  static TextStyle trackCountBadge = GoogleFonts.ibmPlexMono(
+  static TextStyle trayRowSublabel = KalinkaFonts.sans(
     fontSize: 11,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle shuffleBadgeText = GoogleFonts.ibmPlexMono(
+  // Queue section headers
+  static TextStyle trackCountBadge = KalinkaFonts.mono(
+    fontSize: 11,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle shuffleBadgeText = KalinkaFonts.mono(
     fontSize: 11,
     fontWeight: FontWeight.w500,
     letterSpacing: 0.5,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle clearPlayedButton = GoogleFonts.ibmPlexMono(
-    fontSize: 11,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 1.0,
-    color: KalinkaColors.textSecondary,
-  );
-
   // Empty queue state
-  static TextStyle emptyQueueTitle = GoogleFonts.playfairDisplay(
+  static TextStyle emptyQueueTitle = KalinkaFonts.display(
     fontSize: 22,
     color: KalinkaColors.frost,
   );
 
-  static TextStyle emptyQueueSubtitle = GoogleFonts.ibmPlexMono(
-    fontSize: 12,
+  static TextStyle emptyQueueSubtitle = KalinkaFonts.sans(
+    fontSize: 13,
     color: KalinkaColors.textSecondary,
   );
 
   // Confirm dialog
-  static TextStyle dialogTitle = GoogleFonts.playfairDisplay(
+  static TextStyle dialogTitle = KalinkaFonts.display(
     fontSize: 20,
     color: KalinkaColors.frost,
   );
 
-  static TextStyle dialogBody = GoogleFonts.ibmPlexMono(
-    fontSize: 11,
+  static TextStyle dialogBody = KalinkaFonts.sans(
+    fontSize: 12,
     height: 1.6,
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle dialogButton = GoogleFonts.ibmPlexMono(
-    fontSize: 13,
+  static TextStyle dialogButton = KalinkaFonts.sans(
+    fontSize: 14,
     fontWeight: FontWeight.w500,
   );
 
   // Lettermark
-  static TextStyle lettermark = GoogleFonts.playfairDisplay(
+  static TextStyle lettermark = KalinkaFonts.display(
     fontSize: 22,
     fontStyle: FontStyle.italic,
     color: KalinkaColors.textPrimary,
   );
 
   // Server chip
-  static TextStyle serverChipLabel = GoogleFonts.ibmPlexMono(
+  static TextStyle serverChipLabel = KalinkaFonts.mono(
     fontSize: 11,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.textPrimary,
   );
 
   // Connection banners
-  static TextStyle bannerText = GoogleFonts.ibmPlexMono(
-    fontSize: 10,
+  static TextStyle bannerText = KalinkaFonts.sans(
+    fontSize: 13,
     color: KalinkaColors.statusPendingLight,
   );
 
   // Action toast notifications
-  static TextStyle toastText = GoogleFonts.ibmPlexMono(
-    fontSize: 11,
+  static TextStyle toastText = KalinkaFonts.sans(
+    fontSize: 12,
     color: KalinkaColors.textPrimary,
   );
 
   // Status section header (frozen queue label, server sheet).
   // Uses textSecondary (6.9:1) instead of textMuted (2.2:1) because this
   // text communicates meaningful state, not a disabled/decorative element.
-  static TextStyle sectionHeaderMuted = GoogleFonts.ibmPlexMono(
+  static TextStyle sectionHeaderMuted = KalinkaFonts.mono(
     fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.8,
@@ -474,29 +569,29 @@ class KalinkaTextStyles {
   // ── Search zero-state v15 ─────────────────────────────────────────────────
 
   /// Recent search chip label
-  static TextStyle recentChipLabel = GoogleFonts.ibmPlexMono(
-    fontSize: 12,
+  static TextStyle recentChipLabel = KalinkaFonts.sans(
+    fontSize: 13,
     fontWeight: FontWeight.w400,
     color: KalinkaColors.textSecondary,
   );
 
   /// Filter pill label — inactive state
-  static TextStyle filterPillInactive = GoogleFonts.ibmPlexMono(
-    fontSize: 11,
+  static TextStyle filterPillInactive = KalinkaFonts.sans(
+    fontSize: 12,
     fontWeight: FontWeight.w400,
     color: KalinkaColors.textSecondary,
   );
 
   /// Filter pill label — active state
-  static TextStyle filterPillActive = GoogleFonts.ibmPlexMono(
-    fontSize: 11,
+  static TextStyle filterPillActive = KalinkaFonts.sans(
+    fontSize: 12,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.accentTint,
   );
 
   /// "Clear all" button in the chip row
-  static TextStyle clearAllChips = GoogleFonts.ibmPlexMono(
-    fontSize: 11,
+  static TextStyle clearAllChips = KalinkaFonts.sans(
+    fontSize: 12,
     fontWeight: FontWeight.w400,
     color: KalinkaColors.textMuted,
   );
@@ -505,7 +600,7 @@ class KalinkaTextStyles {
 /// App-wide Material theme
 class AppTheme {
   static ThemeData dark() {
-    final baseTextTheme = GoogleFonts.ibmPlexMonoTextTheme(
+    final baseTextTheme = KalinkaFonts.sansTextTheme(
       ThemeData.dark().textTheme,
     );
 
@@ -528,19 +623,19 @@ class AppTheme {
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
       textTheme: baseTextTheme.copyWith(
-        titleMedium: GoogleFonts.ibmPlexMono(
-          fontSize: 15,
+        titleMedium: KalinkaFonts.sans(
+          fontSize: 16,
           fontWeight: FontWeight.w500,
           color: KalinkaColors.textPrimary,
           letterSpacing: -0.2,
         ),
-        bodyMedium: GoogleFonts.ibmPlexMono(
-          fontSize: 14,
+        bodyMedium: KalinkaFonts.sans(
+          fontSize: 15,
           color: KalinkaColors.textSecondary,
           letterSpacing: -0.1,
         ),
-        bodySmall: GoogleFonts.ibmPlexMono(
-          fontSize: 12,
+        bodySmall: KalinkaFonts.sans(
+          fontSize: 13,
           color: KalinkaColors.textSecondary,
           letterSpacing: -0.1,
         ),
@@ -560,6 +655,20 @@ class AppTheme {
         thumbColor: Colors.white,
         overlayColor: KalinkaColors.accent.withValues(alpha: 0.2),
         trackHeight: 3,
+      ),
+      chipTheme: ChipThemeData(
+        color: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return Colors.white.withValues(alpha: 0.13);
+          }
+          return const Color(0x0DFFFFFF);
+        }),
+        selectedColor: const Color(0x0DFFFFFF),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        side: const BorderSide(color: Color(0x17FFFFFF), width: 1),
+        labelStyle: KalinkaTextStyles.filterPillInactive,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
       ),
     );
   }

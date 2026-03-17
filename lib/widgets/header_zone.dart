@@ -231,7 +231,7 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
                         onLeadingAction: _dismissSearch,
                         showBackChevron: searchActive && _showDelayedChevron,
                         fullBleedMode: searchActive,
-                        height: searchActive ? 44 : 36,
+                        height: searchActive ? 54 : 44,
                         contentPadding: EdgeInsets.symmetric(
                           horizontal: searchActive ? 8 : 12,
                         ),

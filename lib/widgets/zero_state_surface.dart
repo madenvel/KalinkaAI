@@ -141,7 +141,7 @@ class _RecentChipsSection extends StatelessWidget {
   }
 }
 
-class _RecentChip extends StatefulWidget {
+class _RecentChip extends StatelessWidget {
   final String query;
   final VoidCallback onTap;
   final VoidCallback onDelete;
@@ -153,80 +153,58 @@ class _RecentChip extends StatefulWidget {
   });
 
   @override
-  State<_RecentChip> createState() => _RecentChipState();
-}
-
-class _RecentChipState extends State<_RecentChip> {
-  bool _deleting = false;
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedOpacity(
-      opacity: _deleting ? 0 : 1,
-      duration: const Duration(milliseconds: 120),
-      curve: Curves.easeIn,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeIn,
-        width: _deleting ? 0 : null,
-        height: 30,
-        clipBehavior: Clip.hardEdge,
-        decoration: BoxDecoration(
-          color: KalinkaColors.surfaceInput,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: KalinkaColors.borderDefault, width: 1),
-        ),
-        child: Semantics(
-          label: 'Recent search: ${widget.query}. Tap to search again.',
-          button: true,
-          child: GestureDetector(
-            onTap: widget.onTap,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 8, right: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.access_time,
-                    size: 12,
-                    color: KalinkaColors.textMuted,
+    return Material(
+      color: KalinkaColors.surfaceInput,
+      shape: const StadiumBorder(
+        side: BorderSide(color: KalinkaColors.borderDefault, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return Colors.white.withValues(alpha: 0.08);
+          }
+          return null;
+        }),
+        child: SizedBox(
+          height: 30,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8, right: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.access_time,
+                  size: 12,
+                  color: KalinkaColors.textMuted,
+                ),
+                const SizedBox(width: 5),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 160),
+                  child: Text(
+                    query,
+                    style: KalinkaTextStyles.recentChipLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(width: 5),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 160),
-                    child: Text(
-                      widget.query,
-                      style: KalinkaTextStyles.recentChipLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(width: 2),
+                GestureDetector(
+                  onTap: onDelete,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(
+                      Icons.close,
+                      size: 10,
+                      color: KalinkaColors.textMuted,
                     ),
                   ),
-                  const SizedBox(width: 2),
-                  Semantics(
-                    label: 'Remove ${widget.query} from recent searches',
-                    button: true,
-                    excludeSemantics: true,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _deleting = true);
-                        Future.delayed(
-                          const Duration(milliseconds: 130),
-                          widget.onDelete,
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.close,
-                          size: 10,
-                          color: KalinkaColors.textMuted,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -339,41 +317,24 @@ class _FilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      label: isActive
-          ? '$label filter active. Tap to deactivate.'
-          : '$label filter. Tap to activate.',
-      button: true,
-      child: GestureDetector(
-        onTapDown: (_) => HapticFeedback.lightImpact(),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOut,
-          height: 30,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: const Color(
-              0x0DFFFFFF,
-            ), // rgba(255,255,255,0.05) — outline-only active state
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isActive
-                  ? KalinkaColors.accentBorder
-                  : const Color(0x17FFFFFF), // rgba(255,255,255,0.09)
-              width: 1,
-            ),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: isActive
-                  ? KalinkaTextStyles.filterPillActive
-                  : KalinkaTextStyles.filterPillInactive,
-            ),
-          ),
-        ),
+    return FilterChip(
+      label: Text(label),
+      selected: isActive,
+      onSelected: (_) {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      selectedColor: const Color(0x0DFFFFFF),
+      side: BorderSide(
+        color: isActive ? KalinkaColors.accentBorder : const Color(0x17FFFFFF),
+        width: 1,
       ),
+      labelStyle: isActive
+          ? KalinkaTextStyles.filterPillActive
+          : KalinkaTextStyles.filterPillInactive,
+      showCheckmark: false,
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
   }
 }
@@ -424,12 +385,11 @@ class _ZeroStateContent extends ConsumerWidget {
         isMyPlaylists;
 
     if (!isAll && !hasContent) {
-      return const Center(
+      return Center(
         child: Text(
           'Nothing here yet',
-          style: TextStyle(
-            fontFamily: 'IBMPlexMono',
-            fontSize: 13,
+          style: KalinkaFonts.sans(
+            fontSize: 14,
             color: KalinkaColors.textMuted,
           ),
         ),
@@ -506,14 +466,13 @@ class _ZeroStateContent extends ConsumerWidget {
 
         // MY PLAYLISTS — deferred, shows empty state message inline
         if (isMyPlaylists)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 24),
             child: Center(
               child: Text(
                 'Nothing here yet',
-                style: TextStyle(
-                  fontFamily: 'IBMPlexMono',
-                  fontSize: 13,
+                style: KalinkaFonts.sans(
+                  fontSize: 14,
                   color: KalinkaColors.textMuted,
                 ),
               ),

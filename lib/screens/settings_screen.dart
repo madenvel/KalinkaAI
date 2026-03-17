@@ -247,20 +247,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       child: Row(
         children: [
           // Back button
-          GestureDetector(
-            onTap: _animateClose,
-            child: Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: KalinkaColors.surfaceInput,
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: KalinkaColors.borderDefault),
-              ),
-              child: const Icon(
-                Icons.arrow_back,
-                size: 14,
-                color: KalinkaColors.textSecondary,
+          Material(
+            color: KalinkaColors.surfaceInput,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(9),
+              side: const BorderSide(color: KalinkaColors.borderDefault),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: _animateClose,
+              overlayColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.pressed)) {
+                  return Colors.white.withValues(alpha: 0.08);
+                }
+                return null;
+              }),
+              child: const SizedBox(
+                width: 36,
+                height: 36,
+                child: Icon(
+                  Icons.arrow_back,
+                  size: 14,
+                  color: KalinkaColors.textSecondary,
+                ),
               ),
             ),
           ),
@@ -272,7 +281,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               children: [
                 Text(
                   settings.name.isNotEmpty ? settings.name : 'Server settings',
-                  style: KalinkaTextStyles.trayRowLabel.copyWith(fontSize: 13),
+                  style: KalinkaTextStyles.trayRowLabel.copyWith(fontSize: 15),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -281,7 +290,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   Text(
                     detailParts.join(' \u00b7 '),
                     style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                      fontSize: 10,
+                      fontSize: 12,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

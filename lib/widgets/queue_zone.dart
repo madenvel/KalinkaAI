@@ -233,7 +233,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
         // Floating menu button — always sits in the pinned header area.
         if (!isOffline)
           Positioned(
-            top: (_kHeaderHeight - 30) / 2,
+            top: (_kHeaderHeight - 36) / 2,
             right: 20,
             child: _buildMenuButton(),
           ),
@@ -255,20 +255,29 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
   }
 
   Widget _buildMenuButton() {
-    return GestureDetector(
-      onTap: _openManagementTray,
-      child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: KalinkaColors.surfaceInput,
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: KalinkaColors.borderDefault),
-        ),
-        child: const Icon(
-          Icons.more_vert,
-          size: 14,
-          color: KalinkaColors.textSecondary,
+    return Material(
+      color: KalinkaColors.surfaceInput,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(9),
+        side: const BorderSide(color: KalinkaColors.borderDefault),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: _openManagementTray,
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return Colors.white.withValues(alpha: 0.08);
+          }
+          return null;
+        }),
+        child: const SizedBox(
+          width: 36,
+          height: 36,
+          child: Icon(
+            Icons.more_vert,
+            size: 16,
+            color: KalinkaColors.textSecondary,
+          ),
         ),
       ),
     );

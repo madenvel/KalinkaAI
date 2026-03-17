@@ -30,7 +30,7 @@ class KalinkaSearchBar extends ConsumerStatefulWidget {
     this.onLeadingAction,
     this.showBackChevron = false,
     this.fullBleedMode = false,
-    this.height = 36,
+    this.height = 44,
     this.contentPadding,
   });
 

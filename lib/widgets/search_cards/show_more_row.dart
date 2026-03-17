@@ -16,30 +16,33 @@ class ShowMoreRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
+    return TextButton(
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        foregroundColor: KalinkaColors.textSecondary,
+        overlayColor: Colors.white.withValues(alpha: 0.06),
         padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              isExpanded ? 'Show fewer' : 'Show $remainingCount more',
-              style: KalinkaTextStyles.showMoreLabel,
+        minimumSize: const Size(double.infinity, 0),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            isExpanded ? 'Show fewer' : 'Show $remainingCount more',
+            style: KalinkaTextStyles.showMoreLabel,
+          ),
+          const SizedBox(width: 4),
+          AnimatedRotation(
+            turns: isExpanded ? 0.5 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: const Icon(
+              Icons.expand_more,
+              size: 16,
+              color: KalinkaColors.accent,
             ),
-            const SizedBox(width: 4),
-            AnimatedRotation(
-              turns: isExpanded ? 0.5 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                Icons.expand_more,
-                size: 16,
-                color: KalinkaColors.accent,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../providers/selection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/toast_provider.dart';
@@ -51,8 +50,8 @@ class MultiSelectTopBar extends ConsumerWidget {
                 },
                 child: Text(
                   'Done',
-                  style: GoogleFonts.ibmPlexMono(
-                    fontSize: 13,
+                  style: KalinkaFonts.sans(
+                    fontSize: 14,
                     color: KalinkaColors.textSecondary,
                   ),
                 ),
@@ -64,16 +63,16 @@ class MultiSelectTopBar extends ConsumerWidget {
                   children: [
                     TextSpan(
                       text: '${selection.count}',
-                      style: GoogleFonts.ibmPlexMono(
-                        fontSize: 13,
+                      style: KalinkaFonts.sans(
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: KalinkaColors.textPrimary,
                       ),
                     ),
                     TextSpan(
                       text: ' selected',
-                      style: GoogleFonts.ibmPlexMono(
-                        fontSize: 13,
+                      style: KalinkaFonts.sans(
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: KalinkaColors.textPrimary,
                       ),
@@ -94,8 +93,8 @@ class MultiSelectTopBar extends ConsumerWidget {
                 },
                 child: Text(
                   'Select all',
-                  style: GoogleFonts.ibmPlexMono(
-                    fontSize: 13,
+                  style: KalinkaFonts.sans(
+                    fontSize: 14,
                     color: KalinkaColors.textSecondary,
                   ),
                 ),
@@ -184,8 +183,8 @@ class MultiSelectBottomBar extends ConsumerWidget {
                               const SizedBox(height: 2),
                               Text(
                                 'Play now',
-                                style: GoogleFonts.ibmPlexMono(
-                                  fontSize: 11,
+                                style: KalinkaFonts.sans(
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: KalinkaColors.textPrimary,
                                 ),
@@ -225,8 +224,8 @@ class MultiSelectBottomBar extends ConsumerWidget {
                               const SizedBox(height: 2),
                               Text(
                                 'Play next',
-                                style: GoogleFonts.ibmPlexMono(
-                                  fontSize: 11,
+                                style: KalinkaFonts.sans(
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: KalinkaColors.textPrimary,
                                 ),
@@ -266,8 +265,8 @@ class MultiSelectBottomBar extends ConsumerWidget {
                               const SizedBox(height: 2),
                               Text(
                                 'Add to queue',
-                                style: GoogleFonts.ibmPlexMono(
-                                  fontSize: 11,
+                                style: KalinkaFonts.sans(
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: KalinkaColors.textPrimary,
                                 ),

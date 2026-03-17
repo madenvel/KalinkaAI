@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../providers/tablet_panel_provider.dart';
 import '../theme/app_theme.dart';
 import 'completion_strip.dart';
@@ -97,8 +96,8 @@ class SidePanel extends ConsumerWidget {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: GoogleFonts.ibmPlexMono(
-                  fontSize: 12,
+                style: KalinkaFonts.sans(
+                  fontSize: 13,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                   color: isActive
                       ? KalinkaColors.accent

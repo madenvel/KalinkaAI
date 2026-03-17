@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../theme/app_theme.dart';
@@ -184,8 +183,8 @@ class _AiSuggestionCardState extends ConsumerState<AiSuggestionCard> {
                                   )
                                 : Text(
                                     _isConfirmed ? 'ADD ALL \u2713' : 'ADD ALL',
-                                    style: GoogleFonts.ibmPlexMono(
-                                      fontSize: 11,
+                                    style: KalinkaFonts.sans(
+                                      fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 1.0,
                                       color: _isConfirmed

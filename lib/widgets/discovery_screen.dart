@@ -531,28 +531,40 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         _selectedIndex != null && _selectedIndex! < servers.length;
     final selected = hasSelection ? servers[_selectedIndex!] : null;
 
-    return GestureDetector(
-      onTap: hasSelection
-          ? () => _connectToServer(selected!.name, selected.host, selected.port)
-          : null,
-      child: AnimatedOpacity(
-        opacity: hasSelection ? 1.0 : 0.35,
-        duration: const Duration(milliseconds: 150),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(13),
-            border: Border.all(color: KalinkaColors.accent),
-          ),
-          child: Center(
-            child: Text(
-              hasSelection ? 'Connect to ${selected!.name}' : 'Select a server',
-              style: KalinkaTextStyles.trayRowLabel.copyWith(
-                color: KalinkaColors.accentTint,
-                fontSize: 13,
-                letterSpacing: 0.04,
+    return AnimatedOpacity(
+      opacity: hasSelection ? 1.0 : 0.35,
+      duration: const Duration(milliseconds: 150),
+      child: Material(
+        color: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(13),
+          side: const BorderSide(color: KalinkaColors.accent),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: hasSelection
+              ? () =>
+                  _connectToServer(selected!.name, selected.host, selected.port)
+              : null,
+          overlayColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.pressed)) {
+              return KalinkaColors.accent.withValues(alpha: 0.10);
+            }
+            return null;
+          }),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Center(
+              child: Text(
+                hasSelection
+                    ? 'Connect to ${selected!.name}'
+                    : 'Select a server',
+                style: KalinkaTextStyles.trayRowLabel.copyWith(
+                  color: KalinkaColors.accentTint,
+                  fontSize: 13,
+                  letterSpacing: 0.04,
+                ),
               ),
             ),
           ),

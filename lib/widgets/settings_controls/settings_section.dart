@@ -94,7 +94,7 @@ class _SettingsSectionState extends State<SettingsSection>
                   child: Text(
                     widget.title,
                     style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                      fontSize: 10,
+                      fontSize: 13,
                       color: KalinkaColors.textSecondary,
                       letterSpacing: 0.5,
                     ),

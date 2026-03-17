@@ -251,57 +251,65 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
                 ),
                 const SizedBox(width: 6),
                 // Browse / Close button
-                GestureDetector(
-                  onTap: _toggleExpand,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: KalinkaColors.surfaceElevated,
-                      borderRadius: BorderRadius.circular(9),
-                      border: Border.all(
-                        color: KalinkaColors.borderDefault,
-                        width: 1,
+                Material(
+                  color: KalinkaColors.surfaceElevated,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(9),
+                    side: const BorderSide(color: KalinkaColors.borderDefault),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: _toggleExpand,
+                    overlayColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.pressed)) {
+                        return Colors.white.withValues(alpha: 0.08);
+                      }
+                      return null;
+                    }),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AnimatedCrossFade(
-                          firstChild: Text(
-                            'BROWSE',
-                            style: KalinkaTextStyles.browseButtonLabel.copyWith(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AnimatedCrossFade(
+                            firstChild: Text(
+                              'BROWSE',
+                              style:
+                                  KalinkaTextStyles.browseButtonLabel.copyWith(
+                                color: KalinkaColors.textSecondary,
+                              ),
+                            ),
+                            secondChild: Text(
+                              'CLOSE',
+                              style:
+                                  KalinkaTextStyles.browseButtonLabel.copyWith(
+                                color: KalinkaColors.textSecondary,
+                              ),
+                            ),
+                            crossFadeState: isExpanded
+                                ? CrossFadeState.showSecond
+                                : CrossFadeState.showFirst,
+                            duration: const Duration(milliseconds: 150),
+                            firstCurve: Curves.easeOut,
+                            secondCurve: Curves.easeOut,
+                            sizeCurve: Curves.easeOut,
+                          ),
+                          const SizedBox(width: 4),
+                          AnimatedRotation(
+                            turns: isExpanded ? 0.5 : 0.0,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            child: const Icon(
+                              Icons.expand_more,
+                              size: 12,
                               color: KalinkaColors.textSecondary,
                             ),
                           ),
-                          secondChild: Text(
-                            'CLOSE',
-                            style: KalinkaTextStyles.browseButtonLabel.copyWith(
-                              color: KalinkaColors.textSecondary,
-                            ),
-                          ),
-                          crossFadeState: isExpanded
-                              ? CrossFadeState.showSecond
-                              : CrossFadeState.showFirst,
-                          duration: const Duration(milliseconds: 150),
-                          firstCurve: Curves.easeOut,
-                          secondCurve: Curves.easeOut,
-                          sizeCurve: Curves.easeOut,
-                        ),
-                        const SizedBox(width: 4),
-                        AnimatedRotation(
-                          turns: isExpanded ? 0.5 : 0.0,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          child: const Icon(
-                            Icons.expand_more,
-                            size: 12,
-                            color: KalinkaColors.textSecondary,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -691,27 +699,33 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
                   ),
                   const SizedBox(width: 8),
                   // Chevron button
-                  GestureDetector(
-                    onTap: _toggleExpand,
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: KalinkaColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: KalinkaColors.borderDefault,
-                          width: 1,
-                        ),
-                      ),
-                      child: AnimatedRotation(
-                        turns: isExpanded ? 0.5 : 0.0,
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOut,
-                        child: const Icon(
-                          Icons.expand_more,
-                          size: 14,
-                          color: KalinkaColors.textSecondary,
+                  Material(
+                    color: KalinkaColors.surfaceElevated,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(color: KalinkaColors.borderDefault),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: _toggleExpand,
+                      overlayColor: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.pressed)) {
+                          return Colors.white.withValues(alpha: 0.08);
+                        }
+                        return null;
+                      }),
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: AnimatedRotation(
+                          turns: isExpanded ? 0.5 : 0.0,
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                          child: const Icon(
+                            Icons.expand_more,
+                            size: 14,
+                            color: KalinkaColors.textSecondary,
+                          ),
                         ),
                       ),
                     ),
@@ -1186,27 +1200,33 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
                   ),
                   const SizedBox(width: 8),
                   // Chevron
-                  GestureDetector(
-                    onTap: () => setState(() => _expanded = !_expanded),
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: KalinkaColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: KalinkaColors.borderDefault,
-                          width: 1,
-                        ),
-                      ),
-                      child: AnimatedRotation(
-                        turns: _expanded ? 0.5 : 0.0,
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOut,
-                        child: const Icon(
-                          Icons.expand_more,
-                          size: 14,
-                          color: KalinkaColors.textSecondary,
+                  Material(
+                    color: KalinkaColors.surfaceElevated,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(color: KalinkaColors.borderDefault),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => setState(() => _expanded = !_expanded),
+                      overlayColor: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.pressed)) {
+                          return Colors.white.withValues(alpha: 0.08);
+                        }
+                        return null;
+                      }),
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: AnimatedRotation(
+                          turns: _expanded ? 0.5 : 0.0,
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                          child: const Icon(
+                            Icons.expand_more,
+                            size: 14,
+                            color: KalinkaColors.textSecondary,
+                          ),
                         ),
                       ),
                     ),

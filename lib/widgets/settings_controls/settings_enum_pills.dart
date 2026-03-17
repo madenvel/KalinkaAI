@@ -24,35 +24,28 @@ class SettingsEnumPills extends StatelessWidget {
       runSpacing: 5,
       children: options.map((option) {
         final isActive = option == selected;
-        return GestureDetector(
-          onTap: () {
+        return ChoiceChip(
+          label: Text(option),
+          selected: isActive,
+          onSelected: (_) {
             KalinkaHaptics.selectionClick();
             onChanged(option);
           },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? KalinkaColors.surfaceElevated
-                  : KalinkaColors.surfaceOverlay,
-              borderRadius: BorderRadius.circular(7),
-              border: Border.all(
-                color: isActive
-                    ? KalinkaColors.accent
-                    : KalinkaColors.borderDefault,
-              ),
-            ),
-            child: Text(
-              option,
-              style: KalinkaTextStyles.tagPill.copyWith(
-                color: isActive
-                    ? KalinkaColors.accent
-                    : KalinkaColors.textSecondary,
-                height: 1.3,
-              ),
-            ),
+          selectedColor: KalinkaColors.surfaceElevated,
+          backgroundColor: KalinkaColors.surfaceOverlay,
+          side: BorderSide(
+            color: isActive ? KalinkaColors.accent : KalinkaColors.borderDefault,
           ),
+          labelStyle: KalinkaTextStyles.tagPill.copyWith(
+            color: isActive ? KalinkaColors.accent : KalinkaColors.textSecondary,
+            height: 1.3,
+          ),
+          showCheckmark: false,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+          visualDensity: VisualDensity.compact,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         );
       }).toList(),
     );

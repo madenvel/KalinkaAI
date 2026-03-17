@@ -35,7 +35,7 @@ class SettingsTextInput extends StatelessWidget {
           controller: TextEditingController(text: value)
             ..selection = TextSelection.collapsed(offset: value.length),
           obscureText: obscureText,
-          style: KalinkaTextStyles.searchBarInput.copyWith(fontSize: 12),
+          style: KalinkaTextStyles.searchBarInput.copyWith(fontSize: 13),
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: KalinkaTextStyles.searchPlaceholder.copyWith(

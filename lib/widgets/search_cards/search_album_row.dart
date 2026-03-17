@@ -252,7 +252,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
                       children: [
                         Text(
                           title,
-                          style: KalinkaTextStyles.cardTitle.copyWith(
+                          style: KalinkaTextStyles.trackRowTitle.copyWith(
                             color: selectionMode && isSelected
                                 ? KalinkaColors.accentTint
                                 : null,
@@ -301,25 +301,34 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
                   ),
                   const SizedBox(width: 12),
                   // Expand chevron button (always visible)
-                  GestureDetector(
-                    onTap: _toggleExpand,
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: KalinkaColors.borderDefault,
-                          width: 1,
-                        ),
+                  Material(
+                    color: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      side: const BorderSide(
+                        color: KalinkaColors.borderDefault,
                       ),
-                      child: AnimatedRotation(
-                        turns: isExpanded ? 0.5 : 0.0,
-                        duration: const Duration(milliseconds: 200),
-                        child: const Icon(
-                          Icons.expand_more,
-                          size: 14,
-                          color: KalinkaColors.textSecondary,
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: _toggleExpand,
+                      overlayColor: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.pressed)) {
+                          return Colors.white.withValues(alpha: 0.08);
+                        }
+                        return null;
+                      }),
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: AnimatedRotation(
+                          turns: isExpanded ? 0.5 : 0.0,
+                          duration: const Duration(milliseconds: 200),
+                          child: const Icon(
+                            Icons.expand_more,
+                            size: 14,
+                            color: KalinkaColors.textSecondary,
+                          ),
                         ),
                       ),
                     ),
