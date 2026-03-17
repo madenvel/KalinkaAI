@@ -77,7 +77,7 @@ class ModuleHeaderRow extends StatelessWidget {
                   Text(
                     title,
                     style: KalinkaTextStyles.trayRowLabel.copyWith(
-                      fontSize: 15,
+                      fontSize: KalinkaTypography.baseSize + 5,
                       letterSpacing: -0.01,
                     ),
                   ),
@@ -85,7 +85,7 @@ class ModuleHeaderRow extends StatelessWidget {
                   Text(
                     subtitle,
                     style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                      fontSize: 12,
+                      fontSize: KalinkaTypography.baseSize + 2,
                     ),
                   ),
                 ],
@@ -106,7 +106,7 @@ class ModuleHeaderRow extends StatelessWidget {
                 child: Text(
                   _badgeLabel,
                   style: KalinkaTextStyles.tagPill.copyWith(
-                    fontSize: 8,
+                    fontSize: KalinkaTypography.baseSize - 2,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.8,
                     color: _badgeColor,

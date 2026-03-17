@@ -164,7 +164,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               child: Text(
                 'Cancel',
                 style: KalinkaTextStyles.cancelButton.copyWith(
-                  fontSize: 12,
+                  fontSize: KalinkaTypography.baseSize + 2,
                   color: KalinkaColors.textSecondary,
                 ),
               ),
@@ -184,14 +184,16 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         Text(
           'Looking for Kalinka',
           style: KalinkaTextStyles.expandedTitle.copyWith(
-            fontSize: 22,
+            fontSize: KalinkaTypography.baseSize + 12,
             color: KalinkaColors.frost,
           ),
         ),
         const SizedBox(height: 8),
         Text(
           'Scanning your local network\u2026',
-          style: KalinkaTextStyles.trayRowSublabel.copyWith(fontSize: 12),
+          style: KalinkaTextStyles.trayRowSublabel.copyWith(
+            fontSize: KalinkaTypography.baseSize + 2,
+          ),
         ),
         const Spacer(flex: 3),
       ],
@@ -266,7 +268,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
             'Make sure the server is running and\nyou\'re on the same Wi-Fi.',
             textAlign: TextAlign.center,
             style: KalinkaTextStyles.trayRowSublabel.copyWith(
-              fontSize: 12,
+              fontSize: KalinkaTypography.baseSize + 2,
               color: KalinkaColors.textSecondary,
               height: 1.6,
             ),
@@ -308,7 +310,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         Text(
           'Looking for Kalinka',
           style: KalinkaTextStyles.expandedTitle.copyWith(
-            fontSize: 22,
+            fontSize: KalinkaTypography.baseSize + 12,
             color: KalinkaColors.frost,
           ),
         ),
@@ -316,7 +318,9 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         Text(
           '$serverCount server${serverCount == 1 ? '' : 's'} '
           'found on your network',
-          style: KalinkaTextStyles.trayRowSublabel.copyWith(fontSize: 12),
+          style: KalinkaTextStyles.trayRowSublabel.copyWith(
+            fontSize: KalinkaTypography.baseSize + 2,
+          ),
         ),
         const SizedBox(height: 24),
         // Server list
@@ -359,7 +363,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               child: Text(
                 'Enter Address Manually',
                 style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                  fontSize: 12,
+                  fontSize: KalinkaTypography.baseSize + 2,
                   color: KalinkaColors.textSecondary,
                   decoration: TextDecoration.underline,
                   decorationColor: KalinkaColors.textSecondary,
@@ -449,7 +453,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                   Text(
                     server.name,
                     style: KalinkaTextStyles.trayRowLabel.copyWith(
-                      fontSize: 13,
+                      fontSize: KalinkaTypography.baseSize + 3,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -458,7 +462,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                   Text(
                     '${server.host} \u00b7 $latencyLabel',
                     style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                      fontSize: 12,
+                      fontSize: KalinkaTypography.baseSize + 2,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -467,7 +471,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                   Text(
                     versionLabel,
                     style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                      fontSize: 12,
+                      fontSize: KalinkaTypography.baseSize + 2,
                       color: KalinkaColors.textMuted,
                     ),
                     maxLines: 1,
@@ -491,7 +495,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                   'CURRENT',
                   style: KalinkaTextStyles.tagPill.copyWith(
                     color: KalinkaColors.statusOnline,
-                    fontSize: 10,
+                    fontSize: KalinkaTypography.baseSize + 0,
                     letterSpacing: 0.8,
                   ),
                 ),
@@ -543,8 +547,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: hasSelection
-              ? () =>
-                  _connectToServer(selected!.name, selected.host, selected.port)
+              ? () => _connectToServer(
+                  selected!.name,
+                  selected.host,
+                  selected.port,
+                )
               : null,
           overlayColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.pressed)) {
@@ -562,7 +569,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                     : 'Select a server',
                 style: KalinkaTextStyles.trayRowLabel.copyWith(
                   color: KalinkaColors.accentTint,
-                  fontSize: 13,
+                  fontSize: KalinkaTypography.baseSize + 3,
                   letterSpacing: 0.04,
                 ),
               ),
@@ -586,11 +593,13 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
             ),
             child: TextField(
               controller: _hostController,
-              style: KalinkaTextStyles.searchBarInput.copyWith(fontSize: 12),
+              style: KalinkaTextStyles.searchBarInput.copyWith(
+                fontSize: KalinkaTypography.baseSize + 2,
+              ),
               decoration: InputDecoration(
                 hintText: '192.168.50.85:8000',
                 hintStyle: KalinkaTextStyles.searchPlaceholder.copyWith(
-                  fontSize: 12,
+                  fontSize: KalinkaTypography.baseSize + 2,
                   color: KalinkaColors.textSecondary,
                 ),
                 border: InputBorder.none,
@@ -633,7 +642,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               'Connect',
               style: KalinkaTextStyles.trayRowLabel.copyWith(
                 color: KalinkaColors.accentTint,
-                fontSize: 12,
+                fontSize: KalinkaTypography.baseSize + 2,
               ),
             ),
           ),
@@ -659,12 +668,16 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           const SizedBox(height: 24),
           Text(
             'Connecting\u2026',
-            style: KalinkaTextStyles.expandedTitle.copyWith(fontSize: 18),
+            style: KalinkaTextStyles.expandedTitle.copyWith(
+              fontSize: KalinkaTypography.baseSize + 8,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             'Reaching ${ref.read(connectionSettingsProvider).host}',
-            style: KalinkaTextStyles.trayRowSublabel.copyWith(fontSize: 12),
+            style: KalinkaTextStyles.trayRowSublabel.copyWith(
+              fontSize: KalinkaTypography.baseSize + 2,
+            ),
           ),
           if (_connectError != null) ...[
             const SizedBox(height: 24),
@@ -702,7 +715,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                       'Try again',
                       style: KalinkaTextStyles.trayRowLabel.copyWith(
                         color: KalinkaColors.textSecondary,
-                        fontSize: 12,
+                        fontSize: KalinkaTypography.baseSize + 2,
                       ),
                     ),
                   ),
@@ -752,7 +765,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
             label,
             style: KalinkaTextStyles.trayRowLabel.copyWith(
               color: color,
-              fontSize: 13,
+              fontSize: KalinkaTypography.baseSize + 3,
             ),
           ),
         ),

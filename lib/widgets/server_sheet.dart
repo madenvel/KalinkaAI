@@ -179,7 +179,7 @@ class _ServerStatusCard extends StatelessWidget {
                         ? settings.name
                         : 'No server configured',
                     style: KalinkaTextStyles.trayRowLabel.copyWith(
-                      fontSize: 13,
+                      fontSize: KalinkaTypography.baseSize + 3,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -210,7 +210,7 @@ class _ServerStatusCard extends StatelessWidget {
                 stateLabel,
                 style: KalinkaTextStyles.tagPill.copyWith(
                   color: dotColor,
-                  fontSize: 8,
+                  fontSize: KalinkaTypography.baseSize - 2,
                 ),
               ),
             ),

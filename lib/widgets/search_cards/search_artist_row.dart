@@ -277,17 +277,13 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
                           AnimatedCrossFade(
                             firstChild: Text(
                               'BROWSE',
-                              style:
-                                  KalinkaTextStyles.browseButtonLabel.copyWith(
-                                color: KalinkaColors.textSecondary,
-                              ),
+                              style: KalinkaTextStyles.browseButtonLabel
+                                  .copyWith(color: KalinkaColors.textSecondary),
                             ),
                             secondChild: Text(
                               'CLOSE',
-                              style:
-                                  KalinkaTextStyles.browseButtonLabel.copyWith(
-                                color: KalinkaColors.textSecondary,
-                              ),
+                              style: KalinkaTextStyles.browseButtonLabel
+                                  .copyWith(color: KalinkaColors.textSecondary),
                             ),
                             crossFadeState: isExpanded
                                 ? CrossFadeState.showSecond
@@ -703,7 +699,9 @@ class _ArtistAlbumRowState extends ConsumerState<_ArtistAlbumRow> {
                     color: KalinkaColors.surfaceElevated,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: KalinkaColors.borderDefault),
+                      side: const BorderSide(
+                        color: KalinkaColors.borderDefault,
+                      ),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
@@ -1055,7 +1053,7 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
                 child: Text(
                   title,
                   style: KalinkaTextStyles.trackRowTitle.copyWith(
-                    fontSize: 12,
+                    fontSize: KalinkaTypography.baseSize + 2,
                     color: selectionMode && containerSelected && !trackSelected
                         ? KalinkaColors.textSecondary
                         : null,
@@ -1204,7 +1202,9 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
                     color: KalinkaColors.surfaceElevated,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: KalinkaColors.borderDefault),
+                      side: const BorderSide(
+                        color: KalinkaColors.borderDefault,
+                      ),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(

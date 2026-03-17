@@ -51,7 +51,7 @@ class MultiSelectTopBar extends ConsumerWidget {
                 child: Text(
                   'Done',
                   style: KalinkaFonts.sans(
-                    fontSize: 14,
+                    fontSize: KalinkaTypography.baseSize + 4,
                     color: KalinkaColors.textSecondary,
                   ),
                 ),
@@ -64,7 +64,7 @@ class MultiSelectTopBar extends ConsumerWidget {
                     TextSpan(
                       text: '${selection.count}',
                       style: KalinkaFonts.sans(
-                        fontSize: 14,
+                        fontSize: KalinkaTypography.baseSize + 4,
                         fontWeight: FontWeight.w600,
                         color: KalinkaColors.textPrimary,
                       ),
@@ -72,7 +72,7 @@ class MultiSelectTopBar extends ConsumerWidget {
                     TextSpan(
                       text: ' selected',
                       style: KalinkaFonts.sans(
-                        fontSize: 14,
+                        fontSize: KalinkaTypography.baseSize + 4,
                         fontWeight: FontWeight.w600,
                         color: KalinkaColors.textPrimary,
                       ),
@@ -94,7 +94,7 @@ class MultiSelectTopBar extends ConsumerWidget {
                 child: Text(
                   'Select all',
                   style: KalinkaFonts.sans(
-                    fontSize: 14,
+                    fontSize: KalinkaTypography.baseSize + 4,
                     color: KalinkaColors.textSecondary,
                   ),
                 ),
@@ -184,7 +184,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
                               Text(
                                 'Play now',
                                 style: KalinkaFonts.sans(
-                                  fontSize: 12,
+                                  fontSize: KalinkaTypography.baseSize + 2,
                                   fontWeight: FontWeight.w600,
                                   color: KalinkaColors.textPrimary,
                                 ),
@@ -225,7 +225,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
                               Text(
                                 'Play next',
                                 style: KalinkaFonts.sans(
-                                  fontSize: 12,
+                                  fontSize: KalinkaTypography.baseSize + 2,
                                   fontWeight: FontWeight.w600,
                                   color: KalinkaColors.textPrimary,
                                 ),
@@ -266,7 +266,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
                               Text(
                                 'Add to queue',
                                 style: KalinkaFonts.sans(
-                                  fontSize: 12,
+                                  fontSize: KalinkaTypography.baseSize + 2,
                                   fontWeight: FontWeight.w600,
                                   color: KalinkaColors.textPrimary,
                                 ),

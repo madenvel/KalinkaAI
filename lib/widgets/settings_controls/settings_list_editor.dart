@@ -119,7 +119,7 @@ class _SettingsListEditorState extends State<SettingsListEditor> {
                       controller: _controllers[i],
                       focusNode: _focusNodes[i],
                       style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                        fontSize: 13,
+                        fontSize: KalinkaTypography.baseSize + 3,
                       ),
                       decoration: const InputDecoration(
                         border: InputBorder.none,
@@ -170,7 +170,7 @@ class _SettingsListEditorState extends State<SettingsListEditor> {
                 Text(
                   'Add item',
                   style: KalinkaTextStyles.trayRowLabel.copyWith(
-                    fontSize: 12,
+                    fontSize: KalinkaTypography.baseSize + 2,
                     color: KalinkaColors.accent,
                     letterSpacing: 0.03,
                   ),

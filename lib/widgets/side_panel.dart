@@ -97,7 +97,7 @@ class SidePanel extends ConsumerWidget {
               Text(
                 label,
                 style: KalinkaFonts.sans(
-                  fontSize: 13,
+                  fontSize: KalinkaTypography.baseSize + 3,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                   color: isActive
                       ? KalinkaColors.accent

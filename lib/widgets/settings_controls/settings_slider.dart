@@ -51,7 +51,9 @@ class _SettingsSliderState extends State<SettingsSlider> {
             children: [
               Text(
                 widget.label,
-                style: KalinkaTextStyles.trayRowSublabel.copyWith(fontSize: 12),
+                style: KalinkaTextStyles.trayRowSublabel.copyWith(
+                  fontSize: KalinkaTypography.baseSize + 2,
+                ),
               ),
               Text(
                 widget.valueLabel ??
@@ -59,7 +61,7 @@ class _SettingsSliderState extends State<SettingsSlider> {
                       widget.value == widget.value.roundToDouble() ? 0 : 1,
                     ),
                 style: KalinkaTextStyles.trayRowLabel.copyWith(
-                  fontSize: 11,
+                  fontSize: KalinkaTypography.baseSize + 1,
                   fontWeight: FontWeight.w500,
                   color: KalinkaColors.accent,
                 ),

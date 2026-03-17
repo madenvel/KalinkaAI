@@ -40,7 +40,9 @@ class _SettingsPasswordInputState extends State<SettingsPasswordInput> {
                     offset: widget.value.length,
                   ),
                 obscureText: _obscured,
-                style: KalinkaTextStyles.searchBarInput.copyWith(fontSize: 12),
+                style: KalinkaTextStyles.searchBarInput.copyWith(
+                  fontSize: KalinkaTypography.baseSize + 2,
+                ),
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   focusedBorder: InputBorder.none,

@@ -249,7 +249,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                       'Scan for servers',
                       style: KalinkaTextStyles.trayRowLabel.copyWith(
                         color: KalinkaColors.accentTint,
-                        fontSize: 13,
+                        fontSize: KalinkaTypography.baseSize + 3,
                       ),
                     ),
                   ],
@@ -318,17 +318,13 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                     ? _buildDisconnectedState()
                     : Stack(
                         children: [
-                          // Queue (always rendered, dims when search active)
-                          AnimatedOpacity(
-                            opacity: searchActive ? 0.4 : 1.0,
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOut,
-                            child: RepaintBoundary(
+                          // Queue is not rendered while search is active on phone.
+                          if (!searchActive)
+                            RepaintBoundary(
                               child: QueueZone(
                                 onOpenManagementTray: _showQueueManagementTray,
                               ),
                             ),
-                          ),
                           // Scrim overlay — tappable to dismiss search
                           if (searchActive)
                             Positioned.fill(

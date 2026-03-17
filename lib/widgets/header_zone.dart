@@ -3,16 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_state_provider.dart';
-import '../providers/connection_state_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
 import 'kalinka_search_bar.dart';
-import 'kalinka_wordmark.dart';
 
-/// Header zone with K lettermark, search bar, and connection dot.
+/// Header zone with full-width search bar.
 ///
-/// In search mode, the search bar expands to full-width header treatment,
-/// the wordmark swaps to a back button, and the connection dot hides.
+/// In search mode the bar grows to 54px and the back-chevron leading icon
+/// appears. The connection dot, AI toggle, and mic live inside the search bar.
 class HeaderZone extends ConsumerStatefulWidget {
   final VoidCallback? onServerChipTap;
   final GlobalKey<KalinkaSearchBarState>? searchBarKey;
@@ -25,15 +23,10 @@ class HeaderZone extends ConsumerStatefulWidget {
 
 class _HeaderZoneState extends ConsumerState<HeaderZone>
     with TickerProviderStateMixin {
-  static const _collapsedLeftInset = 30.0;
-  static const _collapsedRightInset = 26.0;
   static const _chevronRevealDelay = Duration(milliseconds: 120);
+  static const _collapsedInset = 10.0;
 
   late GlobalKey<KalinkaSearchBarState> _searchBarKey;
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
-  late AnimationController _searchGlowController;
-  late Animation<double> _searchGlowAnimation;
   Timer? _chevronTimer;
   bool _showDelayedChevron = false;
 
@@ -41,27 +34,11 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
   void initState() {
     super.initState();
     _searchBarKey = widget.searchBarKey ?? GlobalKey<KalinkaSearchBarState>();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 0.25).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-    _searchGlowController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
-    );
-    _searchGlowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _searchGlowController, curve: Curves.easeInOut),
-    );
   }
 
   @override
   void dispose() {
     _chevronTimer?.cancel();
-    _pulseController.dispose();
-    _searchGlowController.dispose();
     super.dispose();
   }
 
@@ -83,24 +60,8 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
   @override
   Widget build(BuildContext context) {
     final searchActive = ref.watch(searchStateProvider).searchActive;
-    final isQueueEmpty = ref.watch(
-      playQueueStateStoreProvider.select((s) => s.trackList.isEmpty),
-    );
-    final connectionState = ref.watch(connectionStateProvider);
-    final shouldGlow =
-        isQueueEmpty &&
-        !searchActive &&
-        connectionState == ConnectionStatus.connected;
-    if (shouldGlow) {
-      if (!_searchGlowController.isAnimating) {
-        _searchGlowController.repeat(reverse: true);
-      }
-    } else {
-      if (_searchGlowController.isAnimating) {
-        _searchGlowController.stop();
-        _searchGlowController.value = 0.0;
-      }
-    }
+    // Suppress unused-provider warning — queue emptiness no longer drives glow.
+    ref.watch(playQueueStateStoreProvider.select((s) => s.trackList.isEmpty));
 
     ref.listen<SearchState>(searchStateProvider, (previous, next) {
       final wasActive = previous?.searchActive ?? false;
@@ -133,15 +94,13 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
         color: searchActive
             ? KalinkaColors.surfaceInput
             : KalinkaColors.surfaceBase,
-        border: Border(
+        border: const Border(
           bottom: BorderSide(
-            color: searchActive
-                ? KalinkaColors.accentBorder
-                : KalinkaColors.borderDefault,
+            color: KalinkaColors.borderDefault,
             width: 1,
           ),
         ),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             offset: Offset(0, 4),
             blurRadius: 24,
@@ -156,158 +115,34 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
           curve: Curves.easeOut,
           padding: EdgeInsets.symmetric(
             vertical: searchActive ? 8 : 12,
-            horizontal: searchActive ? 8 : 16,
+            horizontal: searchActive ? 0 : 16,
           ),
           child: SizedBox(
             height: 44,
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: Row(
-                    children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: AnimatedOpacity(
-                          opacity: searchActive ? 0 : 1,
-                          duration: const Duration(milliseconds: 120),
-                          curve: Curves.easeIn,
-                          child: const IgnorePointer(
-                            ignoring: true,
-                            child: KalinkaWordmark(),
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      AnimatedSlide(
-                        offset: searchActive
-                            ? const Offset(0.25, 0)
-                            : Offset.zero,
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOut,
-                        child: AnimatedOpacity(
-                          opacity: searchActive ? 0 : 1,
-                          duration: const Duration(milliseconds: 140),
-                          curve: Curves.easeIn,
-                          child: IgnorePointer(
-                            ignoring: searchActive,
-                            child: _buildConnectionDot(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 200),
                   curve: const Cubic(0.4, 0, 0.2, 1),
-                  left: searchActive ? 0 : _collapsedLeftInset,
-                  right: searchActive ? 0 : _collapsedRightInset,
+                  left: searchActive ? 0 : _collapsedInset,
+                  right: searchActive ? 0 : _collapsedInset,
                   top: 0,
                   bottom: 0,
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: AnimatedBuilder(
-                      animation: _searchGlowAnimation,
-                      builder: (context, child) {
-                        final t = _searchGlowAnimation.value;
-                        return DecoratedBox(
-                          position: DecorationPosition.foreground,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: KalinkaColors.accent.withValues(
-                                alpha: t * 0.50,
-                              ),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: child!,
-                        );
-                      },
-                      child: KalinkaSearchBar(
-                        key: _searchBarKey,
-                        alwaysExpanded: false,
-                        onActivate: _onSearchActivated,
-                        onLeadingAction: _dismissSearch,
-                        showBackChevron: searchActive && _showDelayedChevron,
-                        fullBleedMode: searchActive,
-                        height: searchActive ? 54 : 44,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: searchActive ? 8 : 12,
-                        ),
-                      ),
-                    ),
+                  child: KalinkaSearchBar(
+                    key: _searchBarKey,
+                    alwaysExpanded: false,
+                    onActivate: _onSearchActivated,
+                    onLeadingAction: _dismissSearch,
+                    onServerChipTap: widget.onServerChipTap,
+                    showBackChevron: searchActive && _showDelayedChevron,
+                    fullBleedMode: searchActive,
+                    height: searchActive ? 54 : 44,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildConnectionDot() {
-    final connectionState = ref.watch(connectionStateProvider);
-
-    // Start/stop pulse based on reconnecting state
-    if (connectionState == ConnectionStatus.reconnecting) {
-      if (!_pulseController.isAnimating) {
-        _pulseController.repeat(reverse: true);
-      }
-    } else {
-      if (_pulseController.isAnimating) {
-        _pulseController.stop();
-        _pulseController.value = 1.0;
-      }
-    }
-
-    final color = switch (connectionState) {
-      ConnectionStatus.connected => KalinkaColors.statusOnline,
-      ConnectionStatus.reconnecting ||
-      ConnectionStatus.connecting => KalinkaColors.statusPending,
-      ConnectionStatus.offline ||
-      ConnectionStatus.none => KalinkaColors.textMuted,
-    };
-
-    final semanticsLabel = switch (connectionState) {
-      ConnectionStatus.connected =>
-        'Server connected. Tap for server settings.',
-      ConnectionStatus.reconnecting || ConnectionStatus.connecting =>
-        'Reconnecting to server. Tap for server settings.',
-      ConnectionStatus.offline => 'Server offline. Tap for server settings.',
-      ConnectionStatus.none => 'No server configured. Tap for server settings.',
-    };
-
-    Widget dot = Container(
-      width: 10,
-      height: 10,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: connectionState == ConnectionStatus.connected
-            ? [BoxShadow(color: color.withValues(alpha: 0.55), blurRadius: 6)]
-            : null,
-      ),
-    );
-
-    if (connectionState == ConnectionStatus.reconnecting ||
-        connectionState == ConnectionStatus.connecting) {
-      dot = FadeTransition(opacity: _pulseAnimation, child: dot);
-    }
-
-    return Semantics(
-      label: semanticsLabel,
-      button: true,
-      child: GestureDetector(
-        onTap: widget.onServerChipTap != null
-            ? () => widget.onServerChipTap!()
-            : null,
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Align(alignment: Alignment.centerRight, child: dot),
         ),
       ),
     );

@@ -389,7 +389,7 @@ class _ZeroStateContent extends ConsumerWidget {
         child: Text(
           'Nothing here yet',
           style: KalinkaFonts.sans(
-            fontSize: 14,
+            fontSize: KalinkaTypography.baseSize + 4,
             color: KalinkaColors.textMuted,
           ),
         ),
@@ -472,7 +472,7 @@ class _ZeroStateContent extends ConsumerWidget {
               child: Text(
                 'Nothing here yet',
                 style: KalinkaFonts.sans(
-                  fontSize: 14,
+                  fontSize: KalinkaTypography.baseSize + 4,
                   color: KalinkaColors.textMuted,
                 ),
               ),
@@ -631,7 +631,7 @@ class _BasedOnNowPlayingSection extends StatelessWidget {
             sectionName.toUpperCase(),
             style: KalinkaTextStyles.sectionLabel.copyWith(
               color: KalinkaColors.textMuted,
-              fontSize: 10,
+              fontSize: KalinkaTypography.baseSize + 0,
             ),
           ),
         ),

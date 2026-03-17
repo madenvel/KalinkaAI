@@ -22,7 +22,7 @@ class SubSectionLabel extends StatelessWidget {
       child: Text(
         label.toUpperCase(),
         style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
-          fontSize: 9,
+          fontSize: KalinkaTypography.baseSize - 1,
           letterSpacing: 1.6,
         ),
       ),

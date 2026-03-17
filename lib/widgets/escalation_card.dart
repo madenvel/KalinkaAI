@@ -97,7 +97,7 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
                     child: Text(
                       '$name is unavailable',
                       style: KalinkaTextStyles.trayRowLabel.copyWith(
-                        fontSize: 13,
+                        fontSize: KalinkaTypography.baseSize + 3,
                       ),
                       maxLines: 2,
                       softWrap: false,
@@ -111,7 +111,7 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
                 'The server hasn\'t responded for over 30 seconds. '
                 'It may be offline or unreachable on the network.',
                 style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                  fontSize: 10,
+                  fontSize: KalinkaTypography.baseSize + 0,
                   height: 1.5,
                 ),
               ),
@@ -136,7 +136,7 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
                         'Scan for servers',
                         style: KalinkaTextStyles.trayRowLabel.copyWith(
                           color: KalinkaColors.accentTint,
-                          fontSize: 12,
+                          fontSize: KalinkaTypography.baseSize + 2,
                         ),
                       ),
                     ),
@@ -161,7 +161,7 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
                         'Retry',
                         style: KalinkaTextStyles.trayRowLabel.copyWith(
                           color: KalinkaColors.textSecondary,
-                          fontSize: 12,
+                          fontSize: KalinkaTypography.baseSize + 2,
                         ),
                       ),
                     ),

@@ -39,7 +39,7 @@ class WarningNote extends StatelessWidget {
             child: Text(
               message,
               style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                fontSize: 12,
+                fontSize: KalinkaTypography.baseSize + 2,
                 height: 1.6,
               ),
             ),

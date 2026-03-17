@@ -29,7 +29,9 @@ class SettingsNumericInput extends StatelessWidget {
           controller: TextEditingController(text: value.toString()),
           keyboardType: TextInputType.number,
           textAlign: TextAlign.right,
-          style: KalinkaTextStyles.searchBarInput.copyWith(fontSize: 12),
+          style: KalinkaTextStyles.searchBarInput.copyWith(
+            fontSize: KalinkaTypography.baseSize + 2,
+          ),
           decoration: InputDecoration(
             border: InputBorder.none,
             focusedBorder: OutlineInputBorder(

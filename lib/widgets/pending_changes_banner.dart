@@ -96,7 +96,7 @@ class _PendingChangesBannerState extends ConsumerState<PendingChangesBanner>
                       'Discard',
                       style: KalinkaTextStyles.bannerText.copyWith(
                         color: KalinkaColors.textMuted,
-                        fontSize: 10,
+                        fontSize: KalinkaTypography.baseSize + 0,
                         decoration: TextDecoration.underline,
                         decorationColor: KalinkaColors.textMuted,
                       ),

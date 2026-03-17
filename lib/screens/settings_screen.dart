@@ -164,7 +164,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                                   style: KalinkaTextStyles.trayRowLabel
                                       .copyWith(
                                         color: KalinkaColors.accentTint,
-                                        fontSize: 12,
+                                        fontSize:
+                                            KalinkaTypography.baseSize + 2,
                                       ),
                                 ),
                               ),
@@ -281,7 +282,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               children: [
                 Text(
                   settings.name.isNotEmpty ? settings.name : 'Server settings',
-                  style: KalinkaTextStyles.trayRowLabel.copyWith(fontSize: 15),
+                  style: KalinkaTextStyles.trayRowLabel.copyWith(
+                    fontSize: KalinkaTypography.baseSize + 5,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -290,7 +293,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   Text(
                     detailParts.join(' \u00b7 '),
                     style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                      fontSize: 12,
+                      fontSize: KalinkaTypography.baseSize + 2,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

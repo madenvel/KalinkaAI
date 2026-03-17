@@ -7,9 +7,10 @@ import '../utils/haptics.dart';
 
 /// Shared search bar used in both phone (HeaderZone) and tablet (SidePanel).
 ///
-/// The bar always shows its full layout — search icon, text field, conditional
-/// clear button, AI mode pill toggle, and mic icon. There is no pill/collapsed
-/// state. The border brightens on focus and a subtle glow appears.
+/// The bar always shows its full layout — Kalinka logo, text field, conditional
+/// clear button, vertical separator, AI mode pill toggle, mic icon, and
+/// connection dot. There is no pill/collapsed state. The border brightens from
+/// borderDefault to textMuted on focus.
 ///
 /// [alwaysExpanded] — when true (tablet), the TextField auto-activates search
 /// on mount. When false (phone), search activates on first tap.
@@ -18,6 +19,7 @@ class KalinkaSearchBar extends ConsumerStatefulWidget {
   final bool alwaysExpanded;
   final VoidCallback? onActivate;
   final VoidCallback? onLeadingAction;
+  final VoidCallback? onServerChipTap;
   final bool showBackChevron;
   final bool fullBleedMode;
   final double height;
@@ -28,6 +30,7 @@ class KalinkaSearchBar extends ConsumerStatefulWidget {
     this.alwaysExpanded = false,
     this.onActivate,
     this.onLeadingAction,
+    this.onServerChipTap,
     this.showBackChevron = false,
     this.fullBleedMode = false,
     this.height = 44,
@@ -45,11 +48,12 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
   late TextEditingController _textController;
   late FocusNode _searchFocusNode;
   late AnimationController _clearButtonController;
-  late AnimationController _borderController;
-  late Animation<double> _borderAnimation;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   bool _isActive = false;
   bool _isAiModeActive = true;
+  bool _isFocused = false;
 
   // State 3 → State 2 (editing) tracking
   String _committedQuery = '';
@@ -70,14 +74,12 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
       reverseDuration: const Duration(milliseconds: 100),
     );
 
-    _borderController = AnimationController(
+    _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 1200),
     );
-    _borderAnimation = CurvedAnimation(
-      parent: _borderController,
-      curve: Curves.easeOut,
-      reverseCurve: Curves.easeOut,
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 0.25).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
     _searchFocusNode.addListener(_onFocusChange);
@@ -114,11 +116,13 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
     _textController.dispose();
     _searchFocusNode.dispose();
     _clearButtonController.dispose();
-    _borderController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
   void _onFocusChange() {
+    setState(() => _isFocused = _searchFocusNode.hasFocus);
+
     if (_searchFocusNode.hasFocus) {
       if (!_isActive) {
         _activateSearch();
@@ -130,17 +134,6 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
           _committedQuery = _textController.text;
         }
       }
-      _borderController.animateTo(
-        1.0,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
-    } else {
-      _borderController.animateTo(
-        0.0,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-      );
     }
   }
 
@@ -222,11 +215,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
   /// bar so the caller can transition to ambient.
   void cancelSearch() {
     _searchFocusNode.unfocus();
-    _borderController.animateTo(
-      0.0,
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-    );
+    setState(() => _isFocused = false);
 
     if (_enteredFocusFromResults) {
       // Restore committed query, stay in results
@@ -278,6 +267,11 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
   }
 
   Widget _buildSearchBar() {
+    final isFullBleed = widget.fullBleedMode;
+    final borderColor = _isFocused
+        ? KalinkaColors.textMuted
+        : KalinkaColors.borderDefault;
+
     return GestureDetector(
       onTap: () {
         if (!_isActive) {
@@ -293,48 +287,24 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
         _searchFocusNode.requestFocus();
       },
       behavior: HitTestBehavior.opaque,
-      child: AnimatedBuilder(
-        animation: _borderAnimation,
-        builder: (context, child) {
-          final t = _borderAnimation.value;
-          final isFullBleed = widget.fullBleedMode;
-          final borderColor = Color.lerp(
-            KalinkaColors.accent.withValues(alpha: 0.38),
-            KalinkaColors.accent.withValues(alpha: 0.62),
-            t,
-          )!;
-          final hasShadow = t > 0 && !isFullBleed;
-
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            height: widget.height,
-            decoration: BoxDecoration(
-              color: KalinkaColors.surfaceInput,
-              borderRadius: isFullBleed
-                  ? BorderRadius.zero
-                  : BorderRadius.circular(14),
-              border: isFullBleed
-                  ? null
-                  : Border.all(color: borderColor, width: 1.5),
-              boxShadow: hasShadow
-                  ? [
-                      BoxShadow(
-                        color: KalinkaColors.accent.withValues(alpha: 0.12 * t),
-                        blurRadius: 6,
-                        spreadRadius: 2,
-                      ),
-                    ]
-                  : null,
-            ),
-            padding:
-                widget.contentPadding ??
-                const EdgeInsets.symmetric(horizontal: 12),
-            child: child,
-          );
-        },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: KalinkaColors.surfaceInput,
+          borderRadius: isFullBleed
+              ? BorderRadius.zero
+              : BorderRadius.circular(14),
+          border: isFullBleed
+              ? null
+              : Border.all(color: borderColor, width: 1.5),
+        ),
+        padding:
+            widget.contentPadding ?? const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
           children: [
+            // Leading: Kalinka logo or back chevron
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 160),
               switchInCurve: Curves.easeOut,
@@ -356,7 +326,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
                       behavior: HitTestBehavior.opaque,
                       child: const SizedBox(
                         width: 20,
-                        height: 20,
+                        height: 44,
                         child: Center(
                           child: Icon(
                             Icons.arrow_back_ios_new_rounded,
@@ -366,15 +336,14 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
                         ),
                       ),
                     )
-                  : const SizedBox(
-                      key: ValueKey('search-leading-search'),
-                      width: 20,
-                      height: 20,
+                  : SizedBox(
+                      key: const ValueKey('search-leading-logo'),
+                      width: 22,
+                      height: 44,
                       child: Center(
-                        child: Icon(
-                          Icons.search,
-                          size: 16,
-                          color: KalinkaColors.accent,
+                        child: Image.asset(
+                          'assets/images/dancing_kalinka.png',
+                          height: 24,
                         ),
                       ),
                     ),
@@ -405,11 +374,16 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
             ),
             // ✕ clear button — animated, only when text is present
             _buildClearButton(),
-            // AI pill toggle — always visible
+            const SizedBox(width: 4),
+            // Separator between input area and controls
+            Container(width: 1, height: 18, color: KalinkaColors.borderDefault),
+            const SizedBox(width: 4),
+            // AI pill toggle
             _buildAiPill(),
-            const SizedBox(width: 6),
-            // Mic button — always visible
+            // Mic button
             _buildMicButton(),
+            // Connection dot
+            _buildConnectionDot(),
           ],
         ),
       ),
@@ -491,7 +465,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
                       Text(
                         'AI',
                         style: KalinkaTextStyles.aiBadge.copyWith(
-                          fontSize: 10,
+                          fontSize: KalinkaTypography.baseSize + 0,
                           fontWeight: FontWeight.w500,
                           color: aiColor,
                         ),
@@ -515,7 +489,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
       },
       behavior: HitTestBehavior.opaque,
       child: const SizedBox(
-        width: 44,
+        width: 36,
         height: 44,
         child: Center(
           child: Icon(
@@ -524,6 +498,68 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
             color: KalinkaColors.textSecondary,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildConnectionDot() {
+    final connectionState = ref.watch(connectionStateProvider);
+
+    if (connectionState == ConnectionStatus.reconnecting ||
+        connectionState == ConnectionStatus.connecting) {
+      if (!_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
+      }
+    } else {
+      if (_pulseController.isAnimating) {
+        _pulseController.stop();
+        _pulseController.value = 1.0;
+      }
+    }
+
+    final color = switch (connectionState) {
+      ConnectionStatus.connected => KalinkaColors.statusOnline,
+      ConnectionStatus.reconnecting ||
+      ConnectionStatus.connecting => KalinkaColors.statusPending,
+      ConnectionStatus.offline ||
+      ConnectionStatus.none => KalinkaColors.textMuted,
+    };
+
+    final semanticsLabel = switch (connectionState) {
+      ConnectionStatus.connected =>
+        'Server connected. Tap for server settings.',
+      ConnectionStatus.reconnecting || ConnectionStatus.connecting =>
+        'Reconnecting to server. Tap for server settings.',
+      ConnectionStatus.offline => 'Server offline. Tap for server settings.',
+      ConnectionStatus.none => 'No server configured. Tap for server settings.',
+    };
+
+    Widget dot = Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: connectionState == ConnectionStatus.connected
+            ? [BoxShadow(color: color.withValues(alpha: 0.55), blurRadius: 6)]
+            : null,
+      ),
+    );
+
+    if (connectionState == ConnectionStatus.reconnecting ||
+        connectionState == ConnectionStatus.connecting) {
+      dot = FadeTransition(opacity: _pulseAnimation, child: dot);
+    }
+
+    return Semantics(
+      label: semanticsLabel,
+      button: true,
+      child: GestureDetector(
+        onTap: widget.onServerChipTap != null
+            ? () => widget.onServerChipTap!()
+            : null,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(width: 36, height: 44, child: Center(child: dot)),
       ),
     );
   }

@@ -82,7 +82,7 @@ class SettingsRow extends StatelessWidget {
         Text(
           label,
           style: KalinkaTextStyles.trayRowLabel.copyWith(
-            fontSize: 15,
+            fontSize: KalinkaTypography.baseSize + 5,
             letterSpacing: -0.01,
           ),
         ),
@@ -91,7 +91,7 @@ class SettingsRow extends StatelessWidget {
           Text(
             sublabel!,
             style: KalinkaTextStyles.trayRowSublabel.copyWith(
-              fontSize: 12,
+              fontSize: KalinkaTypography.baseSize + 2,
               height: 1.45,
             ),
           ),

@@ -235,87 +235,95 @@ class KalinkaFonts {
   }
 }
 
+/// Centralized typography scale.
+class KalinkaTypography {
+  KalinkaTypography._();
+
+  // Smallest size used in the app theme; all other sizes are offsets from this.
+  static const double baseSize = 10;
+}
+
 /// Kalinka text styles using centralized font roles.
 class KalinkaTextStyles {
   KalinkaTextStyles._();
 
   // Queue items
   static TextStyle queueItemTitle = KalinkaFonts.sans(
-    fontSize: 14,
+    fontSize: KalinkaTypography.baseSize + 4,
     fontWeight: FontWeight.w400,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle queueItemArtist = KalinkaFonts.sans(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle queueItemIndex = KalinkaFonts.mono(
-    fontSize: 12,
+    fontSize: KalinkaTypography.baseSize + 2,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle queueItemDuration = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     color: KalinkaColors.textSecondary,
   );
 
   // Mini player
   static TextStyle miniPlayerTitle = KalinkaFonts.sans(
-    fontSize: 14,
+    fontSize: KalinkaTypography.baseSize + 4,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle miniPlayerArtist = KalinkaFonts.sans(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     color: KalinkaColors.textSecondary,
   );
 
   // Expanded player
   static TextStyle expandedTitle = KalinkaFonts.display(
-    fontSize: 30,
+    fontSize: KalinkaTypography.baseSize + 20,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle expandedArtist = KalinkaFonts.sans(
-    fontSize: 17,
+    fontSize: KalinkaTypography.baseSize + 7,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle expandedAlbum = KalinkaFonts.sans(
-    fontSize: 14,
+    fontSize: KalinkaTypography.baseSize + 4,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle expandedAttribution = KalinkaFonts.mono(
-    fontSize: 12,
+    fontSize: KalinkaTypography.baseSize + 2,
     color: KalinkaColors.textSecondary,
   );
 
   // Labels
   static TextStyle nowPlayingLabel = KalinkaFonts.mono(
-    fontSize: 10,
+    fontSize: KalinkaTypography.baseSize + 0,
     fontWeight: FontWeight.w600,
     letterSpacing: 2.0,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle formatBadge = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle sourceBadgeLetter = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w500,
     height: 1,
   );
 
   static TextStyle sectionHeader = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.0,
     color: KalinkaColors.textSecondary,
@@ -323,135 +331,135 @@ class KalinkaTextStyles {
 
   // Search
   static TextStyle searchPlaceholder = KalinkaFonts.mono(
-    fontSize: 13,
+    fontSize: KalinkaTypography.baseSize + 3,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle aiBadge = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w700,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle aiPlaylistName = KalinkaFonts.display(
-    fontSize: 16,
+    fontSize: KalinkaTypography.baseSize + 6,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle searchTab = KalinkaFonts.sans(
-    fontSize: 13,
+    fontSize: KalinkaTypography.baseSize + 3,
     fontWeight: FontWeight.w500,
   );
 
   // Search results
   static TextStyle resultCountHint = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w500,
     letterSpacing: 1.5,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle sectionLabel = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.5,
     color: KalinkaColors.textSectionLabel,
   );
 
   static TextStyle trackRowTitle = KalinkaFonts.sans(
-    fontSize: 14,
+    fontSize: KalinkaTypography.baseSize + 4,
     fontWeight: FontWeight.w400,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle trackRowSubtitle = KalinkaFonts.sans(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle cardTitle = KalinkaFonts.sans(
-    fontSize: 15,
+    fontSize: KalinkaTypography.baseSize + 5,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle tagPill = KalinkaFonts.sans(
-    fontSize: 12,
+    fontSize: KalinkaTypography.baseSize + 2,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle showMoreLabel = KalinkaFonts.sans(
-    fontSize: 12,
+    fontSize: KalinkaTypography.baseSize + 2,
     fontWeight: FontWeight.w600,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle aiCardLabel = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w700,
     letterSpacing: 1.5,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle aiTrackChip = KalinkaFonts.sans(
-    fontSize: 12,
+    fontSize: KalinkaTypography.baseSize + 2,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle aiTrackChipDuration = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle browseButtonLabel = KalinkaFonts.sans(
-    fontSize: 12,
+    fontSize: KalinkaTypography.baseSize + 2,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.0,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle cancelButton = KalinkaFonts.sans(
-    fontSize: 13,
+    fontSize: KalinkaTypography.baseSize + 3,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle searchBarInput = KalinkaFonts.mono(
-    fontSize: 13,
+    fontSize: KalinkaTypography.baseSize + 3,
     color: KalinkaColors.textPrimary,
   );
 
   // Completion strip
   static TextStyle completionText = KalinkaFonts.mono(
-    fontSize: 13,
+    fontSize: KalinkaTypography.baseSize + 3,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle completionMatchHighlight = KalinkaFonts.mono(
-    fontSize: 13,
+    fontSize: KalinkaTypography.baseSize + 3,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle aiCompletionText = KalinkaFonts.sans(
-    fontSize: 13,
+    fontSize: KalinkaTypography.baseSize + 3,
     color: KalinkaColors.textPrimary,
   );
 
   // AI prompt chips (zero-state)
   static TextStyle aiPromptChipText = KalinkaFonts.sans(
-    fontSize: 14,
+    fontSize: KalinkaTypography.baseSize + 4,
     fontWeight: FontWeight.w300,
     color: KalinkaColors.textSectionLabel,
   );
 
   // Clear all link
   static TextStyle clearAllLink = KalinkaFonts.sans(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle batchBarLabel = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w500,
     letterSpacing: 1.5,
     color: KalinkaColors.textSecondary,
@@ -459,44 +467,44 @@ class KalinkaTextStyles {
 
   // Time
   static TextStyle timeLabel = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     color: KalinkaColors.textSecondary,
   );
 
   // Queue management tray
   static TextStyle trayTitle = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.2,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle traySectionLabel = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.8,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle trayRowLabel = KalinkaFonts.sans(
-    fontSize: 14,
+    fontSize: KalinkaTypography.baseSize + 4,
     letterSpacing: -0.1,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle trayRowSublabel = KalinkaFonts.sans(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     color: KalinkaColors.textSecondary,
   );
 
   // Queue section headers
   static TextStyle trackCountBadge = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle shuffleBadgeText = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w500,
     letterSpacing: 0.5,
     color: KalinkaColors.textSecondary,
@@ -504,55 +512,55 @@ class KalinkaTextStyles {
 
   // Empty queue state
   static TextStyle emptyQueueTitle = KalinkaFonts.display(
-    fontSize: 22,
+    fontSize: KalinkaTypography.baseSize + 12,
     color: KalinkaColors.frost,
   );
 
   static TextStyle emptyQueueSubtitle = KalinkaFonts.sans(
-    fontSize: 13,
+    fontSize: KalinkaTypography.baseSize + 3,
     color: KalinkaColors.textSecondary,
   );
 
   // Confirm dialog
   static TextStyle dialogTitle = KalinkaFonts.display(
-    fontSize: 20,
+    fontSize: KalinkaTypography.baseSize + 10,
     color: KalinkaColors.frost,
   );
 
   static TextStyle dialogBody = KalinkaFonts.sans(
-    fontSize: 12,
+    fontSize: KalinkaTypography.baseSize + 2,
     height: 1.6,
     color: KalinkaColors.textSecondary,
   );
 
   static TextStyle dialogButton = KalinkaFonts.sans(
-    fontSize: 14,
+    fontSize: KalinkaTypography.baseSize + 4,
     fontWeight: FontWeight.w500,
   );
 
   // Lettermark
   static TextStyle lettermark = KalinkaFonts.display(
-    fontSize: 22,
+    fontSize: KalinkaTypography.baseSize + 12,
     fontStyle: FontStyle.italic,
     color: KalinkaColors.textPrimary,
   );
 
   // Server chip
   static TextStyle serverChipLabel = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.textPrimary,
   );
 
   // Connection banners
   static TextStyle bannerText = KalinkaFonts.sans(
-    fontSize: 13,
+    fontSize: KalinkaTypography.baseSize + 3,
     color: KalinkaColors.statusPendingLight,
   );
 
   // Action toast notifications
   static TextStyle toastText = KalinkaFonts.sans(
-    fontSize: 12,
+    fontSize: KalinkaTypography.baseSize + 2,
     color: KalinkaColors.textPrimary,
   );
 
@@ -560,7 +568,7 @@ class KalinkaTextStyles {
   // Uses textSecondary (6.9:1) instead of textMuted (2.2:1) because this
   // text communicates meaningful state, not a disabled/decorative element.
   static TextStyle sectionHeaderMuted = KalinkaFonts.mono(
-    fontSize: 11,
+    fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.8,
     color: KalinkaColors.textSecondary,
@@ -570,28 +578,28 @@ class KalinkaTextStyles {
 
   /// Recent search chip label
   static TextStyle recentChipLabel = KalinkaFonts.sans(
-    fontSize: 13,
+    fontSize: KalinkaTypography.baseSize + 3,
     fontWeight: FontWeight.w400,
     color: KalinkaColors.textSecondary,
   );
 
   /// Filter pill label — inactive state
   static TextStyle filterPillInactive = KalinkaFonts.sans(
-    fontSize: 12,
+    fontSize: KalinkaTypography.baseSize + 2,
     fontWeight: FontWeight.w400,
     color: KalinkaColors.textSecondary,
   );
 
   /// Filter pill label — active state
   static TextStyle filterPillActive = KalinkaFonts.sans(
-    fontSize: 12,
+    fontSize: KalinkaTypography.baseSize + 2,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.accentTint,
   );
 
   /// "Clear all" button in the chip row
   static TextStyle clearAllChips = KalinkaFonts.sans(
-    fontSize: 12,
+    fontSize: KalinkaTypography.baseSize + 2,
     fontWeight: FontWeight.w400,
     color: KalinkaColors.textMuted,
   );
@@ -624,18 +632,18 @@ class AppTheme {
       highlightColor: Colors.transparent,
       textTheme: baseTextTheme.copyWith(
         titleMedium: KalinkaFonts.sans(
-          fontSize: 16,
+          fontSize: KalinkaTypography.baseSize + 6,
           fontWeight: FontWeight.w500,
           color: KalinkaColors.textPrimary,
           letterSpacing: -0.2,
         ),
         bodyMedium: KalinkaFonts.sans(
-          fontSize: 15,
+          fontSize: KalinkaTypography.baseSize + 5,
           color: KalinkaColors.textSecondary,
           letterSpacing: -0.1,
         ),
         bodySmall: KalinkaFonts.sans(
-          fontSize: 13,
+          fontSize: KalinkaTypography.baseSize + 3,
           color: KalinkaColors.textSecondary,
           letterSpacing: -0.1,
         ),
