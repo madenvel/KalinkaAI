@@ -273,7 +273,7 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
                       children: [
                         Text(
                           title,
-                          style: KalinkaTextStyles.cardTitle.copyWith(
+                          style: KalinkaTextStyles.trackRowTitle.copyWith(
                             color: selectionMode && isSelected
                                 ? KalinkaColors.accentTint
                                 : null,
@@ -309,7 +309,9 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
                     color: Colors.transparent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6),
-                      side: const BorderSide(color: KalinkaColors.borderDefault),
+                      side: const BorderSide(
+                        color: KalinkaColors.borderDefault,
+                      ),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
