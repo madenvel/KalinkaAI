@@ -5,6 +5,7 @@ import '../providers/connection_state_provider.dart';
 import '../providers/discovery_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../theme/app_theme.dart';
+import 'kalinka_button.dart';
 import 'sonar_animation.dart';
 
 /// Full-screen discovery overlay for finding and connecting to Kalinka servers.
@@ -275,14 +276,12 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           ),
           const SizedBox(height: 24),
           // Scan again button
-          _buildFullWidthButton(
+          KalinkaButton(
             label: 'Scan again',
-            color: KalinkaColors.textSecondary,
-            bgColor: KalinkaColors.surfaceElevated,
-            borderColor: KalinkaColors.borderDefault,
-            onTap: () {
-              ref.read(discoveryProvider.notifier).rescan();
-            },
+            variant: KalinkaButtonVariant.accent,
+            size: KalinkaButtonSize.normal,
+            fullWidth: true,
+            onTap: () => ref.read(discoveryProvider.notifier).rescan(),
           ),
           const SizedBox(height: 20),
           // Separator
@@ -304,6 +303,18 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     final servers = discoveryState.servers;
     final serverCount = servers.length;
 
+    // Auto-select first non-current server if nothing selected yet
+    if (_selectedIndex == null) {
+      final firstIdx = servers.indexWhere(
+        (s) => s.host != widget.currentServerHost,
+      );
+      if (firstIdx >= 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _selectedIndex = firstIdx);
+        });
+      }
+    }
+
     return Column(
       children: [
         const SizedBox(height: 32),
@@ -323,32 +334,42 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           ),
         ),
         const SizedBox(height: 24),
-        // Server list
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: servers.length,
-            itemBuilder: (context, index) {
-              final server = servers[index];
-              final isCurrent =
-                  widget.currentServerHost != null &&
-                  server.host == widget.currentServerHost;
-              final isSelected = _selectedIndex == index && !isCurrent;
-
-              // Auto-select best server if nothing selected yet
-              if (_selectedIndex == null && !isCurrent) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) setState(() => _selectedIndex = index);
-                });
-              }
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _buildServerCard(server, index, isSelected, isCurrent),
-              );
-            },
+        // Server list — settings-style adjacent rows in a single card
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: KalinkaColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: KalinkaColors.borderDefault),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (int i = 0; i < servers.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Colors.white.withValues(alpha: 0.07),
+                      indent: 0,
+                      endIndent: 0,
+                    ),
+                  _buildServerRow(
+                    servers[i],
+                    i,
+                    _selectedIndex == i &&
+                        (widget.currentServerHost == null ||
+                            servers[i].host != widget.currentServerHost),
+                    widget.currentServerHost != null &&
+                        servers[i].host == widget.currentServerHost,
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
+        const Spacer(),
         // Connect button
         if (!_showManualEntry) ...[
           Padding(
@@ -382,7 +403,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     );
   }
 
-  Widget _buildServerCard(
+  Widget _buildServerRow(
     DiscoveredServer server,
     int index,
     bool isSelected,
@@ -396,19 +417,6 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         ? 'v$version'
         : 'Version unknown';
 
-    Color borderColor;
-    Color bgColor;
-    if (isCurrent) {
-      borderColor = KalinkaColors.statusOnline.withValues(alpha: 0.3);
-      bgColor = KalinkaColors.statusOnline.withValues(alpha: 0.05);
-    } else if (isSelected) {
-      borderColor = KalinkaColors.accent.withValues(alpha: 0.5);
-      bgColor = KalinkaColors.accent.withValues(alpha: 0.07);
-    } else {
-      borderColor = KalinkaColors.borderDefault;
-      bgColor = KalinkaColors.surfaceRaised;
-    }
-
     return GestureDetector(
       onTap: isCurrent
           ? null
@@ -416,94 +424,113 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
               _selectedIndex = index;
               _showManualEntry = false;
             }),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: borderColor),
-        ),
-        child: Row(
-          children: [
-            // Icon tile
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: isCurrent
-                    ? KalinkaColors.statusOnline.withValues(alpha: 0.1)
-                    : KalinkaColors.surfaceRaised,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                Icons.dns_outlined,
-                size: 18,
-                color: isCurrent
-                    ? KalinkaColors.statusOnline
-                    : KalinkaColors.accent,
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Name + details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    server.name,
-                    style: KalinkaTextStyles.trayRowLabel.copyWith(
-                      fontSize: KalinkaTypography.baseSize + 3,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+      behavior: HitTestBehavior.opaque,
+      child: Stack(
+        children: [
+          // Row content
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.fromLTRB(13, 13, 15, 13),
+            color: isSelected
+                ? KalinkaColors.surfaceElevated
+                : Colors.transparent,
+            child: Row(
+              children: [
+                // Icon tile
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: KalinkaColors.surfaceOverlay,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${server.host} \u00b7 $latencyLabel',
-                    style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                      fontSize: KalinkaTypography.baseSize + 2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    versionLabel,
-                    style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                      fontSize: KalinkaTypography.baseSize + 2,
-                      color: KalinkaColors.textMuted,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            // Current pill or signal bars
-            if (isCurrent)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: KalinkaColors.statusOnline.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: KalinkaColors.statusOnline.withValues(alpha: 0.2),
+                  child: const Icon(
+                    Icons.dns_outlined,
+                    size: 18,
+                    color: KalinkaColors.textSecondary,
                   ),
                 ),
-                child: Text(
-                  'CURRENT',
-                  style: KalinkaTextStyles.tagPill.copyWith(
-                    color: KalinkaColors.statusOnline,
-                    fontSize: KalinkaTypography.baseSize + 0,
-                    letterSpacing: 0.8,
+                const SizedBox(width: 12),
+                // Name + details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        server.name,
+                        style: KalinkaTextStyles.trayRowLabel.copyWith(
+                          fontSize: KalinkaTypography.baseSize + 3,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${server.host} \u00b7 $latencyLabel',
+                        style: KalinkaTextStyles.trayRowSublabel.copyWith(
+                          fontSize: KalinkaTypography.baseSize + 2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        versionLabel,
+                        style: KalinkaTextStyles.trayRowSublabel.copyWith(
+                          fontSize: KalinkaTypography.baseSize + 2,
+                          color: KalinkaColors.textMuted,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
-              )
-            else
-              _buildSignalBars(server.signalStrength),
-          ],
-        ),
+                const SizedBox(width: 8),
+                // Current pill or signal bars
+                if (isCurrent)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: KalinkaColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: KalinkaColors.borderDefault),
+                    ),
+                    child: Text(
+                      'CURRENT',
+                      style: KalinkaTextStyles.tagPill.copyWith(
+                        color: KalinkaColors.textMuted,
+                        fontSize: KalinkaTypography.baseSize,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  )
+                else
+                  _buildSignalBars(server.signalStrength),
+              ],
+            ),
+          ),
+          // Top-half accent selection bar
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: FractionallySizedBox(
+                heightFactor: 0.5,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 2,
+                  color: isSelected ? KalinkaColors.accent : Colors.transparent,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -521,7 +548,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           margin: const EdgeInsets.only(left: 2),
           decoration: BoxDecoration(
             color: isActive
-                ? KalinkaColors.statusOnline
+                ? KalinkaColors.textSecondary
                 : KalinkaColors.textMuted,
             borderRadius: BorderRadius.circular(1.5),
           ),
@@ -535,48 +562,15 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         _selectedIndex != null && _selectedIndex! < servers.length;
     final selected = hasSelection ? servers[_selectedIndex!] : null;
 
-    return AnimatedOpacity(
-      opacity: hasSelection ? 1.0 : 0.35,
-      duration: const Duration(milliseconds: 150),
-      child: Material(
-        color: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(13),
-          side: const BorderSide(color: KalinkaColors.accent),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: hasSelection
-              ? () => _connectToServer(
-                  selected!.name,
-                  selected.host,
-                  selected.port,
-                )
-              : null,
-          overlayColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.pressed)) {
-              return KalinkaColors.accent.withValues(alpha: 0.10);
-            }
-            return null;
-          }),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Center(
-              child: Text(
-                hasSelection
-                    ? 'Connect to ${selected!.name}'
-                    : 'Select a server',
-                style: KalinkaTextStyles.trayRowLabel.copyWith(
-                  color: KalinkaColors.accentTint,
-                  fontSize: KalinkaTypography.baseSize + 3,
-                  letterSpacing: 0.04,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return KalinkaButton(
+      label: hasSelection ? 'Connect to ${selected!.name}' : 'Select a server',
+      variant: KalinkaButtonVariant.accent,
+      size: KalinkaButtonSize.normal,
+      fullWidth: true,
+      enabled: hasSelection,
+      onTap: hasSelection
+          ? () => _connectToServer(selected!.name, selected.host, selected.port)
+          : null,
     );
   }
 
@@ -614,7 +608,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         ),
         const SizedBox(width: 8),
         // Connect button
-        GestureDetector(
+        KalinkaButton(
+          label: 'Connect',
+          variant: KalinkaButtonVariant.accent,
+          size: KalinkaButtonSize.compact,
           onTap: () {
             final input = _hostController.text.trim();
             if (input.isEmpty) return;
@@ -631,21 +628,6 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
             }
             _connectToServer('Kalinka Server', host, port);
           },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: KalinkaColors.accent),
-            ),
-            child: Text(
-              'Connect',
-              style: KalinkaTextStyles.trayRowLabel.copyWith(
-                color: KalinkaColors.accentTint,
-                fontSize: KalinkaTypography.baseSize + 2,
-              ),
-            ),
-          ),
         ),
       ],
     );
@@ -692,7 +674,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                GestureDetector(
+                KalinkaButton(
+                  label: 'Try again',
+                  variant: KalinkaButtonVariant.neutral,
+                  size: KalinkaButtonSize.compact,
                   onTap: () {
                     final settings = ref.read(connectionSettingsProvider);
                     _connectToServer(
@@ -701,24 +686,6 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                       settings.port,
                     );
                   },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: KalinkaColors.surfaceElevated,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: KalinkaColors.borderDefault),
-                    ),
-                    child: Text(
-                      'Try again',
-                      style: KalinkaTextStyles.trayRowLabel.copyWith(
-                        color: KalinkaColors.textSecondary,
-                        fontSize: KalinkaTypography.baseSize + 2,
-                      ),
-                    ),
-                  ),
                 ),
                 const SizedBox(width: 12),
                 GestureDetector(
@@ -743,33 +710,4 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     );
   }
 
-  Widget _buildFullWidthButton({
-    required String label,
-    required Color color,
-    required Color bgColor,
-    required Color borderColor,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: borderColor),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: KalinkaTextStyles.trayRowLabel.copyWith(
-              color: color,
-              fontSize: KalinkaTypography.baseSize + 3,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

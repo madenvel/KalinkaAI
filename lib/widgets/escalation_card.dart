@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/connection_settings_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../theme/app_theme.dart';
+import 'kalinka_button.dart';
 
 /// Card that appears above the mini-player after 30s of failed reconnection.
 ///
@@ -119,52 +120,21 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
               // Action buttons
               Row(
                 children: [
-                  // Scan for servers — accent tint
-                  GestureDetector(
+                  // Scan for servers
+                  KalinkaButton(
+                    label: 'Scan for servers',
+                    variant: KalinkaButtonVariant.accent,
+                    size: KalinkaButtonSize.compact,
                     onTap: widget.onScanForServers,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: KalinkaColors.accent),
-                      ),
-                      child: Text(
-                        'Scan for servers',
-                        style: KalinkaTextStyles.trayRowLabel.copyWith(
-                          color: KalinkaColors.accentTint,
-                          fontSize: KalinkaTypography.baseSize + 2,
-                        ),
-                      ),
-                    ),
                   ),
                   const Spacer(),
-                  // Retry — muted
-                  GestureDetector(
-                    onTap: () {
-                      ref.read(connectionStateProvider.notifier).retryNow();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: KalinkaColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: KalinkaColors.borderDefault),
-                      ),
-                      child: Text(
-                        'Retry',
-                        style: KalinkaTextStyles.trayRowLabel.copyWith(
-                          color: KalinkaColors.textSecondary,
-                          fontSize: KalinkaTypography.baseSize + 2,
-                        ),
-                      ),
-                    ),
+                  // Retry
+                  KalinkaButton(
+                    label: 'Retry',
+                    variant: KalinkaButtonVariant.neutral,
+                    size: KalinkaButtonSize.compact,
+                    onTap: () =>
+                        ref.read(connectionStateProvider.notifier).retryNow(),
                   ),
                 ],
               ),

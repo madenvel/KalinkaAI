@@ -1,14 +1,35 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SVG="$(dirname "$0")/kalinka_branding.svg"
+SVG="$(dirname "$0")/kalinka_icon.svg"
 R="rsvg-convert"
 
+BG="#080808"
+
+# Render SVG at exact size onto opaque background (legacy icons, iOS, macOS, web).
 render() {
   local size=$1 out=$2
+  local tmp; tmp="$(mktemp --suffix=.png)"
+  $R -w "$size" -h "$size" "$SVG" -o "$tmp"
   mkdir -p "$(dirname "$out")"
-  $R -w "$size" -h "$size" "$SVG" -o "$out"
+  magick -size "${size}x${size}" "xc:${BG}" "$tmp" -gravity Center -composite "$out"
+  rm -f "$tmp"
   echo "  $size×$size → $out"
+}
+
+# Render SVG transparent — for adaptive foreground layer.
+# Icon is scaled to the inner safe zone (72/108 = 2/3 of canvas); outer ring
+# stays transparent so the system background colour fills it and the artwork
+# is never clipped by the launcher mask shape.
+render_fg() {
+  local canvas=$1 out=$2
+  local safe=$(( canvas * 2 / 3 ))
+  local tmp; tmp="$(mktemp --suffix=.png)"
+  $R -w "$safe" -h "$safe" "$SVG" -o "$tmp"
+  mkdir -p "$(dirname "$out")"
+  magick -size "${canvas}x${canvas}" xc:none "$tmp" -gravity Center -composite "$out"
+  rm -f "$tmp"
+  echo "  ${safe}×${safe} (safe zone) in ${canvas}×${canvas} canvas → $out"
 }
 
 echo "=== Android ==="
@@ -18,14 +39,12 @@ render 72  android/app/src/main/res/mipmap-hdpi/ic_launcher.png
 render 96  android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
 render 144 android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
 render 192 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-# Adaptive foreground (108dp × density; artwork confined to inner 72dp safe zone via ic_launcher_foreground.svg)
-# background = #C2394B via values/ic_launcher_background.xml
-FG_SVG="$(dirname "$0")/ic_launcher_foreground.svg"
-$R -w 108 -h 108 "$FG_SVG" -o android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png
-$R -w 162 -h 162 "$FG_SVG" -o android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png
-$R -w 216 -h 216 "$FG_SVG" -o android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png
-$R -w 324 -h 324 "$FG_SVG" -o android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png
-$R -w 432 -h 432 "$FG_SVG" -o android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
+# Adaptive foreground (108dp × density; background = #080808 via values/ic_launcher_background.xml)
+render_fg 108 android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png
+render_fg 162 android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png
+render_fg 216 android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png
+render_fg 324 android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png
+render_fg 432 android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
 
 echo "=== iOS ==="
 render 1024 ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png
@@ -61,13 +80,13 @@ render 192 web/icons/Icon-maskable-192.png
 render 512 web/icons/Icon-maskable-512.png
 
 echo "=== Windows ICO ==="
-TMPDIR=$(mktemp -d)
-trap 'rm -rf "$TMPDIR"' EXIT
+WINTMP=$(mktemp -d)
+trap 'rm -rf "$WINTMP"' EXIT
 for size in 16 32 48 64 128 256; do
-  render "$size" "$TMPDIR/win_${size}.png"
+  render "$size" "$WINTMP/win_${size}.png"
 done
-magick "$TMPDIR/win_16.png" "$TMPDIR/win_32.png" "$TMPDIR/win_48.png" \
-       "$TMPDIR/win_64.png" "$TMPDIR/win_128.png" "$TMPDIR/win_256.png" \
+magick "$WINTMP/win_16.png" "$WINTMP/win_32.png" "$WINTMP/win_48.png" \
+       "$WINTMP/win_64.png" "$WINTMP/win_128.png" "$WINTMP/win_256.png" \
        windows/runner/resources/app_icon.ico
 echo "  → windows/runner/resources/app_icon.ico"
 

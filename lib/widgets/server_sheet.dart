@@ -47,8 +47,8 @@ class ServerSheetContent extends ConsumerWidget {
         // Server settings row
         _SheetRow(
           icon: Icons.settings_outlined,
-          iconBgColor: KalinkaColors.accent.withValues(alpha: 0.14),
-          iconColor: KalinkaColors.accent,
+          iconBgColor: KalinkaColors.surfaceOverlay,
+          iconColor: KalinkaColors.textSecondary,
           label: 'Server settings',
           sublabel: 'Modules, audio, enrichment',
           onTap: () => Navigator.pop(context, ServerSheetAction.openSettings),
@@ -79,8 +79,8 @@ class ServerSheetContent extends ConsumerWidget {
         // Disconnect
         _SheetRow(
           icon: Icons.logout,
-          iconBgColor: KalinkaColors.statusOffline.withValues(alpha: 0.12),
-          iconColor: KalinkaColors.statusOffline,
+          iconBgColor: KalinkaColors.accent.withValues(alpha: 0.14),
+          iconColor: KalinkaColors.accent,
           label: 'Disconnect',
           sublabel: '',
           isDanger: true,
@@ -152,6 +152,7 @@ class _ServerStatusCard extends StatelessWidget {
         child: Row(
           children: [
             // State dot
+            const SizedBox(width: 4),
             Container(
               width: 8,
               height: 8,
@@ -168,7 +169,7 @@ class _ServerStatusCard extends StatelessWidget {
                     : null,
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 28),
             // Server name + details
             Expanded(
               child: Column(
@@ -403,8 +404,8 @@ class _TabletServerSheetContent extends ConsumerWidget {
         ),
         _SheetRow(
           icon: Icons.settings_outlined,
-          iconBgColor: KalinkaColors.accent.withValues(alpha: 0.14),
-          iconColor: KalinkaColors.accent,
+          iconBgColor: KalinkaColors.surfaceOverlay,
+          iconColor: KalinkaColors.textSecondary,
           label: 'Server settings',
           sublabel: 'Modules, audio, enrichment',
           onTap: onOpenSettings,
@@ -500,14 +501,7 @@ class _SheetRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    label,
-                    style: isDanger
-                        ? KalinkaTextStyles.trayRowLabel.copyWith(
-                            color: KalinkaColors.statusOffline,
-                          )
-                        : KalinkaTextStyles.trayRowLabel,
-                  ),
+                  Text(label, style: KalinkaTextStyles.trayRowLabel),
                   if (sublabel.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(sublabel, style: KalinkaTextStyles.trayRowSublabel),

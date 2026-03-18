@@ -12,6 +12,7 @@ import '../widgets/completion_strip.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/discovery_screen.dart';
 import '../widgets/escalation_card.dart';
+import '../widgets/kalinka_button.dart';
 import '../widgets/header_zone.dart';
 import '../widgets/kalinka_bottom_sheet.dart';
 import '../widgets/kalinka_search_bar.dart';
@@ -216,7 +217,15 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            GestureDetector(
+            KalinkaButton(
+              label: 'Scan for servers',
+              variant: KalinkaButtonVariant.accent,
+              size: KalinkaButtonSize.normal,
+              leading: const Icon(
+                Icons.wifi_tethering_rounded,
+                size: 16,
+                color: KalinkaColors.accentTint,
+              ),
               onTap: () {
                 final settings = ref.read(connectionSettingsProvider);
                 Navigator.of(context).push(
@@ -226,35 +235,6 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                   ),
                 );
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: KalinkaColors.accent),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.wifi_tethering_rounded,
-                      size: 16,
-                      color: KalinkaColors.accentTint,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Scan for servers',
-                      style: KalinkaTextStyles.trayRowLabel.copyWith(
-                        color: KalinkaColors.accentTint,
-                        fontSize: KalinkaTypography.baseSize + 3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ],
         ),

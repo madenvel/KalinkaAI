@@ -64,8 +64,8 @@ class QueueManagementTrayContent extends ConsumerWidget {
         // Shuffle row
         _TrayRow(
           icon: Icons.shuffle,
-          iconBgColor: KalinkaColors.gold.withValues(alpha: 0.14),
-          iconColor: KalinkaColors.gold,
+          iconBgColor: KalinkaColors.surfaceOverlay,
+          iconColor: KalinkaColors.textSecondary,
           label: 'Shuffle',
           sublabel: isShuffle
               ? 'On \u2014 playing in random order'
@@ -99,13 +99,13 @@ class QueueManagementTrayContent extends ConsumerWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: KalinkaColors.accent.withValues(alpha: 0.14),
+                  color: KalinkaColors.surfaceOverlay,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   isRepeatOne ? Icons.repeat_one : Icons.repeat,
                   size: 16,
-                  color: KalinkaColors.accent,
+                  color: KalinkaColors.textSecondary,
                 ),
               ),
               const SizedBox(width: 14),
@@ -148,7 +148,7 @@ class QueueManagementTrayContent extends ConsumerWidget {
         // Clear played row
         _TrayRow(
           icon: Icons.history,
-          iconBgColor: KalinkaColors.surfaceElevated,
+          iconBgColor: KalinkaColors.surfaceOverlay,
           iconColor: KalinkaColors.textSecondary,
           label: 'Clear played',
           sublabel: 'Remove played tracks from history',

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
-import '../utils/haptics.dart';
+import 'kalinka_button.dart';
 
 /// Confirmation dialog content for clearing the entire queue.
 ///
@@ -75,36 +75,22 @@ class ClearAllConfirmDialog extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        KalinkaHaptics.lightImpact();
-                        Navigator.pop(context, false);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(
-                          color: KalinkaColors.surfaceInput,
-                          borderRadius: BorderRadius.circular(13),
-                          border: Border.all(
-                            color: KalinkaColors.borderDefault,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Cancel',
-                            style: KalinkaTextStyles.dialogButton.copyWith(
-                              color: KalinkaColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ),
+                    child: KalinkaButton(
+                      label: 'Cancel',
+                      variant: KalinkaButtonVariant.neutral,
+                      size: KalinkaButtonSize.normal,
+                      fullWidth: true,
+                      onTap: () => Navigator.pop(context, false),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: GestureDetector(
+                    child: KalinkaButton(
+                      label: 'Clear all',
+                      variant: KalinkaButtonVariant.danger,
+                      size: KalinkaButtonSize.normal,
+                      fullWidth: true,
                       onTap: () async {
-                        KalinkaHaptics.heavyImpact();
                         try {
                           await onConfirmClearAll();
                           if (context.mounted) Navigator.pop(context, true);
@@ -117,28 +103,6 @@ class ClearAllConfirmDialog extends ConsumerWidget {
                           }
                         }
                       },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(
-                          color: KalinkaColors.actionDelete.withValues(
-                            alpha: 0.14,
-                          ),
-                          borderRadius: BorderRadius.circular(13),
-                          border: Border.all(
-                            color: KalinkaColors.actionDelete.withValues(
-                              alpha: 0.30,
-                            ),
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Clear all',
-                            style: KalinkaTextStyles.dialogButton.copyWith(
-                              color: KalinkaColors.actionDelete,
-                            ),
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                 ],

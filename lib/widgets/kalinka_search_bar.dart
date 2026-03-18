@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
@@ -260,7 +261,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
     final bar = _buildSearchBar();
 
     if (isDisconnected) {
-      return IgnorePointer(child: Opacity(opacity: 0.38, child: bar));
+      return Opacity(opacity: 0.38, child: bar);
     }
 
     return bar;
@@ -329,7 +330,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
                         height: 44,
                         child: Center(
                           child: Icon(
-                            Icons.arrow_back_ios_new_rounded,
+                            Icons.arrow_back,
                             size: 16,
                             color: KalinkaColors.textPrimary,
                           ),
@@ -341,9 +342,10 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
                       width: 22,
                       height: 44,
                       child: Center(
-                        child: Image.asset(
-                          'assets/images/dancing_kalinka.png',
-                          height: 24,
+                        child: SvgPicture.asset(
+                          'assets/images/kalinka_icon.svg',
+                          height: 22,
+                          width: 22,
                         ),
                       ),
                     ),
@@ -465,7 +467,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
                       Text(
                         'AI',
                         style: KalinkaTextStyles.aiBadge.copyWith(
-                          fontSize: KalinkaTypography.baseSize + 0,
+                          fontSize: 10,
                           fontWeight: FontWeight.w500,
                           color: aiColor,
                         ),

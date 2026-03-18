@@ -43,6 +43,7 @@ dependencies:
   google_fonts: ^6.1.0
   multicast_dns: ^0.3.2+5
   vibration: ^3.1.7
+  flutter_svg: ^2.1.0
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +70,8 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/images/kalinka_icon.svg
+    - assets/images/kalinka_logo.svg
     - assets/images/dancing_kalinka.svg
     - assets/images/dancing_kalinka.png
     - assets/images/2.0x/dancing_kalinka.png

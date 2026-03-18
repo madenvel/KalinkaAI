@@ -43,7 +43,7 @@ class KalinkaColors {
   // Pure near-white on near-black — maximum contrast.
 
   static const textPrimary = Color(
-    0xFFF2F2F2,
+    0xFFede6de,
   ); // ~18:1 on bg · Track titles · labels · values
   static const textSecondary = Color(
     0xFF919191,
@@ -240,7 +240,7 @@ class KalinkaTypography {
   KalinkaTypography._();
 
   // Smallest size used in the app theme; all other sizes are offsets from this.
-  static const double baseSize = 10;
+  static const double baseSize = 12;
 }
 
 /// Kalinka text styles using centralized font roles.
@@ -256,11 +256,6 @@ class KalinkaTextStyles {
 
   static TextStyle queueItemArtist = KalinkaFonts.sans(
     fontSize: KalinkaTypography.baseSize + 1,
-    color: KalinkaColors.textSecondary,
-  );
-
-  static TextStyle queueItemIndex = KalinkaFonts.mono(
-    fontSize: KalinkaTypography.baseSize + 2,
     color: KalinkaColors.textSecondary,
   );
 

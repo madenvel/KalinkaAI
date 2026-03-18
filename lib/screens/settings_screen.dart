@@ -6,6 +6,7 @@ import '../providers/restart_provider.dart';
 import '../providers/server_info_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/kalinka_button.dart';
 import '../widgets/pending_changes_banner.dart';
 import '../widgets/restart_overlay.dart';
 import '../widgets/settings_tabs/devices_tab.dart';
@@ -137,38 +138,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                               style: KalinkaTextStyles.trayRowSublabel,
                             ),
                             const SizedBox(height: 16),
-                            GestureDetector(
-                              onTap: () {
-                                ref
-                                    .read(settingsProvider.notifier)
-                                    .loadConfig();
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: KalinkaColors.accent.withValues(
-                                    alpha: 0.15,
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: KalinkaColors.accent.withValues(
-                                      alpha: 0.35,
-                                    ),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Retry',
-                                  style: KalinkaTextStyles.trayRowLabel
-                                      .copyWith(
-                                        color: KalinkaColors.accentTint,
-                                        fontSize:
-                                            KalinkaTypography.baseSize + 2,
-                                      ),
-                                ),
-                              ),
+                            KalinkaButton(
+                              label: 'Retry',
+                              variant: KalinkaButtonVariant.accent,
+                              size: KalinkaButtonSize.compact,
+                              onTap: () => ref
+                                  .read(settingsProvider.notifier)
+                                  .loadConfig(),
                             ),
                           ],
                         ),
