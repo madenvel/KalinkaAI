@@ -32,7 +32,25 @@ render_fg() {
   echo "  ${safe}×${safe} (safe zone) in ${canvas}×${canvas} canvas → $out"
 }
 
+# Render monochrome white icon for Android notification small icon.
+# All visible pixels become white; transparency is preserved.
+render_notification() {
+  local size=$1 out=$2
+  local tmp; tmp="$(mktemp --suffix=.png)"
+  $R -w "$size" -h "$size" "$SVG" -o "$tmp"
+  mkdir -p "$(dirname "$out")"
+  magick "$tmp" -alpha on -channel RGB -evaluate set 65535 "$out"
+  rm -f "$tmp"
+  echo "  $size×$size (monochrome) → $out"
+}
+
 echo "=== Android ==="
+# Notification small icon (monochrome white, R.drawable.ic_notification)
+render_notification 24 android/app/src/main/res/drawable-mdpi/ic_notification.png
+render_notification 36 android/app/src/main/res/drawable-hdpi/ic_notification.png
+render_notification 48 android/app/src/main/res/drawable-xhdpi/ic_notification.png
+render_notification 72 android/app/src/main/res/drawable-xxhdpi/ic_notification.png
+render_notification 96 android/app/src/main/res/drawable-xxxhdpi/ic_notification.png
 # Legacy icons (API < 26 fallback)
 render 48  android/app/src/main/res/mipmap-mdpi/ic_launcher.png
 render 72  android/app/src/main/res/mipmap-hdpi/ic_launcher.png
