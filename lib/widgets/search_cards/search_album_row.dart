@@ -179,8 +179,8 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
                 children: [
                   // Thumbnail 56x56 with selection overlay
                   SizedBox(
-                    width: 56,
-                    height: 56,
+                    width: 60,
+                    height: 60,
                     child: Stack(
                       children: [
                         Container(
@@ -199,18 +199,18 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
                             child: resolvedImageUrl != null
                                 ? Image.network(
                                     resolvedImageUrl,
-                                    width: 56,
-                                    height: 56,
+                                    width: 60,
+                                    height: 60,
                                     fit: BoxFit.cover,
                                     errorBuilder: (_, __, ___) =>
                                         ProceduralAlbumArt(
                                           trackId: widget.item.id,
-                                          size: 56,
+                                          size: 60,
                                         ),
                                   )
                                 : ProceduralAlbumArt(
                                     trackId: widget.item.id,
-                                    size: 56,
+                                    size: 60,
                                   ),
                           ),
                         ),

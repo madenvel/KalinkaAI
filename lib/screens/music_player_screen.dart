@@ -155,7 +155,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       enableDrag: true,
       backgroundColor: KalinkaColors.background,
       barrierColor: Colors.transparent,
-      useSafeArea: false,
+      useSafeArea: true,
       builder: (sheetContext) => SizedBox.expand(
         child: NowPlayingContent(
           showOverlayHeader: true,
@@ -466,6 +466,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
               allowCancel: settings.isSet,
               currentServerHost: settings.isSet ? settings.host : null,
               onClose: () => setState(() => _discoveryOpen = false),
+              isTablet: true,
             ),
           ),
       ],

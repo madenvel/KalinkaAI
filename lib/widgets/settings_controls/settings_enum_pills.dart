@@ -4,7 +4,7 @@ import '../../utils/haptics.dart';
 
 /// Segmented pill group for enum-like settings.
 ///
-/// Active pill: accent bg 0.15, accent border 0.35, accent text.
+/// Active pill: accentFaded bg, accent border, accent text.
 class SettingsEnumPills extends StatelessWidget {
   final List<String> options;
   final String selected;
@@ -24,28 +24,41 @@ class SettingsEnumPills extends StatelessWidget {
       runSpacing: 5,
       children: options.map((option) {
         final isActive = option == selected;
-        return ChoiceChip(
-          label: Text(option),
-          selected: isActive,
-          onSelected: (_) {
-            KalinkaHaptics.selectionClick();
-            onChanged(option);
-          },
-          selectedColor: KalinkaColors.surfaceElevated,
-          backgroundColor: KalinkaColors.surfaceOverlay,
-          side: BorderSide(
-            color: isActive ? KalinkaColors.accent : KalinkaColors.borderDefault,
+        return Material(
+          color: isActive
+              ? KalinkaColors.accentFaded
+              : KalinkaColors.surfaceOverlay,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(7),
+            side: BorderSide(
+              color: isActive
+                  ? KalinkaColors.accent
+                  : KalinkaColors.borderDefault,
+              width: 0.1,
+            ),
           ),
-          labelStyle: KalinkaTextStyles.tagPill.copyWith(
-            color: isActive ? KalinkaColors.accent : KalinkaColors.textSecondary,
-            height: 1.3,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () {
+              KalinkaHaptics.selectionClick();
+              onChanged(option);
+            },
+            overlayColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.pressed)) {
+                return Colors.white.withValues(alpha: 0.08);
+              }
+              return null;
+            }),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              child: Text(
+                option,
+                style: isActive
+                    ? KalinkaTextStyles.filterPillActive
+                    : KalinkaTextStyles.filterPillInactive,
+              ),
+            ),
           ),
-          showCheckmark: false,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-          visualDensity: VisualDensity.compact,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         );
       }).toList(),
     );

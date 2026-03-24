@@ -17,12 +17,14 @@ class DiscoveryScreen extends ConsumerStatefulWidget {
   final VoidCallback? onClose;
   final bool allowCancel;
   final String? currentServerHost;
+  final bool isTablet;
 
   const DiscoveryScreen({
     super.key,
     this.onClose,
     this.allowCancel = true,
     this.currentServerHost,
+    this.isTablet = false,
   });
 
   @override
@@ -124,28 +126,49 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
       opacity: _fadeController,
       child: Container(
         decoration: BoxDecoration(
+          color: KalinkaColors.background,
           gradient: showGradient
               ? const RadialGradient(
                   center: Alignment(0, -0.16),
                   radius: 0.42,
-                  colors: [Color(0xFF0F0F12), Color(0xFF000000)],
+                  colors: [
+                    KalinkaColors.surfaceRaised,
+                    KalinkaColors.background,
+                  ],
                 )
               : null,
         ),
         child: SafeArea(
-          child: Column(
+          child: Row(
             children: [
-              // Top bar with optional cancel
-              _buildTopBar(),
-              Expanded(
-                child: _isConnecting
-                    ? _buildConnectingOverlay()
-                    : discoveryState.isScanning
-                    ? _buildScanningState()
-                    : discoveryState.servers.isEmpty
-                    ? _buildEmptyState()
-                    : _buildServerList(discoveryState),
+              if (widget.isTablet)
+                const Flexible(
+                  flex: 5,
+                  child: SizedBox(width: double.infinity),
+                ),
+              Flexible(
+                flex: 10,
+                child: Column(
+                  children: [
+                    // Top bar with optional cancel
+                    _buildTopBar(),
+                    Expanded(
+                      child: _isConnecting
+                          ? _buildConnectingOverlay()
+                          : discoveryState.isScanning
+                          ? _buildScanningState()
+                          : discoveryState.servers.isEmpty
+                          ? _buildEmptyState()
+                          : _buildServerList(discoveryState),
+                    ),
+                  ],
+                ),
               ),
+              if (widget.isTablet)
+                const Flexible(
+                  flex: 5,
+                  child: SizedBox(width: double.infinity),
+                ),
             ],
           ),
         ),
@@ -162,13 +185,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           if (widget.allowCancel)
             GestureDetector(
               onTap: _animateClose,
-              child: Text(
-                'Cancel',
-                style: KalinkaTextStyles.cancelButton.copyWith(
-                  fontSize: KalinkaTypography.baseSize + 2,
-                  color: KalinkaColors.textSecondary,
-                ),
-              ),
+              child: Text('Cancel', style: KalinkaTextStyles.cancelButton),
             ),
         ],
       ),
@@ -695,12 +712,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                       _connectError = null;
                     });
                   },
-                  child: Text(
-                    'Cancel',
-                    style: KalinkaTextStyles.cancelButton.copyWith(
-                      color: KalinkaColors.textSecondary,
-                    ),
-                  ),
+                  child: Text('Cancel', style: KalinkaTextStyles.cancelButton),
                 ),
               ],
             ),
@@ -709,5 +721,4 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
       ),
     );
   }
-
 }

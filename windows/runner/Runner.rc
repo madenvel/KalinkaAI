@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "org.kalinka" "\0"
-            VALUE "FileDescription", "kai" "\0"
+            VALUE "FileDescription", "kalinka" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "kai" "\0"
+            VALUE "InternalName", "kalinka" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 org.kalinka. All rights reserved." "\0"
-            VALUE "OriginalFilename", "kai.exe" "\0"
-            VALUE "ProductName", "kai" "\0"
+            VALUE "OriginalFilename", "kalinka.exe" "\0"
+            VALUE "ProductName", "kalinka" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

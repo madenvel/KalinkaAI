@@ -11,10 +11,7 @@ import 'kalinka_button.dart';
 class ClearAllConfirmDialog extends ConsumerWidget {
   final Future<void> Function() onConfirmClearAll;
 
-  const ClearAllConfirmDialog({
-    super.key,
-    required this.onConfirmClearAll,
-  });
+  const ClearAllConfirmDialog({super.key, required this.onConfirmClearAll});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -87,7 +84,7 @@ class ClearAllConfirmDialog extends ConsumerWidget {
                   Expanded(
                     child: KalinkaButton(
                       label: 'Clear all',
-                      variant: KalinkaButtonVariant.danger,
+                      variant: KalinkaButtonVariant.accent,
                       size: KalinkaButtonSize.normal,
                       fullWidth: true,
                       onTap: () async {
@@ -96,10 +93,12 @@ class ClearAllConfirmDialog extends ConsumerWidget {
                           if (context.mounted) Navigator.pop(context, true);
                         } catch (e) {
                           if (context.mounted) {
-                            ref.read(toastProvider.notifier).show(
-                              'Failed to clear queue: $e',
-                              isError: true,
-                            );
+                            ref
+                                .read(toastProvider.notifier)
+                                .show(
+                                  'Failed to clear queue: $e',
+                                  isError: true,
+                                );
                           }
                         }
                       },

@@ -79,22 +79,10 @@ class SettingsRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          label,
-          style: KalinkaTextStyles.trayRowLabel.copyWith(
-            fontSize: KalinkaTypography.baseSize + 5,
-            letterSpacing: -0.01,
-          ),
-        ),
+        Text(label, style: KalinkaTextStyles.trayRowLabel),
         if (sublabel != null) ...[
           const SizedBox(height: 2),
-          Text(
-            sublabel!,
-            style: KalinkaTextStyles.trayRowSublabel.copyWith(
-              fontSize: KalinkaTypography.baseSize + 2,
-              height: 1.45,
-            ),
-          ),
+          Text(sublabel!, style: KalinkaTextStyles.trayRowSublabel),
         ],
         if (showAmber) ...[
           const SizedBox(height: 4),

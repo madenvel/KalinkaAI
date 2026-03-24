@@ -14,19 +14,19 @@ class KalinkaColors {
     0xFF080808,
   ); // Page canvas — near-black, behind all surfaces
   static const surfaceBase = Color(
-    0xFF111111,
+    0xFF0E0E0E,
   ); // Header · tab bar · bottom sheets
   static const surfaceRaised = Color(
-    0xFF1A1A1C,
+    0xFF151513,
   ); // Cards · queue rows · mini-player
   static const surfaceInput = Color(
-    0xFF1C1C1C,
+    0xFF171715,
   ); // Input fields · search bar · chips
   static const surfaceElevated = Color(
-    0xFF222225,
+    0xFF1C1C1A,
   ); // Pills (unselected) · toggle off · nested
   static const surfaceOverlay = Color(
-    0xFF282828,
+    0xFF222220,
   ); // Hover · pressed · active row tint
 
   // ── Borders ─────────────────────────────────────────────────────────────
@@ -43,10 +43,10 @@ class KalinkaColors {
   // Pure near-white on near-black — maximum contrast.
 
   static const textPrimary = Color(
-    0xFFede6de,
+    0xFFFAF5F0,
   ); // ~18:1 on bg · Track titles · labels · values
   static const textSecondary = Color(
-    0xFF919191,
+    0xFFA3A3A3,
   ); // ~7:1 on bg · Subtitles · metadata · chip labels
   static const textMuted = Color(
     0xFF858585,
@@ -70,6 +70,12 @@ class KalinkaColors {
   static const accentTint = Color(
     0xFFD8556A,
   ); // Bright berry · Labels on accent surfaces
+  static const accentFaded = Color(
+    0xFF250708,
+  ); // 0.40 alpha · Disabled buttons · inactive pills
+  static const accentBright = Color(
+    0xFFF59299,
+  ); // Use for text/icons on accentFaded only
   static const accentSubtle = Color(
     0x14C2394B,
   ); // 0.08 alpha · Now-playing row · active pill bg only
@@ -82,11 +88,11 @@ class KalinkaColors {
   // warmth. Appears on module tiles and progress gradient terminus.
 
   static const gold = Color(
-    0xFFF0D58A,
-  ); // Brass · streaming module · progress end
+    0xFFCDC9BE,
+  ); // Tinted ivory · streaming module · progress end — not a distinct accent, reads as warm white
   static const goldSubtle = Color(
-    0x1FBFA85A,
-  ); // 0.12 alpha · Streaming module tile bg
+    0x18CDC9BE,
+  ); // 0.09 alpha · Streaming module tile bg
 
   // ── Progress gradient ────────────────────────────────────────────────────
 
@@ -97,7 +103,7 @@ class KalinkaColors {
   // Leaf green for "online" — Kalinka guelder-rose leaves, alive in winter.
 
   static const statusOnline = Color(
-    0xFF5AAE78,
+    0xFF3D8A58,
   ); // Leaf green · Connected · success
   static const statusPending = Color(
     0xFFC8943A,
@@ -105,7 +111,7 @@ class KalinkaColors {
   static const statusOffline = Color(0xFF858585); // Offline
 
   static const statusOnlineSurface = Color(
-    0x1A5AAE78,
+    0x1A3D8A58,
   ); // 0.10 alpha · Badge bg · done step
   static const statusPendingSurface = Color(
     0x17C8943A,
@@ -250,7 +256,7 @@ class KalinkaTextStyles {
   // Queue items
   static TextStyle queueItemTitle = KalinkaFonts.sans(
     fontSize: KalinkaTypography.baseSize + 4,
-    fontWeight: FontWeight.w400,
+    fontWeight: FontWeight.w500,
     color: KalinkaColors.textPrimary,
   );
 
@@ -362,13 +368,13 @@ class KalinkaTextStyles {
   );
 
   static TextStyle trackRowTitle = KalinkaFonts.sans(
-    fontSize: KalinkaTypography.baseSize + 4,
-    fontWeight: FontWeight.w400,
+    fontSize: KalinkaTypography.baseSize + 3,
+    fontWeight: FontWeight.w500,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle trackRowSubtitle = KalinkaFonts.sans(
-    fontSize: KalinkaTypography.baseSize + 1,
+    fontSize: KalinkaTypography.baseSize,
     color: KalinkaColors.textSecondary,
   );
 
@@ -379,7 +385,7 @@ class KalinkaTextStyles {
   );
 
   static TextStyle tagPill = KalinkaFonts.sans(
-    fontSize: KalinkaTypography.baseSize + 2,
+    fontSize: KalinkaTypography.baseSize - 2,
     fontWeight: FontWeight.w500,
     color: KalinkaColors.textSecondary,
   );
@@ -421,6 +427,11 @@ class KalinkaTextStyles {
 
   static TextStyle searchBarInput = KalinkaFonts.mono(
     fontSize: KalinkaTypography.baseSize + 3,
+    color: KalinkaColors.textPrimary,
+  );
+
+  static TextStyle textFieldInput = KalinkaFonts.mono(
+    fontSize: KalinkaTypography.baseSize + 1,
     color: KalinkaColors.textPrimary,
   );
 
@@ -589,7 +600,7 @@ class KalinkaTextStyles {
   static TextStyle filterPillActive = KalinkaFonts.sans(
     fontSize: KalinkaTypography.baseSize + 2,
     fontWeight: FontWeight.w500,
-    color: KalinkaColors.accentTint,
+    color: KalinkaColors.accentBright,
   );
 
   /// "Clear all" button in the chip row

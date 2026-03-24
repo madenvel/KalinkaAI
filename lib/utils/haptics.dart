@@ -13,7 +13,9 @@ import 'package:vibration/vibration.dart';
 ///           corkPop() additionally uses the native KaiMediaPlugin channel to
 ///           access VibrationEffect.Composition (API 31+) for OEM-tuned primitives.
 class KalinkaHaptics {
-  static const _nativeChannel = MethodChannel('org.kalinka.kai/media_session');
+  static const _nativeChannel = MethodChannel(
+    'org.kalinka.kalinka/media_session',
+  );
   // ── Single-shot impacts ────────────────────────────────────────────────────
 
   static void selectionClick() {

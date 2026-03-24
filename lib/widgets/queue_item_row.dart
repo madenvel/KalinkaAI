@@ -12,6 +12,7 @@ import '../utils/haptics.dart';
 import 'procedural_album_art.dart';
 import 'source_badge.dart';
 import 'swipe_to_delete_row.dart';
+import 'track_tile_layout.dart';
 
 /// A single queue item row with thumbnail, title, artist, and trailing slot.
 ///
@@ -172,85 +173,70 @@ class QueueItemRow extends ConsumerWidget {
                 )
               : null,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            const SizedBox(width: 10),
-            // Thumbnail 44×44
-            SizedBox(width: 44, height: 44, child: artwork),
-            const SizedBox(width: 10),
-            // Track info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    track.title,
-                    style: KalinkaTextStyles.queueItemTitle.copyWith(
-                      color: titleColor,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: false,
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      SourceBadge(
-                        entityId: track.id,
-                        size: SourceBadgeSize.small,
-                      ),
-                      if (ref.watch(sourceCountProvider) > 1)
-                        const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          track.performer?.name ?? 'Unknown Artist',
-                          style: KalinkaTextStyles.queueItemArtist.copyWith(
-                            color: artistColor,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          softWrap: false,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            // Trailing: duration for History; duration + drag handle for Up Next.
-            if (isHistory)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Text(
-                  _formatDuration(track.duration),
-                  style: KalinkaTextStyles.queueItemDuration.copyWith(
-                    color: KalinkaColors.textMuted,
-                  ),
+        child: TrackTileLayout(
+          leading: artwork,
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                track.title,
+                style: KalinkaTextStyles.queueItemTitle.copyWith(
+                  color: titleColor,
                 ),
-              )
-            else
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+              ),
+              const SizedBox(height: 2),
               Row(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(width: 8),
-                  Text(
-                    _formatDuration(track.duration),
-                    // Keep Up Next duration fixed for fast scanning.
-                    style: KalinkaTextStyles.queueItemDuration.copyWith(
-                      color: KalinkaColors.textSecondary,
+                  SourceBadge(entityId: track.id, size: SourceBadgeSize.small),
+                  if (ref.watch(sourceCountProvider) > 1)
+                    const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      track.performer?.name ?? 'Unknown Artist',
+                      style: KalinkaTextStyles.queueItemArtist.copyWith(
+                        color: artistColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
                     ),
                   ),
-                  if (showDragHandle) ...[
-                    const SizedBox(width: 7),
-                    _DragHandle(index: displayIndex),
-                  ] else
-                    const SizedBox(width: 8),
                 ],
               ),
-          ],
+            ],
+          ),
+          trailing: isHistory
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    _formatDuration(track.duration),
+                    style: KalinkaTextStyles.queueItemDuration.copyWith(
+                      color: KalinkaColors.textMuted,
+                    ),
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _formatDuration(track.duration),
+                      // Keep Up Next duration fixed for fast scanning.
+                      style: KalinkaTextStyles.queueItemDuration.copyWith(
+                        color: KalinkaColors.textSecondary,
+                      ),
+                    ),
+                    if (showDragHandle) ...[
+                      const SizedBox(width: 7),
+                      _DragHandle(index: displayIndex),
+                    ] else
+                      const SizedBox(width: 8),
+                  ],
+                ),
         ),
       ),
     );

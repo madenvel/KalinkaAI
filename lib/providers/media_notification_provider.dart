@@ -7,11 +7,15 @@ import '../providers/connection_settings_provider.dart';
 import '../providers/connection_state_provider.dart';
 
 class MediaNotificationNotifier extends Notifier<void> {
-  static const _methodChannel = MethodChannel('org.kalinka.kai/media_session');
+  static const _methodChannel = MethodChannel(
+    'org.kalinka.kalinka/media_session',
+  );
 
   @override
   void build() {
     if (!Platform.isAndroid) return;
+
+    print("Building MediaNotificationNotifier");
 
     // Enable immediately if already connected.
     final currentStatus = ref.read(connectionStateProvider);

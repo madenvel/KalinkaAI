@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="kai"
+        android:label="kalinka"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
@@ -32,7 +32,7 @@
             </intent-filter>
         </activity>
         <service
-            android:name=".KaiMediaService"
+            android:name=".KalinkaMediaService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback"/>
         <receiver android:name="androidx.media.session.MediaButtonReceiver"

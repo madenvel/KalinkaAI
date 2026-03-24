@@ -182,9 +182,7 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow>
                     children: [
                       Text(
                         name,
-                        style: KalinkaTextStyles.cardTitle.copyWith(
-                          letterSpacing: -0.14,
-                        ),
+                        style: KalinkaTextStyles.trackRowTitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

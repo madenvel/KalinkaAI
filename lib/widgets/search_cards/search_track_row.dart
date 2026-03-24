@@ -17,6 +17,7 @@ import '../berry_pulse.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
 import '../swipe_to_act_row.dart';
+import '../track_tile_layout.dart';
 import 'long_press_ring_painter.dart';
 
 /// Track row for search results.
@@ -162,7 +163,6 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
         onLongPressCancel: selectionMode ? null : _cancelLongPress,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
           decoration: BoxDecoration(
             color: selectionMode && isSelected
                 ? KalinkaColors.accent.withValues(alpha: 0.07)
@@ -173,129 +173,116 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
                   )
                 : null,
           ),
-          child: Row(
-            children: [
-              // Thumbnail
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: resolvedImageUrl != null
-                          ? Image.network(
-                              resolvedImageUrl,
-                              width: 44,
-                              height: 44,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => ProceduralAlbumArt(
-                                trackId: widget.item.id,
-                                size: 44,
-                              ),
-                            )
-                          : ProceduralAlbumArt(
-                              trackId: widget.item.id,
-                              size: 44,
-                            ),
-                    ),
-                    // Now-playing scrim
-                    if (isCurrentTrack)
-                      Positioned.fill(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: const DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                stops: [0.0, 0.45, 1.0],
-                                colors: [
-                                  Color(0x000A0204),
-                                  Color(0x8C0A0204),
-                                  Color(0xD10A0204),
-                                ],
-                              ),
-                            ),
+          child: TrackTileLayout(
+            leading: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: resolvedImageUrl != null
+                      ? Image.network(
+                          resolvedImageUrl,
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => ProceduralAlbumArt(
+                            trackId: widget.item.id,
+                            size: 44,
                           ),
-                        ),
-                      ),
-                    // Now-playing berry pulse animation
-                    if (isCurrentTrack) BerryPulse(isPlaying: isPlaying),
-                    // Long-press ring
-                    if (_longPressing && _longPressProgress > 0)
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: LongPressRingPainter(
-                            progress: _longPressProgress,
-                            color: KalinkaColors.accent,
-                          ),
-                        ),
-                      ),
-                    // Selection checkmark overlay
-                    if (selectionMode && isSelected)
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: KalinkaColors.accent.withValues(alpha: 0.4),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.check,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                  ],
+                        )
+                      : ProceduralAlbumArt(trackId: widget.item.id, size: 44),
                 ),
-              ),
-              const SizedBox(width: 12),
-              // Title + artist
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: KalinkaTextStyles.trackRowTitle.copyWith(
-                        color: selectionMode && isSelected
-                            ? KalinkaColors.accentTint
-                            : null,
+                if (isCurrentTrack)
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            stops: [0.0, 0.45, 1.0],
+                            colors: [
+                              Color(0x000A0204),
+                              Color(0x8C0A0204),
+                              Color(0xD10A0204),
+                            ],
+                          ),
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    if (subtitle.isNotEmpty)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          SourceBadge(
-                            entityId: widget.item.id,
-                            size: SourceBadgeSize.standard,
-                          ),
-                          if (ref.watch(sourceCountProvider) > 1)
-                            const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              subtitle,
-                              style: KalinkaTextStyles.trackRowSubtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                  ),
+                if (isCurrentTrack) BerryPulse(isPlaying: isPlaying),
+                if (_longPressing && _longPressProgress > 0)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: LongPressRingPainter(
+                        progress: _longPressProgress,
+                        color: KalinkaColors.accent,
                       ),
-                  ],
+                    ),
+                  ),
+                if (selectionMode && isSelected)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: KalinkaColors.accent.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: KalinkaTextStyles.trackRowTitle.copyWith(
+                    color: selectionMode && isSelected
+                        ? KalinkaColors.accentTint
+                        : null,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const SizedBox(width: 12),
-              // Duration
-              if (duration != null)
-                Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
-              const SizedBox(width: 12),
-            ],
+                const SizedBox(height: 2),
+                if (subtitle.isNotEmpty)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SourceBadge(
+                        entityId: widget.item.id,
+                        size: SourceBadgeSize.standard,
+                      ),
+                      if (ref.watch(sourceCountProvider) > 1)
+                        const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          subtitle,
+                          style: KalinkaTextStyles.trackRowSubtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            trailing: duration != null
+                ? Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(
+                      duration,
+                      style: KalinkaTextStyles.trackRowSubtitle,
+                    ),
+                  )
+                : null,
           ),
         ),
       ),

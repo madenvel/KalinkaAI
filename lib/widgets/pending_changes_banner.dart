@@ -94,12 +94,7 @@ class _PendingChangesBannerState extends ConsumerState<PendingChangesBanner>
                     },
                     child: Text(
                       'Discard',
-                      style: KalinkaTextStyles.bannerText.copyWith(
-                        color: KalinkaColors.textMuted,
-                        fontSize: KalinkaTypography.baseSize + 0,
-                        decoration: TextDecoration.underline,
-                        decorationColor: KalinkaColors.textMuted,
-                      ),
+                      style: KalinkaTextStyles.cancelButton,
                     ),
                   ),
                   const SizedBox(width: 15),
@@ -113,7 +108,7 @@ class _PendingChangesBannerState extends ConsumerState<PendingChangesBanner>
                       ),
                       decoration: BoxDecoration(
                         color: KalinkaColors.statusPending.withValues(
-                          alpha: 0.2,
+                          alpha: 0.1,
                         ),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(

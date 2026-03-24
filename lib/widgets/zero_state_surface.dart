@@ -317,24 +317,37 @@ class _FilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FilterChip(
-      label: Text(label),
-      selected: isActive,
-      onSelected: (_) {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      selectedColor: const Color(0x0DFFFFFF),
-      side: BorderSide(
-        color: isActive ? KalinkaColors.accentBorder : const Color(0x17FFFFFF),
-        width: 1,
+    return Material(
+      color: isActive ? KalinkaColors.accentFaded : KalinkaColors.surfaceRaised,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: isActive ? KalinkaColors.accent : const Color(0x17FFFFFF),
+          width: 0.1,
+        ),
       ),
-      labelStyle: isActive
-          ? KalinkaTextStyles.filterPillActive
-          : KalinkaTextStyles.filterPillInactive,
-      showCheckmark: false,
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return Colors.white.withValues(alpha: 0.08);
+          }
+          return null;
+        }),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Text(
+            label,
+            style: isActive
+                ? KalinkaTextStyles.filterPillActive
+                : KalinkaTextStyles.filterPillInactive,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -700,7 +713,7 @@ class _RecentlyFavouritedSection extends StatelessWidget {
             const Spacer(),
             Text(
               'Showing recent 30 days',
-              style: KalinkaTextStyles.filterPillInactive,
+              style: KalinkaTextStyles.clearAllChips,
             ),
           ],
         ),
@@ -751,9 +764,9 @@ class _AiPromptChip extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1C1C1C), Color(0xFF222222)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [KalinkaColors.accentFaded, KalinkaColors.surfaceBase],
           ),
           border: Border.all(color: KalinkaColors.borderDefault, width: 1),
         ),

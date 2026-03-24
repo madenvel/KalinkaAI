@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 
-enum KalinkaButtonVariant { accent, neutral, danger }
+enum KalinkaButtonVariant { accent, neutral }
 
 enum KalinkaButtonSize { normal, compact }
 
 /// Unified CTA button for the Kalinka app.
 ///
-/// - [accent]: transparent bg, crimson border, accentTint text (primary action)
+/// - [accent]: filled accent bg, accent border, surfaceBase text (primary action)
 /// - [neutral]: surfaceElevated bg, default border, secondary text (secondary action)
-/// - [danger]: translucent red bg, red border, red text (destructive action)
 ///
 /// Use [fullWidth] for buttons that should stretch to fill their parent.
 /// Use [enabled] to dim and disable the button (e.g. nothing selected yet).
@@ -39,20 +38,15 @@ class KalinkaButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final (bgColor, borderColor, textColor) = switch (variant) {
       KalinkaButtonVariant.accent => (
-          Colors.transparent,
-          KalinkaColors.accent,
-          KalinkaColors.accentTint,
-        ),
+        KalinkaColors.accent,
+        KalinkaColors.accent,
+        KalinkaColors.textPrimary,
+      ),
       KalinkaButtonVariant.neutral => (
-          KalinkaColors.surfaceElevated,
-          KalinkaColors.borderDefault,
-          KalinkaColors.textSecondary,
-        ),
-      KalinkaButtonVariant.danger => (
-          KalinkaColors.actionDelete.withValues(alpha: 0.14),
-          KalinkaColors.actionDelete.withValues(alpha: 0.30),
-          KalinkaColors.actionDelete,
-        ),
+        KalinkaColors.surfaceElevated,
+        KalinkaColors.borderDefault,
+        KalinkaColors.textSecondary,
+      ),
     };
 
     final (vPad, hPad, radius) = switch (size) {
@@ -73,7 +67,7 @@ class KalinkaButton extends StatelessWidget {
         child: InkWell(
           onTap: enabled && onTap != null
               ? () {
-                  if (variant == KalinkaButtonVariant.danger) {
+                  if (variant == KalinkaButtonVariant.accent) {
                     KalinkaHaptics.heavyImpact();
                   } else {
                     KalinkaHaptics.lightImpact();
