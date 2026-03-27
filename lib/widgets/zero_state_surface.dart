@@ -120,20 +120,25 @@ class _RecentChipsSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        // Chip wrap
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: history
-              .take(5)
-              .map(
-                (q) => _RecentChip(
-                  query: q,
-                  onTap: () => onTap(q),
-                  onDelete: () => onDelete(q),
+        // One-line horizontal chip scroller for recent searches.
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              ...history.map(
+                (q) => Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: _RecentChip(
+                    query: q,
+                    onTap: () => onTap(q),
+                    onDelete: () => onDelete(q),
+                  ),
                 ),
-              )
-              .toList(),
+              ),
+              const SizedBox(width: 4),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
       ],

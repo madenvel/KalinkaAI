@@ -163,7 +163,8 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
                 left: 0,
                 right: 0,
                 child: MultiSelectTopBar(
-                  allItemIds: searchState.searchResults?[SearchType.track]
+                  allItemIds: searchState
+                      .searchResults?[SearchType.track]
                       ?.items
                       .map((item) => item.id),
                 ),
@@ -346,7 +347,14 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         playlistsVisibleCount;
     _triggerStagger(totalItems);
 
-    int itemIndex = 0;
+    int itemIndex = 1; // 0 is reserved for the AI suggestion card.
+    final artistStartIndex = itemIndex;
+    itemIndex += artistsVisibleCount;
+    final albumStartIndex = itemIndex;
+    itemIndex += albumsVisibleCount;
+    final trackStartIndex = itemIndex;
+    itemIndex += trackDisplayCount;
+    final playlistStartIndex = itemIndex;
 
     return ListView(
       padding: EdgeInsets.fromLTRB(16, 0, 16, widget.bottomPadding),
@@ -362,12 +370,40 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
           ),
         // AI Suggestion Card (always first when present)
         _StaggeredItem(
-          index: itemIndex++,
+          index: 0,
           controller: _staggerController,
           totalItems: totalItems,
           child: const AiSuggestionCard(),
         ),
         const SizedBox(height: 16),
+
+        // Artists section
+        if (artists.isNotEmpty) ...[
+          SectionHeader(label: 'Artists', count: artists.length),
+          ..._buildArtistsSection(
+            ref,
+            artists,
+            searchState,
+            artistDisplayLimit,
+            artistStartIndex,
+            totalItems,
+          ),
+        ],
+
+        if (artists.isNotEmpty) const SizedBox(height: 10),
+
+        // Albums section in rounded panel (expands with section state)
+        if (albums.isNotEmpty)
+          _buildAlbumsPanel(
+            ref,
+            albums,
+            searchState,
+            albumDisplayLimit,
+            albumStartIndex,
+            totalItems,
+          ),
+
+        if (albums.isNotEmpty) const SizedBox(height: 10),
 
         // Tracks section
         if (tracks.isNotEmpty) ...[
@@ -380,33 +416,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
             ref,
             tracks,
             searchState,
-            itemIndex,
-            totalItems,
-          ),
-        ],
-
-        // Albums section
-        if (albums.isNotEmpty) ...[
-          SectionHeader(label: 'Albums', count: albums.length),
-          ..._buildAlbumsSection(
-            ref,
-            albums,
-            searchState,
-            albumDisplayLimit,
-            itemIndex,
-            totalItems,
-          ),
-        ],
-
-        // Artists section
-        if (artists.isNotEmpty) ...[
-          SectionHeader(label: 'Artists', count: artists.length),
-          ..._buildArtistsSection(
-            ref,
-            artists,
-            searchState,
-            artistDisplayLimit,
-            itemIndex,
+            trackStartIndex,
             totalItems,
           ),
         ],
@@ -419,7 +429,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
             playlists,
             searchState,
             playlistDisplayLimit,
-            itemIndex,
+            playlistStartIndex,
             totalItems,
           ),
         ],
@@ -498,6 +508,41 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
               ref.read(searchStateProvider.notifier).toggleAlbumsExpanded(),
         ),
     ];
+  }
+
+  Widget _buildAlbumsPanel(
+    WidgetRef ref,
+    List<BrowseItem> albums,
+    SearchState searchState,
+    int limit,
+    int startIndex,
+    int totalItems,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: KalinkaColors.surfaceBase,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: KalinkaColors.borderSubtle),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+      child: Column(
+        children: [
+          SectionHeader(
+            label: 'Albums',
+            count: albums.length,
+            showDivider: false,
+          ),
+          ..._buildAlbumsSection(
+            ref,
+            albums,
+            searchState,
+            limit,
+            startIndex,
+            totalItems,
+          ),
+        ],
+      ),
+    );
   }
 
   List<Widget> _buildArtistsSection(
