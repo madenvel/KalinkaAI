@@ -51,7 +51,7 @@ class KalinkaMediaService : Service() {
     }
 
     inner class LocalBinder : Binder() {
-        fun getService(): KalinkaMediaService = this@KaiMediaService
+        fun getService(): KalinkaMediaService = this@KalinkaMediaService
     }
 
     private val binder = LocalBinder()
