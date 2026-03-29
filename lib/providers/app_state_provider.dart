@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart' show WidgetsBinding;
+import 'dart:async' show scheduleMicrotask;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show
         AsyncValueExtensions,
@@ -33,8 +34,7 @@ class PlayQueueStateStore extends Notifier<PlayQueueState> {
           final timestamp = ref
               .read(monotonicClockProvider)
               .elapsedMilliseconds;
-          // Defer state updates to avoid modifying during build phase
-          WidgetsBinding.instance.addPostFrameCallback((_) {
+          scheduleMicrotask(() {
             if (event is TrackMovedEvent) {
               final idx = _pendingMoves.indexWhere(
                 (m) => m.from == event.fromIndex && m.to == event.toIndex,
@@ -50,15 +50,14 @@ class PlayQueueStateStore extends Notifier<PlayQueueState> {
           });
         },
         loading: () {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
+          scheduleMicrotask(() {
             _pendingMoves.clear();
             state = PlayQueueState.empty;
           });
         },
         error: (Object error, StackTrace stackTrace) {
           logger.e('Error occurred: $error', stackTrace: stackTrace);
-          // Defer state update to avoid modifying during build phase
-          WidgetsBinding.instance.addPostFrameCallback((_) {
+          scheduleMicrotask(() {
             _pendingMoves.clear();
             state = PlayQueueState.empty;
           });
@@ -121,22 +120,14 @@ class ExtDeviceStateStore extends Notifier<ExtDeviceState> {
     ref.listen(extDeviceEventBusProvider, (prev, next) {
       next.when(
         data: (ExtDeviceEvent event) {
-          // Defer state updates to avoid modifying during build phase
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            state = state.apply(event);
-          });
+          scheduleMicrotask(() => state = state.apply(event));
         },
         loading: () {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            state = ExtDeviceState.empty;
-          });
+          scheduleMicrotask(() => state = ExtDeviceState.empty);
         },
         error: (Object error, StackTrace stackTrace) {
           logger.e('Error occurred: $error', stackTrace: stackTrace);
-          // Defer state update to avoid modifying during build phase
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            state = ExtDeviceState.empty;
-          });
+          scheduleMicrotask(() => state = ExtDeviceState.empty);
         },
       );
     });
