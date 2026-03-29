@@ -8,8 +8,8 @@ import '../providers/search_state_provider.dart';
 import '../providers/selection_state_provider.dart';
 import 'browse_list.dart';
 import 'search_cards/ai_suggestion_card.dart';
+import 'search_cards/artist_section.dart';
 import 'search_cards/search_album_row.dart';
-import 'search_cards/search_artist_row.dart';
 import 'search_cards/search_playlist_row.dart';
 import 'search_cards/search_track_row.dart';
 import 'search_cards/section_header.dart';
@@ -194,8 +194,6 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
           searchState: searchState,
           onScopeToggle: (type) =>
               ref.read(searchStateProvider.notifier).toggleScopeFilter(type),
-          onGenreToggle: (id) =>
-              ref.read(searchStateProvider.notifier).toggleGenreFilter(id),
         ),
         Expanded(child: inner),
       ],
@@ -321,21 +319,16 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     final albums = results[SearchType.album]?.items ?? [];
     final artists = results[SearchType.artist]?.items ?? [];
     final playlists = results[SearchType.playlist]?.items ?? [];
-    const trackDisplayLimit = 3;
     const albumDisplayLimit = 5;
-    const artistDisplayLimit = 3;
     const playlistDisplayLimit = 5;
 
     // Count total items for stagger animation
     final trackDisplayCount = searchState.tracksExpanded
         ? tracks.length
-        : min<int>(trackDisplayLimit, tracks.length);
+        : min<int>(3, tracks.length);
     final albumsVisibleCount = searchState.albumsExpanded
         ? albums.length
         : min<int>(albumDisplayLimit, albums.length);
-    final artistsVisibleCount = searchState.artistsExpanded
-        ? artists.length
-        : min<int>(artistDisplayLimit, artists.length);
     final playlistsVisibleCount = searchState.playlistsExpanded
         ? playlists.length
         : min<int>(playlistDisplayLimit, playlists.length);
@@ -343,13 +336,10 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         1 + // AI card
         trackDisplayCount +
         albumsVisibleCount +
-        artistsVisibleCount +
         playlistsVisibleCount;
     _triggerStagger(totalItems);
 
     int itemIndex = 1; // 0 is reserved for the AI suggestion card.
-    final artistStartIndex = itemIndex;
-    itemIndex += artistsVisibleCount;
     final albumStartIndex = itemIndex;
     itemIndex += albumsVisibleCount;
     final trackStartIndex = itemIndex;
@@ -357,7 +347,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     final playlistStartIndex = itemIndex;
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, widget.bottomPadding),
+      padding: EdgeInsets.fromLTRB(10, 0, 10, widget.bottomPadding),
       children: [
         // Result count hint
         if (searchState.totalResultCount > 0)
@@ -369,32 +359,28 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
             ),
           ),
         // AI Suggestion Card (always first when present)
-        _StaggeredItem(
-          index: 0,
-          controller: _staggerController,
-          totalItems: totalItems,
-          child: const AiSuggestionCard(),
-        ),
-        const SizedBox(height: 16),
+        if (searchState.isAiEnabled) ...[
+          _StaggeredItem(
+            index: 0,
+            controller: _staggerController,
+            totalItems: totalItems,
+            child: const AiSuggestionCard(),
+          ),
+          const SizedBox(height: 16),
+        ],
 
         // Artists section
         if (artists.isNotEmpty) ...[
           SectionHeader(label: 'Artists', count: artists.length),
-          ..._buildArtistsSection(
-            ref,
-            artists,
-            searchState,
-            artistDisplayLimit,
-            artistStartIndex,
-            totalItems,
-          ),
+          ArtistSection(artists: artists),
         ],
 
         if (artists.isNotEmpty) const SizedBox(height: 10),
 
-        // Albums section in rounded panel (expands with section state)
-        if (albums.isNotEmpty)
-          _buildAlbumsPanel(
+        // Albums section
+        if (albums.isNotEmpty) ...[
+          SectionHeader(label: 'Albums', count: albums.length),
+          ..._buildAlbumsSection(
             ref,
             albums,
             searchState,
@@ -402,6 +388,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
             albumStartIndex,
             totalItems,
           ),
+        ],
 
         if (albums.isNotEmpty) const SizedBox(height: 10),
 
@@ -491,7 +478,18 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
           index: startIndex + i,
           controller: _staggerController,
           totalItems: totalItems,
-          child: SearchAlbumRow(item: albums[i]),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Container(
+              decoration: BoxDecoration(
+                color: KalinkaColors.surfaceBase,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: KalinkaColors.borderSubtle),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: SearchAlbumRow(item: albums[i]),
+            ),
+          ),
         ),
       if (!isExpanded && remaining > 0)
         ShowMoreRow(
@@ -506,80 +504,6 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
           isExpanded: true,
           onTap: () =>
               ref.read(searchStateProvider.notifier).toggleAlbumsExpanded(),
-        ),
-    ];
-  }
-
-  Widget _buildAlbumsPanel(
-    WidgetRef ref,
-    List<BrowseItem> albums,
-    SearchState searchState,
-    int limit,
-    int startIndex,
-    int totalItems,
-  ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: KalinkaColors.surfaceBase,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: KalinkaColors.borderSubtle),
-      ),
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
-      child: Column(
-        children: [
-          SectionHeader(
-            label: 'Albums',
-            count: albums.length,
-            showDivider: false,
-          ),
-          ..._buildAlbumsSection(
-            ref,
-            albums,
-            searchState,
-            limit,
-            startIndex,
-            totalItems,
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildArtistsSection(
-    WidgetRef ref,
-    List<BrowseItem> artists,
-    SearchState searchState,
-    int limit,
-    int startIndex,
-    int totalItems,
-  ) {
-    final isExpanded = searchState.artistsExpanded;
-    final displayCount = isExpanded
-        ? artists.length
-        : min(limit, artists.length);
-    final remaining = artists.length - limit;
-
-    return [
-      for (int i = 0; i < displayCount; i++)
-        _StaggeredItem(
-          index: startIndex + i,
-          controller: _staggerController,
-          totalItems: totalItems,
-          child: SearchArtistRow(item: artists[i]),
-        ),
-      if (!isExpanded && remaining > 0)
-        ShowMoreRow(
-          remainingCount: remaining,
-          isExpanded: false,
-          onTap: () =>
-              ref.read(searchStateProvider.notifier).toggleArtistsExpanded(),
-        ),
-      if (isExpanded && artists.length > limit)
-        ShowMoreRow(
-          remainingCount: 0,
-          isExpanded: true,
-          onTap: () =>
-              ref.read(searchStateProvider.notifier).toggleArtistsExpanded(),
         ),
     ];
   }
@@ -604,7 +528,18 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
           index: startIndex + i,
           controller: _staggerController,
           totalItems: totalItems,
-          child: SearchPlaylistRow(item: playlists[i]),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SearchPlaylistRow(item: playlists[i]),
+              if (i < displayCount - 1)
+                const Divider(
+                  color: KalinkaColors.borderSubtle,
+                  thickness: 1,
+                  height: 1,
+                ),
+            ],
+          ),
         ),
       if (!isExpanded && remaining > 0)
         ShowMoreRow(

@@ -56,8 +56,6 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
           searchState: searchState,
           onScopeToggle: (type) =>
               ref.read(searchStateProvider.notifier).toggleScopeFilter(type),
-          onGenreToggle: (id) =>
-              ref.read(searchStateProvider.notifier).toggleGenreFilter(id),
         ),
 
         // Layer 2 — Scrollable content (recent chips are first section inside)
@@ -223,24 +221,21 @@ class _RecentChip extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Filter pill row shared between the zero-state and the typed-search view.
-/// Shows scope filters (All, Favourites, My Playlists) and genre pills.
+/// Shows scope filters: All, Favourites, My Playlists.
 class SearchFilterPillRow extends StatelessWidget {
   final SearchState searchState;
   final ValueChanged<FilterPillType> onScopeToggle;
-  final ValueChanged<String> onGenreToggle;
 
   const SearchFilterPillRow({
     super.key,
     required this.searchState,
     required this.onScopeToggle,
-    required this.onGenreToggle,
   });
 
   @override
   Widget build(BuildContext context) {
     final activeScopeFilter = searchState.activeScopeFilter;
-    final activeGenreId = searchState.activeGenreId;
-    final isAllActive = activeScopeFilter == null && activeGenreId == null;
+    final isAllActive = activeScopeFilter == null;
 
     return Container(
       decoration: const BoxDecoration(
@@ -255,10 +250,7 @@ class SearchFilterPillRow extends StatelessWidget {
             label: 'All',
             isActive: isAllActive,
             onTap: () {
-              if (!isAllActive) {
-                if (activeScopeFilter != null) onScopeToggle(activeScopeFilter);
-                if (activeGenreId != null) onGenreToggle(activeGenreId);
-              }
+              if (!isAllActive) onScopeToggle(activeScopeFilter);
             },
           ),
 
@@ -287,16 +279,6 @@ class SearchFilterPillRow extends StatelessWidget {
                     label: 'My Playlists',
                     isActive: activeScopeFilter == FilterPillType.myPlaylists,
                     onTap: () => onScopeToggle(FilterPillType.myPlaylists),
-                  ),
-                  ...searchState.genrePills.expand(
-                    (genre) => [
-                      const SizedBox(width: 6),
-                      _FilterPill(
-                        label: genre.name,
-                        isActive: activeGenreId == genre.id,
-                        onTap: () => onGenreToggle(genre.id),
-                      ),
-                    ],
                   ),
                   const SizedBox(width: 16),
                 ],
@@ -388,7 +370,7 @@ class _ZeroStateContent extends ConsumerWidget {
     final isMyPlaylists = scopeFilter == FilterPillType.myPlaylists;
     final isGenre = genreId != null;
 
-    final showAskAi = isAll;
+    final showAskAi = isAll && searchState.isAiEnabled;
     final showNowPlaying = isAll || isGenre;
     final showRecentlyFavourited = isAll || isFavourites || isGenre;
 

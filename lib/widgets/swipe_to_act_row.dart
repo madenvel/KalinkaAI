@@ -35,6 +35,7 @@ class _SwipeToActRowState extends State<SwipeToActRow>
   static const double _maxDrag = 200.0;
   static const double _hapticThreshold = _maxDrag / 3.0; // 1/3 of max drag
   static const double _dragActivationThreshold = 14.0;
+  static const double _settleEpsilon = 0.5;
   static const double _resistanceCoefficient =
       60.0; // Controls resistance curve
 
@@ -64,7 +65,10 @@ class _SwipeToActRowState extends State<SwipeToActRow>
       ), // Duration not used with SpringSimulation
     );
     _snapController.addListener(() {
-      setState(() => _dragOffset = _snapController.value);
+      setState(() {
+        final value = _snapController.value;
+        _dragOffset = value.abs() <= _settleEpsilon ? 0.0 : value;
+      });
     });
 
     _confirmController = AnimationController(
@@ -160,6 +164,11 @@ class _SwipeToActRowState extends State<SwipeToActRow>
       if (target == 0.0) {
         _dragUnlocked = false;
         _rawDragOffset = 0.0;
+        if (mounted) {
+          setState(() {
+            _dragOffset = 0.0;
+          });
+        }
       }
       onComplete?.call();
     });
@@ -170,7 +179,9 @@ class _SwipeToActRowState extends State<SwipeToActRow>
     Widget inner;
 
     if (!widget.enabled ||
-        _dragOffset == 0.0 && !_dragging && !_snapController.isAnimating) {
+        _dragOffset <= _settleEpsilon &&
+            !_dragging &&
+            !_snapController.isAnimating) {
       // Pass-through: no swipe state, just render child with drag detection
       inner = GestureDetector(
         onHorizontalDragUpdate: _onDragUpdate,
@@ -212,7 +223,7 @@ class _SwipeToActRowState extends State<SwipeToActRow>
             Transform.translate(
               offset: Offset(_dragOffset, 0),
               child: ColoredBox(
-                color: KalinkaColors.background,
+                color: KalinkaColors.surfaceRaised,
                 child: widget.child,
               ),
             ),

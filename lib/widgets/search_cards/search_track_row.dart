@@ -174,6 +174,7 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
                 : null,
           ),
           child: TrackTileLayout(
+            leadingStartSpacing: 0,
             leading: Stack(
               children: [
                 ClipRRect(

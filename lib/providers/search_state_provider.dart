@@ -66,6 +66,7 @@ class SearchState {
   final bool tracksExpanded;
   final bool albumsExpanded;
   final bool artistsExpanded;
+  final int artistVisibleCount;
   final bool playlistsExpanded;
   final String? expandedAlbumIdWithinArtist;
   final Set<String> artistMoreAlbumsExpanded;
@@ -92,6 +93,9 @@ class SearchState {
   /// Genre pills available in the filter row (max 4)
   final List<Genre> genrePills;
 
+  /// Whether the AI mode toggle in the search bar is active
+  final bool isAiEnabled;
+
   const SearchState({
     this.isExpanded = false,
     this.searchPhase = SearchPhase.inactive,
@@ -108,6 +112,7 @@ class SearchState {
     this.tracksExpanded = false,
     this.albumsExpanded = false,
     this.artistsExpanded = false,
+    this.artistVisibleCount = 5,
     this.playlistsExpanded = false,
     this.expandedAlbumIdWithinArtist,
     this.artistMoreAlbumsExpanded = const {},
@@ -122,6 +127,7 @@ class SearchState {
     this.recentlyFavourited = const [],
     this.recentlyFavouritedExpanded = false,
     this.genrePills = const [],
+    this.isAiEnabled = false,
   });
 
   /// Backward-compatible getter — true when search surface is active
@@ -157,6 +163,7 @@ class SearchState {
     bool? tracksExpanded,
     bool? albumsExpanded,
     bool? artistsExpanded,
+    int? artistVisibleCount,
     bool? playlistsExpanded,
     bool clearExpandedAlbum = false,
     bool clearArtistPreview = false,
@@ -179,6 +186,7 @@ class SearchState {
     List<BrowseItem>? recentlyFavourited,
     bool? recentlyFavouritedExpanded,
     List<Genre>? genrePills,
+    bool? isAiEnabled,
   }) {
     return SearchState(
       isExpanded: isExpanded ?? this.isExpanded,
@@ -204,6 +212,7 @@ class SearchState {
       tracksExpanded: tracksExpanded ?? this.tracksExpanded,
       albumsExpanded: albumsExpanded ?? this.albumsExpanded,
       artistsExpanded: artistsExpanded ?? this.artistsExpanded,
+      artistVisibleCount: artistVisibleCount ?? this.artistVisibleCount,
       playlistsExpanded: playlistsExpanded ?? this.playlistsExpanded,
       expandedAlbumIdWithinArtist: clearExpandedAlbumWithinArtist
           ? null
@@ -230,6 +239,7 @@ class SearchState {
       recentlyFavouritedExpanded:
           recentlyFavouritedExpanded ?? this.recentlyFavouritedExpanded,
       genrePills: genrePills ?? this.genrePills,
+      isAiEnabled: isAiEnabled ?? this.isAiEnabled,
     );
   }
 }
@@ -315,6 +325,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
       tracksExpanded: false,
       albumsExpanded: false,
       artistsExpanded: false,
+      artistVisibleCount: 5,
       playlistsExpanded: false,
       clearExpandedAlbumWithinArtist: true,
       artistMoreAlbumsExpanded: const {},
@@ -331,6 +342,10 @@ class SearchStateNotifier extends Notifier<SearchState> {
   }
 
   // ── Filter pill methods ───────────────────────────────────────────────────
+
+  void toggleAiMode() {
+    state = state.copyWith(isAiEnabled: !state.isAiEnabled);
+  }
 
   /// Toggle a scope filter pill (Favourites, My Playlists).
   /// Tapping the active filter deactivates it (returns to "All").
@@ -441,6 +456,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
       tracksExpanded: false,
       albumsExpanded: false,
       artistsExpanded: false,
+      artistVisibleCount: 5,
       playlistsExpanded: false,
       clearExpandedAlbumWithinArtist: true,
       artistMoreAlbumsExpanded: const {},
@@ -468,9 +484,14 @@ class SearchStateNotifier extends Notifier<SearchState> {
           completionStripVisible: false,
           completions: const [],
           clearAiCompletion: true,
+          artistVisibleCount: 5,
         );
       } else {
-        state = state.copyWith(query: query, clearError: true);
+        state = state.copyWith(
+          query: query,
+          clearError: true,
+          artistVisibleCount: 5,
+        );
       }
       return;
     }
@@ -485,6 +506,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
       completionStripVisible: true,
       completions: completions,
       aiCompletionSuggestion: _generateAiCompletion(trimmed),
+      artistVisibleCount: 5,
     );
 
     // Hide completion strip after 600ms of inactivity
@@ -776,6 +798,12 @@ class SearchStateNotifier extends Notifier<SearchState> {
     state = state.copyWith(artistsExpanded: !state.artistsExpanded);
   }
 
+  void showMoreArtists([int batchSize = 5]) {
+    state = state.copyWith(
+      artistVisibleCount: state.artistVisibleCount + batchSize,
+    );
+  }
+
   void togglePlaylistsExpanded() {
     state = state.copyWith(playlistsExpanded: !state.playlistsExpanded);
   }
@@ -797,6 +825,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
       tracksExpanded: false,
       albumsExpanded: false,
       artistsExpanded: false,
+      artistVisibleCount: 5,
       playlistsExpanded: false,
       clearExpandedAlbumWithinArtist: true,
       artistMoreAlbumsExpanded: const {},

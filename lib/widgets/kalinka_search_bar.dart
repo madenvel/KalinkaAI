@@ -53,7 +53,6 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
   late Animation<double> _pulseAnimation;
 
   bool _isActive = false;
-  bool _isAiModeActive = true;
   bool _isFocused = false;
 
   // State 3 → State 2 (editing) tracking
@@ -425,15 +424,16 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
   }
 
   Widget _buildAiPill() {
+    final isAiEnabled = ref.watch(searchStateProvider).isAiEnabled;
     return Semantics(
-      label: _isAiModeActive
+      label: isAiEnabled
           ? 'AI search active. Tap to switch to direct search.'
           : 'AI search inactive. Tap to enable AI search.',
       button: true,
       child: GestureDetector(
         onTap: () {
           KalinkaHaptics.lightImpact();
-          setState(() => _isAiModeActive = !_isAiModeActive);
+          ref.read(searchStateProvider.notifier).toggleAiMode();
         },
         behavior: HitTestBehavior.opaque,
         child: SizedBox(
@@ -448,7 +448,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
                 borderRadius: BorderRadius.circular(10),
                 color: const Color(0x0DFFFFFF),
                 border: Border.all(
-                  color: _isAiModeActive
+                  color: isAiEnabled
                       ? KalinkaColors.gold.withValues(alpha: 0.6)
                       : KalinkaColors.borderDefault,
                   width: 1,
@@ -456,7 +456,7 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
               ),
               child: Builder(
                 builder: (context) {
-                  final aiColor = _isAiModeActive
+                  final aiColor = isAiEnabled
                       ? KalinkaColors.gold
                       : KalinkaColors.textMuted;
                   return Row(

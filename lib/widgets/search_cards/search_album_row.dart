@@ -407,15 +407,20 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
 
   Widget _buildTrackList(List<BrowseItem> items) {
     return Column(
-      children: items.asMap().entries.map((entry) {
-        final index = entry.key;
-        final item = entry.value;
-        return _InlineTrackRow(
-          item: item,
-          index: index + 1,
-          containerId: albumId,
-        );
-      }).toList(),
+      children: [
+        for (int i = 0; i < items.length; i++) ...[
+          _InlineTrackRow(item: items[i], index: i + 1, containerId: albumId),
+          if (i < items.length - 1)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Divider(
+                color: KalinkaColors.borderSubtle,
+                thickness: 1,
+                height: 1,
+              ),
+            ),
+        ],
+      ],
     );
   }
 }
