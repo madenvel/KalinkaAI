@@ -60,7 +60,7 @@ class PlayQueueState {
   PlayQueueState apply(PlayQueueEvent event, int timestamp) {
     switch (event) {
       case PlaybackStateChangedEvent(:final state, :final seq):
-        final nextPlaybackState = state.copyWith(state)
+        final nextPlaybackState = playbackState.copyWith(state)
           ..timestampNs = timestamp;
         return copyWith(
           playbackState: _normalizePlaybackIndex(
