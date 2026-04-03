@@ -1,4 +1,4 @@
-import 'dart:async' show Timer;
+import 'dart:async' show StreamSubscription, Timer;
 
 import 'package:dio/dio.dart' show Dio, BaseOptions;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -64,6 +64,7 @@ class DiscoveryNotifier extends Notifier<DiscoveryState> {
   MDnsClient? _client;
   Timer? _minDurationTimer;
   Timer? _timeoutTimer;
+  StreamSubscription<PtrResourceRecord>? _ptrSubscription;
 
   @override
   DiscoveryState build() {
@@ -99,7 +100,7 @@ class DiscoveryNotifier extends Notifier<DiscoveryState> {
 
       const serviceType = '_kalinkaplayer._tcp.local';
 
-      _client!
+      _ptrSubscription = _client!
           .lookup<PtrResourceRecord>(
             ResourceRecordQuery.serverPointer(serviceType),
             timeout: const Duration(seconds: 4),
@@ -230,6 +231,8 @@ class DiscoveryNotifier extends Notifier<DiscoveryState> {
     _minDurationTimer = null;
     _timeoutTimer?.cancel();
     _timeoutTimer = null;
+    await _ptrSubscription?.cancel();
+    _ptrSubscription = null;
     await _cleanupDiscovery();
   }
 

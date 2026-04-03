@@ -87,6 +87,7 @@ Stream<String> openPlayQueueWsStream(Ref ref, CancelToken cancel) async* {
       return event.toString();
     });
   } finally {
+    socket.close();
     // Stream ended — if not intentionally cancelled AND the user hasn't
     // deliberately disconnected (settings cleared), the server dropped the
     // connection. Trigger reconnection so the UI reflects the lost connection.
@@ -111,6 +112,7 @@ Stream<String> openExtDeviceWsStream(Ref ref, CancelToken cancel) async* {
       return event.toString();
     });
   } finally {
+    socket.close();
     // Stream ended — if not intentionally cancelled AND the user hasn't
     // deliberately disconnected (settings cleared), the server dropped the
     // connection. Trigger reconnection so the UI reflects the lost connection.

@@ -257,6 +257,10 @@ class SearchStateNotifier extends Notifier<SearchState> {
     _prefs = ref.read(sharedPrefsProvider);
     _setupAutoCollapse();
     _setupCacheInvalidation();
+    ref.onDispose(() {
+      _debounceTimer?.cancel();
+      _completionHideTimer?.cancel();
+    });
     return const SearchState();
   }
 

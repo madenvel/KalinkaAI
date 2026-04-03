@@ -59,6 +59,7 @@ final _playbackTimingSnapshotProvider = Provider<_PlaybackTimingSnapshot>((
 class PlaybackTimeMsNotifier extends Notifier<int> {
   Timer? _tick;
   bool _disposeRegistered = false;
+  int _tickGeneration = 0;
 
   int _computeTimeMs(_PlaybackTimingSnapshot snapshot) {
     if (snapshot.playerState == PlayerStateType.playing) {
@@ -73,6 +74,7 @@ class PlaybackTimeMsNotifier extends Notifier<int> {
   void _cancelTick() {
     _tick?.cancel();
     _tick = null;
+    _tickGeneration++;
   }
 
   void _emitCurrentTime() {
@@ -92,15 +94,22 @@ class PlaybackTimeMsNotifier extends Notifier<int> {
 
     final currentMs = _computeTimeMs(snapshot);
     final msUntilNextSecond = 1000 - (currentMs % 1000);
+    final gen = _tickGeneration;
 
     _tick = Timer(Duration(milliseconds: msUntilNextSecond), () {
+      if (_tickGeneration != gen) return;
+      _tick = null;
+
       if (ref.read(appLifecycleProvider) != AppLifecycleState.resumed) {
-        _cancelTick();
         return;
       }
 
       _emitCurrentTime();
       _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (_tickGeneration != gen) {
+          _cancelTick();
+          return;
+        }
         if (ref.read(appLifecycleProvider) != AppLifecycleState.resumed) {
           _cancelTick();
           return;

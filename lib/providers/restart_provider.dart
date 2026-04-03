@@ -46,8 +46,11 @@ final restartProvider = NotifierProvider<RestartNotifier, RestartState>(
 );
 
 class RestartNotifier extends Notifier<RestartState> {
+  Timer? _dismissTimer;
+
   @override
   RestartState build() {
+    ref.onDispose(() => _dismissTimer?.cancel());
     return const RestartState();
   }
 
@@ -129,7 +132,7 @@ class RestartNotifier extends Notifier<RestartState> {
       );
 
       // Auto-dismiss after 2.2 seconds
-      Timer(const Duration(milliseconds: 2200), () {
+      _dismissTimer = Timer(const Duration(milliseconds: 2200), () {
         state = const RestartState();
       });
     } catch (e) {

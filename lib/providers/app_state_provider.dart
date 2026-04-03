@@ -23,10 +23,13 @@ class PlayQueueStateStore extends Notifier<PlayQueueState> {
   /// the pending entry and skip re-applying the move (it was already applied
   /// optimistically), preventing a double-move.
   final List<({int from, int to})> _pendingMoves = [];
+  bool _disposed = false;
 
   @override
   PlayQueueState build() {
     state = PlayQueueState.empty;
+    _disposed = false;
+    ref.onDispose(() => _disposed = true);
 
     ref.listen(playQueueEventBusProvider, (prev, next) {
       next.when(
@@ -35,6 +38,7 @@ class PlayQueueStateStore extends Notifier<PlayQueueState> {
               .read(monotonicClockProvider)
               .elapsedMilliseconds;
           scheduleMicrotask(() {
+            if (_disposed) return;
             if (event is TrackMovedEvent) {
               final idx = _pendingMoves.indexWhere(
                 (m) => m.from == event.fromIndex && m.to == event.toIndex,
@@ -51,6 +55,7 @@ class PlayQueueStateStore extends Notifier<PlayQueueState> {
         },
         loading: () {
           scheduleMicrotask(() {
+            if (_disposed) return;
             _pendingMoves.clear();
             state = PlayQueueState.empty;
           });
@@ -58,6 +63,7 @@ class PlayQueueStateStore extends Notifier<PlayQueueState> {
         error: (Object error, StackTrace stackTrace) {
           logger.e('Error occurred: $error', stackTrace: stackTrace);
           scheduleMicrotask(() {
+            if (_disposed) return;
             _pendingMoves.clear();
             state = PlayQueueState.empty;
           });
@@ -113,21 +119,34 @@ class PlayQueueStateStore extends Notifier<PlayQueueState> {
 }
 
 class ExtDeviceStateStore extends Notifier<ExtDeviceState> {
+  bool _disposed = false;
+
   @override
   ExtDeviceState build() {
     state = ExtDeviceState.empty;
+    _disposed = false;
+    ref.onDispose(() => _disposed = true);
 
     ref.listen(extDeviceEventBusProvider, (prev, next) {
       next.when(
         data: (ExtDeviceEvent event) {
-          scheduleMicrotask(() => state = state.apply(event));
+          scheduleMicrotask(() {
+            if (_disposed) return;
+            state = state.apply(event);
+          });
         },
         loading: () {
-          scheduleMicrotask(() => state = ExtDeviceState.empty);
+          scheduleMicrotask(() {
+            if (_disposed) return;
+            state = ExtDeviceState.empty;
+          });
         },
         error: (Object error, StackTrace stackTrace) {
           logger.e('Error occurred: $error', stackTrace: stackTrace);
-          scheduleMicrotask(() => state = ExtDeviceState.empty);
+          scheduleMicrotask(() {
+            if (_disposed) return;
+            state = ExtDeviceState.empty;
+          });
         },
       );
     });

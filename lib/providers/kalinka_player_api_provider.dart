@@ -554,7 +554,8 @@ final kalinkaProxyProvider = Provider<KalinkaPlayerProxy>((ref) {
   final link = ref.keepAlive();
 
   // Optional: release after some idle time
-  Timer(const Duration(minutes: 10), link.close);
+  final keepAliveTimer = Timer(const Duration(minutes: 10), link.close);
+  ref.onDispose(keepAliveTimer.cancel);
 
   return proxy;
 });
