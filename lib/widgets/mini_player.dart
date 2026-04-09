@@ -218,6 +218,23 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     );
   }
 
+  void _showPlaybackErrorDialog(String? message) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Playback error'),
+        content: Text(message ?? 'An unknown playback error occurred.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Dismiss'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Track? _peekIncomingTrack(bool isNext) {
     final queueState = ref.read(playQueueStateStoreProvider);
     final trackList = queueState.trackList;
@@ -251,6 +268,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
           fallbackTrackDurationSec: s.playbackState.currentTrack?.duration ?? 0,
           fallbackTrackImageSmall:
               s.playbackState.currentTrack?.album?.image?.small,
+          errorMessage: s.playbackState.message,
         ),
       ),
     );
@@ -260,7 +278,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     Track? currentTrack;
     if (playbackIndex >= 0 && playbackIndex < trackList.length) {
       currentTrack = trackList[playbackIndex];
-    } else if (queueSnapshot.fallbackTrackId != null) {
+    } else if (trackList.isNotEmpty && queueSnapshot.fallbackTrackId != null) {
       currentTrack = Track(
         id: queueSnapshot.fallbackTrackId!,
         title: queueSnapshot.fallbackTrackTitle ?? 'No track',
@@ -292,6 +310,16 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
       });
     }
 
+    // Release the latch if the queue was emptied while a swipe was in progress.
+    if (trackList.isEmpty && _latchedCurrentTrack != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _latchedCurrentTrack == null) return;
+        setState(() {
+          _latchedCurrentTrack = null;
+        });
+      });
+    }
+
     // Queue peek for carousel incoming-track preview.
     final currentIndex = playbackIndex;
     final hasCurrentInQueue =
@@ -309,6 +337,22 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
 
     final searchState = ref.watch(searchStateProvider);
     final shouldHide = searchState.searchActive && searchState.keyboardVisible;
+
+    ref.listen(
+      playQueueStateStoreProvider.select(
+        (s) => (
+          state: s.playbackState.state,
+          message: s.playbackState.message,
+        ),
+      ),
+      (prev, next) {
+        if (next.state == PlayerStateType.error &&
+            (prev?.state != PlayerStateType.error ||
+                prev?.message != next.message)) {
+          _showPlaybackErrorDialog(next.message);
+        }
+      },
+    );
 
     final connectionState = ref.watch(connectionStateProvider);
     ref.listen(connectionStateProvider, (prev, next) {
@@ -397,16 +441,18 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                       // Swipe up → open now-playing
                       if ((d.primaryVelocity ?? 0) < -200) widget.onTap?.call();
                     },
-                    child: SizedBox(
-                      height: 70,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Row(
-                          children: [
-                            // ── Album art — stationary, updates via server event ──
-                            Opacity(
-                              opacity: isOffline ? 0.4 : 1.0,
-                              child: Container(
+                    child: AnimatedOpacity(
+                      opacity: isOffline ? 0.45 : 1.0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                      child: SizedBox(
+                        height: 70,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            children: [
+                              // ── Album art — stationary, updates via server event ──
+                              Container(
                                 width: 46,
                                 height: 46,
                                 decoration: BoxDecoration(
@@ -433,77 +479,73 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                         size: 46,
                                       ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
+                              const SizedBox(width: 10),
 
-                            // ── Carousel text area ────────────────────────────────
-                            Expanded(
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  // Cache width so gesture handlers can normalise deltas.
-                                  _textAreaWidth = math.max(
-                                    constraints.maxWidth,
-                                    1.0,
-                                  );
+                              // ── Carousel text area ────────────────────────────────
+                              Expanded(
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    // Cache width so gesture handlers can normalise deltas.
+                                    _textAreaWidth = math.max(
+                                      constraints.maxWidth,
+                                      1.0,
+                                    );
 
-                                  return ClipRect(
-                                    child: Stack(
-                                      children: [
-                                        // Current track — slides away during swipe.
-                                        Transform.translate(
-                                          offset: Offset(
-                                            carouselOffset * _textAreaWidth,
-                                            0,
-                                          ),
-                                          child: _TrackLabel(
-                                            title: effectiveCurrentTrack?.title,
-                                            subtitle: effectiveCurrentTrack
-                                                ?.performer
-                                                ?.name,
-                                            entityId: effectiveCurrentTrack?.id,
-                                            dimmed: isOffline,
-                                          ),
-                                        ),
-
-                                        // Incoming track — slides in from the opposite edge.
-                                        // Gap is _carouselGap * textAreaWidth so it starts
-                                        // closer than the full width.
-                                        if (incomingTrack != null)
+                                    return ClipRect(
+                                      child: Stack(
+                                        children: [
+                                          // Current track — slides away during swipe.
                                           Transform.translate(
                                             offset: Offset(
-                                              _swipeIsNext == true
-                                                  // Next: enters from the right
-                                                  ? (carouselOffset +
-                                                            _carouselGap) *
-                                                        _textAreaWidth
-                                                  // Prev: enters from the left
-                                                  : (carouselOffset -
-                                                            _carouselGap) *
-                                                        _textAreaWidth,
+                                              carouselOffset * _textAreaWidth,
                                               0,
                                             ),
                                             child: _TrackLabel(
-                                              title: incomingTrack.title,
-                                              subtitle:
-                                                  incomingTrack.performer?.name,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              entityId: incomingTrack.id,
+                                              title: effectiveCurrentTrack?.title,
+                                              subtitle: effectiveCurrentTrack
+                                                  ?.performer
+                                                  ?.name,
+                                              entityId: effectiveCurrentTrack?.id,
                                             ),
                                           ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
 
-                            // ── Play/pause — stationary, 46×46 ───────────────────
-                            IgnorePointer(
-                              ignoring: isOffline,
-                              child: Opacity(
-                                opacity: isOffline ? 0.3 : 1.0,
+                                          // Incoming track — slides in from the opposite edge.
+                                          // Gap is _carouselGap * textAreaWidth so it starts
+                                          // closer than the full width.
+                                          if (incomingTrack != null)
+                                            Transform.translate(
+                                              offset: Offset(
+                                                _swipeIsNext == true
+                                                    // Next: enters from the right
+                                                    ? (carouselOffset +
+                                                              _carouselGap) *
+                                                          _textAreaWidth
+                                                    // Prev: enters from the left
+                                                    : (carouselOffset -
+                                                              _carouselGap) *
+                                                          _textAreaWidth,
+                                                0,
+                                              ),
+                                              child: _TrackLabel(
+                                                title: incomingTrack.title,
+                                                subtitle:
+                                                    incomingTrack.performer?.name,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                entityId: incomingTrack.id,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+
+                              // ── Play/pause — stationary, 46×46 ───────────────────
+                              IgnorePointer(
+                                ignoring: isOffline,
                                 child: GestureDetector(
                                   onTapDown: isPlayPauseDisabled(playerState)
                                       ? null
@@ -537,6 +579,12 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                                   ),
                                             ),
                                           )
+                                        : playerState == PlayerStateType.error
+                                        ? const Icon(
+                                            Icons.warning_rounded,
+                                            size: 22,
+                                            color: KalinkaColors.accent,
+                                          )
                                         : Icon(
                                             playerState ==
                                                     PlayerStateType.playing
@@ -548,8 +596,8 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -570,7 +618,6 @@ class _TrackLabel extends StatelessWidget {
   final String? title;
   final String? subtitle;
   final CrossAxisAlignment crossAxisAlignment;
-  final bool dimmed;
 
   /// When set, a [SourceBadge] is appended to the subtitle line.
   final String? entityId;
@@ -580,21 +627,12 @@ class _TrackLabel extends StatelessWidget {
     this.subtitle,
     this.crossAxisAlignment = CrossAxisAlignment.start,
     this.entityId,
-    this.dimmed = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final titleStyle = dimmed
-        ? KalinkaTextStyles.miniPlayerTitle.copyWith(
-            color: KalinkaColors.textSecondary,
-          )
-        : KalinkaTextStyles.miniPlayerTitle;
-    final subtitleStyle = dimmed
-        ? KalinkaTextStyles.miniPlayerArtist.copyWith(
-            color: KalinkaColors.textSecondary,
-          )
-        : KalinkaTextStyles.miniPlayerArtist;
+    final titleStyle = KalinkaTextStyles.miniPlayerTitle;
+    final subtitleStyle = KalinkaTextStyles.miniPlayerArtist;
 
     return SizedBox.expand(
       child: Column(
