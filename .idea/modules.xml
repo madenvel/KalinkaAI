@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modules>
+  <module fileurl="file://$PROJECT_DIR$/kalinka.iml" filepath="$PROJECT_DIR$/kalinka.iml" />
+  <module fileurl="file://$PROJECT_DIR$/android/kai_android.iml" filepath="$PROJECT_DIR$/android/kai_android.iml" />
+</modules>
