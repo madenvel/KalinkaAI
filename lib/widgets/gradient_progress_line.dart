@@ -6,6 +6,12 @@ import '../theme/app_theme.dart';
 enum GradientProgressLineMode { normal, reconnecting, offline }
 
 /// A mini-player progress line with online/reconnecting/offline visual modes.
+///
+/// In [GradientProgressLineMode.normal] the filled portion uses the standard
+/// progress gradient. In [reconnecting] and [offline] modes the bar shows a
+/// full-width shimmer sweep instead of a progress fill, so the user knows the
+/// position can't be trusted. A faint echo of the last-known position is still
+/// drawn underneath the shimmer.
 class GradientProgressLine extends StatefulWidget {
   final double progress;
   final double height;
@@ -26,16 +32,21 @@ class _GradientProgressLineState extends State<GradientProgressLine>
     with SingleTickerProviderStateMixin {
   late final AnimationController _shimmerController;
 
-  bool get _shouldAnimateShimmer =>
-      widget.mode == GradientProgressLineMode.reconnecting &&
-      widget.progress < 1.0;
+  bool get _isDisconnected =>
+      widget.mode == GradientProgressLineMode.reconnecting ||
+      widget.mode == GradientProgressLineMode.offline;
+
+  Duration get _shimmerDuration =>
+      widget.mode == GradientProgressLineMode.offline
+          ? const Duration(milliseconds: 1800)
+          : const Duration(milliseconds: 1200);
 
   @override
   void initState() {
     super.initState();
     _shimmerController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: _shimmerDuration,
     );
     _syncShimmerAnimation();
   }
@@ -50,7 +61,8 @@ class _GradientProgressLineState extends State<GradientProgressLine>
   }
 
   void _syncShimmerAnimation() {
-    if (_shouldAnimateShimmer) {
+    if (_isDisconnected) {
+      _shimmerController.duration = _shimmerDuration;
       if (!_shimmerController.isAnimating) {
         _shimmerController.repeat(reverse: true);
       }
@@ -71,7 +83,7 @@ class _GradientProgressLineState extends State<GradientProgressLine>
 
   @override
   Widget build(BuildContext context) {
-    if (widget.mode == GradientProgressLineMode.reconnecting) {
+    if (_isDisconnected) {
       return AnimatedBuilder(
         animation: _shimmerController,
         builder: (context, _) {
@@ -111,59 +123,61 @@ class _GradientProgressPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
-    final fillWidth = size.width * clampedProgress;
-
     // Background track
     final bgPaint = Paint()..color = KalinkaColors.borderSubtle;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
-    if (fillWidth > 0) {
-      final fillPaint = Paint();
-      if (mode == GradientProgressLineMode.offline) {
-        fillPaint.color = KalinkaColors.textMuted;
-      } else {
-        fillPaint.shader = KalinkaColors.progressGradient.createShader(
-          Rect.fromLTWH(0, 0, size.width, size.height),
+    if (mode == GradientProgressLineMode.normal) {
+      final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
+      final fillWidth = size.width * clampedProgress;
+      if (fillWidth > 0) {
+        final fillPaint = Paint()
+          ..shader = KalinkaColors.progressGradient.createShader(
+            Rect.fromLTWH(0, 0, size.width, size.height),
+          );
+        canvas.drawRect(
+          Rect.fromLTWH(0, 0, fillWidth, size.height),
+          fillPaint,
         );
       }
-      canvas.drawRect(Rect.fromLTWH(0, 0, fillWidth, size.height), fillPaint);
+      return;
     }
 
-    if (mode == GradientProgressLineMode.reconnecting &&
-        fillWidth < size.width) {
-      // Sweep a soft highlight across the unfilled portion while reconnecting.
-      final remainingWidth = size.width - fillWidth;
-      final shimmerWidth = remainingWidth.clamp(10.0, 56.0).toDouble();
-      final travelDistance = math.max(remainingWidth - shimmerWidth, 0.0);
-      final shimmerLeft = fillWidth + (shimmerProgress * travelDistance);
+    // Disconnected modes: replace progress fill with a full-width shimmer.
+    final shimmerColor = mode == GradientProgressLineMode.offline
+        ? KalinkaColors.statusOffline
+        : KalinkaColors.statusPending;
 
-      final reconnectRect = Rect.fromLTWH(
-        fillWidth,
-        0,
-        remainingWidth,
-        size.height,
+    // Faint echo of the last-known position so users can see where it was.
+    final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
+    final fillWidth = size.width * clampedProgress;
+    if (fillWidth > 0) {
+      final echoPaint = Paint()
+        ..color = shimmerColor.withValues(alpha: 0.18);
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, fillWidth, size.height),
+        echoPaint,
       );
-      final shimmerRect = Rect.fromLTWH(
-        shimmerLeft,
-        0,
-        shimmerWidth,
-        size.height,
-      ).intersect(reconnectRect);
-
-      if (shimmerRect.width > 0) {
-        final shimmerPaint = Paint()
-          ..shader = LinearGradient(
-            colors: [
-              KalinkaColors.statusPending.withValues(alpha: 0.0),
-              KalinkaColors.statusPending.withValues(alpha: 0.45),
-              KalinkaColors.statusPending.withValues(alpha: 0.0),
-            ],
-            stops: [0.0, 0.5, 1.0],
-          ).createShader(shimmerRect);
-        canvas.drawRect(shimmerRect, shimmerPaint);
-      }
     }
+
+    // Shimmer sweep — wide brush travelling left→right across the full bar.
+    final shimmerWidth = (size.width * 0.45).clamp(20.0, 160.0).toDouble();
+    final travelDistance = math.max(size.width - shimmerWidth, 0.0);
+    final shimmerLeft = shimmerProgress * travelDistance;
+    final shimmerRect = Rect.fromLTWH(shimmerLeft, 0, shimmerWidth, size.height);
+
+    final shimmerAlpha =
+        mode == GradientProgressLineMode.offline ? 0.35 : 0.50;
+    final shimmerPaint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          shimmerColor.withValues(alpha: 0.0),
+          shimmerColor.withValues(alpha: shimmerAlpha),
+          shimmerColor.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(shimmerRect);
+    canvas.drawRect(shimmerRect, shimmerPaint);
   }
 
   @override
