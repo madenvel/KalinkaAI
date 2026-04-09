@@ -284,12 +284,14 @@ class KalinkaTextStyles {
 
   // Expanded player
   static TextStyle expandedTitle = KalinkaFonts.display(
-    fontSize: KalinkaTypography.baseSize + 20,
+    fontSize: KalinkaTypography.baseSize + 15,
+    fontWeight: FontWeight.w500,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle expandedArtist = KalinkaFonts.sans(
-    fontSize: KalinkaTypography.baseSize + 7,
+    fontSize: KalinkaTypography.baseSize + 5,
+    fontWeight: FontWeight.w500,
     color: KalinkaColors.textPrimary,
   );
 
@@ -375,6 +377,7 @@ class KalinkaTextStyles {
 
   static TextStyle trackRowSubtitle = KalinkaFonts.sans(
     fontSize: KalinkaTypography.baseSize,
+    fontWeight: FontWeight.w500,
     color: KalinkaColors.textSecondary,
   );
 
@@ -494,12 +497,14 @@ class KalinkaTextStyles {
 
   static TextStyle trayRowLabel = KalinkaFonts.sans(
     fontSize: KalinkaTypography.baseSize + 4,
+    fontWeight: FontWeight.w500,
     letterSpacing: -0.1,
     color: KalinkaColors.textPrimary,
   );
 
   static TextStyle trayRowSublabel = KalinkaFonts.sans(
     fontSize: KalinkaTypography.baseSize + 1,
+    fontWeight: FontWeight.w500,
     color: KalinkaColors.textSecondary,
   );
 
@@ -585,7 +590,7 @@ class KalinkaTextStyles {
   /// Recent search chip label
   static TextStyle recentChipLabel = KalinkaFonts.sans(
     fontSize: KalinkaTypography.baseSize + 3,
-    fontWeight: FontWeight.w400,
+    fontWeight: FontWeight.w500,
     color: KalinkaColors.textSecondary,
   );
 
@@ -606,7 +611,7 @@ class KalinkaTextStyles {
   /// "Clear all" button in the chip row
   static TextStyle clearAllChips = KalinkaFonts.sans(
     fontSize: KalinkaTypography.baseSize + 2,
-    fontWeight: FontWeight.w400,
+    fontWeight: FontWeight.w500,
     color: KalinkaColors.textMuted,
   );
 }
