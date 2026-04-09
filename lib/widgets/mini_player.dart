@@ -62,7 +62,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
   static const double _carouselGap = 1.15;
 
   /// Auto-commit threshold as a fraction of the configured gap.
-  static const double _commitThreshold = 0.4;
+  static const double _commitThreshold = 0.3;
 
   /// Content moves at 70% of finger speed — gives a tactile "dragging against something" feel.
   static const double _carouselResistance = 0.70;
@@ -340,10 +340,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
 
     ref.listen(
       playQueueStateStoreProvider.select(
-        (s) => (
-          state: s.playbackState.state,
-          message: s.playbackState.message,
-        ),
+        (s) => (state: s.playbackState.state, message: s.playbackState.message),
       ),
       (prev, next) {
         if (next.state == PlayerStateType.error &&
@@ -501,11 +498,13 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                               0,
                                             ),
                                             child: _TrackLabel(
-                                              title: effectiveCurrentTrack?.title,
+                                              title:
+                                                  effectiveCurrentTrack?.title,
                                               subtitle: effectiveCurrentTrack
                                                   ?.performer
                                                   ?.name,
-                                              entityId: effectiveCurrentTrack?.id,
+                                              entityId:
+                                                  effectiveCurrentTrack?.id,
                                             ),
                                           ),
 
@@ -528,8 +527,9 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                               ),
                                               child: _TrackLabel(
                                                 title: incomingTrack.title,
-                                                subtitle:
-                                                    incomingTrack.performer?.name,
+                                                subtitle: incomingTrack
+                                                    .performer
+                                                    ?.name,
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 entityId: incomingTrack.id,
