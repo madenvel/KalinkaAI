@@ -97,9 +97,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         await _animateClose();
       }
     } catch (e) {
+      // Reset connection state so the retry timer / websocket take over.
+      connection.startReconnecting();
       if (mounted) {
         setState(() {
-          _isConnecting = false;
           _connectError = 'Could not connect. Check the address and try again.';
         });
       }

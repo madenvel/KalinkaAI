@@ -1,4 +1,5 @@
 import 'dart:async' show StreamSubscription, Timer;
+import 'dart:io' show RawDatagramSocket;
 
 import 'package:dio/dio.dart' show Dio, BaseOptions;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -95,7 +96,34 @@ class DiscoveryNotifier extends Notifier<DiscoveryState> {
     });
 
     try {
-      _client = MDnsClient();
+      _client = MDnsClient(
+        rawDatagramSocketFactory: (
+          dynamic host,
+          int port, {
+          bool reuseAddress = false,
+          bool reusePort = false,
+          int ttl = 1,
+        }) async {
+          try {
+            return await RawDatagramSocket.bind(
+              host,
+              port,
+              reuseAddress: reuseAddress,
+              reusePort: reusePort,
+              ttl: ttl,
+            );
+          } catch (_) {
+            // SO_REUSEPORT is not supported on some Android kernels — retry without it.
+            return RawDatagramSocket.bind(
+              host,
+              port,
+              reuseAddress: reuseAddress,
+              reusePort: false,
+              ttl: ttl,
+            );
+          }
+        },
+      );
       await _client!.start();
 
       const serviceType = '_kalinkaplayer._tcp.local';
