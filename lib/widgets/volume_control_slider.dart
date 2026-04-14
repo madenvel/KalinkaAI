@@ -34,7 +34,7 @@ class _NowPlayingVolumeControlState
     _extDeviceStateStoreProviderSubscription = ref.listenManual<int>(
       extDeviceStateStoreProvider.select((s) => s.seq),
       (prev, next) {
-        if (_isAdjustingVolume && next != _volumeBeforeSeq) {
+        if (_isAdjustingVolume && _volumeBeforeSeq != null && next != _volumeBeforeSeq) {
           setState(() {
             _isAdjustingVolume = false;
             _volumeBeforeSeq = null;

@@ -90,6 +90,7 @@ class KalinkaMediaService : Service() {
 
     // --- Volume echo suppression ---
     private var volumeChangeModeActive = false
+    private var volumeKnown = false  // true after first applyVolume; guards against stale-default commands
     private val clearVolumeModeRunnable = Runnable { volumeChangeModeActive = false }
 
     // --- Volume send debounce ---
@@ -382,6 +383,7 @@ class KalinkaMediaService : Service() {
 
     private fun applyVolume(newCurrent: Int, newMax: Int) {
         currentVolume = newCurrent
+        volumeKnown = true
         if (newMax != maxVolume) {
             maxVolume = newMax
             setupVolumeProvider(newMax, newCurrent)
@@ -430,12 +432,14 @@ class KalinkaMediaService : Service() {
         ) {
             override fun onAdjustVolume(direction: Int) {
                 if (direction != 1 && direction != -1) return
+                if (!this@KalinkaMediaService.volumeKnown) return
                 val newVol = (currentVolume + direction).coerceIn(0, maxVol)
                 currentVolume = newVol
                 enterVolumeSuppressMode()
                 scheduleVolumeCommand(newVol)
             }
             override fun onSetVolumeTo(volume: Int) {
+                if (!this@KalinkaMediaService.volumeKnown) return
                 val newVol = volume.coerceIn(0, maxVol)
                 currentVolume = newVol
                 enterVolumeSuppressMode()
