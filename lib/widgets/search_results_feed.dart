@@ -8,12 +8,13 @@ import '../providers/search_state_provider.dart';
 import '../providers/selection_state_provider.dart';
 import 'browse_list.dart';
 import 'search_cards/ai_suggestion_card.dart';
-import 'search_cards/artist_section.dart';
+import 'search_cards/results_count_line.dart';
+import 'search_cards/results_filter_chip_row.dart';
 import 'search_cards/search_album_row.dart';
+import 'search_cards/search_artist_row.dart';
 import 'search_cards/search_playlist_row.dart';
 import 'search_cards/search_track_row.dart';
 import 'search_cards/section_header.dart';
-import 'search_cards/show_more_row.dart';
 import 'selection_overlay.dart';
 import 'zero_state_surface.dart';
 import '../theme/app_theme.dart';
@@ -36,7 +37,9 @@ class SearchResultsFeed extends ConsumerStatefulWidget {
 class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     with SingleTickerProviderStateMixin {
   late AnimationController _staggerController;
+  final ScrollController _scrollController = ScrollController();
   int _previousResultCount = -1;
+  ResultsFilterType _previousFilter = ResultsFilterType.all;
 
   @override
   void initState() {
@@ -50,6 +53,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
   @override
   void dispose() {
     _staggerController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -86,6 +90,16 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         connectionStatus == ConnectionStatus.reconnecting ||
         connectionStatus == ConnectionStatus.offline;
 
+    // Reset scroll on filter change
+    if (searchState.resultsFilter != _previousFilter) {
+      _previousFilter = searchState.resultsFilter;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(0);
+        }
+      });
+    }
+
     Widget content;
 
     switch (searchState.searchPhase) {
@@ -113,7 +127,9 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         } else {
           inner = _buildSkeletonLoading();
         }
-        content = _wrapWithFilterPills(inner, searchState);
+        content = searchState.searchResults != null
+            ? _wrapWithResultsFilter(inner, searchState)
+            : inner;
 
       case SearchPhase.results:
         // Full results
@@ -127,7 +143,9 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         } else {
           inner = _buildSkeletonLoading();
         }
-        content = _wrapWithFilterPills(inner, searchState);
+        content = searchState.searchResults != null
+            ? _wrapWithResultsFilter(inner, searchState)
+            : inner;
 
       case SearchPhase.cleared:
         // Session history only (1-2 items)
@@ -182,22 +200,29 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     );
   }
 
-  /// Wraps results content with a pinned filter pill row when a filter is active.
-  Widget _wrapWithFilterPills(Widget inner, SearchState searchState) {
-    final hasActiveFilter =
-        searchState.activeScopeFilter != null ||
-        searchState.activeGenreId != null;
-    if (!hasActiveFilter) return inner;
+  /// Wraps results content with the type-based filter chip row.
+  Widget _wrapWithResultsFilter(Widget inner, SearchState searchState) {
+    final counts = _resultCounts(searchState);
     return Column(
       children: [
-        SearchFilterPillRow(
-          searchState: searchState,
-          onScopeToggle: (type) =>
-              ref.read(searchStateProvider.notifier).toggleScopeFilter(type),
+        ResultsFilterChipRow(
+          activeFilter: searchState.resultsFilter,
+          counts: counts,
+          onFilterChanged: (type) =>
+              ref.read(searchStateProvider.notifier).setResultsFilter(type),
         ),
         Expanded(child: inner),
       ],
     );
+  }
+
+  Map<SearchType, int> _resultCounts(SearchState searchState) {
+    final results = searchState.searchResults;
+    if (results == null) return {};
+    return {
+      for (final entry in results.entries)
+        entry.key: entry.value.items.length,
+    };
   }
 
   Widget _buildErrorView(String error) {
@@ -319,243 +344,162 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     final albums = results[SearchType.album]?.items ?? [];
     final artists = results[SearchType.artist]?.items ?? [];
     final playlists = results[SearchType.playlist]?.items ?? [];
-    const albumDisplayLimit = 5;
-    const playlistDisplayLimit = 5;
+    final filter = searchState.resultsFilter;
+    final notifier = ref.read(searchStateProvider.notifier);
+    final counts = _resultCounts(searchState);
 
-    // Count total items for stagger animation
-    final trackDisplayCount = searchState.tracksExpanded
-        ? tracks.length
-        : min<int>(3, tracks.length);
-    final albumsVisibleCount = searchState.albumsExpanded
-        ? albums.length
-        : min<int>(albumDisplayLimit, albums.length);
-    final playlistsVisibleCount = searchState.playlistsExpanded
-        ? playlists.length
-        : min<int>(playlistDisplayLimit, playlists.length);
-    final totalItems =
-        1 + // AI card
-        trackDisplayCount +
-        albumsVisibleCount +
-        playlistsVisibleCount;
+    // Truncation limits for "All" view
+    const artistLimit = 3;
+    const albumLimit = 5;
+    const trackLimit = 3;
+    const playlistLimit = 5;
+
+    // Count visible items for stagger animation
+    int totalItems = 0;
+    if (filter == ResultsFilterType.all) {
+      totalItems = min<int>(artistLimit, artists.length) +
+          min<int>(albumLimit, albums.length) +
+          min<int>(trackLimit, tracks.length) +
+          min<int>(playlistLimit, playlists.length);
+    } else {
+      totalItems = switch (filter) {
+        ResultsFilterType.artists => artists.length,
+        ResultsFilterType.albums => albums.length,
+        ResultsFilterType.tracks => tracks.length,
+        ResultsFilterType.playlists => playlists.length,
+        ResultsFilterType.all => 0,
+      };
+    }
+    if (searchState.isAiEnabled) totalItems += 1;
     _triggerStagger(totalItems);
 
-    int itemIndex = 1; // 0 is reserved for the AI suggestion card.
-    final albumStartIndex = itemIndex;
-    itemIndex += albumsVisibleCount;
-    final trackStartIndex = itemIndex;
-    itemIndex += trackDisplayCount;
-    final playlistStartIndex = itemIndex;
+    int staggerIdx = 0;
 
-    return ListView(
-      padding: EdgeInsets.fromLTRB(10, 0, 10, widget.bottomPadding),
-      children: [
-        // Result count hint
-        if (searchState.totalResultCount > 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 8),
-            child: Text(
-              '${searchState.totalResultCount} RESULTS \u00B7 RANKED BY RELEVANCE',
-              style: KalinkaTextStyles.resultCountHint,
-            ),
-          ),
-        // AI Suggestion Card (always first when present)
-        if (searchState.isAiEnabled) ...[
-          _StaggeredItem(
-            index: 0,
-            controller: _staggerController,
-            totalItems: totalItems,
-            child: const AiSuggestionCard(),
-          ),
-          const SizedBox(height: 16),
-        ],
+    const divider = Divider(
+      color: KalinkaColors.borderSubtle,
+      thickness: 1,
+      height: 1,
+    );
+    final children = <Widget>[];
 
-        // Artists section
-        if (artists.isNotEmpty) ...[
-          SectionHeader(label: 'Artists', count: artists.length),
-          ArtistSection(artists: artists),
-        ],
+    // Results count line
+    children.add(ResultsCountLine(counts: counts));
 
-        if (artists.isNotEmpty) const SizedBox(height: 10),
+    // AI Suggestion Card (always first when present)
+    if (searchState.isAiEnabled) {
+      children.add(
+        _StaggeredItem(
+          index: staggerIdx++,
+          controller: _staggerController,
+          totalItems: totalItems,
+          child: const AiSuggestionCard(),
+        ),
+      );
+      children.add(const SizedBox(height: 16));
+    }
 
-        // Albums section
-        if (albums.isNotEmpty) ...[
-          SectionHeader(label: 'Albums', count: albums.length),
-          ..._buildAlbumsSection(
-            ref,
-            albums,
-            searchState,
-            albumDisplayLimit,
-            albumStartIndex,
-            totalItems,
-          ),
-        ],
+    void addItemsWithDividers(List<BrowseItem> items, Widget Function(BrowseItem) builder) {
+      for (int i = 0; i < items.length; i++) {
+        children.add(_StaggeredItem(
+          index: staggerIdx++,
+          controller: _staggerController,
+          totalItems: totalItems,
+          child: builder(items[i]),
+        ));
+        if (i < items.length - 1) {
+          children.add(divider);
+        }
+      }
+    }
 
-        if (albums.isNotEmpty) const SizedBox(height: 10),
+    if (filter == ResultsFilterType.all) {
+      // ── Artists section ──
+      if (artists.isNotEmpty) {
+        children.add(SectionHeader(
+            label: 'Artists',
+            count: artists.length,
+            showDivider: false,
+            onOnlyTap: () => notifier.setResultsFilter(ResultsFilterType.artists),
+        ));
+        addItemsWithDividers(
+          artists.take(artistLimit).toList(),
+          (a) => SearchArtistRow(item: a),
+        );
+        children.add(const SizedBox(height: 10));
+      }
 
-        // Tracks section
-        if (tracks.isNotEmpty) ...[
-          SectionHeader(
+      // ── Albums section ──
+      if (albums.isNotEmpty) {
+        children.add(SectionHeader(
+            label: 'Albums',
+            count: albums.length,
+            showDivider: artists.isNotEmpty,
+            onOnlyTap: () => notifier.setResultsFilter(ResultsFilterType.albums),
+        ));
+        addItemsWithDividers(
+          albums.take(albumLimit).toList(),
+          (a) => SearchAlbumRow(item: a),
+        );
+        children.add(const SizedBox(height: 10));
+      }
+
+      // ── Tracks section ──
+      if (tracks.isNotEmpty) {
+        children.add(SectionHeader(
             label: 'Tracks',
             count: tracks.length,
-            showDivider: false,
-          ),
-          ..._buildTracksSection(
-            ref,
-            tracks,
-            searchState,
-            trackStartIndex,
-            totalItems,
-          ),
-        ],
+            showDivider: artists.isNotEmpty || albums.isNotEmpty,
+            onOnlyTap: () => notifier.setResultsFilter(ResultsFilterType.tracks),
+        ));
+        addItemsWithDividers(
+          tracks.take(trackLimit).toList(),
+          (t) => SearchTrackRow(item: t),
+        );
+        children.add(const SizedBox(height: 10));
+      }
 
-        // Playlists section
-        if (playlists.isNotEmpty) ...[
-          SectionHeader(label: 'Playlists', count: playlists.length),
-          ..._buildPlaylistsSection(
-            ref,
-            playlists,
-            searchState,
-            playlistDisplayLimit,
-            playlistStartIndex,
-            totalItems,
-          ),
-        ],
-      ],
+      // ── Playlists section ──
+      if (playlists.isNotEmpty) {
+        children.add(SectionHeader(
+            label: 'Playlists',
+            count: playlists.length,
+            showDivider: artists.isNotEmpty || albums.isNotEmpty || tracks.isNotEmpty,
+            onOnlyTap: () => notifier.setResultsFilter(ResultsFilterType.playlists),
+        ));
+        addItemsWithDividers(
+          playlists.take(playlistLimit).toList(),
+          (p) => SearchPlaylistRow(item: p),
+        );
+      }
+    } else {
+      // ── Filtered view: show all items of the selected type ──
+      final List<BrowseItem> items;
+      Widget Function(BrowseItem) builder;
+      switch (filter) {
+        case ResultsFilterType.artists:
+          items = artists;
+          builder = (item) => SearchArtistRow(item: item);
+        case ResultsFilterType.albums:
+          items = albums;
+          builder = (item) => SearchAlbumRow(item: item);
+        case ResultsFilterType.tracks:
+          items = tracks;
+          builder = (item) => SearchTrackRow(item: item);
+        case ResultsFilterType.playlists:
+          items = playlists;
+          builder = (item) => SearchPlaylistRow(item: item);
+        case ResultsFilterType.all:
+          items = [];
+          builder = (_) => const SizedBox.shrink();
+      }
+      addItemsWithDividers(items, builder);
+    }
+
+    return ListView(
+      controller: _scrollController,
+      padding: EdgeInsets.fromLTRB(16, 0, 16, widget.bottomPadding),
+      children: children,
     );
-  }
-
-  List<Widget> _buildTracksSection(
-    WidgetRef ref,
-    List<BrowseItem> tracks,
-    SearchState searchState,
-    int startIndex,
-    int totalItems,
-  ) {
-    final isExpanded = searchState.tracksExpanded;
-    final displayCount = isExpanded ? tracks.length : min(3, tracks.length);
-    final remaining = tracks.length - 3;
-
-    return [
-      for (int i = 0; i < displayCount; i++)
-        _StaggeredItem(
-          index: startIndex + i,
-          controller: _staggerController,
-          totalItems: totalItems,
-          child: SearchTrackRow(item: tracks[i]),
-        ),
-      if (!isExpanded && remaining > 0)
-        ShowMoreRow(
-          remainingCount: remaining,
-          isExpanded: false,
-          onTap: () =>
-              ref.read(searchStateProvider.notifier).toggleTracksExpanded(),
-        ),
-      if (isExpanded && tracks.length > 3)
-        ShowMoreRow(
-          remainingCount: 0,
-          isExpanded: true,
-          onTap: () =>
-              ref.read(searchStateProvider.notifier).toggleTracksExpanded(),
-        ),
-    ];
-  }
-
-  List<Widget> _buildAlbumsSection(
-    WidgetRef ref,
-    List<BrowseItem> albums,
-    SearchState searchState,
-    int limit,
-    int startIndex,
-    int totalItems,
-  ) {
-    final isExpanded = searchState.albumsExpanded;
-    final displayCount = isExpanded ? albums.length : min(limit, albums.length);
-    final remaining = albums.length - limit;
-
-    return [
-      for (int i = 0; i < displayCount; i++)
-        _StaggeredItem(
-          index: startIndex + i,
-          controller: _staggerController,
-          totalItems: totalItems,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Container(
-              decoration: BoxDecoration(
-                color: KalinkaColors.surfaceBase,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: KalinkaColors.borderSubtle),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: SearchAlbumRow(item: albums[i]),
-            ),
-          ),
-        ),
-      if (!isExpanded && remaining > 0)
-        ShowMoreRow(
-          remainingCount: remaining,
-          isExpanded: false,
-          onTap: () =>
-              ref.read(searchStateProvider.notifier).toggleAlbumsExpanded(),
-        ),
-      if (isExpanded && albums.length > limit)
-        ShowMoreRow(
-          remainingCount: 0,
-          isExpanded: true,
-          onTap: () =>
-              ref.read(searchStateProvider.notifier).toggleAlbumsExpanded(),
-        ),
-    ];
-  }
-
-  List<Widget> _buildPlaylistsSection(
-    WidgetRef ref,
-    List<BrowseItem> playlists,
-    SearchState searchState,
-    int limit,
-    int startIndex,
-    int totalItems,
-  ) {
-    final isExpanded = searchState.playlistsExpanded;
-    final displayCount = isExpanded
-        ? playlists.length
-        : min(limit, playlists.length);
-    final remaining = playlists.length - limit;
-
-    return [
-      for (int i = 0; i < displayCount; i++)
-        _StaggeredItem(
-          index: startIndex + i,
-          controller: _staggerController,
-          totalItems: totalItems,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SearchPlaylistRow(item: playlists[i]),
-              if (i < displayCount - 1)
-                const Divider(
-                  color: KalinkaColors.borderSubtle,
-                  thickness: 1,
-                  height: 1,
-                ),
-            ],
-          ),
-        ),
-      if (!isExpanded && remaining > 0)
-        ShowMoreRow(
-          remainingCount: remaining,
-          isExpanded: false,
-          onTap: () =>
-              ref.read(searchStateProvider.notifier).togglePlaylistsExpanded(),
-        ),
-      if (isExpanded && playlists.length > limit)
-        ShowMoreRow(
-          remainingCount: 0,
-          isExpanded: true,
-          onTap: () =>
-              ref.read(searchStateProvider.notifier).togglePlaylistsExpanded(),
-        ),
-    ];
   }
 
   Widget _buildBrowseRecommendations(

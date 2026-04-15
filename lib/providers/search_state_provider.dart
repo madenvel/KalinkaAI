@@ -42,6 +42,9 @@ enum SearchPhase { inactive, activated, typing, results, cleared }
 /// Scope filter pills (non-genre)
 enum FilterPillType { favourites, myPlaylists }
 
+/// Type-based filter for results screen
+enum ResultsFilterType { all, artists, albums, tracks, playlists }
+
 /// Stub AI prompt suggestions for zero-state
 const _stubAiPromptSuggestions = [
   'something melancholic for tonight',
@@ -61,15 +64,11 @@ class SearchState {
   final List<LibrarySection>? librarySections;
   final Set<String> expandedLibrarySectionIds;
   final String? error;
-  final String? expandedAlbumId;
-  final String? artistPreviewId;
-  final bool tracksExpanded;
-  final bool albumsExpanded;
-  final bool artistsExpanded;
-  final int artistVisibleCount;
-  final bool playlistsExpanded;
-  final String? expandedAlbumIdWithinArtist;
+  final Set<String> expandedAlbumIds;
+  final Set<String> expandedArtistIds;
+  final Set<String> expandedAlbumIdsWithinArtist;
   final Set<String> artistMoreAlbumsExpanded;
+  final ResultsFilterType resultsFilter;
   final Set<String> albumMoreTracksExpanded;
   final List<String> sessionHistory;
   final List<String> completions;
@@ -107,15 +106,11 @@ class SearchState {
     this.librarySections,
     this.expandedLibrarySectionIds = const {},
     this.error,
-    this.expandedAlbumId,
-    this.artistPreviewId,
-    this.tracksExpanded = false,
-    this.albumsExpanded = false,
-    this.artistsExpanded = false,
-    this.artistVisibleCount = 5,
-    this.playlistsExpanded = false,
-    this.expandedAlbumIdWithinArtist,
+    this.expandedAlbumIds = const {},
+    this.expandedArtistIds = const {},
+    this.expandedAlbumIdsWithinArtist = const {},
     this.artistMoreAlbumsExpanded = const {},
+    this.resultsFilter = ResultsFilterType.all,
     this.albumMoreTracksExpanded = const {},
     this.sessionHistory = const [],
     this.completions = const [],
@@ -158,19 +153,12 @@ class SearchState {
     List<LibrarySection>? librarySections,
     Set<String>? expandedLibrarySectionIds,
     String? error,
-    String? expandedAlbumId,
-    String? artistPreviewId,
-    bool? tracksExpanded,
-    bool? albumsExpanded,
-    bool? artistsExpanded,
-    int? artistVisibleCount,
-    bool? playlistsExpanded,
-    bool clearExpandedAlbum = false,
-    bool clearArtistPreview = false,
-    String? expandedAlbumIdWithinArtist,
+    Set<String>? expandedAlbumIds,
+    Set<String>? expandedArtistIds,
+    Set<String>? expandedAlbumIdsWithinArtist,
     Set<String>? artistMoreAlbumsExpanded,
     Set<String>? albumMoreTracksExpanded,
-    bool clearExpandedAlbumWithinArtist = false,
+    ResultsFilterType? resultsFilter,
     List<String>? sessionHistory,
     List<String>? completions,
     String? aiCompletionSuggestion,
@@ -203,24 +191,15 @@ class SearchState {
       expandedLibrarySectionIds:
           expandedLibrarySectionIds ?? this.expandedLibrarySectionIds,
       error: clearError ? null : (error ?? this.error),
-      expandedAlbumId: clearExpandedAlbum
-          ? null
-          : (expandedAlbumId ?? this.expandedAlbumId),
-      artistPreviewId: clearArtistPreview
-          ? null
-          : (artistPreviewId ?? this.artistPreviewId),
-      tracksExpanded: tracksExpanded ?? this.tracksExpanded,
-      albumsExpanded: albumsExpanded ?? this.albumsExpanded,
-      artistsExpanded: artistsExpanded ?? this.artistsExpanded,
-      artistVisibleCount: artistVisibleCount ?? this.artistVisibleCount,
-      playlistsExpanded: playlistsExpanded ?? this.playlistsExpanded,
-      expandedAlbumIdWithinArtist: clearExpandedAlbumWithinArtist
-          ? null
-          : (expandedAlbumIdWithinArtist ?? this.expandedAlbumIdWithinArtist),
+      expandedAlbumIds: expandedAlbumIds ?? this.expandedAlbumIds,
+      expandedArtistIds: expandedArtistIds ?? this.expandedArtistIds,
+      expandedAlbumIdsWithinArtist:
+          expandedAlbumIdsWithinArtist ?? this.expandedAlbumIdsWithinArtist,
       artistMoreAlbumsExpanded:
           artistMoreAlbumsExpanded ?? this.artistMoreAlbumsExpanded,
       albumMoreTracksExpanded:
           albumMoreTracksExpanded ?? this.albumMoreTracksExpanded,
+      resultsFilter: resultsFilter ?? this.resultsFilter,
       sessionHistory: sessionHistory ?? this.sessionHistory,
       completions: completions ?? this.completions,
       aiCompletionSuggestion: clearAiCompletion
@@ -324,16 +303,12 @@ class SearchStateNotifier extends Notifier<SearchState> {
       query: '',
       clearSearchResults: true,
       clearError: true,
-      clearExpandedAlbum: true,
-      clearArtistPreview: true,
-      tracksExpanded: false,
-      albumsExpanded: false,
-      artistsExpanded: false,
-      artistVisibleCount: 5,
-      playlistsExpanded: false,
-      clearExpandedAlbumWithinArtist: true,
+      expandedAlbumIds: const {},
+      expandedArtistIds: const {},
+      expandedAlbumIdsWithinArtist: const {},
       artistMoreAlbumsExpanded: const {},
       albumMoreTracksExpanded: const {},
+      resultsFilter: ResultsFilterType.all,
       sessionHistory: const [],
       completions: const [],
       clearAiCompletion: true,
@@ -455,16 +430,12 @@ class SearchStateNotifier extends Notifier<SearchState> {
       completions: const [],
       clearAiCompletion: true,
       completionStripVisible: false,
-      clearExpandedAlbum: true,
-      clearArtistPreview: true,
-      tracksExpanded: false,
-      albumsExpanded: false,
-      artistsExpanded: false,
-      artistVisibleCount: 5,
-      playlistsExpanded: false,
-      clearExpandedAlbumWithinArtist: true,
+      expandedAlbumIds: const {},
+      expandedArtistIds: const {},
+      expandedAlbumIdsWithinArtist: const {},
       artistMoreAlbumsExpanded: const {},
       albumMoreTracksExpanded: const {},
+      resultsFilter: ResultsFilterType.all,
     );
   }
 
@@ -488,13 +459,11 @@ class SearchStateNotifier extends Notifier<SearchState> {
           completionStripVisible: false,
           completions: const [],
           clearAiCompletion: true,
-          artistVisibleCount: 5,
         );
       } else {
         state = state.copyWith(
           query: query,
           clearError: true,
-          artistVisibleCount: 5,
         );
       }
       return;
@@ -510,7 +479,6 @@ class SearchStateNotifier extends Notifier<SearchState> {
       completionStripVisible: true,
       completions: completions,
       aiCompletionSuggestion: _generateAiCompletion(trimmed),
-      artistVisibleCount: 5,
     );
 
     // Hide completion strip after 600ms of inactivity
@@ -745,37 +713,45 @@ class SearchStateNotifier extends Notifier<SearchState> {
     }
   }
 
-  void expandAlbum(String albumId) {
-    state = state.copyWith(expandedAlbumId: albumId, clearArtistPreview: true);
+  void toggleAlbumExpanded(String albumId) {
+    final updated = Set<String>.from(state.expandedAlbumIds);
+    if (updated.contains(albumId)) {
+      updated.remove(albumId);
+    } else {
+      updated.add(albumId);
+    }
+    state = state.copyWith(expandedAlbumIds: updated);
   }
 
-  void collapseAlbum() {
-    state = state.copyWith(clearExpandedAlbum: true);
+  void toggleArtistExpanded(String artistId) {
+    final updated = Set<String>.from(state.expandedArtistIds);
+    if (updated.contains(artistId)) {
+      updated.remove(artistId);
+    } else {
+      updated.add(artistId);
+    }
+    state = state.copyWith(expandedArtistIds: updated);
   }
 
-  void previewArtist(String artistId) {
+  void toggleAlbumWithinArtistExpanded(String albumId) {
+    final updated = Set<String>.from(state.expandedAlbumIdsWithinArtist);
+    if (updated.contains(albumId)) {
+      updated.remove(albumId);
+    } else {
+      updated.add(albumId);
+    }
+    state = state.copyWith(expandedAlbumIdsWithinArtist: updated);
+  }
+
+  void setResultsFilter(ResultsFilterType type) {
     state = state.copyWith(
-      artistPreviewId: artistId,
-      clearExpandedAlbum: true,
-      clearExpandedAlbumWithinArtist: true,
+      resultsFilter: type,
+      expandedAlbumIds: const {},
+      expandedArtistIds: const {},
+      expandedAlbumIdsWithinArtist: const {},
       artistMoreAlbumsExpanded: const {},
       albumMoreTracksExpanded: const {},
     );
-  }
-
-  void collapseArtistPreview() {
-    state = state.copyWith(
-      clearArtistPreview: true,
-      clearExpandedAlbumWithinArtist: true,
-    );
-  }
-
-  void expandAlbumWithinArtist(String albumId) {
-    state = state.copyWith(expandedAlbumIdWithinArtist: albumId);
-  }
-
-  void collapseAlbumWithinArtist() {
-    state = state.copyWith(clearExpandedAlbumWithinArtist: true);
   }
 
   void revealArtistMoreAlbums(String artistId) {
@@ -790,28 +766,6 @@ class SearchStateNotifier extends Notifier<SearchState> {
     state = state.copyWith(albumMoreTracksExpanded: updated);
   }
 
-  void toggleTracksExpanded() {
-    state = state.copyWith(tracksExpanded: !state.tracksExpanded);
-  }
-
-  void toggleAlbumsExpanded() {
-    state = state.copyWith(albumsExpanded: !state.albumsExpanded);
-  }
-
-  void toggleArtistsExpanded() {
-    state = state.copyWith(artistsExpanded: !state.artistsExpanded);
-  }
-
-  void showMoreArtists([int batchSize = 5]) {
-    state = state.copyWith(
-      artistVisibleCount: state.artistVisibleCount + batchSize,
-    );
-  }
-
-  void togglePlaylistsExpanded() {
-    state = state.copyWith(playlistsExpanded: !state.playlistsExpanded);
-  }
-
   void toggleLibrarySectionExpanded(String sectionId) {
     final updated = Set<String>.from(state.expandedLibrarySectionIds);
     if (updated.contains(sectionId)) {
@@ -824,16 +778,12 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
   void resetExpansions() {
     state = state.copyWith(
-      clearExpandedAlbum: true,
-      clearArtistPreview: true,
-      tracksExpanded: false,
-      albumsExpanded: false,
-      artistsExpanded: false,
-      artistVisibleCount: 5,
-      playlistsExpanded: false,
-      clearExpandedAlbumWithinArtist: true,
+      expandedAlbumIds: const {},
+      expandedArtistIds: const {},
+      expandedAlbumIdsWithinArtist: const {},
       artistMoreAlbumsExpanded: const {},
       albumMoreTracksExpanded: const {},
+      resultsFilter: ResultsFilterType.all,
     );
   }
 

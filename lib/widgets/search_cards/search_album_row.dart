@@ -17,6 +17,7 @@ import '../../utils/play_next.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
 import '../swipe_to_act_row.dart';
+import 'expand_chevron_button.dart';
 import 'long_press_ring_painter.dart';
 
 /// Album row for search results.
@@ -39,13 +40,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
   Timer? _longPressTimer;
 
   void _toggleExpand() {
-    final searchNotifier = ref.read(searchStateProvider.notifier);
-    final currentExpanded = ref.read(searchStateProvider).expandedAlbumId;
-    if (currentExpanded == widget.item.id) {
-      searchNotifier.collapseAlbum();
-    } else {
-      searchNotifier.expandAlbum(widget.item.id);
-    }
+    ref.read(searchStateProvider.notifier).toggleAlbumExpanded(widget.item.id);
   }
 
   Future<void> _addToQueue() async {
@@ -115,7 +110,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
   @override
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchStateProvider);
-    final isExpanded = searchState.expandedAlbumId == widget.item.id;
+    final isExpanded = searchState.expandedAlbumIds.contains(widget.item.id);
 
     final selection = ref.watch(selectionStateProvider);
     final selectionMode = selection.isActive;
@@ -136,7 +131,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
 
     final subtitleParts = <String>[
       if (artist.isNotEmpty) artist,
-      if (trackCount != null) '$trackCount tracks',
+      if (trackCount != null) '$trackCount ${trackCount == 1 ? 'track' : 'tracks'}',
     ];
     final subtitle = subtitleParts.join(' \u00B7 ');
 
@@ -163,16 +158,29 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
             behavior: HitTestBehavior.opaque,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: EdgeInsets.only(
+                top: 8, bottom: 8,
+                left: isExpanded || (selectionMode && isSelected) ? 0 : 3,
+                right: 0,
+              ),
               decoration: BoxDecoration(
                 color: selectionMode && isSelected
                     ? KalinkaColors.accent.withValues(alpha: 0.07)
-                    : Colors.transparent,
+                    : isExpanded
+                        ? KalinkaColors.surfaceRaised
+                        : Colors.transparent,
                 border: selectionMode && isSelected
                     ? const Border(
-                        left: BorderSide(color: KalinkaColors.accent, width: 2),
+                        left: BorderSide(color: KalinkaColors.accent, width: 3),
                       )
-                    : null,
+                    : isExpanded
+                        ? Border(
+                            left: BorderSide(
+                              color: KalinkaColors.accent.withValues(alpha: 0.40),
+                              width: 3,
+                            ),
+                          )
+                        : null,
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,38 +308,9 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Expand chevron button (always visible)
-                  Material(
-                    color: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      side: const BorderSide(
-                        color: KalinkaColors.borderDefault,
-                      ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: _toggleExpand,
-                      overlayColor: WidgetStateProperty.resolveWith((states) {
-                        if (states.contains(WidgetState.pressed)) {
-                          return Colors.white.withValues(alpha: 0.08);
-                        }
-                        return null;
-                      }),
-                      child: SizedBox(
-                        width: 28,
-                        height: 28,
-                        child: AnimatedRotation(
-                          turns: isExpanded ? 0.5 : 0.0,
-                          duration: const Duration(milliseconds: 200),
-                          child: const Icon(
-                            Icons.expand_more,
-                            size: 14,
-                            color: KalinkaColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ),
+                  ExpandChevronButton(
+                    isExpanded: isExpanded,
+                    onTap: _toggleExpand,
                   ),
                 ],
               ),
@@ -342,15 +321,26 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
         AnimatedCrossFade(
           firstChild: const SizedBox.shrink(),
           secondChild: isExpanded
-              ? _ExpandedAlbumTracks(albumId: widget.item.id)
+              ? Container(
+                  margin: const EdgeInsets.only(left: 16),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      left: BorderSide(
+                        color: KalinkaColors.borderSubtle,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: _ExpandedAlbumTracks(albumId: widget.item.id),
+                )
               : const SizedBox.shrink(),
           crossFadeState: isExpanded
               ? CrossFadeState.showSecond
               : CrossFadeState.showFirst,
-          duration: const Duration(milliseconds: 320),
-          firstCurve: Curves.easeInOutQuart,
-          secondCurve: Curves.easeInOutQuart,
-          sizeCurve: Curves.easeInOutQuart,
+          duration: const Duration(milliseconds: 200),
+          firstCurve: Curves.easeOut,
+          secondCurve: Curves.easeOut,
+          sizeCurve: Curves.easeOut,
         ),
       ],
     );
@@ -366,23 +356,16 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tracksAsync = ref.watch(browseDetailProvider(albumId));
 
-    return Container(
-      margin: const EdgeInsets.only(left: 16),
-      decoration: const BoxDecoration(
-        border: Border(
-          left: BorderSide(color: KalinkaColors.accentBorder, width: 1),
-        ),
-      ),
-      child: tracksAsync.when(
+    return tracksAsync.when(
         data: (browseList) {
           final tracks = browseList.items
               .where((item) => item.track != null)
               .toList();
 
           if (tracks.isEmpty) {
-            return _buildTrackList(browseList.items);
+            return _buildTrackList(browseList.items, ref);
           }
-          return _buildTrackList(tracks);
+          return _buildTrackList(tracks, ref);
         },
         loading: () => const Padding(
           padding: EdgeInsets.all(16),
@@ -401,23 +384,19 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
             style: KalinkaTextStyles.trackRowSubtitle,
           ),
         ),
-      ),
     );
   }
 
-  Widget _buildTrackList(List<BrowseItem> items) {
+  Widget _buildTrackList(List<BrowseItem> items, WidgetRef ref) {
     return Column(
       children: [
         for (int i = 0; i < items.length; i++) ...[
           _InlineTrackRow(item: items[i], index: i + 1, containerId: albumId),
           if (i < items.length - 1)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: Divider(
-                color: KalinkaColors.borderSubtle,
-                thickness: 1,
-                height: 1,
-              ),
+            const Divider(
+              color: KalinkaColors.borderSubtle,
+              thickness: 1,
+              height: 1,
             ),
         ],
       ],
