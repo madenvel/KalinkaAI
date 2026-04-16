@@ -587,9 +587,8 @@ class _BasedOnNowPlayingSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 24),
-        Text('BASED ON NOW PLAYING', style: KalinkaTextStyles.sectionLabel),
         const SizedBox(height: 12),
+        Text('BASED ON NOW PLAYING', style: KalinkaTextStyles.sectionLabel),
         if (librarySections != null)
           ..._buildSections(librarySections, expandedSectionIds)
         else if (searchState.isLoading)
@@ -626,7 +625,7 @@ class _BasedOnNowPlayingSection extends StatelessWidget {
 
       widgets.add(
         Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 4),
+          padding: const EdgeInsets.only(top: 18, bottom: 4),
           child: Text(
             sectionName.toUpperCase(),
             style: KalinkaTextStyles.sectionLabel.copyWith(
@@ -637,7 +636,8 @@ class _BasedOnNowPlayingSection extends StatelessWidget {
         ),
       );
 
-      for (final item in visibleItems) {
+      for (int i = 0; i < visibleItems.length; i++) {
+        final item = visibleItems[i];
         final Widget row;
         if (item.track != null) {
           row = SearchTrackRow(item: item);
@@ -649,6 +649,13 @@ class _BasedOnNowPlayingSection extends StatelessWidget {
           row = SearchAlbumRow(item: item);
         }
         widgets.add(row);
+        if (i < visibleItems.length - 1) {
+          widgets.add(const Divider(
+            color: KalinkaColors.borderSubtle,
+            thickness: 1,
+            height: 1,
+          ));
+        }
       }
 
       if (allItems.length > 3) {
@@ -705,7 +712,15 @@ class _RecentlyFavouritedSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        ...displayItems.map((item) => _buildRow(item)),
+        for (int i = 0; i < displayItems.length; i++) ...[
+          _buildRow(displayItems[i]),
+          if (i < displayItems.length - 1)
+            const Divider(
+              color: KalinkaColors.borderSubtle,
+              thickness: 1,
+              height: 1,
+            ),
+        ],
         if (items.length > visibleCount)
           ShowMoreRow(
             remainingCount: extraCount > 0 ? extraCount : 0,
