@@ -67,6 +67,10 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
   /// Content moves at 70% of finger speed — gives a tactile "dragging against something" feel.
   static const double _carouselResistance = 0.70;
 
+  // ── Play-on-tap nudge animation ──────────────────────────────────────────
+  late final AnimationController _nudgeController;
+  late final Animation<double> _nudgeAnim;
+
   @override
   void initState() {
     super.initState();
@@ -81,6 +85,17 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     _carouselController.value =
         0.0; // AnimationController defaults to lowerBound
     _carouselController.addListener(() => setState(() {}));
+
+    _nudgeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _nudgeAnim = Tween<double>(begin: -3.0, end: 0.0)
+        .chain(CurveTween(curve: Curves.easeOut))
+        .animate(_nudgeController);
+    _nudgeAnim.addListener(() => setState(() {}));
+    // Start at rest position (end value).
+    _nudgeController.value = 1.0;
   }
 
   @override
@@ -88,6 +103,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     WidgetsBinding.instance.removeObserver(this);
     _keyboardDismissTimer?.cancel();
     _carouselController.dispose();
+    _nudgeController.dispose();
     super.dispose();
   }
 
@@ -362,6 +378,21 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
         KalinkaHaptics.mediumImpact();
       }
     });
+    // ── Track-change nudge trigger ────────────────────────────────────────
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    ref.listen(
+      playerStateProvider.select((s) => s.currentTrack?.id),
+      (prev, next) {
+        if (!mounted || reduceMotion) return;
+        if (next != null && prev != null && next != prev) {
+          // Track changed externally (tap-to-play, not carousel swipe).
+          if (!_committed && _carouselController.value == 0.0) {
+            _nudgeController.forward(from: 0.0);
+          }
+        }
+      },
+    );
+
     final isOffline =
         connectionState == ConnectionStatus.reconnecting ||
         connectionState == ConnectionStatus.offline;
@@ -442,39 +473,49 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                       opacity: isOffline ? 0.45 : 1.0,
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOut,
-                      child: SizedBox(
+                      child: Transform.translate(
+                        offset: Offset(0, _nudgeAnim.value),
+                        child: SizedBox(
                         height: 70,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Row(
                             children: [
-                              // ── Album art — stationary, updates via server event ──
-                              Container(
-                                width: 46,
-                                height: 46,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
+                              // ── Album art — stationary, cross-fades on track change ──
+                              AnimatedSwitcher(
+                                duration: reduceMotion
+                                    ? Duration.zero
+                                    : const Duration(milliseconds: 250),
+                                switchInCurve: Curves.easeInOut,
+                                switchOutCurve: Curves.easeInOut,
+                                child: Container(
+                                  key: ValueKey(effectiveCurrentTrack?.id ?? ''),
+                                  width: 46,
+                                  height: 46,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: resolvedImageUrl != null
+                                      ? Image.network(
+                                          resolvedImageUrl,
+                                          width: 46,
+                                          height: 46,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              ProceduralAlbumArt(
+                                                trackId:
+                                                    effectiveCurrentTrack?.id ??
+                                                    '',
+                                                size: 46,
+                                              ),
+                                        )
+                                      : ProceduralAlbumArt(
+                                          trackId:
+                                              effectiveCurrentTrack?.id ?? '',
+                                          size: 46,
+                                        ),
                                 ),
-                                clipBehavior: Clip.antiAlias,
-                                child: resolvedImageUrl != null
-                                    ? Image.network(
-                                        resolvedImageUrl,
-                                        width: 46,
-                                        height: 46,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            ProceduralAlbumArt(
-                                              trackId:
-                                                  effectiveCurrentTrack?.id ??
-                                                  '',
-                                              size: 46,
-                                            ),
-                                      )
-                                    : ProceduralAlbumArt(
-                                        trackId:
-                                            effectiveCurrentTrack?.id ?? '',
-                                        size: 46,
-                                      ),
                               ),
                               const SizedBox(width: 10),
 
@@ -491,20 +532,27 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                                     return ClipRect(
                                       child: Stack(
                                         children: [
-                                          // Current track — slides away during swipe.
+                                          // Current track — slides away during swipe,
+                                          // cross-fades on tap-to-play track changes.
                                           Transform.translate(
                                             offset: Offset(
                                               carouselOffset * _textAreaWidth,
                                               0,
                                             ),
-                                            child: _TrackLabel(
-                                              title:
-                                                  effectiveCurrentTrack?.title,
-                                              subtitle: effectiveCurrentTrack
-                                                  ?.performer
-                                                  ?.name,
-                                              entityId:
-                                                  effectiveCurrentTrack?.id,
+                                            child: AnimatedSwitcher(
+                                              duration: reduceMotion
+                                                  ? Duration.zero
+                                                  : const Duration(milliseconds: 200),
+                                              child: _TrackLabel(
+                                                key: ValueKey(effectiveCurrentTrack?.id ?? ''),
+                                                title:
+                                                    effectiveCurrentTrack?.title,
+                                                subtitle: effectiveCurrentTrack
+                                                    ?.performer
+                                                    ?.name,
+                                                entityId:
+                                                    effectiveCurrentTrack?.id,
+                                              ),
                                             ),
                                           ),
 
@@ -600,6 +648,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                           ),
                         ),
                       ),
+                      ),
                     ),
                   ),
                 ],
@@ -623,6 +672,7 @@ class _TrackLabel extends StatelessWidget {
   final String? entityId;
 
   const _TrackLabel({
+    super.key,
     this.title,
     this.subtitle,
     this.crossAxisAlignment = CrossAxisAlignment.start,

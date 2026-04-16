@@ -13,7 +13,6 @@ import '../../providers/url_resolver.dart';
 import '../../providers/source_modules_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/play_next.dart';
-import '../berry_pulse.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
 import '../swipe_to_act_row.dart';
@@ -34,25 +33,68 @@ class SearchTrackRow extends ConsumerStatefulWidget {
   ConsumerState<SearchTrackRow> createState() => _SearchTrackRowState();
 }
 
-class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
+class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
+    with SingleTickerProviderStateMixin {
   // Long-press ring animation (row long-press → multi-select)
   bool _longPressing = false;
   double _longPressProgress = 0.0;
   Timer? _longPressTimer;
 
+  // ── Play-on-tap flash animation ──────────────────────────────────────────
+  late final AnimationController _flashController;
+  late final Animation<Color?> _flashColorAnim;
+  bool _tappedToPlay = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _flashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+    _flashColorAnim = TweenSequence<Color?>([
+      TweenSequenceItem(
+        tween: ColorTween(
+          begin: Colors.transparent,
+          end: KalinkaColors.accent.withValues(alpha: 0.15),
+        ).chain(CurveTween(curve: Curves.easeIn)),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: ColorTween(
+          begin: KalinkaColors.accent.withValues(alpha: 0.15),
+          end: KalinkaColors.accentSubtle,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 2,
+      ),
+    ]).animate(_flashController);
+    _flashController.addListener(() => setState(() {}));
+  }
+
   @override
   void dispose() {
+    _flashController.dispose();
     _longPressTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _playTrack() async {
+    // Start flash animation immediately on tap, before the async API call.
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    setState(() => _tappedToPlay = true);
+    if (!reduceMotion) _flashController.forward(from: 0.0);
+
     final api = ref.read(kalinkaProxyProvider);
     try {
       await api.clear();
       await api.add([widget.item.id]);
       await api.play();
     } catch (e) {
+      // API failed — revert optimistic flash.
+      if (mounted) {
+        _flashController.reset();
+        setState(() => _tappedToPlay = false);
+      }
       showSafeToast('Failed to play: $e', isError: true);
     }
   }
@@ -143,8 +185,48 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
     final isCurrentTrack =
         widget.item.id.isNotEmpty &&
         playerState.currentTrack?.id == widget.item.id;
-    final isPlaying =
-        isCurrentTrack && playerState.state == PlayerStateType.playing;
+    // Clear optimistic flash once server confirms this track is current,
+    // or instantly revert if a different track became current.
+    ref.listen(
+      playerStateProvider.select((s) => s.currentTrack?.id),
+      (prev, next) {
+        if (!mounted) return;
+        if (next == widget.item.id && _tappedToPlay) {
+          setState(() => _tappedToPlay = false);
+        } else if (_tappedToPlay && next != null && next != widget.item.id) {
+          // A different track was chosen — clear our flash instantly.
+          _flashController.reset();
+          setState(() => _tappedToPlay = false);
+        }
+      },
+    );
+
+    // Now-playing row decoration
+    final showNowPlaying =
+        !selectionMode && (_tappedToPlay || isCurrentTrack);
+    final Color rowBg;
+    if (selectionMode && isSelected) {
+      rowBg = KalinkaColors.accent.withValues(alpha: 0.07);
+    } else if (showNowPlaying && _flashController.isAnimating) {
+      rowBg = _flashColorAnim.value ?? Colors.transparent;
+    } else if (showNowPlaying) {
+      rowBg = KalinkaColors.accentSubtle;
+    } else {
+      rowBg = Colors.transparent;
+    }
+
+    final Border? rowBorder;
+    if (selectionMode && isSelected) {
+      rowBorder = const Border(
+        left: BorderSide(color: KalinkaColors.accent, width: 2),
+      );
+    } else if (showNowPlaying) {
+      rowBorder = const Border(
+        left: BorderSide(color: KalinkaColors.accentBorder, width: 2),
+      );
+    } else {
+      rowBorder = null;
+    }
 
     return SwipeToActRow(
       enabled: !selectionMode,
@@ -164,14 +246,8 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           decoration: BoxDecoration(
-            color: selectionMode && isSelected
-                ? KalinkaColors.accent.withValues(alpha: 0.07)
-                : Colors.transparent,
-            border: selectionMode && isSelected
-                ? const Border(
-                    left: BorderSide(color: KalinkaColors.accent, width: 2),
-                  )
-                : null,
+            color: rowBg,
+            border: rowBorder,
           ),
           child: TrackTileLayout(
             leadingStartSpacing: 0,
@@ -192,27 +268,6 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow> {
                         )
                       : ProceduralAlbumArt(trackId: widget.item.id, size: 44),
                 ),
-                if (isCurrentTrack)
-                  Positioned.fill(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: const DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            stops: [0.0, 0.45, 1.0],
-                            colors: [
-                              Color(0x000A0204),
-                              Color(0x8C0A0204),
-                              Color(0xD10A0204),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (isCurrentTrack) BerryPulse(isPlaying: isPlaying),
                 if (_longPressing && _longPressProgress > 0)
                   Positioned.fill(
                     child: CustomPaint(
