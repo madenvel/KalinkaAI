@@ -5,6 +5,7 @@ import '../data_model/data_model.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
 import 'search_cards/browse_item_rows.dart';
+import 'search_cards/section_header.dart';
 
 /// Zero-state content surface shown when search is activated but no query
 /// has been typed. Comprises two layers:
@@ -366,29 +367,13 @@ class _ZeroStateContent extends ConsumerWidget {
 
     final showAskAi = isAll && searchState.isAiEnabled;
     final showNowPlaying = isAll || isGenre;
-    final showRecentlyFavourited = isAll || isFavourites || isGenre;
+    // The merged "Recently Favourited" card is the zero-state exploration
+    // teaser — not shown when the Favourites scope is active (that mode
+    // renders the split-by-type sections instead).
+    final showRecentlyFavourited = isAll || isGenre;
 
-    // Check if there's any content at all under current filter
     final librarySections = searchState.librarySections;
     final favItems = _filteredFavourites(searchState, genreId);
-    final hasContent =
-        history.isNotEmpty ||
-        (showAskAi && searchState.aiPromptSuggestions.isNotEmpty) ||
-        (showNowPlaying && librarySections?.isNotEmpty == true) ||
-        (showRecentlyFavourited && favItems.isNotEmpty) ||
-        isMyPlaylists;
-
-    if (!isAll && !hasContent) {
-      return Center(
-        child: Text(
-          'Nothing here yet',
-          style: KalinkaFonts.sans(
-            fontSize: KalinkaTypography.baseSize + 4,
-            color: KalinkaColors.textMuted,
-          ),
-        ),
-      );
-    }
 
     return ListView(
       controller: scrollController,
@@ -446,7 +431,7 @@ class _ZeroStateContent extends ConsumerWidget {
           ),
         ),
 
-        // RECENTLY FAVOURITED
+        // RECENTLY FAVOURITED — merged zero-state teaser
         _AnimatedSection(
           visible: showRecentlyFavourited && favItems.isNotEmpty,
           child: _RecentlyFavouritedSection(
@@ -458,20 +443,12 @@ class _ZeroStateContent extends ConsumerWidget {
           ),
         ),
 
-        // MY PLAYLISTS — deferred, shows empty state message inline
-        if (isMyPlaylists)
-          Padding(
-            padding: EdgeInsets.only(top: 24),
-            child: Center(
-              child: Text(
-                'Nothing here yet',
-                style: KalinkaFonts.sans(
-                  fontSize: KalinkaTypography.baseSize + 4,
-                  color: KalinkaColors.textMuted,
-                ),
-              ),
-            ),
-          ),
+        // FAVOURITES scope — split-by-type sections with text filtering
+        if (isFavourites)
+          _ScopedFavouritesSection(searchState: searchState),
+
+        // MY PLAYLISTS scope — flat list
+        if (isMyPlaylists) _ScopedPlaylistsSection(searchState: searchState),
       ],
     );
   }
@@ -681,6 +658,189 @@ class _RecentlyFavouritedSection extends StatelessWidget {
           isExpanded: isExpanded,
           onToggleExpand: onToggleExpand,
         ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scoped Favourites section — shown when the "Favourites" pill is active.
+// Loads favourites split by type via /favorite/list/{type}; the current
+// search query is passed as the `filter` arg so typing narrows the list.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ScopedFavouritesSection extends ConsumerWidget {
+  final SearchState searchState;
+
+  const _ScopedFavouritesSection({required this.searchState});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scoped = searchState.scopedFavourites;
+
+    if (scoped == null) {
+      if (searchState.isScopedLoading) {
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 40),
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: KalinkaColors.accent,
+              ),
+            ),
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
+    final sections = <_ScopedTypeSection>[
+      _ScopedTypeSection(
+        label: 'Artists',
+        type: SearchType.artist,
+        list: scoped[SearchType.artist],
+      ),
+      _ScopedTypeSection(
+        label: 'Albums',
+        type: SearchType.album,
+        list: scoped[SearchType.album],
+      ),
+      _ScopedTypeSection(
+        label: 'Tracks',
+        type: SearchType.track,
+        list: scoped[SearchType.track],
+      ),
+      _ScopedTypeSection(
+        label: 'Playlists',
+        type: SearchType.playlist,
+        list: scoped[SearchType.playlist],
+      ),
+    ];
+
+    final nonEmpty = sections.where((s) => s.items.isNotEmpty).toList();
+
+    if (nonEmpty.isEmpty) {
+      final query = searchState.query.trim();
+      return Padding(
+        padding: const EdgeInsets.only(top: 40),
+        child: Center(
+          child: Text(
+            query.isEmpty ? 'No favourites yet' : 'No favourites match "$query"',
+            style: KalinkaFonts.sans(
+              fontSize: KalinkaTypography.baseSize + 4,
+              color: KalinkaColors.textMuted,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    final expanded = searchState.scopedExpandedTypes;
+    final children = <Widget>[];
+    for (int i = 0; i < nonEmpty.length; i++) {
+      final section = nonEmpty[i];
+      children.add(const SizedBox(height: 12));
+      children.add(SectionHeader(
+        label: section.label,
+        count: section.totalCount,
+        showDivider: false,
+      ));
+      children.add(BrowseItemRows(
+        items: section.items,
+        visibleLimit: 5,
+        isExpanded: expanded.contains(section.type),
+        onToggleExpand: section.items.length > 5
+            ? () => ref
+                .read(searchStateProvider.notifier)
+                .toggleScopedTypeExpanded(section.type)
+            : null,
+      ));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
+}
+
+class _ScopedTypeSection {
+  final String label;
+  final SearchType type;
+  final BrowseItemsList? list;
+
+  const _ScopedTypeSection({
+    required this.label,
+    required this.type,
+    required this.list,
+  });
+
+  List<BrowseItem> get items => list?.items ?? const [];
+  int get totalCount => list?.total ?? items.length;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scoped Playlists section — shown when the "My Playlists" pill is active.
+// The playlist/list endpoint has no text filter, so typing is a no-op here.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ScopedPlaylistsSection extends StatelessWidget {
+  final SearchState searchState;
+
+  const _ScopedPlaylistsSection({required this.searchState});
+
+  @override
+  Widget build(BuildContext context) {
+    final list = searchState.scopedPlaylists;
+
+    if (list == null) {
+      if (searchState.isScopedLoading) {
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 40),
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: KalinkaColors.accent,
+              ),
+            ),
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
+    if (list.items.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 40),
+        child: Center(
+          child: Text(
+            'No playlists yet',
+            style: KalinkaFonts.sans(
+              fontSize: KalinkaTypography.baseSize + 4,
+              color: KalinkaColors.textMuted,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        SectionHeader(
+          label: 'My Playlists',
+          count: list.total,
+          showDivider: false,
+        ),
+        BrowseItemRows(items: list.items),
       ],
     );
   }

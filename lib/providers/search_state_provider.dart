@@ -117,6 +117,23 @@ class SearchState {
   /// Sections not in this set are truncated to the default visible limit.
   final Set<String> aiExpandedSections;
 
+  /// Favourites split by type, loaded while the Favourites scope pill is
+  /// active. The query (when present) is passed as the `filter` argument to
+  /// `favorite/list/{type}`. Null when the filter is inactive or not yet
+  /// loaded.
+  final Map<SearchType, BrowseItemsList>? scopedFavourites;
+
+  /// User playlists loaded while the My Playlists scope pill is active.
+  /// Playlist listing has no text filter, so typing does not refetch.
+  final BrowseItemsList? scopedPlaylists;
+
+  /// True while a scope-filtered list (favourites or playlists) is loading.
+  final bool isScopedLoading;
+
+  /// IDs of scoped favourite type sections the user expanded past the
+  /// default visible limit.
+  final Set<SearchType> scopedExpandedTypes;
+
   const SearchState({
     this.isExpanded = false,
     this.searchPhase = SearchPhase.inactive,
@@ -148,6 +165,10 @@ class SearchState {
     this.aiSearchResults,
     this.indexerStatus,
     this.aiExpandedSections = const {},
+    this.scopedFavourites,
+    this.scopedPlaylists,
+    this.isScopedLoading = false,
+    this.scopedExpandedTypes = const {},
   });
 
   /// Backward-compatible getter — true when search surface is active
@@ -204,6 +225,12 @@ class SearchState {
     bool clearAiSearchResults = false,
     IndexerStatus? indexerStatus,
     Set<String>? aiExpandedSections,
+    Map<SearchType, BrowseItemsList>? scopedFavourites,
+    bool clearScopedFavourites = false,
+    BrowseItemsList? scopedPlaylists,
+    bool clearScopedPlaylists = false,
+    bool? isScopedLoading,
+    Set<SearchType>? scopedExpandedTypes,
   }) {
     return SearchState(
       isExpanded: isExpanded ?? this.isExpanded,
@@ -253,6 +280,14 @@ class SearchState {
           : (aiSearchResults ?? this.aiSearchResults),
       indexerStatus: indexerStatus ?? this.indexerStatus,
       aiExpandedSections: aiExpandedSections ?? this.aiExpandedSections,
+      scopedFavourites: clearScopedFavourites
+          ? null
+          : (scopedFavourites ?? this.scopedFavourites),
+      scopedPlaylists: clearScopedPlaylists
+          ? null
+          : (scopedPlaylists ?? this.scopedPlaylists),
+      isScopedLoading: isScopedLoading ?? this.isScopedLoading,
+      scopedExpandedTypes: scopedExpandedTypes ?? this.scopedExpandedTypes,
     );
   }
 }
@@ -356,6 +391,10 @@ class SearchStateNotifier extends Notifier<SearchState> {
       clearActiveScopeFilter: true,
       clearActiveGenreId: true,
       recentlyFavouritedExpanded: false,
+      clearScopedFavourites: true,
+      clearScopedPlaylists: true,
+      isScopedLoading: false,
+      scopedExpandedTypes: const {},
     );
   }
 
@@ -380,12 +419,116 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
   /// Toggle a scope filter pill (Favourites, My Playlists).
   /// Tapping the active filter deactivates it (returns to "All").
+  ///
+  /// Activating a scope pill snaps the surface back to the zero-state/scope
+  /// view (dropping any in-flight global search results) and kicks off the
+  /// scoped load. Deactivating re-runs the global search if a query is
+  /// still in the box.
   void toggleScopeFilter(FilterPillType type) {
+    _debounceTimer?.cancel();
     if (state.activeScopeFilter == type) {
-      state = state.copyWith(clearActiveScopeFilter: true);
+      state = state.copyWith(
+        clearActiveScopeFilter: true,
+        clearScopedFavourites: true,
+        clearScopedPlaylists: true,
+        isScopedLoading: false,
+        scopedExpandedTypes: const {},
+      );
+      if (state.query.trim().isNotEmpty) {
+        performSearch();
+      }
     } else {
-      state = state.copyWith(activeScopeFilter: type, clearActiveGenreId: true);
+      state = state.copyWith(
+        activeScopeFilter: type,
+        clearActiveGenreId: true,
+        clearScopedFavourites: true,
+        clearScopedPlaylists: true,
+        clearSearchResults: true,
+        clearAiSearchResults: true,
+        aiExpandedSections: const {},
+        scopedExpandedTypes: const {},
+        searchPhase: SearchPhase.activated,
+        completionStripVisible: false,
+        completions: const [],
+        clearAiCompletion: true,
+      );
+      if (type == FilterPillType.favourites) {
+        _loadScopedFavourites(state.query.trim());
+      } else if (type == FilterPillType.myPlaylists) {
+        _loadScopedPlaylists();
+      }
     }
+  }
+
+  /// Fetch favourites for all four types, optionally filtered by [filter].
+  /// The `favorite/list/{type}` endpoint accepts a `filter` query arg for
+  /// simple text matching; callers pass the current search text so typing
+  /// narrows the scoped favourites view instead of triggering a global
+  /// search.
+  Future<void> _loadScopedFavourites(String filter) async {
+    final settings = ref.read(connectionSettingsProvider);
+    if (!settings.isSet) return;
+    final api = ref.read(kalinkaProxyProvider);
+    state = state.copyWith(isScopedLoading: true, clearError: true);
+    try {
+      final (artists, albums, tracks, playlists) = await (
+        api.getFavorite(SearchType.artist, filter: filter, limit: 30),
+        api.getFavorite(SearchType.album, filter: filter, limit: 30),
+        api.getFavorite(SearchType.track, filter: filter, limit: 30),
+        api.getFavorite(SearchType.playlist, filter: filter, limit: 30),
+      ).wait;
+      // Drop the result if the user has since changed scope or typed more.
+      if (state.activeScopeFilter != FilterPillType.favourites) return;
+      if (state.query.trim() != filter) return;
+      state = state.copyWith(
+        scopedFavourites: {
+          SearchType.artist: artists,
+          SearchType.album: albums,
+          SearchType.track: tracks,
+          SearchType.playlist: playlists,
+        },
+        isScopedLoading: false,
+      );
+    } catch (e) {
+      if (state.activeScopeFilter != FilterPillType.favourites) return;
+      state = state.copyWith(
+        isScopedLoading: false,
+        error: 'Failed to load favourites: $e',
+      );
+    }
+  }
+
+  /// Fetch the user's playlists. Playlist listing has no text filter, so
+  /// this is called once when the My Playlists pill is activated.
+  Future<void> _loadScopedPlaylists() async {
+    final settings = ref.read(connectionSettingsProvider);
+    if (!settings.isSet) return;
+    final api = ref.read(kalinkaProxyProvider);
+    state = state.copyWith(isScopedLoading: true, clearError: true);
+    try {
+      final result = await api.playlistUserList(0, 50);
+      if (state.activeScopeFilter != FilterPillType.myPlaylists) return;
+      state = state.copyWith(
+        scopedPlaylists: result,
+        isScopedLoading: false,
+      );
+    } catch (e) {
+      if (state.activeScopeFilter != FilterPillType.myPlaylists) return;
+      state = state.copyWith(
+        isScopedLoading: false,
+        error: 'Failed to load playlists: $e',
+      );
+    }
+  }
+
+  void toggleScopedTypeExpanded(SearchType type) {
+    final updated = Set<SearchType>.from(state.scopedExpandedTypes);
+    if (updated.contains(type)) {
+      updated.remove(type);
+    } else {
+      updated.add(type);
+    }
+    state = state.copyWith(scopedExpandedTypes: updated);
   }
 
   /// Toggle a genre filter pill.
@@ -505,6 +648,11 @@ class SearchStateNotifier extends Notifier<SearchState> {
       albumMoreTracksExpanded: const {},
       resultsFilter: ResultsFilterType.all,
     );
+    // If scope-filtered, reload the scoped view without a filter so it
+    // shows the full set again after the ×.
+    if (state.activeScopeFilter == FilterPillType.favourites) {
+      _loadScopedFavourites('');
+    }
   }
 
   void setKeyboardVisible(bool visible) {
@@ -516,6 +664,27 @@ class SearchStateNotifier extends Notifier<SearchState> {
     _completionHideTimer?.cancel();
 
     final trimmed = query.trim();
+
+    // Scoped typing: favourites filters via the API `filter` arg; my
+    // playlists ignore the query entirely. In both cases we stay in the
+    // zero-state/scoped view and never transition to the global results
+    // phase.
+    final scope = state.activeScopeFilter;
+    if (scope != null) {
+      state = state.copyWith(
+        query: query,
+        clearError: true,
+        completionStripVisible: false,
+        completions: const [],
+        clearAiCompletion: true,
+      );
+      if (scope == FilterPillType.favourites) {
+        _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+          _loadScopedFavourites(trimmed);
+        });
+      }
+      return;
+    }
 
     if (trimmed.isEmpty) {
       // Query cleared by typing — if we had results, go to cleared state
@@ -589,6 +758,20 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
   Future<void> performSearch() async {
     _debounceTimer?.cancel();
+
+    // Scope filter takes precedence — route to the scoped loader. The
+    // empty-query guard is skipped because favourites supports listing
+    // without a filter.
+    final scope = state.activeScopeFilter;
+    if (scope == FilterPillType.favourites) {
+      await _loadScopedFavourites(state.query.trim());
+      return;
+    }
+    if (scope == FilterPillType.myPlaylists) {
+      // Playlists are listed once on activation; typing is a no-op.
+      return;
+    }
+
     if (state.query.trim().isEmpty) return;
 
     final query = state.query.trim();
