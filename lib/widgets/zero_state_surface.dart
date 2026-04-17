@@ -1,16 +1,10 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
-import 'search_cards/search_album_row.dart';
-import 'search_cards/search_artist_row.dart';
-import 'search_cards/search_playlist_row.dart';
-import 'search_cards/search_track_row.dart';
-import 'search_cards/show_more_row.dart';
+import 'search_cards/browse_item_rows.dart';
 
 /// Zero-state content surface shown when search is activated but no query
 /// has been typed. Comprises two layers:
@@ -620,8 +614,6 @@ class _BasedOnNowPlayingSection extends StatelessWidget {
           section.sectionItem.name ?? section.sectionItem.catalog?.title ?? '';
       final isExpanded = expandedSectionIds.contains(sectionId);
       final allItems = section.browseResult.items;
-      final visibleItems = isExpanded ? allItems : allItems.take(3).toList();
-      final remaining = min(section.browseResult.total, allItems.length) - 3;
 
       widgets.add(
         Padding(
@@ -636,41 +628,16 @@ class _BasedOnNowPlayingSection extends StatelessWidget {
         ),
       );
 
-      for (int i = 0; i < visibleItems.length; i++) {
-        final item = visibleItems[i];
-        final Widget row;
-        if (item.track != null) {
-          row = SearchTrackRow(item: item);
-        } else if (item.album != null) {
-          row = SearchAlbumRow(item: item);
-        } else if (item.artist != null) {
-          row = SearchArtistRow(item: item);
-        } else {
-          row = SearchAlbumRow(item: item);
-        }
-        widgets.add(row);
-        if (i < visibleItems.length - 1) {
-          widgets.add(const Divider(
-            color: KalinkaColors.borderSubtle,
-            thickness: 1,
-            height: 1,
-          ));
-        }
-      }
-
-      if (allItems.length > 3) {
-        widgets.add(
-          Consumer(
-            builder: (context, ref, _) => ShowMoreRow(
-              remainingCount: remaining > 0 ? remaining : 0,
-              isExpanded: isExpanded,
-              onTap: () => ref
-                  .read(searchStateProvider.notifier)
-                  .toggleLibrarySectionExpanded(sectionId),
-            ),
-          ),
-        );
-      }
+      widgets.add(Consumer(
+        builder: (context, ref, _) => BrowseItemRows(
+          items: allItems,
+          visibleLimit: 3,
+          isExpanded: isExpanded,
+          onToggleExpand: () => ref
+              .read(searchStateProvider.notifier)
+              .toggleLibrarySectionExpanded(sectionId),
+        ),
+      ));
     }
     return widgets;
   }
@@ -693,10 +660,6 @@ class _RecentlyFavouritedSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const visibleCount = 5;
-    final displayItems = isExpanded ? items : items.take(visibleCount).toList();
-    final extraCount = items.length - visibleCount;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -712,38 +675,14 @@ class _RecentlyFavouritedSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        for (int i = 0; i < displayItems.length; i++) ...[
-          _buildRow(displayItems[i]),
-          if (i < displayItems.length - 1)
-            const Divider(
-              color: KalinkaColors.borderSubtle,
-              thickness: 1,
-              height: 1,
-            ),
-        ],
-        if (items.length > visibleCount)
-          ShowMoreRow(
-            remainingCount: extraCount > 0 ? extraCount : 0,
-            isExpanded: isExpanded,
-            onTap: onToggleExpand,
-          ),
+        BrowseItemRows(
+          items: items,
+          visibleLimit: 5,
+          isExpanded: isExpanded,
+          onToggleExpand: onToggleExpand,
+        ),
       ],
     );
-  }
-
-  Widget _buildRow(BrowseItem item) {
-    switch (item.browseType) {
-      case BrowseType.track:
-        return SearchTrackRow(item: item);
-      case BrowseType.album:
-        return SearchAlbumRow(item: item);
-      case BrowseType.artist:
-        return SearchArtistRow(item: item);
-      case BrowseType.playlist:
-        return SearchPlaylistRow(item: item);
-      default:
-        return SearchTrackRow(item: item);
-    }
   }
 }
 

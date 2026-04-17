@@ -7,7 +7,8 @@ import '../providers/connection_state_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../providers/selection_state_provider.dart';
 import 'browse_list.dart';
-import 'search_cards/ai_suggestion_card.dart';
+import 'indexer_status_banner.dart';
+import 'search_cards/browse_item_rows.dart';
 import 'search_cards/results_count_line.dart';
 import 'search_cards/results_filter_chip_row.dart';
 import 'search_cards/search_album_row.dart';
@@ -116,6 +117,9 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         Widget inner;
         if (searchState.isLoading) {
           inner = _buildSkeletonLoading();
+        } else if (searchState.isAiEnabled &&
+            searchState.aiSearchResults != null) {
+          inner = _buildAiResultsFeed(searchState);
         } else if (searchState.searchResults != null) {
           inner = _buildResultsFeed(context, ref, searchState);
         } else if (searchState.browseRecommendations != null) {
@@ -127,7 +131,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         } else {
           inner = _buildSkeletonLoading();
         }
-        content = searchState.searchResults != null
+        content = (!searchState.isAiEnabled && searchState.searchResults != null)
             ? _wrapWithResultsFilter(inner, searchState)
             : inner;
 
@@ -138,12 +142,15 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
           inner = _buildSkeletonLoading();
         } else if (searchState.error != null) {
           inner = _buildErrorView(searchState.error!);
+        } else if (searchState.isAiEnabled &&
+            searchState.aiSearchResults != null) {
+          inner = _buildAiResultsFeed(searchState);
         } else if (searchState.searchResults != null) {
           inner = _buildResultsFeed(context, ref, searchState);
         } else {
           inner = _buildSkeletonLoading();
         }
-        content = searchState.searchResults != null
+        content = (!searchState.isAiEnabled && searchState.searchResults != null)
             ? _wrapWithResultsFilter(inner, searchState)
             : inner;
 
@@ -370,7 +377,6 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         ResultsFilterType.all => 0,
       };
     }
-    if (searchState.isAiEnabled) totalItems += 1;
     _triggerStagger(totalItems);
 
     int staggerIdx = 0;
@@ -384,19 +390,6 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
     // Results count line
     children.add(ResultsCountLine(counts: counts));
-
-    // AI Suggestion Card (always first when present)
-    if (searchState.isAiEnabled) {
-      children.add(
-        _StaggeredItem(
-          index: staggerIdx++,
-          controller: _staggerController,
-          totalItems: totalItems,
-          child: const AiSuggestionCard(),
-        ),
-      );
-      children.add(const SizedBox(height: 16));
-    }
 
     void addItemsWithDividers(List<BrowseItem> items, Widget Function(BrowseItem) builder) {
       for (int i = 0; i < items.length; i++) {
@@ -493,6 +486,89 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
           builder = (_) => const SizedBox.shrink();
       }
       addItemsWithDividers(items, builder);
+    }
+
+    return ListView(
+      controller: _scrollController,
+      padding: EdgeInsets.fromLTRB(16, 0, 16, widget.bottomPadding),
+      children: children,
+    );
+  }
+
+  Widget _buildAiResultsFeed(SearchState state) {
+    final topLevel = state.aiSearchResults!.items;
+
+    // The AI endpoint groups results into catalog containers (e.g. "Tracks",
+    // "Albums", "Artists") whose actual renderable items live in `sections`.
+    // Flatten by walking top-level items: catalogs contribute a section
+    // header + their section children; bare items render directly.
+    const aiGroupVisibleLimit = 5;
+    final expanded = state.aiExpandedSections;
+    final groups = <({String? id, String? label, List<BrowseItem> items})>[];
+    for (final item in topLevel) {
+      if (item.catalog != null && item.sections != null) {
+        groups.add((id: item.id, label: item.name, items: item.sections!));
+      } else if (item.browseType != BrowseType.unknown &&
+          item.browseType != BrowseType.catalog) {
+        groups.add((id: null, label: null, items: [item]));
+      }
+    }
+
+    final totalItems = groups.fold<int>(0, (sum, g) => sum + g.items.length);
+    _triggerStagger(totalItems);
+
+    final children = <Widget>[];
+
+    final status = state.indexerStatus;
+    if (status != null && !status.isComplete && !status.isEmpty) {
+      children.add(Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 8),
+        child: IndexerStatusBanner(status: status),
+      ));
+    }
+
+    if (totalItems == 0) {
+      children.add(const SizedBox(height: 60));
+      children.add(Center(
+        child: Column(
+          children: [
+            Icon(
+              Icons.auto_awesome,
+              size: 64,
+              color: KalinkaColors.textSecondary.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 16),
+            Text('No AI matches', style: KalinkaTextStyles.cardTitle),
+            const SizedBox(height: 8),
+            Text(
+              'Try rephrasing your prompt',
+              style: KalinkaTextStyles.trackRowSubtitle,
+            ),
+          ],
+        ),
+      ));
+    } else {
+      for (int g = 0; g < groups.length; g++) {
+        final group = groups[g];
+        if (group.label != null) {
+          children.add(SectionHeader(
+            label: group.label!,
+            count: group.items.length,
+            showDivider: g > 0,
+          ));
+        }
+        final groupId = group.id;
+        children.add(BrowseItemRows(
+          items: group.items,
+          visibleLimit: aiGroupVisibleLimit,
+          isExpanded: groupId != null && expanded.contains(groupId),
+          onToggleExpand: groupId == null
+              ? null
+              : () => ref
+                  .read(searchStateProvider.notifier)
+                  .revealAiSection(groupId),
+        ));
+      }
     }
 
     return ListView(

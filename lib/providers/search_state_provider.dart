@@ -36,6 +36,16 @@ class CachedSearchResult {
       DateTime.now().difference(timestamp).inMinutes >= _cacheTtlMinutes;
 }
 
+class _CachedAiResult {
+  final BrowseItemsList result;
+  final DateTime timestamp;
+
+  _CachedAiResult(this.result, this.timestamp);
+
+  bool get isExpired =>
+      DateTime.now().difference(timestamp).inMinutes >= _cacheTtlMinutes;
+}
+
 /// Search surface lifecycle phase
 enum SearchPhase { inactive, activated, typing, results, cleared }
 
@@ -95,6 +105,18 @@ class SearchState {
   /// Whether the AI mode toggle in the search bar is active
   final bool isAiEnabled;
 
+  /// Result of the most recent AI (natural-language) search. Mixed item types
+  /// in a single ordered list — unlike [searchResults] which is split by type.
+  final BrowseItemsList? aiSearchResults;
+
+  /// Embedding index coverage snapshot. Used to render a banner when the
+  /// AI search index is still building.
+  final IndexerStatus? indexerStatus;
+
+  /// IDs of AI result catalog sections whose full contents are shown.
+  /// Sections not in this set are truncated to the default visible limit.
+  final Set<String> aiExpandedSections;
+
   const SearchState({
     this.isExpanded = false,
     this.searchPhase = SearchPhase.inactive,
@@ -123,6 +145,9 @@ class SearchState {
     this.recentlyFavouritedExpanded = false,
     this.genrePills = const [],
     this.isAiEnabled = false,
+    this.aiSearchResults,
+    this.indexerStatus,
+    this.aiExpandedSections = const {},
   });
 
   /// Backward-compatible getter — true when search surface is active
@@ -175,6 +200,10 @@ class SearchState {
     bool? recentlyFavouritedExpanded,
     List<Genre>? genrePills,
     bool? isAiEnabled,
+    BrowseItemsList? aiSearchResults,
+    bool clearAiSearchResults = false,
+    IndexerStatus? indexerStatus,
+    Set<String>? aiExpandedSections,
   }) {
     return SearchState(
       isExpanded: isExpanded ?? this.isExpanded,
@@ -219,6 +248,11 @@ class SearchState {
           recentlyFavouritedExpanded ?? this.recentlyFavouritedExpanded,
       genrePills: genrePills ?? this.genrePills,
       isAiEnabled: isAiEnabled ?? this.isAiEnabled,
+      aiSearchResults: clearAiSearchResults
+          ? null
+          : (aiSearchResults ?? this.aiSearchResults),
+      indexerStatus: indexerStatus ?? this.indexerStatus,
+      aiExpandedSections: aiExpandedSections ?? this.aiExpandedSections,
     );
   }
 }
@@ -227,6 +261,7 @@ class SearchState {
 class SearchStateNotifier extends Notifier<SearchState> {
   late SharedPreferences _prefs;
   final Map<String, CachedSearchResult> _cache = {};
+  final Map<String, _CachedAiResult> _aiCache = {};
   Timer? _debounceTimer;
   Timer? _completionHideTimer;
   String? _recommendationsForTrackId;
@@ -255,6 +290,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
     ref.listen(connectionSettingsProvider, (previous, next) {
       if (previous?.host != next.host || previous?.port != next.port) {
         _cache.clear();
+        _aiCache.clear();
       }
     });
   }
@@ -287,6 +323,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
       _loadBrowseRecommendations();
     }
     _loadZeroStateData();
+    _loadIndexerStatus();
   }
 
   /// Deactivate search — exit to inactive (State 7), preserve histories
@@ -302,6 +339,8 @@ class SearchStateNotifier extends Notifier<SearchState> {
       searchPhase: SearchPhase.inactive,
       query: '',
       clearSearchResults: true,
+      clearAiSearchResults: true,
+      aiExpandedSections: const {},
       clearError: true,
       expandedAlbumIds: const {},
       expandedArtistIds: const {},
@@ -323,7 +362,20 @@ class SearchStateNotifier extends Notifier<SearchState> {
   // ── Filter pill methods ───────────────────────────────────────────────────
 
   void toggleAiMode() {
-    state = state.copyWith(isAiEnabled: !state.isAiEnabled);
+    final newAi = !state.isAiEnabled;
+    // Drop the other mode's results so the feed switches cleanly between
+    // typed-split and AI-merged rendering.
+    state = state.copyWith(
+      isAiEnabled: newAi,
+      clearSearchResults: newAi,
+      clearAiSearchResults: !newAi,
+    );
+    final hasQuery = state.query.trim().isNotEmpty;
+    if (hasQuery &&
+        (state.searchPhase == SearchPhase.results ||
+            state.searchPhase == SearchPhase.typing)) {
+      performSearch();
+    }
   }
 
   /// Toggle a scope filter pill (Favourites, My Playlists).
@@ -358,6 +410,20 @@ class SearchStateNotifier extends Notifier<SearchState> {
     state = state.copyWith(
       recentlyFavouritedExpanded: !state.recentlyFavouritedExpanded,
     );
+  }
+
+  /// Fetch embedding index coverage. Fire-and-forget; errors are swallowed
+  /// because a missing status simply hides the banner.
+  Future<void> _loadIndexerStatus() async {
+    final settings = ref.read(connectionSettingsProvider);
+    if (!settings.isSet) return;
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      final status = await api.getIndexerStatus();
+      state = state.copyWith(indexerStatus: status);
+    } catch (_) {
+      // Non-critical — banner simply won't show
+    }
   }
 
   /// Load data needed for the zero-state: genre pills and recently favourited.
@@ -425,6 +491,8 @@ class SearchStateNotifier extends Notifier<SearchState> {
       searchPhase: SearchPhase.activated,
       query: '',
       clearSearchResults: true,
+      clearAiSearchResults: true,
+      aiExpandedSections: const {},
       clearError: true,
       sessionHistory: updated,
       completions: const [],
@@ -490,14 +558,27 @@ class SearchStateNotifier extends Notifier<SearchState> {
     });
 
     // Check cache for immediate results
-    final cached = _cache[trimmed];
-    if (cached != null && !cached.isExpired) {
-      state = state.copyWith(
-        searchResults: cached.results,
-        isLoading: false,
-        searchPhase: SearchPhase.results,
-      );
-      return;
+    if (state.isAiEnabled) {
+      final cached = _aiCache[trimmed];
+      if (cached != null && !cached.isExpired) {
+        state = state.copyWith(
+          aiSearchResults: cached.result,
+          clearSearchResults: true,
+          isLoading: false,
+          searchPhase: SearchPhase.results,
+        );
+        return;
+      }
+    } else {
+      final cached = _cache[trimmed];
+      if (cached != null && !cached.isExpired) {
+        state = state.copyWith(
+          searchResults: cached.results,
+          isLoading: false,
+          searchPhase: SearchPhase.results,
+        );
+        return;
+      }
     }
 
     // Debounce search
@@ -511,6 +592,11 @@ class SearchStateNotifier extends Notifier<SearchState> {
     if (state.query.trim().isEmpty) return;
 
     final query = state.query.trim();
+
+    if (state.isAiEnabled) {
+      await _performAiSearch(query);
+      return;
+    }
 
     // Check cache first
     final cached = _cache[query];
@@ -565,6 +651,51 @@ class SearchStateNotifier extends Notifier<SearchState> {
       _addToHistory(query);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: 'Search failed: $e');
+    }
+  }
+
+  Future<void> _performAiSearch(String query) async {
+    final cached = _aiCache[query];
+    if (cached != null && !cached.isExpired) {
+      state = state.copyWith(
+        aiSearchResults: cached.result,
+        clearSearchResults: true,
+        isLoading: false,
+        searchPhase: SearchPhase.results,
+        completionStripVisible: false,
+        aiExpandedSections: const {},
+      );
+      _addToHistory(query);
+      return;
+    }
+
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      clearSearchResults: true,
+      clearAiSearchResults: true,
+      aiExpandedSections: const {},
+    );
+
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      final result = await api.aiSearch(query);
+
+      _aiCache[query] = _CachedAiResult(result, DateTime.now());
+      if (_aiCache.length > _maxCachedQueries) {
+        _aiCache.remove(_aiCache.keys.first);
+      }
+
+      state = state.copyWith(
+        aiSearchResults: result,
+        isLoading: false,
+        searchPhase: SearchPhase.results,
+        completionStripVisible: false,
+      );
+
+      _addToHistory(query);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: 'AI search failed: $e');
     }
   }
 
@@ -754,6 +885,12 @@ class SearchStateNotifier extends Notifier<SearchState> {
     );
   }
 
+  void revealAiSection(String sectionId) {
+    final updated = Set<String>.from(state.aiExpandedSections);
+    updated.add(sectionId);
+    state = state.copyWith(aiExpandedSections: updated);
+  }
+
   void revealArtistMoreAlbums(String artistId) {
     final updated = Set<String>.from(state.artistMoreAlbumsExpanded);
     updated.add(artistId);
@@ -793,6 +930,8 @@ class SearchStateNotifier extends Notifier<SearchState> {
     state = state.copyWith(
       query: '',
       clearSearchResults: true,
+      clearAiSearchResults: true,
+      aiExpandedSections: const {},
       clearError: true,
       completions: const [],
       clearAiCompletion: true,

@@ -12,6 +12,7 @@ import '../data_model/data_model.dart'
         DeviceVolume,
         FavoriteIds,
         GenreList,
+        IndexerStatus,
         ModulesAndDevices,
         Playlist,
         SearchType,
@@ -41,6 +42,13 @@ abstract class KalinkaPlayerProxy {
     int offset = 0,
     int limit = 30,
   });
+  Future<BrowseItemsList> aiSearch(
+    String query, {
+    int offset = 0,
+    int limit = 10,
+    List<String>? sources,
+  });
+  Future<IndexerStatus> getIndexerStatus({List<String>? sources});
   Future<BrowseItemsList> browse(
     String id, {
     int offset = 0,
@@ -221,6 +229,51 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
           }
 
           return BrowseItemsList.fromJson(response.data);
+        });
+  }
+
+  @override
+  Future<BrowseItemsList> aiSearch(
+    String query, {
+    int offset = 0,
+    int limit = 10,
+    List<String>? sources,
+  }) async {
+    return client
+        .get(
+          '/ai_search',
+          queryParameters: {
+            'query': query,
+            'offset': offset.toString(),
+            'limit': limit.toString(),
+            if (sources != null && sources.isNotEmpty)
+              'sources': sources.join(','),
+          },
+        )
+        .then((response) {
+          if (response.statusCode != 200) {
+            throw Exception('Failed ai_search for "$query"');
+          }
+          return BrowseItemsList.fromJson(response.data);
+        });
+  }
+
+  @override
+  Future<IndexerStatus> getIndexerStatus({List<String>? sources}) async {
+    return client
+        .get(
+          '/indexer/status',
+          queryParameters: (sources != null && sources.isNotEmpty)
+              ? {'sources': sources.join(',')}
+              : null,
+        )
+        .then((response) {
+          if (response.statusCode != 200) {
+            throw Exception('Failed to get indexer status');
+          }
+          return IndexerStatus.fromJson(
+            Map<String, dynamic>.from(response.data as Map),
+          );
         });
   }
 

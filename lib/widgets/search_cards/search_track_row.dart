@@ -215,18 +215,11 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
       rowBg = Colors.transparent;
     }
 
-    final Border? rowBorder;
-    if (selectionMode && isSelected) {
-      rowBorder = const Border(
-        left: BorderSide(color: KalinkaColors.accent, width: 2),
-      );
-    } else if (showNowPlaying) {
-      rowBorder = const Border(
-        left: BorderSide(color: KalinkaColors.accentBorder, width: 2),
-      );
-    } else {
-      rowBorder = null;
-    }
+    // Left-edge indicator bar drawn as an overlay so it doesn't push content
+    // right the way a Border would.
+    final Color? barColor = (selectionMode && isSelected)
+        ? KalinkaColors.accent
+        : (showNowPlaying ? KalinkaColors.accentBorder : null);
 
     return SwipeToActRow(
       enabled: !selectionMode,
@@ -243,103 +236,114 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
         onLongPressStart: selectionMode ? null : (_) => _startLongPress(),
         onLongPressEnd: selectionMode ? null : (_) => _cancelLongPress(),
         onLongPressCancel: selectionMode ? null : _cancelLongPress,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          decoration: BoxDecoration(
-            color: rowBg,
-            border: rowBorder,
-          ),
-          child: TrackTileLayout(
-            leadingStartSpacing: 0,
-            leading: Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: resolvedImageUrl != null
-                      ? Image.network(
-                          resolvedImageUrl,
-                          width: 44,
-                          height: 44,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => ProceduralAlbumArt(
-                            trackId: widget.item.id,
-                            size: 44,
+        child: Stack(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              decoration: BoxDecoration(color: rowBg),
+              child: TrackTileLayout(
+                leadingStartSpacing: 0,
+                leading: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: resolvedImageUrl != null
+                          ? Image.network(
+                              resolvedImageUrl,
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => ProceduralAlbumArt(
+                                trackId: widget.item.id,
+                                size: 44,
+                              ),
+                            )
+                          : ProceduralAlbumArt(
+                              trackId: widget.item.id, size: 44),
+                    ),
+                    if (_longPressing && _longPressProgress > 0)
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: LongPressRingPainter(
+                            progress: _longPressProgress,
+                            color: KalinkaColors.accent,
                           ),
-                        )
-                      : ProceduralAlbumArt(trackId: widget.item.id, size: 44),
-                ),
-                if (_longPressing && _longPressProgress > 0)
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: LongPressRingPainter(
-                        progress: _longPressProgress,
-                        color: KalinkaColors.accent,
-                      ),
-                    ),
-                  ),
-                if (selectionMode && isSelected)
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: KalinkaColors.accent.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(
-                        Icons.check,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            content: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: KalinkaTextStyles.trackRowTitle.copyWith(
-                    color: selectionMode && isSelected
-                        ? KalinkaColors.accentTint
-                        : null,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                if (subtitle.isNotEmpty)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      SourceBadge(
-                        entityId: widget.item.id,
-                        size: SourceBadgeSize.standard,
-                      ),
-                      if (ref.watch(sourceCountProvider) > 1)
-                        const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          subtitle,
-                          style: KalinkaTextStyles.trackRowSubtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ],
-                  ),
-              ],
-            ),
-            trailing: duration != null
-                ? Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(
-                      duration,
-                      style: KalinkaTextStyles.trackRowSubtitle,
+                    if (selectionMode && isSelected)
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: KalinkaColors.accent.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.check,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                content: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: KalinkaTextStyles.trackRowTitle.copyWith(
+                        color: selectionMode && isSelected
+                            ? KalinkaColors.accentTint
+                            : null,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  )
-                : null,
-          ),
+                    const SizedBox(height: 2),
+                    if (subtitle.isNotEmpty)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SourceBadge(
+                            entityId: widget.item.id,
+                            size: SourceBadgeSize.standard,
+                          ),
+                          if (ref.watch(sourceCountProvider) > 1)
+                            const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              subtitle,
+                              style: KalinkaTextStyles.trackRowSubtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+                trailing: duration != null
+                    ? Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Text(
+                          duration,
+                          style: KalinkaTextStyles.trackRowSubtitle,
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+            if (barColor != null)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Container(width: 2, color: barColor),
+                ),
+              ),
+          ],
         ),
       ),
     );

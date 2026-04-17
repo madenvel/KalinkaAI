@@ -607,14 +607,10 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow>
       rowBg = Colors.transparent;
     }
 
-    final Border? rowBorder;
-    if (showNowPlaying) {
-      rowBorder = const Border(
-        left: BorderSide(color: KalinkaColors.accentBorder, width: 2),
-      );
-    } else {
-      rowBorder = null;
-    }
+    // Left-edge indicator bar drawn as an overlay so it doesn't push content
+    // right the way a Border would.
+    final Color? barColor =
+        showNowPlaying ? KalinkaColors.accentBorder : null;
 
     // Sibling dimming: animated fade-in (200ms), instant restore.
     final dimmed = widget.siblingIsPlaying && !selectionMode;
@@ -642,14 +638,13 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow>
         onLongPressEnd: selectionMode ? null : (_) => _cancelLongPress(),
         onLongPressCancel: selectionMode ? null : _cancelLongPress,
         behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: rowBg,
-            border: rowBorder,
-          ),
-          child: AnimatedOpacity(
+        child: Stack(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(color: rowBg),
+              child: AnimatedOpacity(
             opacity: dimmed ? 0.7 : 1.0,
             duration: dimDuration,
             curve: Curves.easeOut,
@@ -715,6 +710,17 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow>
               ],
             ),
           ),
+        ),
+            if (barColor != null)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Container(width: 2, color: barColor),
+                ),
+              ),
+          ],
         ),
       ),
     );

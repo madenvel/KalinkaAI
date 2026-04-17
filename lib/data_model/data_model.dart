@@ -1299,3 +1299,67 @@ class AlbumResult extends SearchResultItem {
   final Album album;
   const AlbumResult(this.album);
 }
+
+class StageStatus {
+  final int total;
+  final int done;
+  final int pending;
+  final int inProgress;
+  final int failed;
+  final double coveragePct;
+
+  const StageStatus({
+    required this.total,
+    required this.done,
+    required this.pending,
+    required this.inProgress,
+    required this.failed,
+    required this.coveragePct,
+  });
+
+  factory StageStatus.fromJson(Map<String, dynamic> json) => StageStatus(
+        total: (json['total'] ?? 0) as int,
+        done: (json['done'] ?? 0) as int,
+        pending: (json['pending'] ?? 0) as int,
+        inProgress: (json['in_progress'] ?? 0) as int,
+        failed: (json['failed'] ?? 0) as int,
+        coveragePct: ((json['coverage_pct'] ?? 0) as num).toDouble(),
+      );
+}
+
+class IndexerStatus {
+  final Map<String, Map<String, StageStatus>> modules;
+
+  const IndexerStatus(this.modules);
+
+  factory IndexerStatus.fromJson(Map<String, dynamic> json) => IndexerStatus({
+        for (final m in json.entries)
+          m.key: {
+            for (final s in (m.value as Map).entries)
+              s.key as String:
+                  StageStatus.fromJson(Map<String, dynamic>.from(s.value as Map)),
+          },
+      });
+
+  bool get isEmpty => modules.isEmpty;
+
+  bool get isComplete {
+    if (modules.isEmpty) return true;
+    for (final stages in modules.values) {
+      for (final s in stages.values) {
+        if (s.pending > 0 || s.inProgress > 0) return false;
+      }
+    }
+    return true;
+  }
+
+  double? get minCoveragePct {
+    double? m;
+    for (final stages in modules.values) {
+      for (final s in stages.values) {
+        if (m == null || s.coveragePct < m) m = s.coveragePct;
+      }
+    }
+    return m;
+  }
+}
