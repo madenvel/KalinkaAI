@@ -380,7 +380,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
 
     final carouselOffset = _carouselController.value; // -1..1
 
-    // Precompute offline subtitle so it isn't repeated in two branches.
     return AnimatedSize(
       duration: Duration(milliseconds: shouldHide ? 120 : 200),
       curve: Curves.easeOut,
@@ -403,226 +402,14 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 2px progress line with connection-aware rendering.
-                  RepaintBoundary(
-                    child: Consumer(
-                      builder: (context, ref, _) {
-                        final playbackTimeMs = ref.watch(
-                          playbackTimeMsProvider,
-                        );
-                        final progress = durationMs > 0
-                            ? (playbackTimeMs / durationMs).clamp(0.0, 1.0)
-                            : 0.0;
-                        return GradientProgressLine(
-                          progress: progress,
-                          mode: progressLineMode,
-                        );
-                      },
-                    ),
-                  ),
-
-                  // Main content — 70px + gesture detection
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: widget.onTap,
-                    onHorizontalDragStart: _latchedCurrentTrack == null
-                        ? _onHorizontalDragStart
-                        : null,
-                    onHorizontalDragUpdate: _latchedCurrentTrack == null
-                        ? _onHorizontalDragUpdate
-                        : null,
-                    onHorizontalDragEnd: _latchedCurrentTrack == null
-                        ? _onHorizontalDragEnd
-                        : null,
-                    onVerticalDragEnd: (d) {
-                      // Swipe up → open now-playing
-                      if ((d.primaryVelocity ?? 0) < -200) widget.onTap?.call();
-                    },
-                    child: AnimatedOpacity(
-                      opacity: isOffline ? 0.45 : 1.0,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                      child: SizedBox(
-                        height: 70,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Row(
-                            children: [
-                              // Album art — instant swap on track change.
-                              Container(
-                                width: 46,
-                                height: 46,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                clipBehavior: Clip.antiAlias,
-                                child: resolvedImageUrl != null
-                                    ? Image.network(
-                                        resolvedImageUrl,
-                                        width: 46,
-                                        height: 46,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            ProceduralAlbumArt(
-                                              trackId:
-                                                  effectiveCurrentTrack?.id ??
-                                                  '',
-                                              size: 46,
-                                            ),
-                                      )
-                                    : ProceduralAlbumArt(
-                                        trackId:
-                                            effectiveCurrentTrack?.id ?? '',
-                                        size: 46,
-                                      ),
-                              ),
-                              const SizedBox(width: 10),
-
-                              // ── Carousel text area ────────────────────────────────
-                              Expanded(
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    // Cache width so gesture handlers can normalise deltas.
-                                    _textAreaWidth = math.max(
-                                      constraints.maxWidth,
-                                      1.0,
-                                    );
-
-                                    return ClipRect(
-                                      child: Stack(
-                                        children: [
-                                          // Current track — slides away during
-                                          // swipe; instant swap on track change.
-                                          Transform.translate(
-                                            offset: Offset(
-                                              carouselOffset * _textAreaWidth,
-                                              0,
-                                            ),
-                                            child: _TrackLabel(
-                                              title:
-                                                  effectiveCurrentTrack?.title,
-                                              subtitle: effectiveCurrentTrack
-                                                  ?.performer
-                                                  ?.name,
-                                              entityId:
-                                                  effectiveCurrentTrack?.id,
-                                            ),
-                                          ),
-
-                                          // Incoming track — slides in from the opposite edge.
-                                          // Gap is _carouselGap * textAreaWidth so it starts
-                                          // closer than the full width.
-                                          if (incomingTrack != null)
-                                            Transform.translate(
-                                              offset: Offset(
-                                                _swipeIsNext == true
-                                                    // Next: enters from the right
-                                                    ? (carouselOffset +
-                                                              _carouselGap) *
-                                                          _textAreaWidth
-                                                    // Prev: enters from the left
-                                                    : (carouselOffset -
-                                                              _carouselGap) *
-                                                          _textAreaWidth,
-                                                0,
-                                              ),
-                                              child: _TrackLabel(
-                                                title: incomingTrack.title,
-                                                subtitle: incomingTrack
-                                                    .performer
-                                                    ?.name,
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                entityId: incomingTrack.id,
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-
-                              // ── Play/pause — stationary, 46×46 ───────────────────
-                              IgnorePointer(
-                                ignoring: isOffline,
-                                child: GestureDetector(
-                                  onTapDown: isPlayPauseDisabled(playerState)
-                                      ? null
-                                      : (_) =>
-                                            playerState ==
-                                                PlayerStateType.playing
-                                            ? KalinkaHaptics.lightImpact()
-                                            : KalinkaHaptics.mediumImpact(),
-                                  onTap: isPlayPauseDisabled(playerState)
-                                      ? null
-                                      : () => sendPlayPauseCommand(
-                                          ref,
-                                          playerState,
-                                        ),
-                                  child: Container(
-                                    width: 46,
-                                    height: 46,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    // Fixed 26×26 glyph slot for every state
-                                    // keeps the visual weight stable and
-                                    // prevents the spinner from appearing
-                                    // offset against the icon.
-                                    child: Center(
-                                      child: SizedBox(
-                                        width: 26,
-                                        height: 26,
-                                        child: Center(
-                                          child:
-                                              playerState ==
-                                                  PlayerStateType.buffering
-                                              ? const SizedBox(
-                                                  width: 22,
-                                                  height: 22,
-                                                  child: CircularProgressIndicator(
-                                                    strokeWidth: 2.5,
-                                                    valueColor:
-                                                        AlwaysStoppedAnimation<
-                                                          Color
-                                                        >(
-                                                          KalinkaColors
-                                                              .background,
-                                                        ),
-                                                  ),
-                                                )
-                                              : playerState ==
-                                                    PlayerStateType.error
-                                              ? const Icon(
-                                                  Icons.warning_rounded,
-                                                  size: 22,
-                                                  color: KalinkaColors.accent,
-                                                )
-                                              : Icon(
-                                                  playerState ==
-                                                          PlayerStateType
-                                                              .playing
-                                                      ? Icons.pause_rounded
-                                                      : Icons
-                                                            .play_arrow_rounded,
-                                                  size: 26,
-                                                  color:
-                                                      KalinkaColors.background,
-                                                ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                  _buildProgressLine(progressLineMode, durationMs),
+                  _buildMainContent(
+                    resolvedImageUrl: resolvedImageUrl,
+                    currentTrack: effectiveCurrentTrack,
+                    incomingTrack: incomingTrack,
+                    carouselOffset: carouselOffset,
+                    isOffline: isOffline,
+                    playerState: playerState,
                   ),
                 ],
               ),
@@ -630,6 +417,223 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
           ),
         ),
       ),
+    );
+  }
+
+  /// 2px progress line pinned above the main content. Uses its own [Consumer]
+  /// so only the line rebuilds when playback time ticks.
+  Widget _buildProgressLine(
+    GradientProgressLineMode mode,
+    int durationMs,
+  ) {
+    return RepaintBoundary(
+      child: Consumer(
+        builder: (context, ref, _) {
+          final playbackTimeMs = ref.watch(playbackTimeMsProvider);
+          final progress = durationMs > 0
+              ? (playbackTimeMs / durationMs).clamp(0.0, 1.0)
+              : 0.0;
+          return GradientProgressLine(progress: progress, mode: mode);
+        },
+      ),
+    );
+  }
+
+  /// 70px row containing album art, the swipe-capable carousel text, and the
+  /// play/pause button. Owns the horizontal/vertical gesture detection that
+  /// drives the carousel and the swipe-up-to-open gesture.
+  Widget _buildMainContent({
+    required String? resolvedImageUrl,
+    required Track? currentTrack,
+    required Track? incomingTrack,
+    required double carouselOffset,
+    required bool isOffline,
+    required PlayerStateType? playerState,
+  }) {
+    final canSwipe = _latchedCurrentTrack == null;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap,
+      onHorizontalDragStart: canSwipe ? _onHorizontalDragStart : null,
+      onHorizontalDragUpdate: canSwipe ? _onHorizontalDragUpdate : null,
+      onHorizontalDragEnd: canSwipe ? _onHorizontalDragEnd : null,
+      onVerticalDragEnd: (d) {
+        // Swipe up → open now-playing
+        if ((d.primaryVelocity ?? 0) < -200) widget.onTap?.call();
+      },
+      child: AnimatedOpacity(
+        opacity: isOffline ? 0.45 : 1.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+        child: SizedBox(
+          height: 70,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                _buildAlbumArt(
+                  resolvedImageUrl: resolvedImageUrl,
+                  trackId: currentTrack?.id ?? '',
+                ),
+                const SizedBox(width: 10),
+                _buildCarouselText(
+                  currentTrack: currentTrack,
+                  incomingTrack: incomingTrack,
+                  carouselOffset: carouselOffset,
+                ),
+                const SizedBox(width: 8),
+                _buildPlayPauseButton(
+                  playerState: playerState,
+                  isOffline: isOffline,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 46×46 album thumbnail. Uses [Image.network] when a URL is available,
+  /// falling back to [ProceduralAlbumArt] on load error or when no art URL
+  /// exists at all.
+  Widget _buildAlbumArt({
+    required String? resolvedImageUrl,
+    required String trackId,
+  }) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
+      clipBehavior: Clip.antiAlias,
+      child: resolvedImageUrl != null
+          ? Image.network(
+              resolvedImageUrl,
+              width: 46,
+              height: 46,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) =>
+                  ProceduralAlbumArt(trackId: trackId, size: 46),
+            )
+          : ProceduralAlbumArt(trackId: trackId, size: 46),
+    );
+  }
+
+  /// Carousel text area: current track label (slides during swipe, instant
+  /// swap on track change) plus an optional incoming-track label that slides
+  /// in from the opposite edge. [LayoutBuilder] caches the width into
+  /// [_textAreaWidth] so gesture handlers can normalise horizontal deltas.
+  Widget _buildCarouselText({
+    required Track? currentTrack,
+    required Track? incomingTrack,
+    required double carouselOffset,
+  }) {
+    return Expanded(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          _textAreaWidth = math.max(constraints.maxWidth, 1.0);
+          return ClipRect(
+            child: Stack(
+              children: [
+                Transform.translate(
+                  offset: Offset(carouselOffset * _textAreaWidth, 0),
+                  child: _TrackLabel(
+                    title: currentTrack?.title,
+                    subtitle: currentTrack?.performer?.name,
+                    entityId: currentTrack?.id,
+                  ),
+                ),
+                if (incomingTrack != null)
+                  Transform.translate(
+                    offset: Offset(
+                      _swipeIsNext == true
+                          // Next: enters from the right
+                          ? (carouselOffset + _carouselGap) * _textAreaWidth
+                          // Prev: enters from the left
+                          : (carouselOffset - _carouselGap) * _textAreaWidth,
+                      0,
+                    ),
+                    child: _TrackLabel(
+                      title: incomingTrack.title,
+                      subtitle: incomingTrack.performer?.name,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      entityId: incomingTrack.id,
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Stationary 46×46 play/pause control. Disabled (no tap handler) when the
+  /// player state doesn't allow toggling, and fully ignored while offline.
+  Widget _buildPlayPauseButton({
+    required PlayerStateType? playerState,
+    required bool isOffline,
+  }) {
+    final disabled = isPlayPauseDisabled(playerState);
+    return IgnorePointer(
+      ignoring: isOffline,
+      child: GestureDetector(
+        onTapDown: disabled
+            ? null
+            : (_) => playerState == PlayerStateType.playing
+                  ? KalinkaHaptics.lightImpact()
+                  : KalinkaHaptics.mediumImpact(),
+        onTap: disabled
+            ? null
+            : () => sendPlayPauseCommand(ref, playerState),
+        child: Container(
+          width: 46,
+          height: 46,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+          // Fixed 26×26 glyph slot for every state keeps visual weight
+          // stable and prevents the spinner from appearing offset against
+          // the icon.
+          child: Center(
+            child: SizedBox(
+              width: 26,
+              height: 26,
+              child: Center(child: _buildPlayPauseGlyph(playerState)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The inner glyph shown inside the play/pause button: spinner while
+  /// buffering, warning icon on error, otherwise the play/pause icon.
+  Widget _buildPlayPauseGlyph(PlayerStateType? playerState) {
+    if (playerState == PlayerStateType.buffering) {
+      return const SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+          valueColor: AlwaysStoppedAnimation<Color>(KalinkaColors.background),
+        ),
+      );
+    }
+    if (playerState == PlayerStateType.error) {
+      return const Icon(
+        Icons.warning_rounded,
+        size: 22,
+        color: KalinkaColors.accent,
+      );
+    }
+    return Icon(
+      playerState == PlayerStateType.playing
+          ? Icons.pause_rounded
+          : Icons.play_arrow_rounded,
+      size: 26,
+      color: KalinkaColors.background,
     );
   }
 }
