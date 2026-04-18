@@ -207,7 +207,8 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     );
   }
 
-  /// Wraps results content with the type-based filter chip row.
+  /// Wraps results content with the type-based filter chip row, then the
+  /// indexer progress strip (so it sits immediately below the chip panel).
   Widget _wrapWithResultsFilter(Widget inner, SearchState searchState) {
     final counts = _resultCounts(searchState);
     return Column(
@@ -218,9 +219,19 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
           onFilterChanged: (type) =>
               ref.read(searchStateProvider.notifier).setResultsFilter(type),
         ),
+        if (_showIndexerBanner(searchState))
+          IndexerStatusBanner(progressPct: searchState.indexerProgressPct),
         Expanded(child: inner),
       ],
     );
+  }
+
+  bool _showIndexerBanner(SearchState state) {
+    final status = state.indexerStatus;
+    return state.isAiEnabled &&
+        status != null &&
+        !status.isEmpty &&
+        !status.isComplete;
   }
 
   Map<SearchType, int> _resultCounts(SearchState searchState) {
@@ -518,14 +529,6 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     _triggerStagger(totalItems);
 
     final children = <Widget>[];
-
-    final status = state.indexerStatus;
-    if (status != null && !status.isComplete && !status.isEmpty) {
-      children.add(Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 8),
-        child: IndexerStatusBanner(status: status),
-      ));
-    }
 
     if (totalItems == 0) {
       children.add(const SizedBox(height: 60));

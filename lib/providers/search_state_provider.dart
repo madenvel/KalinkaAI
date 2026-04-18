@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data_model/data_model.dart';
@@ -113,6 +114,11 @@ class SearchState {
   /// AI search index is still building.
   final IndexerStatus? indexerStatus;
 
+  /// Monotonic indexing progress for the banner (0-100). Rises as the
+  /// server reports more coverage, never walks backwards within a single
+  /// indexing session; reset to null when the index completes/empties.
+  final double? indexerProgressPct;
+
   /// IDs of AI result catalog sections whose full contents are shown.
   /// Sections not in this set are truncated to the default visible limit.
   final Set<String> aiExpandedSections;
@@ -164,6 +170,7 @@ class SearchState {
     this.isAiEnabled = false,
     this.aiSearchResults,
     this.indexerStatus,
+    this.indexerProgressPct,
     this.aiExpandedSections = const {},
     this.scopedFavourites,
     this.scopedPlaylists,
@@ -224,6 +231,8 @@ class SearchState {
     BrowseItemsList? aiSearchResults,
     bool clearAiSearchResults = false,
     IndexerStatus? indexerStatus,
+    double? indexerProgressPct,
+    bool clearIndexerProgressPct = false,
     Set<String>? aiExpandedSections,
     Map<SearchType, BrowseItemsList>? scopedFavourites,
     bool clearScopedFavourites = false,
@@ -279,6 +288,9 @@ class SearchState {
           ? null
           : (aiSearchResults ?? this.aiSearchResults),
       indexerStatus: indexerStatus ?? this.indexerStatus,
+      indexerProgressPct: clearIndexerProgressPct
+          ? null
+          : (indexerProgressPct ?? this.indexerProgressPct),
       aiExpandedSections: aiExpandedSections ?? this.aiExpandedSections,
       scopedFavourites: clearScopedFavourites
           ? null
@@ -299,7 +311,10 @@ class SearchStateNotifier extends Notifier<SearchState> {
   final Map<String, _CachedAiResult> _aiCache = {};
   Timer? _debounceTimer;
   Timer? _completionHideTimer;
+  Timer? _indexerPollTimer;
   String? _recommendationsForTrackId;
+
+  static const _indexerPollInterval = Duration(seconds: 5);
 
   @override
   SearchState build() {
@@ -309,6 +324,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
     ref.onDispose(() {
       _debounceTimer?.cancel();
       _completionHideTimer?.cancel();
+      _indexerPollTimer?.cancel();
     });
     return const SearchState();
   }
@@ -365,6 +381,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
   void deactivateSearch() {
     _debounceTimer?.cancel();
     _completionHideTimer?.cancel();
+    _indexerPollTimer?.cancel();
     ref.read(selectionStateProvider.notifier).exitSelectionMode();
     // Save any session history queries into all-time history
     for (final q in state.sessionHistory) {
@@ -409,6 +426,12 @@ class SearchStateNotifier extends Notifier<SearchState> {
       clearSearchResults: newAi,
       clearAiSearchResults: !newAi,
     );
+    // Refresh indexer coverage whenever the user opts into AI mode so the
+    // banner under the search bar reflects current progress, not a snapshot
+    // taken when the search surface was first opened.
+    if (newAi) {
+      _loadIndexerStatus();
+    }
     final hasQuery = state.query.trim().isNotEmpty;
     if (hasQuery &&
         (state.searchPhase == SearchPhase.results ||
@@ -555,15 +578,41 @@ class SearchStateNotifier extends Notifier<SearchState> {
     );
   }
 
-  /// Fetch embedding index coverage. Fire-and-forget; errors are swallowed
-  /// because a missing status simply hides the banner.
+  /// Fetch embedding index coverage. Reschedules itself on a 5s cadence
+  /// while the index is still building, and stops polling as soon as the
+  /// server reports completion (or empty). Errors are swallowed — a
+  /// missing status just hides the progress strip.
+  ///
+  /// Progress shown to the user is monotonically non-decreasing within a
+  /// session: the server's raw `overallCoveragePct` can dip when new work
+  /// is queued between polls (e.g., 95% → 63% when a new stage opens), so
+  /// we display the max observed value instead and only reset it when the
+  /// index empties or completes.
   Future<void> _loadIndexerStatus() async {
+    _indexerPollTimer?.cancel();
     final settings = ref.read(connectionSettingsProvider);
     if (!settings.isSet) return;
     try {
       final api = ref.read(kalinkaProxyProvider);
       final status = await api.getIndexerStatus();
-      state = state.copyWith(indexerStatus: status);
+
+      if (status.isEmpty || status.isComplete) {
+        state = state.copyWith(
+          indexerStatus: status,
+          clearIndexerProgressPct: true,
+        );
+      } else {
+        final raw = status.overallCoveragePct;
+        final prev = state.indexerProgressPct;
+        final next = raw == null
+            ? prev
+            : (prev == null ? raw : math.max(prev, raw));
+        state = state.copyWith(
+          indexerStatus: status,
+          indexerProgressPct: next,
+        );
+        _indexerPollTimer = Timer(_indexerPollInterval, _loadIndexerStatus);
+      }
     } catch (_) {
       // Non-critical — banner simply won't show
     }

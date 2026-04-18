@@ -1362,4 +1362,20 @@ class IndexerStatus {
     }
     return m;
   }
+
+  /// Aggregate completion across every stage: sum(done) / sum(total).
+  /// Unlike [minCoveragePct] this doesn't stick at 0% when a downstream
+  /// stage hasn't started yet — it reflects overall pipeline progress.
+  double? get overallCoveragePct {
+    int done = 0;
+    int total = 0;
+    for (final stages in modules.values) {
+      for (final s in stages.values) {
+        done += s.done;
+        total += s.total;
+      }
+    }
+    if (total == 0) return null;
+    return (done / total) * 100;
+  }
 }

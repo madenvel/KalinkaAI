@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
+import 'indexer_status_banner.dart';
 import 'search_cards/browse_item_rows.dart';
 import 'search_cards/section_header.dart';
 
@@ -43,6 +44,12 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchStateProvider);
 
+    final status = searchState.indexerStatus;
+    final showIndexer = searchState.isAiEnabled &&
+        status != null &&
+        !status.isEmpty &&
+        !status.isComplete;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -52,6 +59,12 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
           onScopeToggle: (type) =>
               ref.read(searchStateProvider.notifier).toggleScopeFilter(type),
         ),
+
+        // Indexer progress strip sits directly below the chip panel so it
+        // shares the same pinned-header band across both zero-state and
+        // typed-results surfaces.
+        if (showIndexer)
+          IndexerStatusBanner(progressPct: searchState.indexerProgressPct),
 
         // Layer 2 — Scrollable content (recent chips are first section inside)
         Expanded(
