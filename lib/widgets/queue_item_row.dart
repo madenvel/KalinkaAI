@@ -159,85 +159,99 @@ class QueueItemRow extends ConsumerWidget {
       artwork = Opacity(opacity: _upNextArtworkOpacity(), child: artwork);
     }
 
+    final showNowPlayingBar = isCurrentTrack && !isHistory;
+
     final rowContent = GestureDetector(
       onTap: () {
         KalinkaHaptics.lightImpact();
         api.sendQueueCommand(QueueCommand.play(index: index));
       },
-      child: Container(
-        decoration: BoxDecoration(
-          color: rowBg,
-          border: isCurrentTrack && !isHistory
-              ? const Border(
-                  left: BorderSide(color: KalinkaColors.accentBorder, width: 2),
-                )
-              : null,
-        ),
-        child: TrackTileLayout(
-          leading: artwork,
-          content: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                track.title,
-                style: KalinkaTextStyles.queueItemTitle.copyWith(
-                  color: titleColor,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-              ),
-              const SizedBox(height: 2),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(color: rowBg),
+            child: TrackTileLayout(
+              leading: artwork,
+              content: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  SourceBadge(entityId: track.id, size: SourceBadgeSize.small),
-                  if (ref.watch(sourceCountProvider) > 1)
-                    const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      track.performer?.name ?? 'Unknown Artist',
-                      style: KalinkaTextStyles.queueItemArtist.copyWith(
-                        color: artistColor,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      softWrap: false,
+                  Text(
+                    track.title,
+                    style: KalinkaTextStyles.queueItemTitle.copyWith(
+                      color: titleColor,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SourceBadge(
+                        entityId: track.id,
+                        size: SourceBadgeSize.small,
+                      ),
+                      if (ref.watch(sourceCountProvider) > 1)
+                        const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          track.performer?.name ?? 'Unknown Artist',
+                          style: KalinkaTextStyles.queueItemArtist.copyWith(
+                            color: artistColor,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          trailing: isHistory
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    _formatDuration(track.duration),
-                    style: KalinkaTextStyles.queueItemDuration.copyWith(
-                      color: KalinkaColors.textMuted,
-                    ),
-                  ),
-                )
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _formatDuration(track.duration),
-                      // Keep Up Next duration fixed for fast scanning.
-                      style: KalinkaTextStyles.queueItemDuration.copyWith(
-                        color: KalinkaColors.textSecondary,
+              trailing: isHistory
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        _formatDuration(track.duration),
+                        style: KalinkaTextStyles.queueItemDuration.copyWith(
+                          color: KalinkaColors.textMuted,
+                        ),
                       ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _formatDuration(track.duration),
+                          // Keep Up Next duration fixed for fast scanning.
+                          style: KalinkaTextStyles.queueItemDuration.copyWith(
+                            color: KalinkaColors.textSecondary,
+                          ),
+                        ),
+                        if (showDragHandle) ...[
+                          const SizedBox(width: 7),
+                          _DragHandle(index: displayIndex),
+                        ] else
+                          const SizedBox(width: 8),
+                      ],
                     ),
-                    if (showDragHandle) ...[
-                      const SizedBox(width: 7),
-                      _DragHandle(index: displayIndex),
-                    ] else
-                      const SizedBox(width: 8),
-                  ],
+            ),
+          ),
+          if (showNowPlayingBar)
+            const Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: IgnorePointer(
+                child: SizedBox(
+                  width: 2,
+                  child: ColoredBox(color: KalinkaColors.accentBorder),
                 ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
 
