@@ -20,6 +20,7 @@ import '../data_model/data_model.dart'
         SeekStatusMessage,
         StatusMessage,
         TrackList;
+import '../data_model/presentation_schema.dart' show PresentationSchema;
 
 abstract class KalinkaPlayerProxy {
   Future<StatusMessage> play([int? index]);
@@ -80,9 +81,17 @@ abstract class KalinkaPlayerProxy {
   Future<void> playlistDelete(String playlistId);
   Future<Playlist> playlistAddTracks(String playlistId, List<String> trackIds);
   Future<BrowseItemsList> playlistUserList(int offset, int limit);
+  /// Values only: `{"schema_version": ..., "values": {<flat dotted path>: value}}`.
   Future<Map<String, dynamic>> getSettings();
+  Future<PresentationSchema> getSettingsSchema();
+  /// `{server_version, api_version, name}` from `/server/version`.
+  Future<Map<String, dynamic>> getServerVersion();
   Future<ModulesAndDevices> listModules();
-  Future<void> saveSettings(Map<String, dynamic> settings);
+  /// PUT body: `{"schema_version": ..., "changes": {<flat dotted path>: value}}`.
+  Future<void> saveSettings({
+    required String schemaVersion,
+    required Map<String, dynamic> changes,
+  });
   Future<void> restartServer();
   void close();
 }
@@ -532,8 +541,32 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
       if (response.statusCode != 200) {
         throw Exception('Failed to get settings, url=${response.realUri}');
       }
-      return response.data;
+      return (response.data as Map).cast<String, dynamic>();
     });
+  }
+
+  @override
+  Future<PresentationSchema> getSettingsSchema() async {
+    final response = await client.get('/server/config/schema');
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to get settings schema, url=${response.realUri}',
+      );
+    }
+    return PresentationSchema.fromJson(
+      (response.data as Map).cast<String, dynamic>(),
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> getServerVersion() async {
+    final response = await client.get('/server/version');
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to get server version, url=${response.realUri}',
+      );
+    }
+    return (response.data as Map).cast<String, dynamic>();
   }
 
   @override
@@ -547,12 +580,18 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
   }
 
   @override
-  Future<void> saveSettings(Map<String, dynamic> settings) async {
-    final String encodedSettings = jsonEncode(settings);
+  Future<void> saveSettings({
+    required String schemaVersion,
+    required Map<String, dynamic> changes,
+  }) async {
+    final String body = jsonEncode({
+      'schema_version': schemaVersion,
+      'changes': changes,
+    });
     final response = await client.put(
       '/server/config',
       options: Options(contentType: Headers.jsonContentType),
-      data: encodedSettings,
+      data: body,
     );
 
     if (response.statusCode != 200) {

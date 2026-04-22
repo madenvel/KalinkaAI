@@ -1,14 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data_model/presentation_schema.dart';
 import 'kalinka_player_api_provider.dart';
 
+/// Settings state keyed entirely by flat dotted paths (`base_config.server.port`,
+/// `input_modules.qobuz.email`, …). The backend owns the presentation schema —
+/// we never regroup, relabel, or re-derive anything on the client.
 class SettingsState {
-  final Map<String, dynamic> serverConfig;
+  final PresentationSchema? schema;
+  final String? schemaVersion;
+  final Map<String, dynamic> values; // Path → server value
   final Map<String, dynamic> stagedChanges;
   final bool isLoading;
   final String? error;
 
   const SettingsState({
-    this.serverConfig = const {},
+    this.schema,
+    this.schemaVersion,
+    this.values = const {},
     this.stagedChanges = const {},
     this.isLoading = false,
     this.error,
@@ -17,40 +25,30 @@ class SettingsState {
   int get pendingCount => stagedChanges.length;
   bool get hasPendingChanges => stagedChanges.isNotEmpty;
 
-  /// Returns the effective value for a key: staged value if present, else server value.
-  dynamic getEffective(String key) {
-    if (stagedChanges.containsKey(key)) return stagedChanges[key];
-    return _getNestedValue(serverConfig, key);
+  /// Staged value if present, else the last-known server value.
+  dynamic getEffective(String path) {
+    if (stagedChanges.containsKey(path)) return stagedChanges[path];
+    return values[path];
   }
 
-  bool isStaged(String key) => stagedChanges.containsKey(key);
+  bool isStaged(String path) => stagedChanges.containsKey(path);
 
   SettingsState copyWith({
-    Map<String, dynamic>? serverConfig,
+    PresentationSchema? schema,
+    String? schemaVersion,
+    Map<String, dynamic>? values,
     Map<String, dynamic>? stagedChanges,
     bool? isLoading,
     String? error,
   }) {
     return SettingsState(
-      serverConfig: serverConfig ?? this.serverConfig,
+      schema: schema ?? this.schema,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
+      values: values ?? this.values,
       stagedChanges: stagedChanges ?? this.stagedChanges,
       isLoading: isLoading ?? this.isLoading,
       error: error,
     );
-  }
-
-  /// Get a nested value from a map using dot-separated key path.
-  static dynamic _getNestedValue(Map<String, dynamic> map, String key) {
-    final parts = key.split('.');
-    dynamic current = map;
-    for (final part in parts) {
-      if (current is Map<String, dynamic> && current.containsKey(part)) {
-        current = current[part];
-      } else {
-        return null;
-      }
-    }
-    return current;
   }
 }
 
@@ -58,107 +56,85 @@ final settingsProvider = NotifierProvider<SettingsNotifier, SettingsState>(
   SettingsNotifier.new,
 );
 
+/// Global toggle for "expert" importance fields.
+class ExpertModeNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void toggle() => state = !state;
+  void set(bool value) => state = value;
+}
+
+final expertModeProvider = NotifierProvider<ExpertModeNotifier, bool>(
+  ExpertModeNotifier.new,
+);
+
 class SettingsNotifier extends Notifier<SettingsState> {
   @override
-  SettingsState build() {
-    return const SettingsState();
-  }
+  SettingsState build() => const SettingsState();
 
-  /// Load the full server configuration from the API.
   Future<void> loadConfig() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final api = ref.read(kalinkaProxyProvider);
-      final config = await api.getSettings();
-      state = state.copyWith(serverConfig: config, isLoading: false);
+      // Fetch schema + values in parallel.
+      final results = await Future.wait([
+        api.getSettingsSchema(),
+        api.getSettings(),
+      ]);
+      final schema = results[0] as PresentationSchema;
+      final envelope = (results[1] as Map).cast<String, dynamic>();
+      final values = (envelope['values'] as Map? ?? {}).cast<String, dynamic>();
+      final valuesVersion = envelope['schema_version'] as String?;
+
+      state = state.copyWith(
+        schema: schema,
+        // If the two endpoints disagree (plugin reloaded between the two
+        // fetches), prefer the schema version — UI rendering is driven by it.
+        schemaVersion:
+            valuesVersion == schema.schemaVersion
+                ? schema.schemaVersion
+                : schema.schemaVersion,
+        values: values,
+        stagedChanges: {},
+        isLoading: false,
+      );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  /// Stage a change for a given key path (dot-separated).
-  void stageChange(String key, dynamic value) {
+  void stageChange(String path, dynamic value) {
     final newStaged = Map<String, dynamic>.from(state.stagedChanges);
-    newStaged[key] = value;
+    newStaged[path] = value;
     state = state.copyWith(stagedChanges: newStaged);
   }
 
-  /// Remove a staged change.
-  void unstageChange(String key) {
+  void unstageChange(String path) {
     final newStaged = Map<String, dynamic>.from(state.stagedChanges);
-    newStaged.remove(key);
+    newStaged.remove(path);
     state = state.copyWith(stagedChanges: newStaged);
   }
 
-  /// Discard all staged changes.
   void discardAll() {
     state = state.copyWith(stagedChanges: {});
   }
 
-  /// Merge staged changes into a deep copy of the server config.
-  Future<Map<String, dynamic>> buildMergedConfig() async {
-    final merged = _deepCopy(state.serverConfig);
-    for (final entry in state.stagedChanges.entries) {
-      _setNestedValue(merged, entry.key, entry.value);
-    }
-    return merged;
-  }
-
-  /// Recursively deep-copy a Map so mutations don't bleed into the original state.
-  static Map<String, dynamic> _deepCopy(Map<String, dynamic> map) {
-    return map.map((key, value) {
-      if (value is Map<String, dynamic>) {
-        return MapEntry(key, _deepCopy(value));
-      }
-      if (value is List) {
-        return MapEntry(key, List<dynamic>.from(value));
-      }
-      return MapEntry(key, value);
-    });
-  }
-
-  /// Apply staged changes: save to server, then let restart provider handle restart.
   Future<void> applyChanges() async {
+    final version = state.schemaVersion;
+    if (version == null || state.stagedChanges.isEmpty) return;
     try {
       final api = ref.read(kalinkaProxyProvider);
-      final serverChanges = {
-        for (final entry in state.stagedChanges.entries)
-          _toServerKey(entry.key): entry.value,
-      };
-      await api.saveSettings(serverChanges);
-      // Clear staged changes and update local config
-      final merged = await buildMergedConfig();
-      state = state.copyWith(serverConfig: merged, stagedChanges: {});
+      await api.saveSettings(
+        schemaVersion: version,
+        changes: Map<String, dynamic>.from(state.stagedChanges),
+      );
+      // Fold staged → values on success.
+      final newValues = Map<String, dynamic>.from(state.values);
+      newValues.addAll(state.stagedChanges);
+      state = state.copyWith(values: newValues, stagedChanges: {});
     } catch (e) {
       state = state.copyWith(error: 'Failed to save: $e');
       rethrow;
     }
-  }
-
-  /// Convert a UI key path (root.fields.base_config.fields.server.fields.port.value)
-  /// to the server's expected key format (root.base_config.server.port).
-  static String _toServerKey(String key) {
-    var result = key;
-    if (result.endsWith('.value')) {
-      result = result.substring(0, result.length - '.value'.length);
-    }
-    return result.replaceAll('.fields.', '.');
-  }
-
-  /// Set a nested value in a map using dot-separated key path.
-  static void _setNestedValue(
-    Map<String, dynamic> map,
-    String key,
-    dynamic value,
-  ) {
-    final parts = key.split('.');
-    Map<String, dynamic> current = map;
-    for (int i = 0; i < parts.length - 1; i++) {
-      if (current[parts[i]] is! Map<String, dynamic>) {
-        current[parts[i]] = <String, dynamic>{};
-      }
-      current = current[parts[i]] as Map<String, dynamic>;
-    }
-    current[parts.last] = value;
   }
 }

@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/connection_settings_provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/restart_provider.dart';
-import '../providers/server_info_provider.dart';
 import '../providers/settings_provider.dart';
+import '../data_model/presentation_schema.dart' show PageSpec;
 import '../theme/app_theme.dart';
 import '../widgets/kalinka_button.dart';
 import '../widgets/pending_changes_banner.dart';
 import '../widgets/restart_overlay.dart';
-import '../widgets/settings_tabs/devices_tab.dart';
-import '../widgets/settings_tabs/general_tab.dart';
-import '../widgets/settings_tabs/modules_tab.dart';
+import '../widgets/settings_controls/settings_toggle.dart';
+import '../widgets/settings_renderer.dart';
 
 /// Full-screen settings overlay with tabbed content (General / Modules / Devices).
 ///
@@ -82,9 +81,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(connectionSettingsProvider);
     final connectionState = ref.watch(connectionStateProvider);
-    final serverInfo = ref.watch(serverInfoProvider);
     final settingsState = ref.watch(settingsProvider);
 
     return Stack(
@@ -97,11 +94,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               child: Column(
                 children: [
                   // Header
-                  _buildHeader(settings, connectionState, serverInfo),
+                  _buildHeader(connectionState),
                   // Pending changes banner
                   PendingChangesBanner(onApply: _onApply),
-                  // Tab bar
-                  _buildTabBar(),
+                  // Tab bar (schema-driven)
+                  _buildTabBar(settingsState.schema?.pages),
+                  // Expert mode toggle
+                  const _ExpertModeToggle(),
                   // Loading / error state
                   if (settingsState.isLoading)
                     const Expanded(
@@ -115,7 +114,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       ),
                     )
                   else if (settingsState.error != null &&
-                      settingsState.serverConfig.isEmpty)
+                      settingsState.schema == null)
                     Expanded(
                       child: Center(
                         child: Column(
@@ -150,18 +149,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                         ),
                       ),
                     )
-                  else
-                    // Tab content
+                  else if (settingsState.schema != null)
                     Expanded(
                       child: IndexedStack(
-                        index: _tabIndex,
+                        index: _tabIndex.clamp(
+                          0,
+                          settingsState.schema!.pages.length - 1,
+                        ),
                         children: [
-                          const GeneralTab(),
-                          ModulesTab(),
-                          DevicesTab(),
+                          for (final page in settingsState.schema!.pages)
+                            SchemaPageRenderer(
+                              key: ValueKey('page_${page.id}'),
+                              page: page,
+                            ),
                         ],
                       ),
-                    ),
+                    )
+                  else
+                    const Expanded(child: SizedBox.shrink()),
                 ],
               ),
             ),
@@ -182,32 +187,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     );
   }
 
-  Widget _buildHeader(
-    ConnectionSettings settings,
-    ConnectionStatus connectionState,
-    AsyncValue<ServerInfo> serverInfo,
-  ) {
-    Color dotColor;
+  Widget _buildHeader(ConnectionStatus connectionState) {
+    final Color dotColor;
+    final String? statusLabel;
     switch (connectionState) {
       case ConnectionStatus.connected:
         dotColor = KalinkaColors.statusOnline;
-      case ConnectionStatus.reconnecting:
+        statusLabel = 'Connected';
       case ConnectionStatus.connecting:
         dotColor = KalinkaColors.statusPending;
+        statusLabel = 'Connecting';
+      case ConnectionStatus.reconnecting:
+        dotColor = KalinkaColors.statusPending;
+        statusLabel = 'Reconnecting';
       case ConnectionStatus.offline:
         dotColor = KalinkaColors.statusOffline;
+        statusLabel = 'Offline';
       case ConnectionStatus.none:
         dotColor = KalinkaColors.textMuted;
+        statusLabel = null;
     }
 
-    final versionText = serverInfo.whenOrNull(data: (info) => info.version);
-    final detailParts = <String>[
-      if (settings.host.isNotEmpty) '${settings.host}:${settings.port}',
-      if (versionText != null) 'v$versionText',
-    ];
-
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 20, 14),
+      padding: const EdgeInsets.fromLTRB(12, 12, 20, 16),
       decoration: BoxDecoration(
         color: KalinkaColors.surfaceBase,
         border: const Border(
@@ -250,58 +252,59 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          // Server name + details
+          const SizedBox(width: 14),
+          // Kalinka logo
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  settings.name.isNotEmpty ? settings.name : 'Server settings',
-                  style: KalinkaTextStyles.trayRowLabel.copyWith(
-                    fontSize: KalinkaTypography.baseSize + 5,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (detailParts.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    detailParts.join(' \u00b7 '),
-                    style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                      fontSize: KalinkaTypography.baseSize + 2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SvgPicture.asset(
+                'assets/images/kalinka_logo.svg',
+                height: 40,
+                fit: BoxFit.contain,
+              ),
             ),
           ),
-          // Online dot
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              color: dotColor,
-              shape: BoxShape.circle,
-              boxShadow: connectionState == ConnectionStatus.connected
-                  ? [
-                      BoxShadow(
-                        color: dotColor.withValues(alpha: 0.5),
-                        blurRadius: 8,
-                      ),
-                    ]
-                  : null,
-            ),
+          // Connection status pill: dot + label so the state is self-describing.
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: dotColor,
+                  shape: BoxShape.circle,
+                  boxShadow: connectionState == ConnectionStatus.connected
+                      ? [
+                          BoxShadow(
+                            color: dotColor.withValues(alpha: 0.5),
+                            blurRadius: 8,
+                          ),
+                        ]
+                      : null,
+                ),
+              ),
+              if (statusLabel != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  statusLabel,
+                  style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
+                    color: dotColor,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTabBar() {
-    const tabs = ['General', 'Modules', 'Devices'];
+  Widget _buildTabBar(List<PageSpec>? pages) {
+    final tabs = (pages == null || pages.isEmpty)
+        ? const ['General', 'Modules', 'Devices']
+        : pages.map((p) => p.title).toList();
     return Container(
       decoration: const BoxDecoration(
         color: KalinkaColors.surfaceBase,
@@ -338,6 +341,50 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             ),
           );
         }),
+      ),
+    );
+  }
+}
+
+/// Compact utility strip pinned under the tab bar so expert mode stays
+/// reachable from every page. Styled as chrome — muted uppercase label plus
+/// a small toggle — to read as meta rather than a primary setting row.
+class _ExpertModeToggle extends ConsumerWidget {
+  const _ExpertModeToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final expert = ref.watch(expertModeProvider);
+    final notifier = ref.read(expertModeProvider.notifier);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: notifier.toggle,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: KalinkaColors.surfaceBase,
+          border: Border(
+            bottom: BorderSide(color: KalinkaColors.borderSubtle),
+          ),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'EXPERT SETTINGS',
+                style: KalinkaTextStyles.sectionHeaderMuted,
+              ),
+            ),
+            Transform.scale(
+              scale: 0.82,
+              alignment: Alignment.centerRight,
+              child: SettingsToggle(
+                value: expert,
+                onChanged: (_) => notifier.toggle(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

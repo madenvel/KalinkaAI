@@ -12,9 +12,9 @@ class ServerInfo {
 final serverInfoProvider = FutureProvider.autoDispose<ServerInfo>((ref) async {
   final api = ref.read(kalinkaProxyProvider);
   final stopwatch = Stopwatch()..start();
-  final settings = await api.getSettings();
+  final info = await api.getServerVersion();
   stopwatch.stop();
 
-  final version = settings['version']?.toString() ?? 'Unknown';
+  final version = info['server_version']?.toString() ?? 'Unknown';
   return ServerInfo(version: version, latencyMs: stopwatch.elapsedMilliseconds);
 });

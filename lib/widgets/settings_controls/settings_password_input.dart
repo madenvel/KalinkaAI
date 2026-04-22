@@ -5,13 +5,13 @@ import '../../theme/app_theme.dart';
 class SettingsPasswordInput extends StatefulWidget {
   final String value;
   final ValueChanged<String> onChanged;
-  final double width;
+  final double? width;
 
   const SettingsPasswordInput({
     super.key,
     required this.value,
     required this.onChanged,
-    this.width = 145,
+    this.width,
   });
 
   @override

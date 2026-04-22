@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
 
-/// Segmented pill group for enum-like settings.
+/// Connected segmented control for enum-like settings.
 ///
-/// Active pill: accentFaded bg, accent border, accent text.
+/// Outer track holds equal-width segments; the active one fills with accent
+/// and flips text to primary contrast.
 class SettingsEnumPills extends StatelessWidget {
   final List<String> options;
   final String selected;
@@ -19,48 +20,74 @@ class SettingsEnumPills extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 5,
-      runSpacing: 5,
-      children: options.map((option) {
-        final isActive = option == selected;
-        return Material(
-          color: isActive
-              ? KalinkaColors.accentFaded
-              : KalinkaColors.surfaceOverlay,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(7),
-            side: BorderSide(
-              color: isActive
-                  ? KalinkaColors.accent
-                  : KalinkaColors.borderDefault,
-              width: 0.1,
-            ),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () {
-              KalinkaHaptics.selectionClick();
-              onChanged(option);
-            },
-            overlayColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.pressed)) {
-                return Colors.white.withValues(alpha: 0.08);
-              }
-              return null;
-            }),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              child: Text(
-                option,
-                style: isActive
-                    ? KalinkaTextStyles.filterPillActive
-                    : KalinkaTextStyles.filterPillInactive,
+    return Container(
+      decoration: BoxDecoration(
+        color: KalinkaColors.surfaceInput,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: KalinkaColors.borderDefault),
+      ),
+      padding: const EdgeInsets.all(2),
+      child: Row(
+        children: [
+          for (var i = 0; i < options.length; i++)
+            Expanded(
+              child: _Segment(
+                label: options[i],
+                isActive: options[i] == selected,
+                onTap: () {
+                  KalinkaHaptics.selectionClick();
+                  onChanged(options[i]);
+                },
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Segment extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _Segment({
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isActive ? KalinkaColors.accent : Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return Colors.white.withValues(alpha: 0.08);
+          }
+          return null;
+        }),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: KalinkaFonts.sans(
+              fontSize: KalinkaTypography.baseSize + 2,
+              fontWeight: isActive ? FontWeight.w500 : FontWeight.w400,
+              color: isActive
+                  ? KalinkaColors.textPrimary
+                  : KalinkaColors.textSecondary,
+            ),
           ),
-        );
-      }).toList(),
+        ),
+      ),
     );
   }
 }

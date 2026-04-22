@@ -57,7 +57,7 @@ class SettingsRow extends StatelessWidget {
                       children: [
                         _buildInfoBlock(showAmber, pillText),
                         const SizedBox(height: 10),
-                        control,
+                        SizedBox(width: double.infinity, child: control),
                       ],
                     )
                   : Row(
