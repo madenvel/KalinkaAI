@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
+import 'discover_section.dart';
 import 'indexer_status_banner.dart';
 import 'search_cards/browse_item_rows.dart';
 import 'search_cards/section_header.dart';
@@ -462,6 +463,11 @@ class _ZeroStateContent extends ConsumerWidget {
 
         // MY PLAYLISTS scope — flat list
         if (isMyPlaylists) _ScopedPlaylistsSection(searchState: searchState),
+
+        // DISCOVER — catalog browsing surfaced from backend role hints.
+        // Only rendered on the unfiltered "All" view; scope filters have
+        // their own dedicated sections above.
+        if (isAll) const DiscoverSection(),
       ],
     );
   }

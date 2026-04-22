@@ -604,6 +604,42 @@ class Preview {
       Object.hash(itemsCount, type, contentType, rowsCount, cardSize);
 }
 
+enum CatalogRole { featured, discovery, library, indexNode, hideOnHome }
+
+extension CatalogRoleExtension on CatalogRole {
+  String toValue() {
+    switch (this) {
+      case CatalogRole.featured:
+        return 'featured';
+      case CatalogRole.discovery:
+        return 'discovery';
+      case CatalogRole.library:
+        return 'library';
+      case CatalogRole.indexNode:
+        return 'index';
+      case CatalogRole.hideOnHome:
+        return 'hide_on_home';
+    }
+  }
+
+  static CatalogRole? fromValue(String? value) {
+    switch (value) {
+      case 'featured':
+        return CatalogRole.featured;
+      case 'discovery':
+        return CatalogRole.discovery;
+      case 'library':
+        return CatalogRole.library;
+      case 'index':
+        return CatalogRole.indexNode;
+      case 'hide_on_home':
+        return CatalogRole.hideOnHome;
+      default:
+        return null;
+    }
+  }
+}
+
 class Catalog {
   final String id;
   final String title;
@@ -611,6 +647,7 @@ class Catalog {
   final String? description;
   final bool canGenreFilter;
   final Preview? previewConfig;
+  final CatalogRole? role;
 
   Catalog({
     required this.id,
@@ -619,6 +656,7 @@ class Catalog {
     this.image,
     this.description,
     this.previewConfig,
+    this.role,
   });
 
   static final empty = Catalog(
@@ -628,6 +666,7 @@ class Catalog {
     image: null,
     description: null,
     previewConfig: null,
+    role: null,
   );
 
   factory Catalog.fromJson(Map<String, dynamic> json) => Catalog(
@@ -639,6 +678,7 @@ class Catalog {
     previewConfig: json["preview_config"] == null
         ? null
         : Preview.fromJson(json["preview_config"]),
+    role: CatalogRoleExtension.fromValue(json["role"] as String?),
   );
 
   Map<String, dynamic> toJson() => {
@@ -648,6 +688,7 @@ class Catalog {
     "description": description,
     "can_genre_filter": canGenreFilter,
     "preview_config": previewConfig?.toJson(),
+    "role": role?.toValue(),
   };
 
   Catalog copyWith({
@@ -657,6 +698,7 @@ class Catalog {
     String? description,
     bool? canGenreFilter,
     Preview? previewConfig,
+    CatalogRole? role,
   }) {
     return Catalog(
       id: id ?? this.id,
@@ -665,6 +707,7 @@ class Catalog {
       description: description ?? this.description,
       canGenreFilter: canGenreFilter ?? this.canGenreFilter,
       previewConfig: previewConfig ?? this.previewConfig,
+      role: role ?? this.role,
     );
   }
 }
