@@ -352,16 +352,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     );
 
     final connectionState = ref.watch(connectionStateProvider);
-    ref.listen(connectionStateProvider, (prev, next) {
-      if (prev == null) return;
-      if (prev != ConnectionStatus.offline &&
-          next == ConnectionStatus.offline) {
-        KalinkaHaptics.doublePulse();
-      } else if (prev != ConnectionStatus.connected &&
-          next == ConnectionStatus.connected) {
-        KalinkaHaptics.mediumImpact();
-      }
-    });
     final isOffline =
         connectionState == ConnectionStatus.reconnecting ||
         connectionState == ConnectionStatus.offline;

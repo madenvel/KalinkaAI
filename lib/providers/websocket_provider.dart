@@ -43,9 +43,12 @@ final webSocketProvider = FutureProvider.family<WebSocket, String>((
   }
 
   // Defer state updates to avoid modifying providers during build.
-  // Skip during reconnection — calling connecting() would cancel the retry
-  // timer that drives epoch increments.
-  if (currentStatus != ConnectionStatus.reconnecting) {
+  // Skip during reconnection (connecting() would cancel the retry timer that
+  // drives epoch increments) and when already connected (a second WS provider
+  // initialising lazily — e.g. /device/ws on first now-playing open — must not
+  // downgrade global state and re-trigger the connected-haptic in mini_player).
+  if (currentStatus != ConnectionStatus.reconnecting &&
+      currentStatus != ConnectionStatus.connected) {
     Future.microtask(connection.connecting);
   }
 
