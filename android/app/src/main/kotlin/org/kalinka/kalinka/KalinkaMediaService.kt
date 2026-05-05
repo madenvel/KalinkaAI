@@ -55,8 +55,8 @@ class KalinkaMediaService : Service() {
     }
 
     private val binder = LocalBinder()
-    private lateinit var mediaSession: MediaSessionCompat
-    private lateinit var volumeProvider: VolumeProviderCompat
+    private var mediaSession: MediaSessionCompat? = null
+    private var volumeProvider: VolumeProviderCompat? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -64,6 +64,8 @@ class KalinkaMediaService : Service() {
     private var host: String = ""
     private var port: Int = 0
     private var isEnabled = false
+
+    private var notificationVisible = false
 
     // --- WebSocket connections ---
     private val okHttpClient = OkHttpClient.Builder()
@@ -110,7 +112,6 @@ class KalinkaMediaService : Service() {
         super.onCreate()
         Log.d(TAG, "onCreate")
         createNotificationChannel()
-        setupMediaSession()
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -118,40 +119,50 @@ class KalinkaMediaService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onStartCommand action=${intent?.action}")
         // Forward hardware media button events (headphones, etc.) to the session callback.
-        MediaButtonReceiver.handleIntent(mediaSession, intent)
+        mediaSession?.let { MediaButtonReceiver.handleIntent(it, intent) }
 
         when (intent?.action) {
             ACTION_PLAY -> sendResumeOrPlay()
             ACTION_PAUSE -> sendQueueCommand("""{"command":"pause","paused":true}""")
             ACTION_NEXT -> sendQueueCommand("""{"command":"next"}""")
             ACTION_PREV -> sendQueueCommand("""{"command":"prev"}""")
-            else -> {
-                // Initial start: must call startForeground() within 5 seconds.
-                postNotification()
-            }
         }
         return START_NOT_STICKY
     }
 
+    /**
+     * Called when the user swipes the app away from recents. Tear everything
+     * down so the notification disappears with the task.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        Log.d(TAG, "onTaskRemoved")
+        disable()
+        super.onTaskRemoved(rootIntent)
+        stopSelf()
+    }
+
     override fun onDestroy() {
-        closeConnections()
-        mediaSession.release()
+        Log.d(TAG, "onDestroy")
+        disable()
         albumArtJob?.cancel()
         super.onDestroy()
     }
 
     // -------------------------------------------------------------------------
-    // Public API (called from KaiMediaPlugin)
+    // Public API (called from KalinkaMediaPlugin)
     // -------------------------------------------------------------------------
 
     fun enable(newHost: String, newPort: Int) {
         Log.d(TAG, "enable: host=$newHost port=$newPort")
-        if (newHost != host || newPort != port) {
-            closeConnections()
+        // If switching servers, fully tear down first so we don't mix state.
+        if (isEnabled && (newHost != host || newPort != port)) {
+            disable()
         }
         host = newHost
         port = newPort
         isEnabled = true
+        // Reset playback state — fresh session, fresh state.
+        resetPlaybackState()
         connectQueueWs()
         connectDeviceWs()
     }
@@ -161,6 +172,25 @@ class KalinkaMediaService : Service() {
         isEnabled = false
         closeConnections()
         hideNotification()
+        resetPlaybackState()
+    }
+
+    private fun resetPlaybackState() {
+        currentTitle = ""
+        currentArtist = ""
+        currentAlbumArtUrl = null
+        currentDurationMs = 0
+        currentPositionMs = 0
+        currentIsPlaying = false
+        currentPlayerState = "STOPPED"
+        currentAlbumArt = null
+        albumArtJob?.cancel()
+        albumArtJob = null
+        volumeKnown = false
+        volumeChangeModeActive = false
+        pendingVolumeToSend = null
+        mainHandler.removeCallbacks(sendVolumeRunnable)
+        mainHandler.removeCallbacks(clearVolumeModeRunnable)
     }
 
     // -------------------------------------------------------------------------
@@ -193,7 +223,7 @@ class KalinkaMediaService : Service() {
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e(TAG, "queueWs onFailure: ${t.message} response=${response?.code}")
-                mainHandler.post { if (webSocket === queueWs) disable() }
+                mainHandler.post { if (webSocket === queueWs && isEnabled) disable() }
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
@@ -222,7 +252,7 @@ class KalinkaMediaService : Service() {
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e(TAG, "deviceWs onFailure: ${t.message} response=${response?.code}")
-                mainHandler.post { if (webSocket === deviceWs) disable() }
+                mainHandler.post { if (webSocket === deviceWs && isEnabled) disable() }
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
@@ -236,6 +266,7 @@ class KalinkaMediaService : Service() {
     private fun closeConnections() {
         val q = queueWs; queueWs = null; q?.close(1000, null)
         val d = deviceWs; deviceWs = null; d?.close(1000, null)
+        pendingQueueCommand = null
     }
 
     private fun sendQueueCommand(json: String) {
@@ -298,10 +329,16 @@ class KalinkaMediaService : Service() {
     private fun updateFromPlaybackState(stateJson: JSONObject, serverTimeNs: Long?) {
         val stateStr = stateJson.optString("state", "")
         val newIsPlaying = stateStr == "PLAYING" || stateStr == "BUFFERING"
-        val isStopped = stateStr == "STOPPED" || stateStr == "ERROR"
         currentPlayerState = stateStr
-        val trackJson0 = stateJson.optJSONObject("current_track")
-        Log.d(TAG, "updateFromPlaybackState: state=$stateStr isPlaying=$newIsPlaying isStopped=$isStopped hasTrack=${trackJson0 != null} title=${trackJson0?.optString("title")}")
+        val trackJson = stateJson.optJSONObject("current_track")
+        Log.d(TAG, "updateFromPlaybackState: state=$stateStr isPlaying=$newIsPlaying hasTrack=${trackJson != null} title=${trackJson?.optString("title")}")
+
+        // No current track → notification (and session) must not be present.
+        // This covers playqueue cleared, fresh server with no playback, etc.
+        if (trackJson == null) {
+            hideNotification()
+            return
+        }
 
         val reportedPositionMs = stateJson.optLong("position", 0L)
         val adjustedPositionMs = if (serverTimeNs != null && newIsPlaying) {
@@ -315,52 +352,48 @@ class KalinkaMediaService : Service() {
         currentIsPlaying = newIsPlaying
         currentPositionMs = adjustedPositionMs
 
-        val trackJson = stateJson.optJSONObject("current_track")
-        if (trackJson != null) {
-            currentTitle = trackJson.optString("title", "")
-            currentDurationMs = (trackJson.optDouble("duration", 0.0) * 1000).toLong()
-            currentArtist = when {
-                !trackJson.isNull("performer") ->
-                    trackJson.optJSONObject("performer")?.optString("name", "")
-                        ?.takeIf { it.isNotEmpty() }
-                        ?: trackJson.optJSONObject("album")?.optString("title", "") ?: ""
-                !trackJson.isNull("album") ->
-                    trackJson.optJSONObject("album")?.optString("title", "") ?: ""
-                else -> ""
+        currentTitle = trackJson.optString("title", "")
+        currentDurationMs = (trackJson.optDouble("duration", 0.0) * 1000).toLong()
+        currentArtist = when {
+            !trackJson.isNull("performer") ->
+                trackJson.optJSONObject("performer")?.optString("name", "")
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: trackJson.optJSONObject("album")?.optString("title", "") ?: ""
+            !trackJson.isNull("album") ->
+                trackJson.optJSONObject("album")?.optString("title", "") ?: ""
+            else -> ""
+        }
+
+        val newArtUrl = trackJson.optJSONObject("album")
+            ?.takeIf { !it.isNull("image") }
+            ?.optJSONObject("image")
+            ?.optString("small", "")
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { path ->
+                if (path.startsWith("http")) path
+                else {
+                    val sep = if (path.startsWith("/")) "" else "/"
+                    "http://$host:$port$sep$path"
+                }
             }
 
-            val newArtUrl = trackJson.optJSONObject("album")
-                ?.takeIf { !it.isNull("image") }
-                ?.optJSONObject("image")
-                ?.optString("small", "")
-                ?.takeIf { it.isNotEmpty() }
-                ?.let { path ->
-                    if (path.startsWith("http")) path
-                    else {
-                        val sep = if (path.startsWith("/")) "" else "/"
-                        "http://$host:$port$sep$path"
-                    }
-                }
-
-            Log.d(TAG, "albumArt: newArtUrl=$newArtUrl currentAlbumArtUrl=$currentAlbumArtUrl changed=${newArtUrl != currentAlbumArtUrl}")
-            if (newArtUrl != currentAlbumArtUrl) {
-                currentAlbumArtUrl = newArtUrl
-                currentAlbumArt = null
-                albumArtJob?.cancel()
-                if (newArtUrl != null) {
-                    albumArtJob = serviceScope.launch {
-                        Log.d(TAG, "albumArt: loading $newArtUrl")
-                        currentAlbumArt = loadBitmapFromUrl(newArtUrl)
-                        Log.d(TAG, "albumArt: loaded=${currentAlbumArt != null}")
-                        updateMediaSessionMetadata()
-                        if (!isStopped) postNotification()
-                    }
+        Log.d(TAG, "albumArt: newArtUrl=$newArtUrl currentAlbumArtUrl=$currentAlbumArtUrl changed=${newArtUrl != currentAlbumArtUrl}")
+        if (newArtUrl != currentAlbumArtUrl) {
+            currentAlbumArtUrl = newArtUrl
+            currentAlbumArt = null
+            albumArtJob?.cancel()
+            if (newArtUrl != null) {
+                albumArtJob = serviceScope.launch {
+                    Log.d(TAG, "albumArt: loading $newArtUrl")
+                    currentAlbumArt = loadBitmapFromUrl(newArtUrl)
+                    Log.d(TAG, "albumArt: loaded=${currentAlbumArt != null}")
+                    updateMediaSessionMetadata()
+                    postNotification()
                 }
             }
         }
 
-        if (isStopped) { hideNotification(); return }
-
+        ensureMediaSession()
         updateMediaSessionMetadata()
         updatePlaybackState()
         postNotification()
@@ -386,9 +419,11 @@ class KalinkaMediaService : Service() {
         volumeKnown = true
         if (newMax != maxVolume) {
             maxVolume = newMax
-            setupVolumeProvider(newMax, newCurrent)
+            // Rebuild the provider so it advertises the new max range.
+            volumeProvider = null
+            ensureVolumeProvider()
         } else {
-            volumeProvider.currentVolume = newCurrent
+            volumeProvider?.currentVolume = newCurrent
         }
     }
 
@@ -408,7 +443,14 @@ class KalinkaMediaService : Service() {
         }
     }
 
-    private fun setupMediaSession() {
+    /**
+     * Lazily create the MediaSession. Tied to notification visibility — torn
+     * down in [hideNotification] so that volume keys, lock-screen controls etc.
+     * stop routing to us when there's no active playback to control.
+     */
+    private fun ensureMediaSession() {
+        if (mediaSession != null) return
+        Log.d(TAG, "ensureMediaSession: creating")
         val mediaButtonReceiver = ComponentName(this, MediaButtonReceiver::class.java)
         mediaSession = MediaSessionCompat(this, "KaiMediaSession", mediaButtonReceiver, null).apply {
             setCallback(object : MediaSessionCompat.Callback() {
@@ -423,30 +465,44 @@ class KalinkaMediaService : Service() {
             })
             isActive = true
         }
-        setupVolumeProvider(maxVolume, currentVolume)
+        ensureVolumeProvider()
     }
 
-    private fun setupVolumeProvider(maxVol: Int, currentVol: Int) {
+    private fun ensureVolumeProvider() {
+        val session = mediaSession ?: return
+        if (volumeProvider != null) return
+        Log.d(TAG, "ensureVolumeProvider: creating max=$maxVolume current=$currentVolume")
         volumeProvider = object : VolumeProviderCompat(
-            VOLUME_CONTROL_ABSOLUTE, maxVol, currentVol.coerceIn(0, maxVol)
+            VOLUME_CONTROL_ABSOLUTE, maxVolume, currentVolume.coerceIn(0, maxVolume)
         ) {
             override fun onAdjustVolume(direction: Int) {
                 if (direction != 1 && direction != -1) return
                 if (!this@KalinkaMediaService.volumeKnown) return
-                val newVol = (currentVolume + direction).coerceIn(0, maxVol)
+                val newVol = (currentVolume + direction).coerceIn(0, maxVolume)
                 currentVolume = newVol
+                this.currentVolume = newVol
                 enterVolumeSuppressMode()
                 scheduleVolumeCommand(newVol)
             }
             override fun onSetVolumeTo(volume: Int) {
                 if (!this@KalinkaMediaService.volumeKnown) return
-                val newVol = volume.coerceIn(0, maxVol)
+                val newVol = volume.coerceIn(0, maxVolume)
                 currentVolume = newVol
+                this.currentVolume = newVol
                 enterVolumeSuppressMode()
                 scheduleVolumeCommand(newVol)
             }
         }
-        mediaSession.setPlaybackToRemote(volumeProvider)
+        session.setPlaybackToRemote(volumeProvider!!)
+    }
+
+    private fun releaseMediaSession() {
+        val session = mediaSession ?: return
+        Log.d(TAG, "releaseMediaSession")
+        session.isActive = false
+        session.release()
+        mediaSession = null
+        volumeProvider = null
     }
 
     private fun scheduleVolumeCommand(volume: Int) {
@@ -462,16 +518,18 @@ class KalinkaMediaService : Service() {
     }
 
     private fun updateMediaSessionMetadata() {
+        val session = mediaSession ?: return
         val metadata = MediaMetadataCompat.Builder()
             .putString(MediaMetadataCompat.METADATA_KEY_TITLE, currentTitle)
             .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, currentArtist)
             .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, currentDurationMs)
             .apply { currentAlbumArt?.let { putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, it) } }
             .build()
-        mediaSession.setMetadata(metadata)
+        session.setMetadata(metadata)
     }
 
     private fun updatePlaybackState() {
+        val session = mediaSession ?: return
         val state = if (currentIsPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
         val playbackState = PlaybackStateCompat.Builder()
             .setActions(
@@ -485,7 +543,7 @@ class KalinkaMediaService : Service() {
             )
             .setState(state, currentPositionMs, if (currentIsPlaying) 1f else 0f)
             .build()
-        mediaSession.setPlaybackState(playbackState)
+        session.setPlaybackState(playbackState)
     }
 
     private fun buildNotification(): Notification {
@@ -524,23 +582,29 @@ class KalinkaMediaService : Service() {
             .addAction(prevAction)
             .addAction(playPauseAction)
             .addAction(nextAction)
-            .setStyle(
-                MediaStyle()
-                    .setMediaSession(mediaSession.sessionToken)
-                    .setShowActionsInCompactView(0, 1, 2)
-            )
+            .apply {
+                mediaSession?.let {
+                    setStyle(MediaStyle().setMediaSession(it.sessionToken).setShowActionsInCompactView(0, 1, 2))
+                }
+            }
             .build()
     }
 
     fun postNotification() {
+        // Don't resurrect after disable — async album-art callbacks can land
+        // here after the WS dropped and we've already torn down.
+        if (!isEnabled || mediaSession == null) return
         Log.d(TAG, "postNotification: title=$currentTitle artist=$currentArtist isPlaying=$currentIsPlaying positionMs=$currentPositionMs durationMs=$currentDurationMs hasArt=${currentAlbumArt != null}")
         startForeground(NOTIFICATION_ID, buildNotification())
+        notificationVisible = true
     }
 
     fun hideNotification() {
+        if (!notificationVisible && mediaSession == null) return
         Log.d(TAG, "hideNotification")
         stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        notificationVisible = false
+        releaseMediaSession()
     }
 
     private suspend fun loadBitmapFromUrl(url: String): Bitmap? =

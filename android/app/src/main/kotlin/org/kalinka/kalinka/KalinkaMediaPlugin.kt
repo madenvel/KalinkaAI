@@ -217,15 +217,12 @@ class KalinkaMediaPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activ
         val ctx = context ?: run { Log.e(TAG, "startAndBindService: context is null"); return }
         Log.d(TAG, "startAndBindService")
         requestNotificationPermissionIfNeeded()
+        // BindService only — the service stays alive while bound, lifts itself
+        // into the foreground (with notification) once a current track is known,
+        // and tears the foreground state down when there isn't one. Skipping
+        // startForegroundService avoids the 5-second startForeground deadline
+        // and the placeholder notification it forces.
         val intent = Intent(ctx, KalinkaMediaService::class.java)
-        try {
-            ContextCompat.startForegroundService(ctx, intent)
-        } catch (e: Exception) {
-            // App may not yet be in the foreground at startup; bindService below will
-            // still create the service via BIND_AUTO_CREATE, and the service can call
-            // startForeground() on its own once it's running.
-            Log.w(TAG, "startAndBindService: startForegroundService failed (${e.message}), binding only")
-        }
         ctx.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
 
