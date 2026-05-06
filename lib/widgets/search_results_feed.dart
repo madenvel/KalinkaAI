@@ -6,6 +6,7 @@ import '../data_model/data_model.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../providers/selection_state_provider.dart';
+import '../providers/indexer_status_provider.dart';
 import 'browse_list.dart';
 import 'indexer_status_banner.dart';
 import 'search_cards/browse_item_rows.dart';
@@ -219,19 +220,12 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
           onFilterChanged: (type) =>
               ref.read(searchStateProvider.notifier).setResultsFilter(type),
         ),
-        if (_showIndexerBanner(searchState))
-          IndexerStatusBanner(progressPct: searchState.indexerProgressPct),
+        // Indexer progress strip lives in its own Consumer so the 5s poll
+        // loop doesn't rebuild the entire results feed.
+        if (searchState.isAiEnabled) const _IndexerStatusGate(),
         Expanded(child: inner),
       ],
     );
-  }
-
-  bool _showIndexerBanner(SearchState state) {
-    final status = state.indexerStatus;
-    return state.isAiEnabled &&
-        status != null &&
-        !status.isEmpty &&
-        !status.isComplete;
   }
 
   Map<SearchType, int> _resultCounts(SearchState searchState) {
@@ -618,6 +612,27 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         );
       }).toList(),
     );
+  }
+}
+
+/// Renders the indexer banner only while indexing is in progress. Watching
+/// [indexerStatusProvider] in its own Consumer keeps the 5s poll loop from
+/// rebuilding the surrounding results feed.
+class _IndexerStatusGate extends ConsumerWidget {
+  const _IndexerStatusGate();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final showIndexer = ref.watch(
+      indexerStatusProvider.select((s) {
+        final status = s.status;
+        return status != null && !status.isEmpty && !status.isComplete;
+      }),
+    );
+    if (!showIndexer) return const SizedBox.shrink();
+    final progressPct =
+        ref.watch(indexerStatusProvider.select((s) => s.progressPct));
+    return IndexerStatusBanner(progressPct: progressPct);
   }
 }
 

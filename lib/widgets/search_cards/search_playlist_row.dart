@@ -107,8 +107,8 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
 
   @override
   Widget build(BuildContext context) {
-    final searchState = ref.watch(searchStateProvider);
-    final isExpanded = searchState.expandedAlbumIds.contains(widget.item.id);
+    final isExpanded = ref.watch(searchStateProvider
+        .select((s) => s.expandedAlbumIds.contains(widget.item.id)));
     final urlResolver = ref.read(urlResolverProvider);
 
     final selection = ref.watch(selectionStateProvider);
@@ -190,56 +190,43 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
                     height: 56,
                     child: Stack(
                       children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
+                        // Note: previously wrapped in a Container with
+                        // BoxShadow(blurRadius: 6). Removed for the same
+                        // GPU/saveLayer reason as the album row — see
+                        // comment in search_album_row.dart.
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Stack(
+                            children: [
+                              if (resolvedImageUrl != null)
+                                Image.network(
+                                  resolvedImageUrl,
+                                  fit: BoxFit.cover,
+                                  width: 56,
+                                  height: 56,
+                                  cacheWidth: 168,
+                                  cacheHeight: 168,
+                                  gaplessPlayback: true,
+                                  filterQuality: FilterQuality.low,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return ProceduralAlbumArt(
+                                      trackId: widget.item.id,
+                                      size: 56,
+                                    );
+                                  },
+                                )
+                              else
+                                ProceduralAlbumArt(
+                                  trackId: widget.item.id,
+                                  size: 56,
+                                ),
+                              // Playlist marker badge — bottom-right corner
+                              const Positioned(
+                                right: 3,
+                                bottom: 3,
+                                child: _PlaylistBadge(),
                               ),
                             ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Stack(
-                              children: [
-                                if (resolvedImageUrl != null)
-                                  Image.network(
-                                    resolvedImageUrl,
-                                    fit: BoxFit.cover,
-                                    width: 56,
-                                    height: 56,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return ProceduralAlbumArt(
-                                        trackId: widget.item.id,
-                                        size: 56,
-                                      );
-                                    },
-                                  )
-                                else
-                                  ProceduralAlbumArt(
-                                    trackId: widget.item.id,
-                                    size: 56,
-                                  ),
-                                // 2x2 mosaic overlay at 25% opacity
-                                Opacity(
-                                  opacity: 0.25,
-                                  child: GridView.count(
-                                    crossAxisCount: 2,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    children: List.generate(4, (i) {
-                                      return ProceduralAlbumArt(
-                                        trackId: '${widget.item.id}_$i',
-                                        size: 28,
-                                      );
-                                    }),
-                                  ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
                         // Long-press ring
@@ -581,7 +568,11 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
                               resolvedImageUrl,
                               width: 44,
                               height: 44,
+                              cacheWidth: 132,
+                              cacheHeight: 132,
                               fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                              filterQuality: FilterQuality.low,
                               errorBuilder: (_, __, ___) => ProceduralAlbumArt(
                                 trackId: widget.item.id,
                                 size: 44,
@@ -690,5 +681,28 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
     final m = seconds ~/ 60;
     final s = seconds % 60;
     return '$m:${s.toString().padLeft(2, '0')}';
+  }
+}
+
+/// Tiny corner glyph that marks a thumbnail as a playlist (a collection of
+/// tracks) rather than a single album.
+class _PlaylistBadge extends StatelessWidget {
+  const _PlaylistBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 16,
+      height: 16,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Icon(
+        Icons.queue_music,
+        size: 11,
+        color: Colors.white,
+      ),
+    );
   }
 }

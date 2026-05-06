@@ -110,8 +110,8 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
 
   @override
   Widget build(BuildContext context) {
-    final searchState = ref.watch(searchStateProvider);
-    final isExpanded = searchState.expandedAlbumIds.contains(widget.item.id);
+    final isExpanded = ref.watch(searchStateProvider
+        .select((s) => s.expandedAlbumIds.contains(widget.item.id)));
 
     final selection = ref.watch(selectionStateProvider);
     final selectionMode = selection.isActive;
@@ -192,36 +192,36 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
                     height: 60,
                     child: Stack(
                       children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: resolvedImageUrl != null
-                                ? Image.network(
-                                    resolvedImageUrl,
-                                    width: 60,
-                                    height: 60,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        ProceduralAlbumArt(
-                                          trackId: widget.item.id,
-                                          size: 60,
-                                        ),
-                                  )
-                                : ProceduralAlbumArt(
-                                    trackId: widget.item.id,
-                                    size: 60,
-                                  ),
-                          ),
+                        // Note: previously wrapped in a Container with
+                        // BoxShadow(blurRadius: 6). Each blurred shadow
+                        // forced a saveLayer + Gaussian blur shader pass on
+                        // the GPU, and several album/playlist rows can be
+                        // on screen at once. Tracing showed this was the
+                        // dominant scroll-time cost on the zero-state
+                        // surface (BASED ON NOW PLAYING packs many
+                        // shadow-bearing rows into the first viewport).
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: resolvedImageUrl != null
+                              ? Image.network(
+                                  resolvedImageUrl,
+                                  width: 60,
+                                  height: 60,
+                                  cacheWidth: 180,
+                                  cacheHeight: 180,
+                                  fit: BoxFit.cover,
+                                  gaplessPlayback: true,
+                                  filterQuality: FilterQuality.low,
+                                  errorBuilder: (_, __, ___) =>
+                                      ProceduralAlbumArt(
+                                        trackId: widget.item.id,
+                                        size: 60,
+                                      ),
+                                )
+                              : ProceduralAlbumArt(
+                                  trackId: widget.item.id,
+                                  size: 60,
+                                ),
                         ),
                         // Long-press ring
                         if (_longPressing && _longPressProgress > 0)
@@ -573,11 +573,12 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow>
         );
     final inSelectionHighlight = isSelected || trackSelected;
 
-    // Now-playing detection
-    final playerState = ref.watch(playerStateProvider);
+    // Now-playing detection — scope the watch so we don't rebuild on every
+    // position tick (PlaybackState.position updates frequently while playing).
+    final currentTrackId =
+        ref.watch(playerStateProvider.select((s) => s.currentTrack?.id));
     final isCurrentTrack =
-        widget.item.id.isNotEmpty &&
-        playerState.currentTrack?.id == widget.item.id;
+        widget.item.id.isNotEmpty && currentTrackId == widget.item.id;
 
     // Clear optimistic flash once server confirms, or revert if different track.
     ref.listen(

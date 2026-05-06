@@ -42,8 +42,8 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
 
   @override
   Widget build(BuildContext context) {
-    final searchState = ref.watch(searchStateProvider);
-    final isExpanded = searchState.expandedArtistIds.contains(widget.item.id);
+    final isExpanded = ref.watch(searchStateProvider
+        .select((s) => s.expandedArtistIds.contains(widget.item.id)));
 
     final artist = widget.item.artist;
     final name = artist?.name ?? widget.item.name ?? 'Unknown';
@@ -90,40 +90,36 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
               child: Row(
                 children: [
                   // Circular avatar 52x52
+                  // Note: previously wrapped in a Container with
+                  // BoxShadow(blurRadius: 14). The 14px blur is GPU-
+                  // expensive (~5x cost of a 6px blur) and forces a
+                  // saveLayer per artist row. Removed to keep scroll smooth
+                  // when the BASED ON NOW PLAYING section surfaces several
+                  // artist rows in the first viewport.
                   SizedBox(
                     width: 52,
                     height: 52,
-                    child: Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            blurRadius: 14,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: resolvedImageUrl != null
-                            ? Image.network(
-                                resolvedImageUrl,
-                                width: 52,
-                                height: 52,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    ProceduralAlbumArt(
-                                      trackId: widget.item.id,
-                                      size: 52,
-                                    ),
-                              )
-                            : ProceduralAlbumArt(
-                                trackId: widget.item.id,
-                                size: 52,
-                              ),
-                      ),
+                    child: ClipOval(
+                      child: resolvedImageUrl != null
+                          ? Image.network(
+                              resolvedImageUrl,
+                              width: 52,
+                              height: 52,
+                              cacheWidth: 156,
+                              cacheHeight: 156,
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                              filterQuality: FilterQuality.low,
+                              errorBuilder: (_, __, ___) =>
+                                  ProceduralAlbumArt(
+                                    trackId: widget.item.id,
+                                    size: 52,
+                                  ),
+                            )
+                          : ProceduralAlbumArt(
+                              trackId: widget.item.id,
+                              size: 52,
+                            ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -211,10 +207,8 @@ class _ArtistExpansionContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final browseAsync = ref.watch(browseDetailProvider(artistId));
-    final searchState = ref.watch(searchStateProvider);
-    final showAllAlbums = searchState.artistMoreAlbumsExpanded.contains(
-      artistId,
-    );
+    final showAllAlbums = ref.watch(searchStateProvider
+        .select((s) => s.artistMoreAlbumsExpanded.contains(artistId)));
 
     return Padding(
       padding: const EdgeInsets.only(left: 16),
@@ -586,11 +580,11 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
 
   @override
   Widget build(BuildContext context) {
-    final searchState = ref.watch(searchStateProvider);
-    final showAllTracks = searchState.albumMoreTracksExpanded.contains(
-      'singles_${widget.artistId}',
-    );
-    final selectionMode = ref.watch(selectionStateProvider).isActive;
+    final singlesKey = 'singles_${widget.artistId}';
+    final showAllTracks = ref.watch(searchStateProvider
+        .select((s) => s.albumMoreTracksExpanded.contains(singlesKey)));
+    final selectionMode = ref.watch(
+        selectionStateProvider.select((s) => s.isActive));
 
     return Column(
       children: [

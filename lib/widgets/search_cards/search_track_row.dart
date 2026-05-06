@@ -68,7 +68,6 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
         weight: 2,
       ),
     ]).animate(_flashController);
-    _flashController.addListener(() => setState(() {}));
   }
 
   @override
@@ -181,10 +180,13 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
         ? urlResolver.abs(imageUrl)
         : null;
 
-    final playerState = ref.watch(playerStateProvider);
+    // Only rebuild on currentTrack ID changes — not on every position tick.
+    // PlaybackState.position updates frequently while playing; watching the
+    // whole state would re-`build()` every visible track row each tick.
+    final currentTrackId =
+        ref.watch(playerStateProvider.select((s) => s.currentTrack?.id));
     final isCurrentTrack =
-        widget.item.id.isNotEmpty &&
-        playerState.currentTrack?.id == widget.item.id;
+        widget.item.id.isNotEmpty && currentTrackId == widget.item.id;
     // Clear optimistic flash once server confirms this track is current,
     // or instantly revert if a different track became current.
     ref.listen(
@@ -204,15 +206,13 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
     // Now-playing row decoration
     final showNowPlaying =
         !selectionMode && (_tappedToPlay || isCurrentTrack);
-    final Color rowBg;
+    final Color baseRowBg;
     if (selectionMode && isSelected) {
-      rowBg = KalinkaColors.accent.withValues(alpha: 0.07);
-    } else if (showNowPlaying && _flashController.isAnimating) {
-      rowBg = _flashColorAnim.value ?? Colors.transparent;
+      baseRowBg = KalinkaColors.accent.withValues(alpha: 0.07);
     } else if (showNowPlaying) {
-      rowBg = KalinkaColors.accentSubtle;
+      baseRowBg = KalinkaColors.accentSubtle;
     } else {
-      rowBg = Colors.transparent;
+      baseRowBg = Colors.transparent;
     }
 
     // Left-edge indicator bar drawn as an overlay so it doesn't push content
@@ -220,6 +220,103 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
     final Color? barColor = (selectionMode && isSelected)
         ? KalinkaColors.accent
         : (showNowPlaying ? KalinkaColors.accentBorder : null);
+
+    final tileChild = TrackTileLayout(
+      leadingStartSpacing: 0,
+      leading: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: resolvedImageUrl != null
+                ? Image.network(
+                    resolvedImageUrl,
+                    width: 44,
+                    height: 44,
+                    cacheWidth: 132,
+                    cacheHeight: 132,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                    filterQuality: FilterQuality.low,
+                    errorBuilder: (_, __, ___) => ProceduralAlbumArt(
+                      trackId: widget.item.id,
+                      size: 44,
+                    ),
+                  )
+                : ProceduralAlbumArt(
+                    trackId: widget.item.id, size: 44),
+          ),
+          if (_longPressing && _longPressProgress > 0)
+            Positioned.fill(
+              child: CustomPaint(
+                painter: LongPressRingPainter(
+                  progress: _longPressProgress,
+                  color: KalinkaColors.accent,
+                ),
+              ),
+            ),
+          if (selectionMode && isSelected)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: KalinkaColors.accent.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+        ],
+      ),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            style: KalinkaTextStyles.trackRowTitle.copyWith(
+              color: selectionMode && isSelected
+                  ? KalinkaColors.accentTint
+                  : null,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          if (subtitle.isNotEmpty)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SourceBadge(
+                  entityId: widget.item.id,
+                  size: SourceBadgeSize.standard,
+                ),
+                if (ref.watch(sourceCountProvider) > 1)
+                  const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    subtitle,
+                    style: KalinkaTextStyles.trackRowSubtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+      trailing: duration != null
+          ? Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Text(
+                duration,
+                style: KalinkaTextStyles.trackRowSubtitle,
+              ),
+            )
+          : null,
+    );
 
     return SwipeToActRow(
       enabled: !selectionMode,
@@ -238,101 +335,23 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
         onLongPressCancel: selectionMode ? null : _cancelLongPress,
         child: Stack(
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              decoration: BoxDecoration(color: rowBg),
-              child: TrackTileLayout(
-                leadingStartSpacing: 0,
-                leading: Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: resolvedImageUrl != null
-                          ? Image.network(
-                              resolvedImageUrl,
-                              width: 44,
-                              height: 44,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => ProceduralAlbumArt(
-                                trackId: widget.item.id,
-                                size: 44,
-                              ),
-                            )
-                          : ProceduralAlbumArt(
-                              trackId: widget.item.id, size: 44),
-                    ),
-                    if (_longPressing && _longPressProgress > 0)
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: LongPressRingPainter(
-                            progress: _longPressProgress,
-                            color: KalinkaColors.accent,
-                          ),
-                        ),
-                      ),
-                    if (selectionMode && isSelected)
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: KalinkaColors.accent.withValues(alpha: 0.4),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(
-                            Icons.check,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                content: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: KalinkaTextStyles.trackRowTitle.copyWith(
-                        color: selectionMode && isSelected
-                            ? KalinkaColors.accentTint
-                            : null,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    if (subtitle.isNotEmpty)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          SourceBadge(
-                            entityId: widget.item.id,
-                            size: SourceBadgeSize.standard,
-                          ),
-                          if (ref.watch(sourceCountProvider) > 1)
-                            const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              subtitle,
-                              style: KalinkaTextStyles.trackRowSubtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-                trailing: duration != null
-                    ? Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Text(
-                          duration,
-                          style: KalinkaTextStyles.trackRowSubtitle,
-                        ),
-                      )
-                    : null,
-              ),
+            // The flash animation only repaints the background — `tileChild`
+            // is captured outside the AnimatedBuilder so its image, badges,
+            // and text don't rebuild on every animation tick.
+            AnimatedBuilder(
+              animation: _flashController,
+              builder: (context, child) {
+                final Color rowBg =
+                    (showNowPlaying && _flashController.isAnimating)
+                        ? (_flashColorAnim.value ?? baseRowBg)
+                        : baseRowBg;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  decoration: BoxDecoration(color: rowBg),
+                  child: child,
+                );
+              },
+              child: tileChild,
             ),
             if (barColor != null)
               Positioned(

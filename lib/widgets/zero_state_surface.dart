@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
+import '../providers/indexer_status_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
 import 'discover_section.dart';
@@ -45,12 +46,6 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchStateProvider);
 
-    final status = searchState.indexerStatus;
-    final showIndexer = searchState.isAiEnabled &&
-        status != null &&
-        !status.isEmpty &&
-        !status.isComplete;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -63,9 +58,9 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
 
         // Indexer progress strip sits directly below the chip panel so it
         // shares the same pinned-header band across both zero-state and
-        // typed-results surfaces.
-        if (showIndexer)
-          IndexerStatusBanner(progressPct: searchState.indexerProgressPct),
+        // typed-results surfaces. Scoped to its own Consumer so the 5s
+        // poll loop doesn't churn the rest of the surface.
+        if (searchState.isAiEnabled) const _IndexerStatusGate(),
 
         // Layer 2 — Scrollable content (recent chips are first section inside)
         Expanded(
@@ -83,6 +78,27 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
         ),
       ],
     );
+  }
+}
+
+/// Renders the indexer banner only while indexing is in progress. Watching
+/// [indexerStatusProvider] in its own Consumer keeps the 5s poll loop from
+/// rebuilding the surrounding scrollable surface.
+class _IndexerStatusGate extends ConsumerWidget {
+  const _IndexerStatusGate();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final showIndexer = ref.watch(
+      indexerStatusProvider.select((s) {
+        final status = s.status;
+        return status != null && !status.isEmpty && !status.isComplete;
+      }),
+    );
+    if (!showIndexer) return const SizedBox.shrink();
+    final progressPct =
+        ref.watch(indexerStatusProvider.select((s) => s.progressPct));
+    return IndexerStatusBanner(progressPct: progressPct);
   }
 }
 
@@ -483,74 +499,25 @@ class _ZeroStateContent extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Animated section show/hide
+// Section show/hide
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _AnimatedSection extends StatefulWidget {
+/// Snap-in/out section gate. Previously animated heightFactor + opacity over
+/// 220ms, but on initial open multiple sections flip visible→true as their
+/// async loaders settle, and the per-frame Align(heightFactor) relayout
+/// concurrent with the user's first scroll caused noticeable jank. Snapping
+/// avoids that work entirely; the existing spinner→content swap inside each
+/// section already provides the "pop" cue.
+class _AnimatedSection extends StatelessWidget {
   final bool visible;
   final Widget child;
 
   const _AnimatedSection({required this.visible, required this.child});
 
   @override
-  State<_AnimatedSection> createState() => _AnimatedSectionState();
-}
-
-class _AnimatedSectionState extends State<_AnimatedSection>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _opacity;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-      reverseDuration: const Duration(milliseconds: 180),
-      value: widget.visible ? 1.0 : 0.0,
-    );
-    _opacity = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-      reverseCurve: Curves.easeIn,
-    );
-  }
-
-  @override
-  void didUpdateWidget(_AnimatedSection old) {
-    super.didUpdateWidget(old);
-    if (widget.visible != old.visible) {
-      if (widget.visible) {
-        Future.delayed(const Duration(milliseconds: 40), () {
-          if (mounted) _controller.forward();
-        });
-      } else {
-        _controller.reverse();
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _opacity,
-      builder: (context, child) {
-        return ClipRect(
-          child: Align(
-            heightFactor: _opacity.value,
-            child: Opacity(opacity: _opacity.value, child: child),
-          ),
-        );
-      },
-      child: widget.child,
-    );
+    if (!visible) return const SizedBox.shrink();
+    return child;
   }
 }
 

@@ -45,7 +45,11 @@ class BrowseItemRows extends StatelessWidget {
 
     final children = <Widget>[];
     for (int i = 0; i < displayed.length; i++) {
-      children.add(_rowFor(displayed[i]));
+      // Per-row RepaintBoundary: each row becomes its own composited layer
+      // so scroll just shifts layers instead of re-rasterising the whole
+      // section. Matters most for sections that pack many rows into a single
+      // outer ListView child (BASED ON NOW PLAYING, RECENTLY FAVOURITED).
+      children.add(RepaintBoundary(child: _rowFor(displayed[i])));
       if (i < displayed.length - 1) {
         children.add(const Divider(
           color: KalinkaColors.borderSubtle,
@@ -60,10 +64,12 @@ class BrowseItemRows extends StatelessWidget {
         limit != null && onToggleExpand != null &&
         (hiddenCount > 0 || isExpanded);
     if (showMore) {
-      children.add(ShowMoreRow(
-        remainingCount: items.length - limit,
-        isExpanded: isExpanded,
-        onTap: onToggleExpand!,
+      children.add(RepaintBoundary(
+        child: ShowMoreRow(
+          remainingCount: items.length - limit,
+          isExpanded: isExpanded,
+          onTap: onToggleExpand!,
+        ),
       ));
     }
 
