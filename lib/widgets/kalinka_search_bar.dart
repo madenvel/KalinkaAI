@@ -376,8 +376,9 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
             _buildAiPill(),
             // Mic button
             _buildMicButton(),
-            // Connection dot
-            _buildConnectionDot(),
+            // Connection dot — phone only; in album mode the dot lives in the
+            // now-playing panel header, so duplicating it here is noise.
+            if (!widget.alwaysExpanded) _buildConnectionDot(),
           ],
         ),
       ),
