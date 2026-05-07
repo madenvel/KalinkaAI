@@ -372,8 +372,11 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
             // Separator between input area and controls
             Container(width: 1, height: 18, color: KalinkaColors.borderDefault),
             const SizedBox(width: 4),
-            // AI pill toggle
-            _buildAiPill(),
+            // AI pill toggle — hidden in phone mode while the bar is
+            // ambient. The pill is a search-mode affordance, so showing it
+            // before the user has even focused the bar is noise. In album
+            // mode the bar is always expanded, so always show it.
+            if (widget.alwaysExpanded || _isActive) _buildAiPill(),
             // Connection dot — phone only; in album mode the dot lives in the
             // now-playing panel header, so duplicating it here is noise.
             if (!widget.alwaysExpanded) _buildConnectionDot(),
