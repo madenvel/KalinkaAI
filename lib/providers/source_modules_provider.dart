@@ -52,9 +52,13 @@ final sourceDisplayInfoProvider = Provider<Map<String, SourceDisplayInfo>>((
 ) {
   final modules = ref.watch(sourceModulesProvider).value;
   if (modules == null) return {};
+  // Sort by name so each source gets the same palette slot regardless of the
+  // order the backend returned modules in.
+  final ordered = [...modules]
+    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   final map = <String, SourceDisplayInfo>{};
-  for (var i = 0; i < modules.length; i++) {
-    final m = modules[i];
+  for (var i = 0; i < ordered.length; i++) {
+    final m = ordered[i];
     map[m.name] = SourceDisplayInfo(
       name: m.name,
       title: m.title,
