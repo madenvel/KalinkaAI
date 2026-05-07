@@ -342,11 +342,14 @@ class _TransportControls extends ConsumerWidget {
     final isRepeatAll = playbackMode.repeatAll;
     final isRepeatOne = playbackMode.repeatSingle;
 
+    final playPauseDisabled = isPlayPauseDisabled(playerState);
+
     return RepaintBoundary(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          GestureDetector(
+          _TransportButton(
+            hitDiameter: 44,
             onTapDown: (_) => isShuffle
                 ? KalinkaHaptics.lightImpact()
                 : KalinkaHaptics.mediumImpact(),
@@ -367,7 +370,8 @@ class _TransportControls extends ConsumerWidget {
                   : KalinkaColors.textSecondary,
             ),
           ),
-          GestureDetector(
+          _TransportButton(
+            hitDiameter: 52,
             onTapDown: (_) => KalinkaHaptics.mediumImpact(),
             onTap: () => api.sendQueueCommand(const QueueCommand.prev()),
             child: const Icon(
@@ -376,32 +380,31 @@ class _TransportControls extends ConsumerWidget {
               color: KalinkaColors.textPrimary,
             ),
           ),
-          GestureDetector(
-            onTapDown: isPlayPauseDisabled(playerState)
+          _TransportButton(
+            hitDiameter: 68,
+            background: Colors.white,
+            // Ripple has to read against the white face of the play/pause
+            // disc, so use a dark tint instead of the default white-on-dark.
+            splashColor: KalinkaColors.background.withValues(alpha: 0.18),
+            highlightColor: KalinkaColors.background.withValues(alpha: 0.08),
+            onTapDown: playPauseDisabled
                 ? null
                 : (_) => playerState == PlayerStateType.playing
                       ? KalinkaHaptics.lightImpact()
                       : KalinkaHaptics.mediumImpact(),
-            onTap: isPlayPauseDisabled(playerState)
+            onTap: playPauseDisabled
                 ? null
                 : () => sendPlayPauseCommand(ref, playerState),
-            child: Container(
-              width: 68,
-              height: 68,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                playerState == PlayerStateType.playing
-                    ? Icons.pause_rounded
-                    : Icons.play_arrow_rounded,
-                size: 38,
-                color: KalinkaColors.background,
-              ),
+            child: Icon(
+              playerState == PlayerStateType.playing
+                  ? Icons.pause_rounded
+                  : Icons.play_arrow_rounded,
+              size: 38,
+              color: KalinkaColors.background,
             ),
           ),
-          GestureDetector(
+          _TransportButton(
+            hitDiameter: 52,
             onTapDown: (_) => KalinkaHaptics.mediumImpact(),
             onTap: () => api.sendQueueCommand(const QueueCommand.next()),
             child: const Icon(
@@ -410,9 +413,10 @@ class _TransportControls extends ConsumerWidget {
               color: KalinkaColors.textPrimary,
             ),
           ),
-          GestureDetector(
+          _TransportButton(
+            hitDiameter: 44,
+            onTapDown: (_) => KalinkaHaptics.selectionClick(),
             onTap: () {
-              KalinkaHaptics.selectionClick();
               final bool newRepeatAll;
               final bool newRepeatSingle;
               if (isRepeatOne) {
@@ -442,6 +446,77 @@ class _TransportControls extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Circular tappable wrapper for transport icons. Combines an InkWell ripple
+/// with a scale-on-press animation so taps are obviously visible — important
+/// for play/pause, where the white face washes out a typical ripple tint.
+/// `background` paints the disc behind the icon (used by play/pause); leave
+/// null for plain icon buttons that sit directly on the now-playing surface.
+class _TransportButton extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final ValueChanged<TapDownDetails>? onTapDown;
+  final double hitDiameter;
+  final Color? background;
+  final Color? splashColor;
+  final Color? highlightColor;
+
+  const _TransportButton({
+    required this.child,
+    required this.onTap,
+    required this.onTapDown,
+    required this.hitDiameter,
+    this.background,
+    this.splashColor,
+    this.highlightColor,
+  });
+
+  @override
+  State<_TransportButton> createState() => _TransportButtonState();
+}
+
+class _TransportButtonState extends State<_TransportButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = widget.onTap == null;
+    // Default ripple is a soft white tint that works against the dark
+    // now-playing surface. Buttons with a light face override these.
+    final defaultSplash = KalinkaColors.textPrimary.withValues(alpha: 0.20);
+    final defaultHighlight = KalinkaColors.textPrimary.withValues(alpha: 0.10);
+
+    return AnimatedScale(
+      scale: _pressed ? 0.92 : 1.0,
+      duration: const Duration(milliseconds: 110),
+      curve: Curves.easeOut,
+      child: SizedBox(
+        width: widget.hitDiameter,
+        height: widget.hitDiameter,
+        child: Material(
+          color: widget.background ?? Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: widget.onTap,
+            onTapDown: widget.onTapDown,
+            // Drive the scale animation off the highlight signal so the
+            // press state matches what the ripple shows.
+            onHighlightChanged: (highlighted) {
+              if (disabled) return;
+              if (highlighted == _pressed) return;
+              setState(() => _pressed = highlighted);
+            },
+            customBorder: const CircleBorder(),
+            splashColor: widget.splashColor ?? defaultSplash,
+            highlightColor: widget.highlightColor ?? defaultHighlight,
+            child: Center(child: widget.child),
+          ),
+        ),
       ),
     );
   }
