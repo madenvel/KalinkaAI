@@ -374,8 +374,6 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
             const SizedBox(width: 4),
             // AI pill toggle
             _buildAiPill(),
-            // Mic button
-            _buildMicButton(),
             // Connection dot — phone only; in album mode the dot lives in the
             // now-playing panel header, so duplicating it here is noise.
             if (!widget.alwaysExpanded) _buildConnectionDot(),
@@ -471,27 +469,6 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
                 },
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMicButton() {
-    return GestureDetector(
-      onTap: () {
-        KalinkaHaptics.mediumImpact();
-        // Mic placeholder — no-op for now
-      },
-      behavior: HitTestBehavior.opaque,
-      child: const SizedBox(
-        width: 36,
-        height: 44,
-        child: Center(
-          child: Icon(
-            Icons.mic_none_rounded,
-            size: 16,
-            color: KalinkaColors.textSecondary,
           ),
         ),
       ),
