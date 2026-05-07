@@ -101,12 +101,20 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
                     height: 52,
                     child: ClipOval(
                       child: resolvedImageUrl != null
-                          ? Image.network(
-                              resolvedImageUrl,
+                          ? Image(
+                              // ResizeImage.fit preserves aspect ratio at decode
+                              // time. The Image.network shortcut wraps with the
+                              // default ResizeImagePolicy.exact, which squashes
+                              // non-square artist photos into 156x156 — visible
+                              // as stretching even after BoxFit.cover.
+                              image: ResizeImage(
+                                NetworkImage(resolvedImageUrl),
+                                width: 156,
+                                height: 156,
+                                policy: ResizeImagePolicy.fit,
+                              ),
                               width: 52,
                               height: 52,
-                              cacheWidth: 156,
-                              cacheHeight: 156,
                               fit: BoxFit.cover,
                               gaplessPlayback: true,
                               filterQuality: FilterQuality.low,
