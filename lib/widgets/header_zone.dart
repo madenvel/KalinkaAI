@@ -34,6 +34,16 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
   void initState() {
     super.initState();
     _searchBarKey = widget.searchBarKey ?? GlobalKey<KalinkaSearchBarState>();
+    // If the phone layout is mounted with search already active (e.g. after
+    // rotating from album mode while the Search tab was active), the
+    // searchStateProvider listener never sees an inactive→active transition,
+    // so the back chevron would stay hidden. Reveal it directly here.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ref.read(searchStateProvider).searchActive && !_showDelayedChevron) {
+        setState(() => _showDelayedChevron = true);
+      }
+    });
   }
 
   @override

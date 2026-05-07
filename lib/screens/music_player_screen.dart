@@ -26,6 +26,7 @@ import 'settings_screen.dart';
 import '../widgets/kalinka_toast_overlay.dart';
 import '../widgets/side_panel.dart';
 import '../providers/media_notification_provider.dart';
+import '../providers/tablet_panel_provider.dart';
 
 class MusicPlayerScreen extends ConsumerStatefulWidget {
   const MusicPlayerScreen({super.key});
@@ -43,6 +44,10 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
   bool _serverSheetOpen = false;
   bool _settingsOpen = false;
   bool _discoveryOpen = false;
+
+  // Tracks the last layout decision so we can sync search/queue state when
+  // the user rotates between portrait (phone) and landscape (album/tablet).
+  bool? _wasTabletLayout;
 
   @override
   void initState() {
@@ -250,12 +255,44 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isTablet = constraints.maxWidth >= _tabletBreakpoint;
+          _maybeSyncOnLayoutChange(isTablet);
+          _wasTabletLayout = isTablet;
           return isTablet
               ? _buildTabletLayout(context)
               : _buildPhoneLayout(context);
         },
       ),
     );
+  }
+
+  /// On portrait↔album rotations, mirror the active surface across layouts:
+  ///  - phone → tablet: route to the Search tab if the phone overlay was open,
+  ///    otherwise to the Queue tab.
+  ///  - tablet → phone: if the tablet was on the Queue tab, dismiss the search
+  ///    surface so the queue is the visible main view (the search bar's
+  ///    `alwaysExpanded` auto-activation would otherwise leave search active).
+  /// Snapshots are taken synchronously here — before the new tree mounts and
+  /// any auto-activation runs — and applied in a postFrameCallback.
+  void _maybeSyncOnLayoutChange(bool isTablet) {
+    final previous = _wasTabletLayout;
+    if (previous == null || previous == isTablet) return;
+    final wasSearchActive = ref.read(searchStateProvider).searchActive;
+    final wasTabletPanel = ref.read(tabletPanelProvider);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (isTablet) {
+        if (wasSearchActive) {
+          ref.read(tabletPanelProvider.notifier).showSearch();
+        } else {
+          ref.read(tabletPanelProvider.notifier).showQueue();
+        }
+      } else {
+        if (wasTabletPanel == TabletPanel.queue) {
+          _searchBarKey.currentState?.cancelSearch();
+          ref.read(searchStateProvider.notifier).deactivateSearch();
+        }
+      }
+    });
   }
 
   Widget _buildPhoneLayout(BuildContext context) {

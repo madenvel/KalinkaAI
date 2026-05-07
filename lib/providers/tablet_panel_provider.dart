@@ -5,7 +5,7 @@ enum TabletPanel { search, queue }
 
 class TabletPanelNotifier extends Notifier<TabletPanel> {
   @override
-  TabletPanel build() => TabletPanel.search;
+  TabletPanel build() => TabletPanel.queue;
 
   void showSearch() => state = TabletPanel.search;
   void showQueue() => state = TabletPanel.queue;

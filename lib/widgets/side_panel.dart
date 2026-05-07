@@ -18,25 +18,25 @@ class SidePanel extends ConsumerWidget {
 
     return Column(
       children: [
-        // Tab selector
+        // Tab selector — Queue is the default-active tab and sits first.
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
           child: Row(
             children: [
               _buildTab(
                 ref,
-                'Search',
-                Icons.search,
-                activePanel == TabletPanel.search,
-                () => ref.read(tabletPanelProvider.notifier).showSearch(),
-              ),
-              const SizedBox(width: 8),
-              _buildTab(
-                ref,
                 'Queue',
                 Icons.queue_music,
                 activePanel == TabletPanel.queue,
                 () => ref.read(tabletPanelProvider.notifier).showQueue(),
+              ),
+              const SizedBox(width: 8),
+              _buildTab(
+                ref,
+                'Search',
+                Icons.search,
+                activePanel == TabletPanel.search,
+                () => ref.read(tabletPanelProvider.notifier).showSearch(),
               ),
             ],
           ),
@@ -114,7 +114,8 @@ class SidePanel extends ConsumerWidget {
   Widget _buildSearchPanel() {
     return const Column(
       children: [
-        // Shared search bar (always expanded in tablet mode)
+        // Shared search bar (always expanded in tablet mode). No back chevron
+        // here — tab switching is the navigation; the bar is permanent.
         Padding(
           padding: EdgeInsets.all(8),
           child: KalinkaSearchBar(alwaysExpanded: true),

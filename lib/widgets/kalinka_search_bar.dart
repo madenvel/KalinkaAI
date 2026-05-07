@@ -94,13 +94,14 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
         }
       });
     } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final phase = ref.read(searchStateProvider).searchPhase;
-        if (phase == SearchPhase.activated) {
-          ref.read(searchStateProvider.notifier).deactivateSearch();
-        }
-      });
+      // On phone: if search was already active when this bar mounts (e.g. the
+      // user just rotated from album mode with the Search tab active), keep
+      // the bar in its "active" visual state so the search overlay stays
+      // visible. Rotation sync owns the activate/deactivate decision.
+      final phase = ref.read(searchStateProvider).searchPhase;
+      if (phase != SearchPhase.inactive) {
+        _isActive = true;
+      }
     }
 
     final currentQuery = ref.read(searchStateProvider).query;
