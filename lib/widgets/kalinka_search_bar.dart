@@ -190,22 +190,14 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
 
   void _onClearTapped() {
     KalinkaHaptics.lightImpact();
-    final phase = ref.read(searchStateProvider).searchPhase;
-    if (phase == SearchPhase.results) {
-      // State 3 ✕: clear query and return to ambient (State 1)
-      _textController.clear();
-      _clearButtonController.value = 0.0;
-      _committedQuery = '';
-      _enteredFocusFromResults = false;
-      _searchFocusNode.unfocus();
-      setState(() => _isActive = false);
-      ref.read(searchStateProvider.notifier).deactivateSearch();
-    } else {
-      // State 2 ✕: clear text only, stay focused
-      _textController.clear();
-      _clearButtonController.reverse();
-      ref.read(searchStateProvider.notifier).clearQueryMidSession();
-    }
+    // ✕ always returns to the zero-state surface, regardless of phase or
+    // layout. Closing search is the back chevron's job (phone) and not
+    // available at all on tablet, where the bar is permanently expanded.
+    _textController.clear();
+    _clearButtonController.reverse();
+    _committedQuery = '';
+    _enteredFocusFromResults = false;
+    ref.read(searchStateProvider.notifier).clearQueryMidSession();
   }
 
   /// Called externally (back button / PopScope) to dismiss search.

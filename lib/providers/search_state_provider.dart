@@ -674,15 +674,27 @@ class SearchStateNotifier extends Notifier<SearchState> {
     }
 
     if (trimmed.isEmpty) {
-      // Query cleared by typing — if we had results, go to cleared state
+      // Query cleared by typing — drop to zero-state so the recent chips
+      // and discover sections come back, instead of leaving stale results
+      // (or a typing skeleton) sitting under an empty bar.
       if (state.searchPhase == SearchPhase.typing ||
           state.searchPhase == SearchPhase.results) {
         state = state.copyWith(
+          searchPhase: SearchPhase.activated,
           query: query,
+          clearSearchResults: true,
+          clearAiSearchResults: true,
+          aiExpandedSections: const {},
           clearError: true,
           completionStripVisible: false,
           completions: const [],
           clearAiCompletion: true,
+          expandedAlbumIds: const {},
+          expandedArtistIds: const {},
+          expandedAlbumIdsWithinArtist: const {},
+          artistMoreAlbumsExpanded: const {},
+          albumMoreTracksExpanded: const {},
+          resultsFilter: ResultsFilterType.all,
         );
       } else {
         state = state.copyWith(
