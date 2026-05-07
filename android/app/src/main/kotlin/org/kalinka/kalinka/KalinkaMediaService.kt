@@ -85,8 +85,12 @@ class KalinkaMediaService : Service() {
     private var currentPositionMs: Long = 0
     private var currentIsPlaying: Boolean = false
     private var currentPlayerState: String = "STOPPED"  // PLAYING, PAUSED, BUFFERING, STOPPED, ERROR
-    private var currentVolume: Int = 50
-    private var maxVolume: Int = 100
+    // Sentinel zeros until the device WS replays the real values. We must
+    // not advertise a fabricated 50/100 to Android — it would briefly show
+    // the wrong level on the volume HUD the first time the user presses a
+    // hardware key, before the device replay catches up.
+    private var currentVolume: Int = 0
+    private var maxVolume: Int = 0
     private var currentAlbumArt: Bitmap? = null
     private var albumArtJob: Job? = null
 
@@ -187,6 +191,8 @@ class KalinkaMediaService : Service() {
         albumArtJob?.cancel()
         albumArtJob = null
         volumeKnown = false
+        currentVolume = 0
+        maxVolume = 0
         volumeChangeModeActive = false
         pendingVolumeToSend = null
         mainHandler.removeCallbacks(sendVolumeRunnable)
@@ -415,12 +421,17 @@ class KalinkaMediaService : Service() {
     }
 
     private fun applyVolume(newCurrent: Int, newMax: Int) {
+        val wasKnown = volumeKnown
         currentVolume = newCurrent
         volumeKnown = true
         if (newMax != maxVolume) {
             maxVolume = newMax
             // Rebuild the provider so it advertises the new max range.
             volumeProvider = null
+            ensureVolumeProvider()
+        } else if (!wasKnown) {
+            // First time we have real values: provider may have been skipped
+            // earlier in ensureMediaSession because volumeKnown was false.
             ensureVolumeProvider()
         } else {
             volumeProvider?.currentVolume = newCurrent
@@ -471,6 +482,15 @@ class KalinkaMediaService : Service() {
     private fun ensureVolumeProvider() {
         val session = mediaSession ?: return
         if (volumeProvider != null) return
+        // Don't attach a remote VolumeProvider until the device replay
+        // confirms the real current/max levels. Without this guard we would
+        // advertise the Kotlin-default 50/100 and cause the volume HUD to
+        // jump to 50% the first time the user touches a hardware key.
+        // applyVolume() retries this once the real values arrive.
+        if (!volumeKnown) {
+            Log.d(TAG, "ensureVolumeProvider: skipping — volume not yet known")
+            return
+        }
         Log.d(TAG, "ensureVolumeProvider: creating max=$maxVolume current=$currentVolume")
         volumeProvider = object : VolumeProviderCompat(
             VOLUME_CONTROL_ABSOLUTE, maxVolume, currentVolume.coerceIn(0, maxVolume)
