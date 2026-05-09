@@ -12,7 +12,10 @@ sealed class DeviceCommand with _$DeviceCommand {
 
   const factory DeviceCommand.powerOff() = PowerOffCommand;
 
-  @Assert('volume >= 0 && volume <= 100', 'Volume must be between 0 and 100')
+  // Volume is in the device's native scale (e.g. MusicCast = 0..161). The
+  // server-side plugin clamps to its own max_volume; don't enforce a fixed
+  // 0..100 range here or sliders for high-range devices reject valid values.
+  @Assert('volume >= 0', 'Volume must be non-negative')
   const factory DeviceCommand.setVolume({required int volume}) =
       SetVolumeCommand;
 

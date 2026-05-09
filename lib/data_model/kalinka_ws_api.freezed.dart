@@ -289,7 +289,7 @@ String toString() {
 @JsonSerializable()
 
 class SetVolumeCommand implements DeviceCommand {
-  const SetVolumeCommand({required this.volume, final  String? $type}): assert(volume >= 0 && volume <= 100, 'Volume must be between 0 and 100'),$type = $type ?? 'set_volume';
+  const SetVolumeCommand({required this.volume, final  String? $type}): assert(volume >= 0, 'Volume must be non-negative'),$type = $type ?? 'set_volume';
   factory SetVolumeCommand.fromJson(Map<String, dynamic> json) => _$SetVolumeCommandFromJson(json);
 
  final  int volume;
