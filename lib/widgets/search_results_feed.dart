@@ -60,17 +60,18 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
   }
 
   bool _onScrollNotification(ScrollNotification notification) {
+    if (notification is! ScrollStartNotification) return false;
     if (notification.metrics.axis != Axis.vertical) return false;
+    if (notification.metrics.pixels <= 0.5) return false;
 
-    if (notification.metrics.pixels > 0.5) {
-      FocusManager.instance.primaryFocus?.unfocus();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          ref.read(searchStateProvider.notifier).setKeyboardVisible(false);
-        }
-      });
+    final hasFocus = FocusManager.instance.primaryFocus != null;
+    final searchState = ref.read(searchStateProvider);
+    if (!hasFocus && !searchState.keyboardVisible) return false;
+
+    if (hasFocus) FocusManager.instance.primaryFocus?.unfocus();
+    if (searchState.keyboardVisible) {
+      ref.read(searchStateProvider.notifier).setKeyboardVisible(false);
     }
-
     return false;
   }
 

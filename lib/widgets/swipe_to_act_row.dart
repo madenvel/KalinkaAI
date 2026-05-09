@@ -44,27 +44,33 @@ class _SwipeToActRowState extends State<SwipeToActRow>
   bool _dragging = false;
   bool _dragUnlocked = false;
 
-  late AnimationController _snapController;
-  late AnimationController _confirmController;
-  late Animation<double> _confirmOpacity;
+  AnimationController? _snapController;
+  AnimationController? _confirmController;
+  Animation<double>? _confirmOpacity;
 
-  @override
-  void initState() {
-    super.initState();
-    _snapController = AnimationController(
+  AnimationController _ensureSnapController() {
+    final existing = _snapController;
+    if (existing != null) return existing;
+    final c = AnimationController(
       vsync: this,
       lowerBound: -1000.0,
       upperBound: 1000.0,
       duration: const Duration(milliseconds: 500),
     );
-    _snapController.addListener(() {
+    c.addListener(() {
       setState(() {
-        final value = _snapController.value;
+        final value = c.value;
         _dragOffset = value.abs() <= _settleEpsilon ? 0.0 : value;
       });
     });
+    _snapController = c;
+    return c;
+  }
 
-    _confirmController = AnimationController(
+  AnimationController _ensureConfirmController() {
+    final existing = _confirmController;
+    if (existing != null) return existing;
+    final c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
@@ -72,13 +78,15 @@ class _SwipeToActRowState extends State<SwipeToActRow>
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 10),
       TweenSequenceItem(tween: ConstantTween(1.0), weight: 25),
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 65),
-    ]).animate(_confirmController);
+    ]).animate(c);
+    _confirmController = c;
+    return c;
   }
 
   @override
   void dispose() {
-    _snapController.dispose();
-    _confirmController.dispose();
+    _snapController?.dispose();
+    _confirmController?.dispose();
     super.dispose();
   }
 
@@ -139,7 +147,7 @@ class _SwipeToActRowState extends State<SwipeToActRow>
 
     if (triggered) {
       KalinkaHaptics.corkPop();
-      _confirmController.forward(from: 0.0);
+      _ensureConfirmController().forward(from: 0.0);
     }
   }
 
@@ -155,7 +163,7 @@ class _SwipeToActRowState extends State<SwipeToActRow>
       0.0,
     );
 
-    _snapController.animateWith(simulation).then((_) {
+    _ensureSnapController().animateWith(simulation).then((_) {
       if (target == 0.0) {
         _dragUnlocked = false;
         _rawDragOffset = 0.0;
@@ -176,7 +184,7 @@ class _SwipeToActRowState extends State<SwipeToActRow>
     if (!widget.enabled ||
         _dragOffset.abs() <= _settleEpsilon &&
             !_dragging &&
-            !_snapController.isAnimating) {
+            !(_snapController?.isAnimating ?? false)) {
       inner = GestureDetector(
         onHorizontalDragUpdate: _onDragUpdate,
         onHorizontalDragEnd: _onDragEnd,
@@ -265,14 +273,18 @@ class _SwipeToActRowState extends State<SwipeToActRow>
       );
     }
 
-    // Confirmation overlay
+    // Confirmation overlay — only mounted once a swipe has triggered, so most
+    // recycled rows skip the FadeTransition entirely.
+    final confirmOpacity = _confirmOpacity;
+    if (confirmOpacity == null) return inner;
+
     return Stack(
       children: [
         inner,
         Positioned.fill(
           child: IgnorePointer(
             child: FadeTransition(
-              opacity: _confirmOpacity,
+              opacity: confirmOpacity,
               child: ColoredBox(
                 color: KalinkaColors.gold.withValues(alpha: 0.18),
                 child: const Center(
