@@ -1193,13 +1193,20 @@ class SeekStatusMessage extends StatusMessage {
   };
 }
 
-enum ModuleState { ready, disabled, error }
+/// Server-reported health of a plugin.
+///
+/// `warning` means the plugin is enabled and partially functional but one
+/// or more internal sub-features have failed (e.g. an optional package
+/// isn't installed). `message` carries the human-readable reason.
+enum ModuleState { ready, warning, disabled, error }
 
 class ModuleStateExtension {
   static String toValue(ModuleState state) {
     switch (state) {
       case ModuleState.ready:
         return 'ready';
+      case ModuleState.warning:
+        return 'warning';
       case ModuleState.disabled:
         return 'disabled';
       case ModuleState.error:
@@ -1211,6 +1218,8 @@ class ModuleStateExtension {
     switch (value) {
       case 'ready':
         return ModuleState.ready;
+      case 'warning':
+        return ModuleState.warning;
       case 'disabled':
         return ModuleState.disabled;
       case 'error':
@@ -1227,11 +1236,23 @@ class ModuleInfo {
   final bool enabled;
   final ModuleState state;
 
+  /// Human-readable summary of *why* the module is in [state]. Plain
+  /// markdown (currently `**bold**` and `` `code` ``); render via
+  /// the inline-markdown helpers in `widgets/inline_markdown.dart`.
+  final String? message;
+
+  /// Optional-package keys this module would benefit from but cannot
+  /// currently import. Pass these straight to `restartServer(install: …)`
+  /// to queue a bootstrap-time install on next restart.
+  final List<String> missingPackages;
+
   ModuleInfo({
     required this.name,
     required this.title,
     required this.enabled,
     required this.state,
+    this.message,
+    this.missingPackages = const [],
   });
 
   factory ModuleInfo.fromJson(Map<String, dynamic> json) => ModuleInfo(
@@ -1239,6 +1260,11 @@ class ModuleInfo {
     title: json["title"],
     enabled: json["enabled"],
     state: ModuleStateExtension.fromValue(json["state"]),
+    message: json["error_message"] as String?,
+    missingPackages: (json["missing_packages"] as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const [],
   );
 
   Map<String, dynamic> toJson() => {
@@ -1246,6 +1272,8 @@ class ModuleInfo {
     "title": title,
     "enabled": enabled,
     "state": ModuleStateExtension.toValue(state),
+    if (message != null) "error_message": message,
+    "missing_packages": missingPackages,
   };
 }
 
@@ -1278,49 +1306,17 @@ class ModulesAndDevices {
     List<ModuleInfo>? inputModules,
     List<ModuleInfo>? devices,
   }) {
+    ModuleInfo clone(ModuleInfo m) => ModuleInfo(
+      name: m.name,
+      title: m.title,
+      enabled: m.enabled,
+      state: m.state,
+      message: m.message,
+      missingPackages: List<String>.from(m.missingPackages),
+    );
     return ModulesAndDevices(
-      inputModules: inputModules != null
-          ? inputModules
-                .map(
-                  (m) => ModuleInfo(
-                    name: m.name,
-                    title: m.title,
-                    enabled: m.enabled,
-                    state: m.state,
-                  ),
-                )
-                .toList()
-          : this.inputModules
-                .map(
-                  (m) => ModuleInfo(
-                    name: m.name,
-                    title: m.title,
-                    enabled: m.enabled,
-                    state: m.state,
-                  ),
-                )
-                .toList(),
-      devices: devices != null
-          ? devices
-                .map(
-                  (m) => ModuleInfo(
-                    name: m.name,
-                    title: m.title,
-                    enabled: m.enabled,
-                    state: m.state,
-                  ),
-                )
-                .toList()
-          : this.devices
-                .map(
-                  (m) => ModuleInfo(
-                    name: m.name,
-                    title: m.title,
-                    enabled: m.enabled,
-                    state: m.state,
-                  ),
-                )
-                .toList(),
+      inputModules: (inputModules ?? this.inputModules).map(clone).toList(),
+      devices: (devices ?? this.devices).map(clone).toList(),
     );
   }
 }

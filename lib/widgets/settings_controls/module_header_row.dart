@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 
 /// Status of a module/device.
-enum ModuleStatus { ready, error, disabled }
+///
+/// `warning` is used when the module is enabled and partially functional
+/// — some non-required sub-feature has failed (e.g. an optional package
+/// is missing). The badge tints amber/gold; the message goes on a
+/// `WarningNote` inside the expanded module body.
+enum ModuleStatus { ready, warning, error, disabled }
 
 /// Rich header row for module/device cards with icon tile, status badge, and chevron.
 class ModuleHeaderRow extends StatelessWidget {
@@ -131,12 +136,14 @@ class ModuleHeaderRow extends StatelessWidget {
 
   Color get _badgeColor => switch (status) {
     ModuleStatus.ready => KalinkaColors.statusOnline,
+    ModuleStatus.warning => KalinkaColors.statusPending,
     ModuleStatus.error => KalinkaColors.statusOffline,
     _ => KalinkaColors.textMuted,
   };
 
   String get _badgeLabel => switch (status) {
     ModuleStatus.ready => 'READY',
+    ModuleStatus.warning => 'WARNING',
     ModuleStatus.error => 'ERROR',
     _ => '',
   };

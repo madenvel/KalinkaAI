@@ -31,6 +31,7 @@ enum Severity {
 
 enum WidgetKind {
   text,
+  richText,
   password,
   path,
   url,
@@ -43,6 +44,7 @@ enum WidgetKind {
   folderList;
 
   static WidgetKind fromName(String? s) => switch (s) {
+    'rich_text' => WidgetKind.richText,
     'password' => WidgetKind.password,
     'path' => WidgetKind.path,
     'url' => WidgetKind.url,
@@ -115,6 +117,10 @@ class FieldSpec {
   final String? help;
   final dynamic defaultValue;
   final bool readonly;
+  // True when the value is resolved by the owning plugin at request time
+  // (e.g. sub-feature status views). Implies readonly. Distinct so the
+  // UI can choose to poll for changes vs. assume stability.
+  final bool dynamic_;
   final Importance importance;
   final List<String>? enumValues;
   final Constraints? constraints;
@@ -127,6 +133,7 @@ class FieldSpec {
     this.help,
     this.defaultValue,
     this.readonly = false,
+    this.dynamic_ = false,
     this.importance = Importance.normal,
     this.enumValues,
     this.constraints,
@@ -140,6 +147,7 @@ class FieldSpec {
     help: j['help'] as String?,
     defaultValue: j['default'],
     readonly: j['readonly'] as bool? ?? false,
+    dynamic_: j['dynamic'] as bool? ?? false,
     importance: Importance.fromName(j['importance'] as String?),
     enumValues: (j['enum_values'] as List?)?.map((e) => e.toString()).toList(),
     constraints: j['constraints'] is Map
@@ -190,8 +198,6 @@ class ModuleSpec {
   final String title;
   final String? icon;
   final String? iconColor;
-  final String? status; // "ready" | "error" | "disabled" | null
-  final String? errorMessage;
   final List<String> previewFields;
   final List<BannerSpec> banners;
   final List<SectionSpec> sections;
@@ -202,8 +208,6 @@ class ModuleSpec {
     required this.title,
     this.icon,
     this.iconColor,
-    this.status,
-    this.errorMessage,
     this.previewFields = const [],
     this.banners = const [],
     this.sections = const [],
@@ -215,8 +219,6 @@ class ModuleSpec {
     title: j['title'] as String,
     icon: j['icon'] as String?,
     iconColor: j['icon_color'] as String?,
-    status: j['status'] as String?,
-    errorMessage: j['error_message'] as String?,
     previewFields: ((j['preview_fields'] as List?) ?? [])
         .map((e) => e.toString())
         .toList(),

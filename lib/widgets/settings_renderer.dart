@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data_model/data_model.dart' show ModuleInfo, ModuleState;
 import '../data_model/presentation_schema.dart';
 import '../providers/connection_settings_provider.dart';
+import '../providers/modules_state_provider.dart';
 import '../providers/server_info_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
@@ -12,6 +14,7 @@ import 'settings_controls/settings_enum_pills.dart';
 import 'settings_controls/settings_list_editor.dart';
 import 'settings_controls/settings_numeric_input.dart';
 import 'settings_controls/settings_password_input.dart';
+import 'settings_controls/settings_readonly_card.dart';
 import 'settings_controls/settings_row.dart';
 import 'settings_controls/settings_section.dart';
 import 'settings_controls/settings_slider.dart';
@@ -113,6 +116,18 @@ class SchemaFieldRenderer extends ConsumerWidget {
     final isStaged = state.isStaged(field.path);
     final value = state.getEffective(field.path) ?? field.defaultValue;
 
+    // Read-only fields (including dynamic plugin-resolved status views)
+    // never get an editable control. Render as a labeled elevated card
+    // so users see the value as content, not as a disabled input.
+    if (field.readonly) {
+      return SettingsRow(
+        label: field.label,
+        sublabel: field.help,
+        isVertical: true,
+        control: SettingsReadonlyCard(text: (value ?? '').toString()),
+      );
+    }
+
     // Sliders carry their own label + value readout + range labels, so we
     // render them bare (no SettingsRow wrapper — that would duplicate the
     // label).
@@ -205,6 +220,10 @@ class SchemaFieldRenderer extends ConsumerWidget {
           value: (value ?? '').toString(),
           onChanged: stage,
         );
+      case WidgetKind.richText:
+        // Rich text is always display-only; if a backend marks a field
+        // rich_text without readonly we still refuse to expose an editor.
+        return SettingsReadonlyCard(text: (value ?? '').toString());
     }
   }
 }
@@ -389,12 +408,15 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
     final state = ref.watch(settingsProvider);
     final expertMode = ref.watch(expertModeProvider);
 
-    final status = switch (m.status) {
-      'ready' => ModuleStatus.ready,
-      'error' => ModuleStatus.error,
-      'disabled' => ModuleStatus.disabled,
-      _ => null,
-    };
+    // Live module state lives at /server/modules — the schema deliberately
+    // doesn't carry it so schema_version doesn't churn on plugin hiccups.
+    final liveSnapshot = ref.watch(modulesStateProvider).value;
+    final ModuleInfo? live = liveSnapshot == null
+        ? null
+        : lookupModule(liveSnapshot, m.id, m.kind);
+    final status = live == null ? null : _moduleStatusFor(live.state);
+    final message = live?.message;
+    final isError = live?.state == ModuleState.error;
 
     // Preview subtitle from backend-declared preview_fields.
     final subtitle = _subtitleFor(m, state);
@@ -433,8 +455,13 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (m.errorMessage != null)
-                        WarningNote(message: m.errorMessage!),
+                      if (message != null && message.isNotEmpty)
+                        WarningNote(
+                          message: message,
+                          severity: isError
+                              ? WarningNoteSeverity.error
+                              : WarningNoteSeverity.warning,
+                        ),
                       for (final b in m.banners) SchemaBanner(banner: b),
                       for (final s in visibleSections) ...[
                         const Divider(
@@ -455,6 +482,13 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
       ),
     );
   }
+
+  ModuleStatus _moduleStatusFor(ModuleState state) => switch (state) {
+    ModuleState.ready => ModuleStatus.ready,
+    ModuleState.warning => ModuleStatus.warning,
+    ModuleState.error => ModuleStatus.error,
+    ModuleState.disabled => ModuleStatus.disabled,
+  };
 
   /// Build the subtitle by reading `module.previewFields` from the staged/server values.
   String _subtitleFor(ModuleSpec m, SettingsState state) {
