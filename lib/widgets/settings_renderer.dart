@@ -20,6 +20,7 @@ import 'settings_controls/settings_section.dart';
 import 'settings_controls/settings_slider.dart';
 import 'settings_controls/settings_text_input.dart';
 import 'settings_controls/settings_toggle.dart';
+import 'settings_controls/settings_toggleable_section.dart';
 import 'settings_controls/warning_note.dart';
 
 // ---------------------------------------------------------------------------
@@ -248,12 +249,37 @@ class SchemaSectionRenderer extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
+    // A nested section with an `.enabled` field is a "sub-feature":
+    // render its header with an integrated toggle and pull the optional
+    // `.status_view` dynamic field's value into the header subtitle.
+    // Both fields are then hidden from the regular field list — they
+    // belong in the header, not the body.
+    final enabledField = isTopLevel
+        ? null
+        : _firstFieldWithPathSuffix(section.fields, '.enabled');
+    final statusField = enabledField == null
+        ? null
+        : _firstFieldWithPathSuffix(section.fields, '.status_view');
+
     final visibleFields = section.fields
         .where((f) => f.importance != Importance.expert || expertMode)
+        .where((f) => f != enabledField && f != statusField)
         .toList();
     final visibleSubSections = section.sections
         .where((s) => s.importance != Importance.expert || expertMode)
         .toList();
+
+    // Toggleable sub-feature section: route through the dedicated header
+    // widget with the body unchanged.
+    if (enabledField != null) {
+      return _buildToggleableSection(
+        ref,
+        enabledField,
+        statusField,
+        visibleFields,
+        visibleSubSections,
+      );
+    }
 
     if (visibleFields.isEmpty && visibleSubSections.isEmpty) {
       return const SizedBox.shrink();
@@ -325,6 +351,84 @@ class SchemaSectionRenderer extends ConsumerWidget {
       showTopBorder: false,
       initiallyExpanded: section.importance == Importance.normal,
       child: body,
+    );
+  }
+
+  static FieldSpec? _firstFieldWithPathSuffix(
+    List<FieldSpec> fields,
+    String suffix,
+  ) {
+    for (final f in fields) {
+      if (f.path.endsWith(suffix)) return f;
+    }
+    return null;
+  }
+
+  Widget _buildToggleableSection(
+    WidgetRef ref,
+    FieldSpec enabledField,
+    FieldSpec? statusField,
+    List<FieldSpec> bodyFields,
+    List<SectionSpec> bodySubSections,
+  ) {
+    final settings = ref.watch(settingsProvider);
+    final notifier = ref.read(settingsProvider.notifier);
+    final enabledValue =
+        (settings.getEffective(enabledField.path) ??
+                enabledField.defaultValue ??
+                false)
+            as bool;
+    final isStaged = settings.isStaged(enabledField.path);
+
+    // Status text is whichever value the values blob currently carries
+    // for the dynamic status_view field — resolved server-side by the
+    // owning plugin.
+    String? statusMarkdown;
+    if (statusField != null) {
+      final raw = settings.getEffective(statusField.path);
+      if (raw != null && raw.toString().trim().isNotEmpty) {
+        statusMarkdown = raw.toString();
+      }
+    }
+
+    Widget? body;
+    if (bodyFields.isNotEmpty || bodySubSections.isNotEmpty) {
+      final rows = <Widget>[
+        for (final f in bodyFields)
+          SchemaFieldRenderer(key: ValueKey(f.path), field: f),
+        for (final s in bodySubSections)
+          SchemaSectionRenderer(key: ValueKey(s.id), section: s),
+      ];
+      final separated = <Widget>[];
+      for (var i = 0; i < rows.length; i++) {
+        if (i > 0) {
+          separated.add(
+            const Divider(
+              height: 1,
+              thickness: 1,
+              color: KalinkaColors.borderSubtle,
+            ),
+          );
+        }
+        separated.add(rows[i]);
+      }
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: separated,
+      );
+    }
+
+    return SettingsToggleableSection(
+      title: section.title,
+      enabled: enabledValue,
+      onToggle: (v) => notifier.stageChange(enabledField.path, v),
+      statusMarkdown: statusMarkdown,
+      body: body,
+      // Expand normal-importance sub-features by default so users see
+      // their config without an extra tap; advanced/expert sections
+      // stay collapsed.
+      initiallyExpanded: section.importance == Importance.normal,
+      isStaged: isStaged,
     );
   }
 
