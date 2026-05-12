@@ -510,6 +510,7 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
   Widget build(BuildContext context) {
     final m = widget.module;
     final state = ref.watch(settingsProvider);
+    final notifier = ref.read(settingsProvider.notifier);
     final expertMode = ref.watch(expertModeProvider);
 
     // Live module state lives at /server/modules — the schema deliberately
@@ -527,12 +528,30 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
     final icon = _iconFromName(m.icon);
     final color = _colorFromHex(m.iconColor, KalinkaColors.textSecondary);
 
+    // Hoist a module-level `.enabled` field into the header switch, mirroring
+    // the toggleable-section pattern used for nested sub-features.
+    final enabledField = _firstFieldWithPathSuffix(m.fields, '.enabled');
+    final bool? enabledValue = enabledField == null
+        ? null
+        : (state.getEffective(enabledField.path) ??
+                  enabledField.defaultValue ??
+                  false)
+              as bool;
+
     final visibleSections = m.sections
         .where((s) => s.importance != Importance.expert || expertMode)
         .toList();
     final visibleModuleFields = m.fields
         .where((f) => f.importance != Importance.expert || expertMode)
+        .where((f) => f != enabledField)
         .toList();
+
+    final bodyDimmed = enabledField != null && enabledValue == false;
+    final hasBody =
+        (message != null && message.isNotEmpty) ||
+        m.banners.isNotEmpty ||
+        visibleModuleFields.isNotEmpty ||
+        visibleSections.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -553,55 +572,73 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
             status: status,
             expanded: _expanded,
             onToggle: () => setState(() => _expanded = !_expanded),
+            hasBody: hasBody,
+            enabled: enabledValue,
+            onEnabledChanged: enabledField == null
+                ? null
+                : (v) => notifier.stageChange(enabledField.path, v),
           ),
           AnimatedSize(
             duration: const Duration(milliseconds: 340),
             curve: const Cubic(0.4, 0, 0.2, 1),
             alignment: Alignment.topCenter,
             child: _expanded
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (message != null && message.isNotEmpty)
-                        WarningNote(
-                          message: message,
-                          severity: isError
-                              ? WarningNoteSeverity.error
-                              : WarningNoteSeverity.warning,
-                        ),
-                      for (final b in m.banners) SchemaBanner(banner: b),
-                      // Module-level scalar fields render flat, with a
-                      // divider above them so they read as continuous
-                      // content under the header rather than floating.
-                      for (var i = 0; i < visibleModuleFields.length; i++) ...[
-                        const Divider(
-                          height: 1,
-                          thickness: 1,
-                          color: KalinkaColors.borderSubtle,
-                        ),
-                        SchemaFieldRenderer(
-                          key: ValueKey(visibleModuleFields[i].path),
-                          field: visibleModuleFields[i],
-                        ),
+                ? Opacity(
+                    opacity: bodyDimmed ? 0.45 : 1.0,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (message != null && message.isNotEmpty)
+                          WarningNote(
+                            message: message,
+                            severity: isError
+                                ? WarningNoteSeverity.error
+                                : WarningNoteSeverity.warning,
+                          ),
+                        for (final b in m.banners) SchemaBanner(banner: b),
+                        // Module-level scalar fields render flat, with a
+                        // divider above them so they read as continuous
+                        // content under the header rather than floating.
+                        for (var i = 0; i < visibleModuleFields.length; i++) ...[
+                          const Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: KalinkaColors.borderSubtle,
+                          ),
+                          SchemaFieldRenderer(
+                            key: ValueKey(visibleModuleFields[i].path),
+                            field: visibleModuleFields[i],
+                          ),
+                        ],
+                        for (final s in visibleSections) ...[
+                          const Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: KalinkaColors.borderSubtle,
+                          ),
+                          SchemaSectionRenderer(
+                            key: ValueKey(s.id),
+                            section: s,
+                          ),
+                        ],
                       ],
-                      for (final s in visibleSections) ...[
-                        const Divider(
-                          height: 1,
-                          thickness: 1,
-                          color: KalinkaColors.borderSubtle,
-                        ),
-                        SchemaSectionRenderer(
-                          key: ValueKey(s.id),
-                          section: s,
-                        ),
-                      ],
-                    ],
+                    ),
                   )
                 : const SizedBox.shrink(),
           ),
         ],
       ),
     );
+  }
+
+  static FieldSpec? _firstFieldWithPathSuffix(
+    List<FieldSpec> fields,
+    String suffix,
+  ) {
+    for (final f in fields) {
+      if (f.path.endsWith(suffix)) return f;
+    }
+    return null;
   }
 
   ModuleStatus _moduleStatusFor(ModuleState state) => switch (state) {

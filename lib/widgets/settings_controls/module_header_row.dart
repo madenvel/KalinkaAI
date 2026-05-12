@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
+import 'settings_toggle.dart';
 
 /// Status of a module/device.
 ///
@@ -19,6 +20,16 @@ class ModuleHeaderRow extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
 
+  /// Whether there is anything to expand below the header. When false the
+  /// chevron is hidden and the left zone no longer reacts to taps.
+  final bool hasBody;
+
+  /// Optional integrated enable/disable switch. When [enabled] is non-null
+  /// the header grows a second tap zone on the right, separated by a thin
+  /// vertical divider — same pattern as [SettingsToggleableSection].
+  final bool? enabled;
+  final ValueChanged<bool>? onEnabledChanged;
+
   const ModuleHeaderRow({
     super.key,
     required this.title,
@@ -28,6 +39,9 @@ class ModuleHeaderRow extends StatelessWidget {
     this.status,
     required this.expanded,
     required this.onToggle,
+    this.hasBody = true,
+    this.enabled,
+    this.onEnabledChanged,
   });
 
   /// Determine icon and color based on module name.
@@ -55,70 +69,73 @@ class ModuleHeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onToggle,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        decoration: const BoxDecoration(color: KalinkaColors.surfaceInput),
-        child: Row(
-          children: [
-            // Icon tile
+    final showSwitch = enabled != null && onEnabledChanged != null;
+
+    final expandInner = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      child: Row(
+        children: [
+          // Icon tile
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 15, color: iconColor),
+          ),
+          const SizedBox(width: 10),
+          // Module info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: KalinkaTextStyles.trayRowLabel.copyWith(
+                    fontSize: KalinkaTypography.baseSize + 5,
+                    letterSpacing: -0.01,
+                    // Muted when disabled, mirroring SettingsToggleableSection.
+                    color: showSwitch && enabled == false
+                        ? KalinkaColors.textSecondary
+                        : KalinkaColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: KalinkaTextStyles.trayRowSublabel.copyWith(
+                    fontSize: KalinkaTypography.baseSize + 2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Status badge
+          if (status != null && status != ModuleStatus.disabled)
             Container(
-              width: 34,
-              height: 34,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              margin: EdgeInsets.only(right: hasBody ? 10 : 0),
               decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 15, color: iconColor),
-            ),
-            const SizedBox(width: 10),
-            // Module info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: KalinkaTextStyles.trayRowLabel.copyWith(
-                      fontSize: KalinkaTypography.baseSize + 5,
-                      letterSpacing: -0.01,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                      fontSize: KalinkaTypography.baseSize + 2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Status badge
-            if (status != null && status != ModuleStatus.disabled)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  color: _badgeColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: _badgeColor.withValues(alpha: 0.25),
-                  ),
-                ),
-                child: Text(
-                  _badgeLabel,
-                  style: KalinkaTextStyles.tagPill.copyWith(
-                    fontSize: KalinkaTypography.baseSize - 2,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.8,
-                    color: _badgeColor,
-                  ),
+                color: _badgeColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: _badgeColor.withValues(alpha: 0.25),
                 ),
               ),
-            // Chevron
+              child: Text(
+                _badgeLabel,
+                style: KalinkaTextStyles.tagPill.copyWith(
+                  fontSize: KalinkaTypography.baseSize - 2,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.8,
+                  color: _badgeColor,
+                ),
+              ),
+            ),
+          // Chevron — only shown when there's something to expand.
+          if (hasBody)
             AnimatedRotation(
               turns: expanded ? 0.5 : 0.0,
               duration: const Duration(milliseconds: 220),
@@ -126,6 +143,51 @@ class ModuleHeaderRow extends StatelessWidget {
                 Icons.keyboard_arrow_down,
                 size: 18,
                 color: KalinkaColors.textMuted,
+              ),
+            ),
+        ],
+      ),
+    );
+
+    final expandZone = hasBody
+        ? GestureDetector(
+            onTap: onToggle,
+            behavior: HitTestBehavior.opaque,
+            child: expandInner,
+          )
+        : expandInner;
+
+    if (!showSwitch) {
+      return Container(
+        decoration: const BoxDecoration(color: KalinkaColors.surfaceInput),
+        child: expandZone,
+      );
+    }
+
+    return Container(
+      decoration: const BoxDecoration(color: KalinkaColors.surfaceInput),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: expandZone),
+            const VerticalDivider(
+              width: 1,
+              thickness: 1,
+              color: KalinkaColors.borderSubtle,
+            ),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onEnabledChanged!(!enabled!),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Center(
+                  widthFactor: 1.0,
+                  child: SettingsToggle(
+                    value: enabled!,
+                    onChanged: onEnabledChanged!,
+                  ),
+                ),
               ),
             ),
           ],
