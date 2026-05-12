@@ -5,20 +5,24 @@ import 'settings_toggle.dart';
 
 /// Collapsible section header with an integrated enable/disable switch.
 ///
-/// Layout:
+/// Layout — matches the chevron-on-left convention used by `SettingsSection`
+/// everywhere else in the app:
+///
 /// ```
-/// ┌──────────┬───────────────────────────────────────────┐
-/// │  [tap]   │  [tap to expand]                          │
-/// │ [switch] │  Section title                  [chevron] │
-/// │          │  optional status text (markdown)          │
-/// └──────────┴───────────────────────────────────────────┘
+/// ┌────────────────────────────────────────────┬──────────┐
+/// │  [tap to expand]                           │  [tap]   │
+/// │ [v] Section title                          │ [switch] │
+/// │     optional status text (markdown)        │          │
+/// └────────────────────────────────────────────┴──────────┘
 /// ```
 ///
 /// The two header zones have independent tap targets, separated by a
 /// thin vertical divider:
 ///
-///   * Left zone — flips the enabled toggle.
-///   * Right zone — expands/collapses the section body.
+///   * Left zone — expands/collapses the section body.
+///   * Right zone — flips the enabled toggle. The switch itself sits at
+///     its natural 42x24 size, vertically centered; only the tap area
+///     extends.
 ///
 /// `statusMarkdown` lets a plugin-resolved sub-feature status appear
 /// directly under the title, no separate "Status" label. When the
@@ -106,42 +110,38 @@ class _SettingsToggleableSectionState extends State<SettingsToggleableSection>
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              // Switch zone
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => widget.onToggle(!widget.enabled),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  child: SettingsToggle(
-                    value: widget.enabled,
-                    onChanged: widget.onToggle,
-                  ),
-                ),
-              ),
-              // Vertical divider between switch and title — also a
-              // visual cue that the header has two independent tap
-              // zones.
-              const VerticalDivider(
-                width: 1,
-                thickness: 1,
-                color: KalinkaColors.borderSubtle,
-              ),
-              // Title + status + chevron, tappable for expand/collapse.
+              // Title + status (chevron on the left, matching the
+              // chevron-leading convention used by SettingsSection
+              // everywhere else in the app). Tap-to-expand.
               Expanded(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: hasBody ? _toggleExpanded : null,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
+                      horizontal: 16,
                       vertical: 12,
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        if (hasBody) ...[
+                          AnimatedBuilder(
+                            animation: _chevronController,
+                            builder: (context, child) {
+                              return Transform.rotate(
+                                angle: _chevronController.value * 3.14159,
+                                child: child,
+                              );
+                            },
+                            child: const Icon(
+                              Icons.keyboard_arrow_down,
+                              size: 12,
+                              color: KalinkaColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,24 +174,31 @@ class _SettingsToggleableSectionState extends State<SettingsToggleableSection>
                             ],
                           ),
                         ),
-                        if (hasBody) ...[
-                          const SizedBox(width: 8),
-                          AnimatedBuilder(
-                            animation: _chevronController,
-                            builder: (context, child) {
-                              return Transform.rotate(
-                                angle: _chevronController.value * 3.14159,
-                                child: child,
-                              );
-                            },
-                            child: const Icon(
-                              Icons.keyboard_arrow_down,
-                              size: 16,
-                              color: KalinkaColors.textMuted,
-                            ),
-                          ),
-                        ],
                       ],
+                    ),
+                  ),
+                ),
+              ),
+              // Vertical divider between title and switch — visual cue
+              // for two independent tap zones.
+              const VerticalDivider(
+                width: 1,
+                thickness: 1,
+                color: KalinkaColors.borderSubtle,
+              ),
+              // Toggle zone (right). Switch stays at its natural 42x24
+              // size, vertically centered; only the tap target extends
+              // to the row's height.
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => widget.onToggle(!widget.enabled),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Center(
+                    widthFactor: 1.0,
+                    child: SettingsToggle(
+                      value: widget.enabled,
+                      onChanged: widget.onToggle,
                     ),
                   ),
                 ),
