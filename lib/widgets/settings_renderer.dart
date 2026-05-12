@@ -426,6 +426,9 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
     final visibleSections = m.sections
         .where((s) => s.importance != Importance.expert || expertMode)
         .toList();
+    final visibleModuleFields = m.fields
+        .where((f) => f.importance != Importance.expert || expertMode)
+        .toList();
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -463,6 +466,20 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
                               : WarningNoteSeverity.warning,
                         ),
                       for (final b in m.banners) SchemaBanner(banner: b),
+                      // Module-level scalar fields render flat, with a
+                      // divider above them so they read as continuous
+                      // content under the header rather than floating.
+                      for (var i = 0; i < visibleModuleFields.length; i++) ...[
+                        const Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: KalinkaColors.borderSubtle,
+                        ),
+                        SchemaFieldRenderer(
+                          key: ValueKey(visibleModuleFields[i].path),
+                          field: visibleModuleFields[i],
+                        ),
+                      ],
                       for (final s in visibleSections) ...[
                         const Divider(
                           height: 1,

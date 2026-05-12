@@ -200,6 +200,10 @@ class ModuleSpec {
   final String? iconColor;
   final List<String> previewFields;
   final List<BannerSpec> banners;
+  // Top-level scalar fields of the module's config. Backend hoists these
+  // out of an auto-generated "General" section so the client renders
+  // them flat under the module header rather than inside a foldable.
+  final List<FieldSpec> fields;
   final List<SectionSpec> sections;
 
   const ModuleSpec({
@@ -210,6 +214,7 @@ class ModuleSpec {
     this.iconColor,
     this.previewFields = const [],
     this.banners = const [],
+    this.fields = const [],
     this.sections = const [],
   });
 
@@ -224,6 +229,9 @@ class ModuleSpec {
         .toList(),
     banners: ((j['banners'] as List?) ?? [])
         .map((e) => BannerSpec.fromJson((e as Map).cast<String, dynamic>()))
+        .toList(),
+    fields: ((j['fields'] as List?) ?? [])
+        .map((e) => FieldSpec.fromJson((e as Map).cast<String, dynamic>()))
         .toList(),
     sections: ((j['sections'] as List?) ?? [])
         .map((e) => SectionSpec.fromJson((e as Map).cast<String, dynamic>()))
