@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../data_model/kalinka_ws_api.dart';
 import '../providers/kalinka_player_api_provider.dart';
+import '../providers/playback_time_provider.dart';
 import '../providers/source_modules_provider.dart';
 import '../providers/toast_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
@@ -28,6 +29,10 @@ class QueueItemRow extends ConsumerWidget {
   final bool showDragHandle;
   final VoidCallback? onDelete;
 
+  /// Total number of UP NEXT rows (excluding the now-playing tile). Used by
+  /// the left accent strip to know how far the fade should reach.
+  final int upNextCount;
+
   const QueueItemRow({
     super.key,
     required this.track,
@@ -38,6 +43,7 @@ class QueueItemRow extends ConsumerWidget {
     this.isDragging = false,
     this.showDragHandle = true,
     this.onDelete,
+    this.upNextCount = 0,
   });
 
   String _formatDuration(int seconds) {
@@ -100,13 +106,18 @@ class QueueItemRow extends ConsumerWidget {
         ? KalinkaColors.accent.withValues(alpha: 0.08)
         : KalinkaColors.background;
 
+    const double currentArtworkSize = 64;
+    final double rowArtworkSize = isCurrentTrack && !isHistory
+        ? currentArtworkSize
+        : kTrackTileArtworkSize;
+
     Widget artwork;
     if (isCurrentTrack && !isHistory) {
       artwork = ClipRRect(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
         child: SizedBox(
-          width: 44,
-          height: 44,
+          width: currentArtworkSize,
+          height: currentArtworkSize,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -115,10 +126,15 @@ class QueueItemRow extends ConsumerWidget {
                   ? Image.network(
                       resolvedImageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          ProceduralAlbumArt(trackId: track.id, size: 44),
+                      errorBuilder: (_, __, ___) => ProceduralAlbumArt(
+                        trackId: track.id,
+                        size: currentArtworkSize,
+                      ),
                     )
-                  : ProceduralAlbumArt(trackId: track.id, size: 44),
+                  : ProceduralAlbumArt(
+                      trackId: track.id,
+                      size: currentArtworkSize,
+                    ),
               // Layer 2 — scrim
               // const DecoratedBox(
               //   decoration: BoxDecoration(
@@ -161,6 +177,19 @@ class QueueItemRow extends ConsumerWidget {
 
     final showNowPlayingBar = isCurrentTrack && !isHistory;
 
+    final isNowPlaying = isCurrentTrack && !isHistory;
+    final titleStyle = isNowPlaying
+        ? KalinkaTextStyles.queueItemTitle.copyWith(
+            color: titleColor,
+            fontSize: (KalinkaTextStyles.queueItemTitle.fontSize ?? 16) + 1,
+            fontWeight: FontWeight.w600,
+            height: 1.2,
+          )
+        : KalinkaTextStyles.queueItemTitle.copyWith(color: titleColor);
+    final rowPadding = isNowPlaying
+        ? const EdgeInsets.symmetric(horizontal: 12, vertical: 12)
+        : kTrackTilePadding;
+
     final rowContent = GestureDetector(
       onTap: () {
         KalinkaHaptics.lightImpact();
@@ -172,20 +201,20 @@ class QueueItemRow extends ConsumerWidget {
             decoration: BoxDecoration(color: rowBg),
             child: TrackTileLayout(
               leading: artwork,
+              artworkSize: rowArtworkSize,
+              padding: rowPadding,
               content: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     track.title,
-                    style: KalinkaTextStyles.queueItemTitle.copyWith(
-                      color: titleColor,
-                    ),
+                    style: titleStyle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     softWrap: false,
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: isNowPlaying ? 4 : 2),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -223,13 +252,17 @@ class QueueItemRow extends ConsumerWidget {
                   : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          _formatDuration(track.duration),
-                          // Keep Up Next duration fixed for fast scanning.
-                          style: KalinkaTextStyles.queueItemDuration.copyWith(
-                            color: KalinkaColors.textSecondary,
+                        if (isNowPlaying)
+                          _NowPlayingTimer(durationSec: track.duration)
+                        else
+                          Text(
+                            _formatDuration(track.duration),
+                            // Keep Up Next duration fixed for fast scanning.
+                            style:
+                                KalinkaTextStyles.queueItemDuration.copyWith(
+                              color: KalinkaColors.textSecondary,
+                            ),
                           ),
-                        ),
                         if (showDragHandle) ...[
                           const SizedBox(width: 7),
                           _DragHandle(index: displayIndex),
@@ -246,11 +279,29 @@ class QueueItemRow extends ConsumerWidget {
               bottom: 0,
               child: IgnorePointer(
                 child: SizedBox(
-                  width: 2,
+                  width: 4,
                   child: ColoredBox(color: KalinkaColors.accentBorder),
                 ),
               ),
-            ),
+            )
+          else if (!isHistory && !isCurrentTrack)
+            () {
+              final fadeRows = upNextCount >= 2 ? 2 : upNextCount;
+              if (fadeRows == 0 || displayIndex >= fadeRows) {
+                return const SizedBox.shrink();
+              }
+              return Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: _UpNextFadeBar(
+                    rowIndex: displayIndex,
+                    fadeRows: fadeRows,
+                  ),
+                ),
+              );
+            }(),
         ],
       ),
     );
@@ -269,6 +320,73 @@ class QueueItemRow extends ConsumerWidget {
         }
       },
       child: rowContent,
+    );
+  }
+}
+
+/// Continuation of the accent bar through the first one or two UP NEXT rows.
+/// Each row draws its segment as a vertical gradient so adjacent rows form one
+/// smooth top-to-bottom fade ending at the bottom of the last fade row.
+class _UpNextFadeBar extends StatelessWidget {
+  final int rowIndex;
+  final int fadeRows;
+
+  const _UpNextFadeBar({required this.rowIndex, required this.fadeRows});
+
+  @override
+  Widget build(BuildContext context) {
+    final topAlpha = (1.0 - rowIndex / fadeRows).clamp(0.0, 1.0);
+    final bottomAlpha = (1.0 - (rowIndex + 1) / fadeRows).clamp(0.0, 1.0);
+    const base = KalinkaColors.accentBorder;
+    return SizedBox(
+      width: 4,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              base.withValues(alpha: base.a * topAlpha),
+              base.withValues(alpha: base.a * bottomAlpha),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Position/total timer for the now-playing row, ticking once per second via
+/// [playbackTimeMsProvider]. Renders "M:SS / M:SS".
+class _NowPlayingTimer extends ConsumerWidget {
+  final int durationSec;
+
+  const _NowPlayingTimer({required this.durationSec});
+
+  String _fmt(int seconds) {
+    final s = seconds < 0 ? 0 : seconds;
+    final m = s ~/ 60;
+    final r = s % 60;
+    return '$m:${r.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final positionMs = ref.watch(playbackTimeMsProvider);
+    final positionSec = (positionMs / 1000).floor();
+    final String label;
+    if (durationSec > 0) {
+      final clamped = positionSec.clamp(0, durationSec);
+      label = '-${_fmt(durationSec - clamped)}';
+    } else {
+      // Unknown duration: fall back to elapsed time so the timer still moves.
+      label = _fmt(positionSec < 0 ? 0 : positionSec);
+    }
+    return Text(
+      label,
+      style: KalinkaTextStyles.queueItemDuration.copyWith(
+        color: KalinkaColors.textSecondary,
+      ),
     );
   }
 }

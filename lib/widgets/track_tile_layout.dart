@@ -17,6 +17,7 @@ class TrackTileLayout extends StatelessWidget {
   final double leadingContentSpacing;
   final double contentTrailingSpacing;
   final double trailingEndSpacing;
+  final double artworkSize;
 
   const TrackTileLayout({
     super.key,
@@ -28,6 +29,7 @@ class TrackTileLayout extends StatelessWidget {
     this.leadingContentSpacing = 10,
     this.contentTrailingSpacing = 8,
     this.trailingEndSpacing = 0,
+    this.artworkSize = kTrackTileArtworkSize,
   });
 
   @override
@@ -38,8 +40,8 @@ class TrackTileLayout extends StatelessWidget {
         children: [
           if (leadingStartSpacing > 0) SizedBox(width: leadingStartSpacing),
           SizedBox(
-            width: kTrackTileArtworkSize,
-            height: kTrackTileArtworkSize,
+            width: artworkSize,
+            height: artworkSize,
             child: leading,
           ),
           SizedBox(width: leadingContentSpacing),

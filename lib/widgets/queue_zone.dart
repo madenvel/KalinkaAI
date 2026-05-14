@@ -355,6 +355,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
                     index: absoluteIndex,
                     displayIndex: i,
                     isDragging: _isDragging,
+                    upNextCount: queueTracks.length,
                   );
                 },
               ),
@@ -431,14 +432,46 @@ class _UpNextHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    final hasRows = trackCount > 0;
     return SizedBox(
       height: _kHeaderHeight,
       child: ColoredBox(
         color: KalinkaColors.background,
-        child: QueueSectionHeader(
-          label: 'UP NEXT',
-          trackCount: trackCount,
-          showShuffleBadge: showShuffleBadge,
+        child: Stack(
+          children: [
+            QueueSectionHeader(
+              label: 'UP NEXT',
+              trackCount: trackCount,
+              showShuffleBadge: showShuffleBadge,
+            ),
+            // Continuation of the now-playing accent bar. Solid through the
+            // header when at least one UP NEXT row exists; otherwise the fade
+            // happens inside the header (end of UP NEXT == end of bar).
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: IgnorePointer(
+                child: SizedBox(
+                  width: 4,
+                  child: hasRows
+                      ? const ColoredBox(color: KalinkaColors.accentBorder)
+                      : const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                KalinkaColors.accentBorder,
+                                Color(0x00C2394B),
+                              ],
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -468,21 +501,120 @@ class _NowPlayingHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    // No trailing widget → QueueSectionHeader would shrink to ~32 px.
-    // Tighten to _kHeaderHeight so paintExtent == scrollExtent == 46 px and
-    // the SliverGeometry assertion (paintExtent < scrollExtent → hasVisualOverflow)
-    // never fires.
-    return SizedBox(
+    return const SizedBox(
       height: _kHeaderHeight,
       child: ColoredBox(
         color: KalinkaColors.background,
-        child: const QueueSectionHeader(label: 'NOW PLAYING'),
+        child: _NowPlayingHeaderContent(),
       ),
     );
   }
 
   @override
   bool shouldRebuild(_NowPlayingHeaderDelegate old) => false;
+}
+
+/// Header label + format suffix for the NOW PLAYING section.
+///
+/// The label tracks the player state: PLAYING / PAUSED / READY. Buffering and
+/// error never replace the label — they hold the last stable value so the
+/// header doesn't strobe on a flaky connection.
+class _NowPlayingHeaderContent extends ConsumerStatefulWidget {
+  const _NowPlayingHeaderContent();
+
+  @override
+  ConsumerState<_NowPlayingHeaderContent> createState() =>
+      _NowPlayingHeaderContentState();
+}
+
+class _NowPlayingHeaderContentState
+    extends ConsumerState<_NowPlayingHeaderContent> {
+  String _label = 'NOW PLAYING';
+
+  String? _labelFor(PlayerStateType? state) {
+    switch (state) {
+      case PlayerStateType.playing:
+        return 'NOW PLAYING';
+      case PlayerStateType.paused:
+        return 'PAUSED';
+      case PlayerStateType.stopped:
+        return 'READY';
+      case PlayerStateType.buffering:
+      case PlayerStateType.error:
+      case null:
+        return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = ref.watch(
+      playerStateProvider.select(
+        (s) => (
+          state: s.state,
+          mimeType: s.mimeType,
+          bitsPerSample: s.audioInfo?.bitsPerSample ?? 0,
+          sampleRate: s.audioInfo?.sampleRate ?? 0,
+        ),
+      ),
+    );
+
+    final candidate = _labelFor(fmt.state);
+    if (candidate != null) {
+      _label = candidate;
+    }
+
+    return QueueSectionHeader(
+      label: _label,
+      suffix: _buildFormatSuffix(
+        mimeType: fmt.mimeType,
+        bitsPerSample: fmt.bitsPerSample,
+        sampleRate: fmt.sampleRate,
+      ),
+    );
+  }
+}
+
+/// Builds "FLAC 24-bit · 96 kHz" (or any subset of those parts) from the live
+/// playback state. Returns null when nothing meaningful is known yet.
+String? _buildFormatSuffix({
+  required String? mimeType,
+  required int bitsPerSample,
+  required int sampleRate,
+}) {
+  String? mime;
+  if (mimeType != null) {
+    if (mimeType.contains('flac')) {
+      mime = 'FLAC';
+    } else if (mimeType.contains('wav')) {
+      mime = 'WAV';
+    } else if (mimeType.contains('mp3') || mimeType.contains('mpeg')) {
+      mime = 'MP3';
+    } else if (mimeType.contains('aac')) {
+      mime = 'AAC';
+    } else if (mimeType.contains('opus')) {
+      mime = 'OPUS';
+    } else if (mimeType.contains('ogg')) {
+      mime = 'OGG';
+    } else if (mimeType.isNotEmpty) {
+      mime = mimeType.split('/').last.toUpperCase();
+    }
+  }
+
+  final parts = <String>[];
+  if (mime != null) {
+    parts.add(bitsPerSample > 0 ? '$mime $bitsPerSample-bit' : mime);
+  } else if (bitsPerSample > 0) {
+    parts.add('$bitsPerSample-bit');
+  }
+  if (sampleRate > 0) {
+    final khz = sampleRate / 1000;
+    final khzLabel = sampleRate % 1000 == 0
+        ? khz.toStringAsFixed(0)
+        : khz.toStringAsFixed(1);
+    parts.add('$khzLabel kHz');
+  }
+  return parts.isEmpty ? null : parts.join(' · ');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

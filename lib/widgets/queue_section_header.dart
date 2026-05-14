@@ -12,12 +12,17 @@ class QueueSectionHeader extends StatelessWidget {
   final bool showShuffleBadge;
   final Widget? trailing;
 
+  /// Optional free-form suffix rendered inline after the label, prefixed by
+  /// a "·" separator. Used for "NOW PLAYING · FLAC 24-bit · 96 kHz".
+  final String? suffix;
+
   const QueueSectionHeader({
     super.key,
     required this.label,
     this.trackCount,
     this.showShuffleBadge = false,
     this.trailing,
+    this.suffix,
   });
 
   @override
@@ -39,6 +44,18 @@ class QueueSectionHeader extends StatelessWidget {
                   Text(
                     '· $trackCount',
                     style: KalinkaTextStyles.trackCountBadge,
+                  ),
+                ],
+                if (suffix != null && suffix!.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      '· ${suffix!}',
+                      style: KalinkaTextStyles.trackCountBadge,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                    ),
                   ),
                 ],
                 if (showShuffleBadge) ...[
