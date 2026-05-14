@@ -54,7 +54,7 @@ class BrowseItemRows extends StatelessWidget {
         children.add(const Divider(
           color: KalinkaColors.borderSubtle,
           thickness: 1,
-          height: 1,
+          height: 14,
         ));
       }
     }

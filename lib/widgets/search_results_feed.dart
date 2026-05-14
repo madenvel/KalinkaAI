@@ -390,7 +390,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     const divider = Divider(
       color: KalinkaColors.borderSubtle,
       thickness: 1,
-      height: 1,
+      height: 14,
     );
     final children = <Widget>[];
 
