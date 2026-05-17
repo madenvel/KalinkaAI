@@ -5,38 +5,18 @@ import '../theme/app_theme.dart';
 
 /// Amber banner that appears when settings changes are staged but not yet applied.
 ///
-/// Shows count of pending changes, "Discard" link, and "Apply" button.
-class PendingChangesBanner extends ConsumerStatefulWidget {
+/// Shows the count of pending changes, a "Discard" link, and "APPLY" button.
+/// The amber tint + bold text already signal urgency clearly; an earlier
+/// pulsing dot animation here turned out to be a major CPU drain (perpetual
+/// 60Hz Opacity rebuild + saveLayer) and gave no information the colour
+/// didn't already convey. Now a flat static dot.
+class PendingChangesBanner extends ConsumerWidget {
   final VoidCallback onApply;
 
   const PendingChangesBanner({super.key, required this.onApply});
 
   @override
-  ConsumerState<PendingChangesBanner> createState() =>
-      _PendingChangesBannerState();
-}
-
-class _PendingChangesBannerState extends ConsumerState<PendingChangesBanner>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final settingsState = ref.watch(settingsProvider);
 
     return AnimatedSize(
@@ -57,28 +37,18 @@ class _PendingChangesBannerState extends ConsumerState<PendingChangesBanner>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
                 children: [
-                  // Pulsing amber dot
-                  AnimatedBuilder(
-                    animation: _pulseController,
-                    builder: (context, child) {
-                      final opacity =
-                          0.25 + 0.75 * (1.0 - _pulseController.value);
-                      return Opacity(opacity: opacity, child: child);
-                    },
-                    child: Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: KalinkaColors.statusPending,
-                        shape: BoxShape.circle,
-                      ),
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: KalinkaColors.statusPending,
+                      shape: BoxShape.circle,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Text
                   Expanded(
                     child: Text(
-                      '${settingsState.pendingCount} change${settingsState.pendingCount == 1 ? '' : 's'} staged \u00b7 restart required',
+                      '${settingsState.pendingCount} change${settingsState.pendingCount == 1 ? '' : 's'} staged · restart required',
                       style: KalinkaTextStyles.bannerText.copyWith(
                         color: KalinkaColors.statusPendingLight,
                       ),
@@ -87,7 +57,6 @@ class _PendingChangesBannerState extends ConsumerState<PendingChangesBanner>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Discard link
                   GestureDetector(
                     onTap: () {
                       ref.read(settingsProvider.notifier).discardAll();
@@ -98,9 +67,8 @@ class _PendingChangesBannerState extends ConsumerState<PendingChangesBanner>
                     ),
                   ),
                   const SizedBox(width: 15),
-                  // Apply button
                   GestureDetector(
-                    onTap: widget.onApply,
+                    onTap: onApply,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
