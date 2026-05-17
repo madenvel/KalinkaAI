@@ -69,6 +69,25 @@ enum WidgetKind {
   };
 }
 
+/// One choice in a dynamic-options enum field.
+///
+/// The backend ships these in the values envelope under
+/// ``enum_options[path]`` for fields whose option list depends on
+/// live system state (e.g. ALSA devices). [value] is what gets PUT
+/// back to the server (a stable identifier — `hw:CARD=…,DEV=…` for
+/// ALSA); [label] is what the user sees in the dropdown.
+class OptionSpec {
+  final String value;
+  final String label;
+
+  const OptionSpec({required this.value, required this.label});
+
+  factory OptionSpec.fromJson(Map<String, dynamic> j) => OptionSpec(
+    value: j['value'] as String,
+    label: j['label'] as String,
+  );
+}
+
 class BannerSpec {
   final String text;
   final Severity severity;

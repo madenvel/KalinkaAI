@@ -9,6 +9,12 @@ class SettingsState {
   final PresentationSchema? schema;
   final String? schemaVersion;
   final Map<String, dynamic> values; // Path → server value
+  // Per-path option lists for enum widgets whose choices are resolved
+  // live by the backend (ALSA devices today). When an entry exists for
+  // a field's path, the renderer uses it in preference to the schema's
+  // static enum_values. Refreshed on every loadConfig — hot-plug shows
+  // up on the next refresh.
+  final Map<String, List<OptionSpec>> enumOptions;
   final Map<String, dynamic> stagedChanges;
   final bool isLoading;
   final String? error;
@@ -17,6 +23,7 @@ class SettingsState {
     this.schema,
     this.schemaVersion,
     this.values = const {},
+    this.enumOptions = const {},
     this.stagedChanges = const {},
     this.isLoading = false,
     this.error,
@@ -33,10 +40,16 @@ class SettingsState {
 
   bool isStaged(String path) => stagedChanges.containsKey(path);
 
+  /// Live option list for [path] if the backend resolved one this
+  /// refresh, else null (caller should fall back to the schema's
+  /// static enum_values).
+  List<OptionSpec>? optionsFor(String path) => enumOptions[path];
+
   SettingsState copyWith({
     PresentationSchema? schema,
     String? schemaVersion,
     Map<String, dynamic>? values,
+    Map<String, List<OptionSpec>>? enumOptions,
     Map<String, dynamic>? stagedChanges,
     bool? isLoading,
     String? error,
@@ -45,6 +58,7 @@ class SettingsState {
       schema: schema ?? this.schema,
       schemaVersion: schemaVersion ?? this.schemaVersion,
       values: values ?? this.values,
+      enumOptions: enumOptions ?? this.enumOptions,
       stagedChanges: stagedChanges ?? this.stagedChanges,
       isLoading: isLoading ?? this.isLoading,
       error: error,
@@ -85,6 +99,20 @@ class SettingsNotifier extends Notifier<SettingsState> {
       final envelope = (results[1] as Map).cast<String, dynamic>();
       final values = (envelope['values'] as Map? ?? {}).cast<String, dynamic>();
       final valuesVersion = envelope['schema_version'] as String?;
+      // Dynamic enum options: `{path: [{value, label}, …]}`. Present
+      // only for fields the server resolves live (e.g. ALSA devices);
+      // absent fields fall back to the schema's static enum_values.
+      final rawOptions =
+          (envelope['enum_options'] as Map? ?? {}).cast<String, dynamic>();
+      final enumOptions = <String, List<OptionSpec>>{};
+      rawOptions.forEach((path, raw) {
+        if (raw is List) {
+          enumOptions[path] = raw
+              .whereType<Map>()
+              .map((e) => OptionSpec.fromJson(e.cast<String, dynamic>()))
+              .toList();
+        }
+      });
 
       state = state.copyWith(
         schema: schema,
@@ -95,6 +123,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
                 ? schema.schemaVersion
                 : schema.schemaVersion,
         values: values,
+        enumOptions: enumOptions,
         stagedChanges: {},
         isLoading: false,
       );

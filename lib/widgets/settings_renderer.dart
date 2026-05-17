@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import 'settings_controls/footer_note.dart';
 import 'settings_controls/module_header_row.dart';
 import 'settings_controls/settings_card.dart';
+import 'settings_controls/settings_enum_dropdown.dart';
 import 'settings_controls/settings_enum_pills.dart';
 import 'settings_controls/settings_list_editor.dart';
 import 'settings_controls/settings_numeric_input.dart';
@@ -153,7 +154,7 @@ class SchemaFieldRenderer extends ConsumerWidget {
       sublabel: field.help,
       isStaged: isStaged,
       isVertical: vertical,
-      control: _buildControl(value, notifier),
+      control: _buildControl(value, notifier, state),
     );
   }
 
@@ -178,7 +179,11 @@ class SchemaFieldRenderer extends ConsumerWidget {
     );
   }
 
-  Widget _buildControl(dynamic value, SettingsNotifier notifier) {
+  Widget _buildControl(
+    dynamic value,
+    SettingsNotifier notifier,
+    SettingsState state,
+  ) {
     void stage(dynamic v) => notifier.stageChange(field.path, v);
     switch (field.widget) {
       case WidgetKind.toggle:
@@ -191,8 +196,23 @@ class SchemaFieldRenderer extends ConsumerWidget {
       case WidgetKind.numberSlider:
         // Handled above; unreachable here.
         return const SizedBox.shrink();
-      case WidgetKind.enumPills:
       case WidgetKind.enumDropdown:
+        // Dropdown — used for enums whose options are long, numerous,
+        // or resolved live (e.g. ALSA devices). Live options ship in
+        // the values envelope as enum_options[path]; if missing, fall
+        // back to the schema's static enum_values shaped as (value =
+        // label) pairs.
+        final liveOptions = state.optionsFor(field.path);
+        final options = liveOptions ??
+            (field.enumValues ?? const [])
+                .map((v) => OptionSpec(value: v, label: v))
+                .toList();
+        return SettingsEnumDropdown(
+          options: options,
+          selectedValue: (value ?? '').toString(),
+          onChanged: stage,
+        );
+      case WidgetKind.enumPills:
         return SettingsEnumPills(
           options: field.enumValues ?? const [],
           selected: (value ?? '').toString(),
