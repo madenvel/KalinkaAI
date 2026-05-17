@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../widgets/kalinka_button.dart';
 import '../widgets/pending_changes_banner.dart';
 import '../widgets/restart_overlay.dart';
+import '../widgets/expert_settings_screen.dart';
 import '../widgets/settings_controls/settings_toggle.dart';
 import '../widgets/settings_renderer.dart';
 
@@ -150,7 +151,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   else if (settingsState.schema != null)
                     Expanded(
                       child: expertMode
-                          ? const _ExpertSettingsPlaceholder()
+                          ? const ExpertSettingsScreen()
                           : IndexedStack(
                               index: _tabIndex.clamp(
                                 0,
@@ -345,40 +346,3 @@ class _ExpertModeHeaderToggle extends ConsumerWidget {
   }
 }
 
-/// Empty placeholder for the about:config-style expert screen. The flat
-/// list + search field land in a follow-up — the toggle wiring is the
-/// piece that needs to be in place first so the rest of the UI behaves.
-class _ExpertSettingsPlaceholder extends StatelessWidget {
-  const _ExpertSettingsPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.tune,
-              size: 36,
-              color: KalinkaColors.textSecondary,
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Expert settings',
-              style: KalinkaTextStyles.cardTitle,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'About:config-style search across every setting. '
-              'Coming next.',
-              textAlign: TextAlign.center,
-              style: KalinkaTextStyles.trayRowSublabel,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

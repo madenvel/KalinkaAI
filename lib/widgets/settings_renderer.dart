@@ -183,69 +183,110 @@ class SchemaFieldRenderer extends ConsumerWidget {
     dynamic value,
     SettingsNotifier notifier,
     SettingsState state,
-  ) {
-    void stage(dynamic v) => notifier.stageChange(field.path, v);
-    switch (field.widget) {
-      case WidgetKind.toggle:
-        return SettingsToggle(value: value == true, onChanged: stage);
-      case WidgetKind.numberInput:
-        return SettingsNumericInput(
-          value: value is num ? value : 0,
-          onChanged: stage,
-        );
-      case WidgetKind.numberSlider:
-        // Handled above; unreachable here.
-        return const SizedBox.shrink();
-      case WidgetKind.enumDropdown:
-        // Dropdown — used for enums whose options are long, numerous,
-        // or resolved live (e.g. ALSA devices). Live options ship in
-        // the values envelope as enum_options[path]; if missing, fall
-        // back to the schema's static enum_values shaped as (value =
-        // label) pairs.
-        final liveOptions = state.optionsFor(field.path);
-        final options = liveOptions ??
-            (field.enumValues ?? const [])
-                .map((v) => OptionSpec(value: v, label: v))
-                .toList();
-        return SettingsEnumDropdown(
-          options: options,
-          selectedValue: (value ?? '').toString(),
-          onChanged: stage,
-        );
-      case WidgetKind.enumPills:
-        return SettingsEnumPills(
-          options: field.enumValues ?? const [],
-          selected: (value ?? '').toString(),
-          onChanged: stage,
-        );
-      case WidgetKind.listEditor:
-      case WidgetKind.folderList:
-        final items =
-            (value as List?)?.map((e) => e.toString()).toList() ?? const [];
-        return SettingsListEditor(
-          items: items,
-          addHint: field.widget == WidgetKind.folderList
-              ? 'Add folder...'
-              : 'Add item...',
-          onChanged: stage,
-        );
-      case WidgetKind.password:
-        return SettingsPasswordInput(
-          value: (value ?? '').toString(),
-          onChanged: stage,
-        );
-      case WidgetKind.text:
-      case WidgetKind.path:
-      case WidgetKind.url:
-        return SettingsTextInput(
-          value: (value ?? '').toString(),
-          onChanged: stage,
-        );
-      case WidgetKind.richText:
-        // Rich text is always display-only; if a backend marks a field
-        // rich_text without readonly we still refuse to expose an editor.
-        return SettingsReadonlyCard(text: (value ?? '').toString());
-    }
+  ) =>
+      buildFieldControl(
+        field: field,
+        value: value,
+        state: state,
+        onChanged: (v) => notifier.stageChange(field.path, v),
+      );
+}
+
+/// Dispatch a [FieldSpec] to the right editable widget, given the
+/// current value, the surrounding settings state (needed for live
+/// enum options), and a callback that stages the change.
+///
+/// Exposed at module level so the expert/about:config screen can
+/// reuse exactly the same control widgets the simple page uses —
+/// the rows there look different (mono path, dense layout), but
+/// every input behaves identically and shares the staging flow.
+///
+/// [compact] is false on the expert screen, where every control
+/// occupies a dedicated row beneath the path — narrow defaults like
+/// the 80px numeric input look stranded in that space, so we let
+/// them stretch. The simple page passes [compact]=true to keep the
+/// established right-aligned layout next to a label.
+Widget buildFieldControl({
+  required FieldSpec field,
+  required dynamic value,
+  required SettingsState state,
+  required ValueChanged<dynamic> onChanged,
+  bool compact = true,
+}) {
+  switch (field.widget) {
+    case WidgetKind.toggle:
+      return compact
+          ? SettingsToggle(value: value == true, onChanged: onChanged)
+          // Left-align a toggle in a full-width slot so it doesn't
+          // sit alone in the middle of the row.
+          : Align(
+              alignment: Alignment.centerLeft,
+              child: SettingsToggle(
+                value: value == true,
+                onChanged: onChanged,
+              ),
+            );
+    case WidgetKind.numberInput:
+      return SettingsNumericInput(
+        value: value is num ? value : 0,
+        onChanged: onChanged,
+        // Match the surrounding controls (text, dropdown) when the
+        // row gives us its full width.
+        width: compact ? 80 : double.infinity,
+      );
+    case WidgetKind.numberSlider:
+      // Slider has its own label + range chrome and is rendered by
+      // its caller. Returning a placeholder keeps the dispatch total.
+      return const SizedBox.shrink();
+    case WidgetKind.enumDropdown:
+      // Dropdown — used for enums whose options are long, numerous,
+      // or resolved live (e.g. ALSA devices). Live options ship in
+      // the values envelope as enum_options[path]; if missing, fall
+      // back to the schema's static enum_values shaped as
+      // (value = label) pairs.
+      final liveOptions = state.optionsFor(field.path);
+      final options = liveOptions ??
+          (field.enumValues ?? const [])
+              .map((v) => OptionSpec(value: v, label: v))
+              .toList();
+      return SettingsEnumDropdown(
+        options: options,
+        selectedValue: (value ?? '').toString(),
+        onChanged: onChanged,
+      );
+    case WidgetKind.enumPills:
+      return SettingsEnumPills(
+        options: field.enumValues ?? const [],
+        selected: (value ?? '').toString(),
+        onChanged: onChanged,
+      );
+    case WidgetKind.listEditor:
+    case WidgetKind.folderList:
+      final items =
+          (value as List?)?.map((e) => e.toString()).toList() ?? const [];
+      return SettingsListEditor(
+        items: items,
+        addHint: field.widget == WidgetKind.folderList
+            ? 'Add folder...'
+            : 'Add item...',
+        onChanged: onChanged,
+      );
+    case WidgetKind.password:
+      return SettingsPasswordInput(
+        value: (value ?? '').toString(),
+        onChanged: onChanged,
+      );
+    case WidgetKind.text:
+    case WidgetKind.path:
+    case WidgetKind.url:
+      return SettingsTextInput(
+        value: (value ?? '').toString(),
+        onChanged: onChanged,
+      );
+    case WidgetKind.richText:
+      // Rich text is always display-only; if a backend marks a field
+      // rich_text without readonly we still refuse to expose an editor.
+      return SettingsReadonlyCard(text: (value ?? '').toString());
   }
 }
 
