@@ -5,15 +5,25 @@
 // to render what it receives — no re-mapping, no name-based heuristics, no
 // hard-coded labels or banners.
 
+/// Two-tier UI prominence, matching the backend.
+///
+/// * [simple] — appears on the structured settings page (the user-facing
+///   default tabs). Reserved for mandatory or frequently changed fields.
+/// * [expert] — only reachable through the about:config-style search
+///   screen. The backend already prunes the page tree to SIMPLE before
+///   sending; the [expert] case is mainly carried so the about:config
+///   list can badge entries by tier.
+///
+/// Legacy values `"normal"` and `"advanced"` map to [simple] and
+/// [expert] respectively, so older server builds keep working without
+/// a coordinated upgrade.
 enum Importance {
-  normal,
-  advanced,
+  simple,
   expert;
 
   static Importance fromName(String? s) => switch (s) {
-    'advanced' => Importance.advanced,
-    'expert' => Importance.expert,
-    _ => Importance.normal,
+    'expert' || 'advanced' => Importance.expert,
+    _ => Importance.simple,
   };
 }
 
@@ -134,7 +144,7 @@ class FieldSpec {
     this.defaultValue,
     this.readonly = false,
     this.dynamic_ = false,
-    this.importance = Importance.normal,
+    this.importance = Importance.simple,
     this.enumValues,
     this.constraints,
   });
@@ -169,7 +179,7 @@ class SectionSpec {
     required this.id,
     required this.title,
     this.icon,
-    this.importance = Importance.normal,
+    this.importance = Importance.simple,
     this.banners = const [],
     this.fields = const [],
     this.sections = const [],
@@ -274,15 +284,28 @@ class PageSpec {
 
 class PresentationSchema {
   final String schemaVersion;
+  // Hierarchical SIMPLE view: pages → modules → sections → fields. The
+  // backend has already pruned EXPERT-tier content from this tree.
   final List<PageSpec> pages;
+  // Flat list of every settable field across the whole config tree,
+  // sorted by dotted path. Backs the about:config-style search screen
+  // and includes both tiers so a single search surfaces everything.
+  final List<FieldSpec> expertFields;
 
-  const PresentationSchema({required this.schemaVersion, required this.pages});
+  const PresentationSchema({
+    required this.schemaVersion,
+    required this.pages,
+    this.expertFields = const [],
+  });
 
   factory PresentationSchema.fromJson(Map<String, dynamic> j) =>
       PresentationSchema(
         schemaVersion: j['schema_version'] as String,
         pages: ((j['pages'] as List?) ?? [])
             .map((e) => PageSpec.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(),
+        expertFields: ((j['expert_fields'] as List?) ?? [])
+            .map((e) => FieldSpec.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),
       );
 }

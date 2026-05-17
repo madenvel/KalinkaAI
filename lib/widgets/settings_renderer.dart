@@ -244,10 +244,11 @@ class SchemaSectionRenderer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final expertMode = ref.watch(expertModeProvider);
-    if (section.importance == Importance.expert && !expertMode) {
-      return const SizedBox.shrink();
-    }
+    // The backend prunes EXPERT-tier content out of the simple page
+    // tree before sending, so the renderer no longer filters by
+    // importance — every field/section it receives is meant to be
+    // visible. Expert configuration lives behind the dedicated
+    // about:config screen, not as an in-place reveal here.
 
     // A nested section with an `.enabled` field is a "sub-feature":
     // render its header with an integrated toggle and pull the optional
@@ -262,12 +263,9 @@ class SchemaSectionRenderer extends ConsumerWidget {
         : _firstFieldWithPathSuffix(section.fields, '.status_view');
 
     final visibleFields = section.fields
-        .where((f) => f.importance != Importance.expert || expertMode)
         .where((f) => f != enabledField && f != statusField)
         .toList();
-    final visibleSubSections = section.sections
-        .where((s) => s.importance != Importance.expert || expertMode)
-        .toList();
+    final visibleSubSections = section.sections;
 
     // Toggleable sub-feature section: route through the dedicated header
     // widget with the body unchanged.
@@ -309,26 +307,10 @@ class SchemaSectionRenderer extends ConsumerWidget {
       children: separated,
     );
 
-    // Advanced sections render inside a collapsible at the top level.
-    if (isTopLevel && section.importance == Importance.advanced) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ...section.banners.map((b) => SchemaBanner(banner: b)),
-          SettingsCard(
-            children: [
-              SettingsSection(
-                title: section.title,
-                showTopBorder: false,
-                child: body,
-              ),
-            ],
-          ),
-        ],
-      );
-    }
-
-    // Top-level normal section: label + card.
+    // Top-level section: label + card. (The legacy "advanced" branch
+    // was dropped together with the three-tier importance model — the
+    // simple page is now a flat list of named sections, with anything
+    // power-user-tuned routed to the expert about:config screen.)
     if (isTopLevel) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -345,11 +327,12 @@ class SchemaSectionRenderer extends ConsumerWidget {
       );
     }
 
-    // Nested section: inline collapsible.
+    // Nested section: inline collapsible, expanded by default since
+    // every simple-tier section is meant to be visible at a glance.
     return SettingsSection(
       title: section.title,
       showTopBorder: false,
-      initiallyExpanded: section.importance == Importance.normal,
+      initiallyExpanded: true,
       child: body,
     );
   }
@@ -424,10 +407,9 @@ class SchemaSectionRenderer extends ConsumerWidget {
       onToggle: (v) => notifier.stageChange(enabledField.path, v),
       statusMarkdown: statusMarkdown,
       body: body,
-      // Expand normal-importance sub-features by default so users see
-      // their config without an extra tap; advanced/expert sections
-      // stay collapsed.
-      initiallyExpanded: section.importance == Importance.normal,
+      // Simple-tier sub-features expand by default — anything users
+      // shouldn't need to see lives behind the expert search now.
+      initiallyExpanded: true,
       isStaged: isStaged,
     );
   }
@@ -511,7 +493,6 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
     final m = widget.module;
     final state = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
-    final expertMode = ref.watch(expertModeProvider);
 
     // Live module state lives at /server/modules — the schema deliberately
     // doesn't carry it so schema_version doesn't churn on plugin hiccups.
@@ -538,11 +519,11 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
                   false)
               as bool;
 
-    final visibleSections = m.sections
-        .where((s) => s.importance != Importance.expert || expertMode)
-        .toList();
+    // Backend prunes EXPERT content out of the simple page tree, so
+    // the only filter here is "drop the .enabled field we already
+    // hoisted into the header".
+    final visibleSections = m.sections;
     final visibleModuleFields = m.fields
-        .where((f) => f.importance != Importance.expert || expertMode)
         .where((f) => f != enabledField)
         .toList();
 
@@ -685,16 +666,11 @@ class SchemaPageRenderer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final expertMode = ref.watch(expertModeProvider);
-    final visibleSections = page.sections
-        .where((s) => s.importance != Importance.expert || expertMode)
-        .toList();
-
     return ListView(
       padding: const EdgeInsets.only(bottom: 32),
       children: [
         for (final b in page.banners) SchemaBanner(banner: b),
-        for (final s in visibleSections)
+        for (final s in page.sections)
           SchemaSectionRenderer(
             key: ValueKey(s.id),
             section: s,

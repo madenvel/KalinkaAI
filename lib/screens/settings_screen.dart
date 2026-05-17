@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../providers/connection_state_provider.dart';
 import '../providers/restart_provider.dart';
 import '../providers/settings_provider.dart';
 import '../data_model/presentation_schema.dart' show PageSpec;
@@ -81,8 +80,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final connectionState = ref.watch(connectionStateProvider);
     final settingsState = ref.watch(settingsProvider);
+    final expertMode = ref.watch(expertModeProvider);
 
     return Stack(
       children: [
@@ -93,14 +92,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             child: SafeArea(
               child: Column(
                 children: [
-                  // Header
-                  _buildHeader(connectionState),
+                  // Header (carries the Expert mode toggle on the right)
+                  _buildHeader(),
                   // Pending changes banner
                   PendingChangesBanner(onApply: _onApply),
-                  // Tab bar (schema-driven)
-                  _buildTabBar(settingsState.schema?.pages),
-                  // Expert mode toggle
-                  const _ExpertModeToggle(),
+                  // Tab bar — only meaningful in simple mode; expert is
+                  // a single flat about:config-style screen.
+                  if (!expertMode) _buildTabBar(settingsState.schema?.pages),
                   // Loading / error state
                   if (settingsState.isLoading)
                     const Expanded(
@@ -151,19 +149,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     )
                   else if (settingsState.schema != null)
                     Expanded(
-                      child: IndexedStack(
-                        index: _tabIndex.clamp(
-                          0,
-                          settingsState.schema!.pages.length - 1,
-                        ),
-                        children: [
-                          for (final page in settingsState.schema!.pages)
-                            SchemaPageRenderer(
-                              key: ValueKey('page_${page.id}'),
-                              page: page,
+                      child: expertMode
+                          ? const _ExpertSettingsPlaceholder()
+                          : IndexedStack(
+                              index: _tabIndex.clamp(
+                                0,
+                                settingsState.schema!.pages.length - 1,
+                              ),
+                              children: [
+                                for (final page
+                                    in settingsState.schema!.pages)
+                                  SchemaPageRenderer(
+                                    key: ValueKey('page_${page.id}'),
+                                    page: page,
+                                  ),
+                              ],
                             ),
-                        ],
-                      ),
                     )
                   else
                     const Expanded(child: SizedBox.shrink()),
@@ -187,27 +188,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     );
   }
 
-  Widget _buildHeader(ConnectionStatus connectionState) {
-    final Color dotColor;
-    final String? statusLabel;
-    switch (connectionState) {
-      case ConnectionStatus.connected:
-        dotColor = KalinkaColors.statusOnline;
-        statusLabel = 'Connected';
-      case ConnectionStatus.connecting:
-        dotColor = KalinkaColors.statusPending;
-        statusLabel = 'Connecting';
-      case ConnectionStatus.reconnecting:
-        dotColor = KalinkaColors.statusPending;
-        statusLabel = 'Reconnecting';
-      case ConnectionStatus.offline:
-        dotColor = KalinkaColors.statusOffline;
-        statusLabel = 'Offline';
-      case ConnectionStatus.none:
-        dotColor = KalinkaColors.textMuted;
-        statusLabel = null;
-    }
-
+  Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 20, 16),
       decoration: BoxDecoration(
@@ -264,38 +245,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               ),
             ),
           ),
-          // Connection status pill: dot + label so the state is self-describing.
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: dotColor,
-                  shape: BoxShape.circle,
-                  boxShadow: connectionState == ConnectionStatus.connected
-                      ? [
-                          BoxShadow(
-                            color: dotColor.withValues(alpha: 0.5),
-                            blurRadius: 8,
-                          ),
-                        ]
-                      : null,
-                ),
-              ),
-              if (statusLabel != null) ...[
-                const SizedBox(width: 8),
-                Text(
-                  statusLabel,
-                  style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
-                    color: dotColor,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ],
-            ],
-          ),
+          // View-mode switch: simple ↔ expert (about:config-style).
+          // Sits where the connection status pill used to live —
+          // connection state surfaces clearly enough through the
+          // loading/error UI below, so the prime header slot is better
+          // spent on a control the user actually interacts with.
+          const _ExpertModeHeaderToggle(),
         ],
       ),
     );
@@ -346,11 +301,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 }
 
-/// Compact utility strip pinned under the tab bar so expert mode stays
-/// reachable from every page. Styled as chrome — muted uppercase label plus
-/// a small toggle — to read as meta rather than a primary setting row.
-class _ExpertModeToggle extends ConsumerWidget {
-  const _ExpertModeToggle();
+/// Compact "EXPERT" label + toggle that sits in the header where the
+/// connection status pill used to live. Off = simple tabbed view,
+/// On = flat about:config-style screen.
+///
+/// The label is muted-uppercase to match other meta chrome in the
+/// header; the toggle is scaled slightly down so it sits proportional
+/// to the back button and logo rather than dominating the row.
+class _ExpertModeHeaderToggle extends ConsumerWidget {
+  const _ExpertModeHeaderToggle();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -359,29 +318,63 @@ class _ExpertModeToggle extends ConsumerWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: notifier.toggle,
-      child: Container(
-        decoration: const BoxDecoration(
-          color: KalinkaColors.surfaceBase,
-          border: Border(
-            bottom: BorderSide(color: KalinkaColors.borderSubtle),
-          ),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                'EXPERT SETTINGS',
-                style: KalinkaTextStyles.sectionHeaderMuted,
-              ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'EXPERT',
+            style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
+              letterSpacing: 1.0,
+              color: expert
+                  ? KalinkaColors.accent
+                  : KalinkaColors.textSecondary,
             ),
-            Transform.scale(
-              scale: 0.82,
-              alignment: Alignment.centerRight,
-              child: SettingsToggle(
-                value: expert,
-                onChanged: (_) => notifier.toggle(),
-              ),
+          ),
+          const SizedBox(width: 10),
+          Transform.scale(
+            scale: 0.82,
+            alignment: Alignment.centerRight,
+            child: SettingsToggle(
+              value: expert,
+              onChanged: (_) => notifier.toggle(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Empty placeholder for the about:config-style expert screen. The flat
+/// list + search field land in a follow-up — the toggle wiring is the
+/// piece that needs to be in place first so the rest of the UI behaves.
+class _ExpertSettingsPlaceholder extends StatelessWidget {
+  const _ExpertSettingsPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.tune,
+              size: 36,
+              color: KalinkaColors.textSecondary,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Expert settings',
+              style: KalinkaTextStyles.cardTitle,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'About:config-style search across every setting. '
+              'Coming next.',
+              textAlign: TextAlign.center,
+              style: KalinkaTextStyles.trayRowSublabel,
             ),
           ],
         ),

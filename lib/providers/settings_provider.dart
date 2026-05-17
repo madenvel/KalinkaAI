@@ -103,7 +103,19 @@ class SettingsNotifier extends Notifier<SettingsState> {
     }
   }
 
+  /// Stage a change for ``path``. If the new value matches the current
+  /// server-side value (i.e. the user just typed their way back to the
+  /// original), the entry is *unstaged* instead — the row no longer
+  /// shows the "Staged" pill and the pending-changes counter goes back
+  /// down. Without this, manually reverting an edit would leave a
+  /// no-op change in the staging area and dirty the apply button.
   void stageChange(String path, dynamic value) {
+    if (_valuesEqual(value, state.values[path])) {
+      if (state.stagedChanges.containsKey(path)) unstageChange(path);
+      return;
+    }
+    final existing = state.stagedChanges[path];
+    if (_valuesEqual(value, existing)) return; // No-op write
     final newStaged = Map<String, dynamic>.from(state.stagedChanges);
     newStaged[path] = value;
     state = state.copyWith(stagedChanges: newStaged);
@@ -117,6 +129,32 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
   void discardAll() {
     state = state.copyWith(stagedChanges: {});
+  }
+
+  /// Deep equality for the JSON-ish values we receive over the wire
+  /// (primitives, lists, maps). Used by [stageChange] so reverting a
+  /// folder list or any other collection back to the server value
+  /// reliably unstages, even though `List<dynamic>` identities differ.
+  static bool _valuesEqual(dynamic a, dynamic b) {
+    if (identical(a, b)) return true;
+    if (a == null || b == null) return a == b;
+    if (a is num && b is num) return a == b;
+    if (a is List && b is List) {
+      if (a.length != b.length) return false;
+      for (var i = 0; i < a.length; i++) {
+        if (!_valuesEqual(a[i], b[i])) return false;
+      }
+      return true;
+    }
+    if (a is Map && b is Map) {
+      if (a.length != b.length) return false;
+      for (final key in a.keys) {
+        if (!b.containsKey(key)) return false;
+        if (!_valuesEqual(a[key], b[key])) return false;
+      }
+      return true;
+    }
+    return a == b;
   }
 
   Future<void> applyChanges() async {
