@@ -143,6 +143,8 @@ class _OptionPicker extends StatelessWidget {
               itemBuilder: (ctx, i) {
                 final o = options[i];
                 final selected = o.value == selectedValue;
+                final hasDescription =
+                    o.description != null && o.description!.isNotEmpty;
                 return Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -153,22 +155,47 @@ class _OptionPicker extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
-                        vertical: 14,
+                        vertical: 12,
                       ),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
-                            child: Text(
-                              o.label,
-                              style: KalinkaTextStyles.trayRowLabel.copyWith(
-                                color: selected
-                                    ? KalinkaColors.accent
-                                    : KalinkaColors.textPrimary,
-                                fontSize: KalinkaTypography.baseSize + 3,
-                                fontWeight: selected
-                                    ? FontWeight.w600
-                                    : FontWeight.w400,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  o.label,
+                                  style: KalinkaTextStyles.trayRowLabel
+                                      .copyWith(
+                                        color: selected
+                                            ? KalinkaColors.accent
+                                            : KalinkaColors.textPrimary,
+                                        fontSize:
+                                            KalinkaTypography.baseSize + 3,
+                                        fontWeight: selected
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                      ),
+                                ),
+                                if (hasDescription)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      o.description!,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: KalinkaTextStyles.trayRowLabel
+                                          .copyWith(
+                                            color: KalinkaColors.textSecondary,
+                                            fontSize:
+                                                KalinkaTypography.baseSize - 1,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                           if (selected) ...[

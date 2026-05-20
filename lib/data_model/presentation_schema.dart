@@ -76,15 +76,23 @@ enum WidgetKind {
 /// live system state (e.g. ALSA devices). [value] is what gets PUT
 /// back to the server (a stable identifier — `hw:CARD=…,DEV=…` for
 /// ALSA); [label] is what the user sees in the dropdown.
+///
+/// [description] is an optional dim second line shown under [label]
+/// when the dropdown opens its bottom sheet — used for the ALSA PCM
+/// mode (e.g. "HDMI Audio Output") and tags like "auto-convert" or
+/// "not connected". The collapsed trigger row never shows it, so the
+/// rest-state row stays uncluttered.
 class OptionSpec {
   final String value;
   final String label;
+  final String? description;
 
-  const OptionSpec({required this.value, required this.label});
+  const OptionSpec({required this.value, required this.label, this.description});
 
   factory OptionSpec.fromJson(Map<String, dynamic> j) => OptionSpec(
     value: j['value'] as String,
     label: j['label'] as String,
+    description: j['description'] as String?,
   );
 }
 
