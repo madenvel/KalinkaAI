@@ -546,13 +546,54 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         ),
       ));
     } else {
+      // AI results header — labels the result set as an AI interpretation of
+      // the prompt and adds breathing room above the first section, which
+      // otherwise sits flush against the search bar. The literal query already
+      // shows in the search bar, so the title interprets rather than repeats.
+      children.add(Padding(
+        padding: const EdgeInsets.fromLTRB(0, 18, 0, 18),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 3, right: 10),
+              child: Icon(
+                Icons.auto_awesome,
+                size: 18,
+                color: KalinkaColors.accent,
+              ),
+            ),
+            Expanded(
+              child: Text(
+                'Matches for your prompt',
+                style: KalinkaTextStyles.aiPlaylistName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ));
+
       for (int g = 0; g < groups.length; g++) {
         final group = groups[g];
+        // A track group has no album/artist container of its own, so offer a
+        // "Select all" that pulls the whole group (not just the visible rows)
+        // into the standard multi-select flow — letting it be played, queued
+        // or saved as a batch like a playlist.
+        final isTrackGroup = group.items.isNotEmpty &&
+            group.items.first.browseType == BrowseType.track;
         if (group.label != null) {
           children.add(SectionHeader(
             label: group.label!,
             count: group.items.length,
             showDivider: g > 0,
+            onSelectAll: isTrackGroup
+                ? () => ref
+                    .read(selectionStateProvider.notifier)
+                    .enterSelectionModeWithAll(
+                        group.items.map((e) => e.id))
+                : null,
           ));
         }
         final groupId = group.id;
@@ -564,7 +605,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
               ? null
               : () => ref
                   .read(searchStateProvider.notifier)
-                  .revealAiSection(groupId),
+                  .toggleAiSection(groupId),
         ));
       }
     }

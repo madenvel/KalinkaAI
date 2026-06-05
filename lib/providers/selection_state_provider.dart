@@ -167,6 +167,16 @@ class SelectionStateNotifier extends Notifier<SelectionState> {
     state = state.copyWith(selectedIds: {...state.selectedIds, ...ids});
   }
 
+  /// Enter selection mode with a batch of track ids pre-selected.
+  /// Lets a results section (e.g. the AI "Tracks" group) be acted on as a
+  /// whole through the standard multi-select flow, rather than tapping rows
+  /// one by one.
+  void enterSelectionModeWithAll(Iterable<String> ids) {
+    final selected = {...ids};
+    if (selected.isEmpty) return;
+    state = SelectionState(isActive: true, selectedIds: selected);
+  }
+
   void exitSelectionMode() {
     state = const SelectionState();
   }

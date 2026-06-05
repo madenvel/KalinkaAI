@@ -1101,9 +1101,13 @@ class SearchStateNotifier extends Notifier<SearchState> {
     );
   }
 
-  void revealAiSection(String sectionId) {
+  void toggleAiSection(String sectionId) {
     final updated = Set<String>.from(state.aiExpandedSections);
-    updated.add(sectionId);
+    if (updated.contains(sectionId)) {
+      updated.remove(sectionId);
+    } else {
+      updated.add(sectionId);
+    }
     state = state.copyWith(aiExpandedSections: updated);
   }
 
