@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data_model/data_model.dart';
 import 'kalinka_player_api_provider.dart';
 import 'connection_settings_provider.dart';
+import 'connection_state_provider.dart';
 import 'indexer_status_provider.dart';
 import 'app_state_provider.dart';
 import 'selection_state_provider.dart';
@@ -318,6 +319,21 @@ class SearchStateNotifier extends Notifier<SearchState> {
   void _setupCacheInvalidation() {
     ref.listen(connectionSettingsProvider, (previous, next) {
       if (previous?.host != next.host || previous?.port != next.port) {
+        _cache.clear();
+        _aiCache.clear();
+      }
+    });
+
+    // Reconnect-busting: any transition into ``connected`` from a
+    // non-connected state means there was a disconnect (server
+    // restart, network blip, app foregrounding after a long pause).
+    // The indexer may have advanced or rewound during that window —
+    // earlier AI-search snapshots could reflect a partial index that
+    // no longer matches reality. Drop the cache so the next query
+    // reaches the server.
+    ref.listen(connectionStateProvider, (previous, next) {
+      if (next == ConnectionStatus.connected &&
+          previous != ConnectionStatus.connected) {
         _cache.clear();
         _aiCache.clear();
       }
@@ -729,13 +745,16 @@ class SearchStateNotifier extends Notifier<SearchState> {
     if (state.isAiEnabled) {
       final cached = _aiCache[trimmed];
       if (cached != null && !cached.isExpired) {
+        // Stale-while-revalidate: paint cached results immediately,
+        // then let the debounce schedule a background re-fetch.
+        // ``_performAiSearch`` notices the cached result is already
+        // on screen and suppresses the loading flash.
         state = state.copyWith(
           aiSearchResults: cached.result,
           clearSearchResults: true,
           isLoading: false,
           searchPhase: SearchPhase.results,
         );
-        return;
       }
     } else {
       final cached = _cache[trimmed];
@@ -838,26 +857,32 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
   Future<void> _performAiSearch(String query) async {
     final cached = _aiCache[query];
-    if (cached != null && !cached.isExpired) {
+    final hasCached = cached != null && !cached.isExpired;
+
+    if (hasCached) {
+      // Cached snapshot already drawn by ``setQuery`` (or just below
+      // if we got here via ``reExecuteQuery``). Re-assert it without
+      // a loading flash, then fall through to revalidate against the
+      // server. The fresh result will quietly replace the cached one
+      // if the underlying data has changed (post-restart, indexer
+      // progress, etc.).
       state = state.copyWith(
         aiSearchResults: cached.result,
         clearSearchResults: true,
         isLoading: false,
         searchPhase: SearchPhase.results,
         completionStripVisible: false,
-        aiExpandedSections: const {},
       );
       _addToHistory(query);
-      return;
+    } else {
+      state = state.copyWith(
+        isLoading: true,
+        clearError: true,
+        clearSearchResults: true,
+        clearAiSearchResults: true,
+        aiExpandedSections: const {},
+      );
     }
-
-    state = state.copyWith(
-      isLoading: true,
-      clearError: true,
-      clearSearchResults: true,
-      clearAiSearchResults: true,
-      aiExpandedSections: const {},
-    );
 
     try {
       final api = ref.read(kalinkaProxyProvider);
@@ -868,6 +893,11 @@ class SearchStateNotifier extends Notifier<SearchState> {
         _aiCache.remove(_aiCache.keys.first);
       }
 
+      // Drop the response if the user navigated away or toggled off
+      // AI mode while the revalidate was in flight. The cache update
+      // above is still useful next time around.
+      if (state.query.trim() != query || !state.isAiEnabled) return;
+
       state = state.copyWith(
         aiSearchResults: result,
         isLoading: false,
@@ -875,8 +905,12 @@ class SearchStateNotifier extends Notifier<SearchState> {
         completionStripVisible: false,
       );
 
-      _addToHistory(query);
+      if (!hasCached) _addToHistory(query);
     } catch (e) {
+      // Background revalidate failed but the user already has the
+      // cached snapshot on screen — leave it. Only surface an error
+      // when there was nothing to fall back to.
+      if (hasCached) return;
       state = state.copyWith(isLoading: false, error: 'AI search failed: $e');
     }
   }
