@@ -755,6 +755,18 @@ class SearchStateNotifier extends Notifier<SearchState> {
           isLoading: false,
           searchPhase: SearchPhase.results,
         );
+      } else {
+        // No cached snapshot for this prompt yet. AI search is slow (seconds),
+        // so leaving the *previous* prompt's results on screen makes the feed
+        // look like it answered the new prompt with stale data until the
+        // fetch lands. Drop them and show the loading state for the prompt the
+        // user is actually typing, so the feed always tracks the latest text
+        // rather than the last thing searched.
+        state = state.copyWith(
+          isLoading: true,
+          clearAiSearchResults: true,
+          aiExpandedSections: const {},
+        );
       }
     } else {
       final cached = _cache[trimmed];
