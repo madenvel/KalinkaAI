@@ -65,5 +65,17 @@ void main() {
       expect(unavailable.unavailable, isTrue);
       expect(unavailable.seq, 7);
     });
+
+    test('parses a numeric (non-int) index defensively', () {
+      final event = PlayQueueEvent.fromJson({
+        'event_type': 'track_unavailable',
+        'index': 3.0,
+        'unavailable': true,
+        'seq': 1,
+      });
+
+      expect(event, isA<TrackUnavailableEvent>());
+      expect((event as TrackUnavailableEvent).index, 3);
+    });
   });
 }
