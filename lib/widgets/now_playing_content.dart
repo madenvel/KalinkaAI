@@ -395,12 +395,12 @@ class _TransportControls extends ConsumerWidget {
             onTap: playPauseDisabled
                 ? null
                 : () => sendPlayPauseCommand(ref, playerState),
-            child: Icon(
-              playerState == PlayerStateType.playing
-                  ? Icons.pause_rounded
-                  : Icons.play_arrow_rounded,
-              size: 38,
-              color: KalinkaColors.background,
+            // Fixed 38×38 glyph slot keeps visual weight stable across states
+            // and prevents the spinner from appearing offset against the icon.
+            child: SizedBox(
+              width: 38,
+              height: 38,
+              child: Center(child: _buildPlayPauseGlyph(playerState)),
             ),
           ),
           _TransportButton(
@@ -447,6 +447,36 @@ class _TransportControls extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// The inner glyph shown inside the play/pause disc: spinner while buffering,
+  /// warning icon on error, otherwise the play/pause icon. Kept consistent with
+  /// the mini player's play/pause button.
+  Widget _buildPlayPauseGlyph(PlayerStateType? playerState) {
+    if (playerState == PlayerStateType.buffering) {
+      return const SizedBox(
+        width: 32,
+        height: 32,
+        child: CircularProgressIndicator(
+          strokeWidth: 3,
+          valueColor: AlwaysStoppedAnimation<Color>(KalinkaColors.background),
+        ),
+      );
+    }
+    if (playerState == PlayerStateType.error) {
+      return const Icon(
+        Icons.warning_rounded,
+        size: 32,
+        color: KalinkaColors.accent,
+      );
+    }
+    return Icon(
+      playerState == PlayerStateType.playing
+          ? Icons.pause_rounded
+          : Icons.play_arrow_rounded,
+      size: 38,
+      color: KalinkaColors.background,
     );
   }
 }
