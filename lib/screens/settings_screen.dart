@@ -5,6 +5,7 @@ import '../providers/restart_provider.dart';
 import '../providers/settings_provider.dart';
 import '../data_model/presentation_schema.dart' show PageSpec;
 import '../theme/app_theme.dart';
+import '../widgets/kalinka_bottom_sheet.dart' show showKalinkaConfirmDialog;
 import '../widgets/kalinka_button.dart';
 import '../widgets/pending_changes_banner.dart';
 import '../widgets/restart_overlay.dart';
@@ -246,6 +247,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               ),
             ),
           ),
+          // Restart the server. Available even with no pending changes
+          // (the pending-changes banner only restarts when applying), so
+          // there's always a way to reboot — e.g. to fire an armed
+          // "Rebuild library on next restart" toggle.
+          Material(
+            color: KalinkaColors.surfaceInput,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(9),
+              side: const BorderSide(color: KalinkaColors.borderDefault),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: _onRestart,
+              overlayColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.pressed)) {
+                  return Colors.white.withValues(alpha: 0.08);
+                }
+                return null;
+              }),
+              child: const SizedBox(
+                width: 36,
+                height: 36,
+                child: Icon(
+                  Icons.restart_alt,
+                  size: 16,
+                  color: KalinkaColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
           // View-mode switch: simple ↔ expert (about:config-style).
           // Sits where the connection status pill used to live —
           // connection state surfaces clearly enough through the
@@ -255,6 +287,71 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         ],
       ),
     );
+  }
+
+  Future<void> _onRestart() async {
+    final confirmed = await showKalinkaConfirmDialog<bool>(
+      context: context,
+      builder: (ctx) => Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: KalinkaColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: KalinkaColors.borderDefault),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.restart_alt,
+                size: 40,
+                color: KalinkaColors.accent,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Restart server?',
+                style: KalinkaTextStyles.dialogTitle,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Applies any pending changes and restarts the server. '
+                'Playback will stop briefly.',
+                style: KalinkaTextStyles.dialogBody,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: KalinkaButton(
+                      label: 'Cancel',
+                      variant: KalinkaButtonVariant.neutral,
+                      fullWidth: true,
+                      onTap: () => Navigator.pop(ctx, false),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: KalinkaButton(
+                      label: 'Restart',
+                      variant: KalinkaButtonVariant.accent,
+                      fullWidth: true,
+                      onTap: () => Navigator.pop(ctx, true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _restartOverlayOpen = true);
+    ref.read(restartProvider.notifier).executeRestart();
   }
 
   Widget _buildTabBar(List<PageSpec>? pages) {
