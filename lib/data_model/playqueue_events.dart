@@ -348,8 +348,16 @@ sealed class PlayQueueEvent with _$PlayQueueEvent {
           seq: seq,
         );
       case 'track_unavailable':
+        final rawIndex = json['index'];
+        final index = rawIndex is int
+            ? rawIndex
+            : rawIndex is num
+            ? rawIndex.toInt()
+            : throw ArgumentError(
+                'track_unavailable event missing valid index: $rawIndex',
+              );
         return PlayQueueEvent.trackUnavailable(
-          index: json['index'] as int,
+          index: index,
           unavailable: json['unavailable'] as bool? ?? true,
           seq: seq,
         );
