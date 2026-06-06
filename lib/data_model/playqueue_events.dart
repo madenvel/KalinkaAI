@@ -124,6 +124,15 @@ class PlayQueueState {
           playbackState: _normalizePlaybackIndex(newPlaybackState, list.length),
           seq: seq,
         );
+      case TrackUnavailableEvent(:final index, :final unavailable, :final seq):
+        if (index < 0 || index >= trackList.length) {
+          return this;
+        }
+        final nextTrackList = [...trackList];
+        nextTrackList[index] = nextTrackList[index].copyWith(
+          unavailable: unavailable,
+        );
+        return copyWith(trackList: nextTrackList, seq: seq);
       case PlaybackErrorEvent():
         // Ignore - no state change.
         return this;
@@ -239,6 +248,7 @@ enum PlayQueueEventType {
   requestMoreTracks,
   tracksAdded,
   tracksRemoved,
+  trackUnavailable,
   playbackError,
   playbackModeChanged;
 
@@ -277,6 +287,12 @@ sealed class PlayQueueEvent with _$PlayQueueEvent {
     required int toIndex,
     required int seq,
   }) = TrackMovedEvent;
+
+  const factory PlayQueueEvent.trackUnavailable({
+    required int index,
+    required bool unavailable,
+    required int seq,
+  }) = TrackUnavailableEvent;
 
   const factory PlayQueueEvent.playbackError({
     required String message,
@@ -329,6 +345,12 @@ sealed class PlayQueueEvent with _$PlayQueueEvent {
         return PlayQueueEvent.trackMoved(
           fromIndex: json['from_index'] as int,
           toIndex: json['to_index'] as int,
+          seq: seq,
+        );
+      case 'track_unavailable':
+        return PlayQueueEvent.trackUnavailable(
+          index: json['index'] as int,
+          unavailable: json['unavailable'] as bool? ?? true,
           seq: seq,
         );
       case 'playback_error':

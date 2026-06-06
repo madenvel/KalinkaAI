@@ -238,6 +238,10 @@ class Track {
   Album? album;
   String? playlistTrackId;
 
+  /// True when the backend could not retrieve a stream URL for this track and
+  /// skipped it during playback. Surfaced as a warning indicator in the queue.
+  bool unavailable;
+
   Track({
     required this.id,
     required this.title,
@@ -245,6 +249,7 @@ class Track {
     this.performer,
     this.album,
     this.playlistTrackId,
+    this.unavailable = false,
   });
 
   factory Track.fromJson(Map<String, dynamic> json) => Track(
@@ -256,6 +261,7 @@ class Track {
         : Artist.fromJson(json["performer"]),
     album: json["album"] == null ? null : Album.fromJson(json["album"]),
     playlistTrackId: json["playlist_track_id"],
+    unavailable: json["unavailable"] as bool? ?? false,
   );
 
   Map<String, dynamic> toJson() => {
@@ -265,7 +271,18 @@ class Track {
     "performer": performer?.toJson(),
     "album": album?.toJson(),
     "playlist_track_id": playlistTrackId,
+    "unavailable": unavailable,
   };
+
+  Track copyWith({bool? unavailable}) => Track(
+    id: id,
+    title: title,
+    duration: duration,
+    performer: performer,
+    album: album,
+    playlistTrackId: playlistTrackId,
+    unavailable: unavailable ?? this.unavailable,
+  );
 }
 
 class Album {
