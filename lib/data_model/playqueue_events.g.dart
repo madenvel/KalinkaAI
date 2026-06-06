@@ -33,6 +33,7 @@ const _$PlayQueueEventTypeEnumMap = {
   PlayQueueEventType.requestMoreTracks: 'request_more_tracks',
   PlayQueueEventType.tracksAdded: 'tracks_added',
   PlayQueueEventType.tracksRemoved: 'tracks_removed',
+  PlayQueueEventType.trackUnavailable: 'track_unavailable',
   PlayQueueEventType.playbackError: 'playback_error',
   PlayQueueEventType.playbackModeChanged: 'playback_mode_changed',
 };

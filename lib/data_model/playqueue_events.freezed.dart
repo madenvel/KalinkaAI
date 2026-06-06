@@ -86,7 +86,7 @@ extension PlayQueueEventPatterns on PlayQueueEvent {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( PlaybackStateChangedEvent value)?  playbackStateChanged,TResult Function( RequestMoreTracksEvent value)?  requestMoreTracks,TResult Function( TracksAddedEvent value)?  tracksAdded,TResult Function( TracksRemovedEvent value)?  tracksRemoved,TResult Function( TrackMovedEvent value)?  trackMoved,TResult Function( PlaybackErrorEvent value)?  playbackError,TResult Function( PlaybackModeChangedEvent value)?  playbackModeChanged,TResult Function( ReplayPlayQueueEvent value)?  replayEvent,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( PlaybackStateChangedEvent value)?  playbackStateChanged,TResult Function( RequestMoreTracksEvent value)?  requestMoreTracks,TResult Function( TracksAddedEvent value)?  tracksAdded,TResult Function( TracksRemovedEvent value)?  tracksRemoved,TResult Function( TrackMovedEvent value)?  trackMoved,TResult Function( TrackUnavailableEvent value)?  trackUnavailable,TResult Function( PlaybackErrorEvent value)?  playbackError,TResult Function( PlaybackModeChangedEvent value)?  playbackModeChanged,TResult Function( ReplayPlayQueueEvent value)?  replayEvent,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case PlaybackStateChangedEvent() when playbackStateChanged != null:
@@ -94,7 +94,8 @@ return playbackStateChanged(_that);case RequestMoreTracksEvent() when requestMor
 return requestMoreTracks(_that);case TracksAddedEvent() when tracksAdded != null:
 return tracksAdded(_that);case TracksRemovedEvent() when tracksRemoved != null:
 return tracksRemoved(_that);case TrackMovedEvent() when trackMoved != null:
-return trackMoved(_that);case PlaybackErrorEvent() when playbackError != null:
+return trackMoved(_that);case TrackUnavailableEvent() when trackUnavailable != null:
+return trackUnavailable(_that);case PlaybackErrorEvent() when playbackError != null:
 return playbackError(_that);case PlaybackModeChangedEvent() when playbackModeChanged != null:
 return playbackModeChanged(_that);case ReplayPlayQueueEvent() when replayEvent != null:
 return replayEvent(_that);case _:
@@ -115,7 +116,7 @@ return replayEvent(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( PlaybackStateChangedEvent value)  playbackStateChanged,required TResult Function( RequestMoreTracksEvent value)  requestMoreTracks,required TResult Function( TracksAddedEvent value)  tracksAdded,required TResult Function( TracksRemovedEvent value)  tracksRemoved,required TResult Function( TrackMovedEvent value)  trackMoved,required TResult Function( PlaybackErrorEvent value)  playbackError,required TResult Function( PlaybackModeChangedEvent value)  playbackModeChanged,required TResult Function( ReplayPlayQueueEvent value)  replayEvent,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( PlaybackStateChangedEvent value)  playbackStateChanged,required TResult Function( RequestMoreTracksEvent value)  requestMoreTracks,required TResult Function( TracksAddedEvent value)  tracksAdded,required TResult Function( TracksRemovedEvent value)  tracksRemoved,required TResult Function( TrackMovedEvent value)  trackMoved,required TResult Function( TrackUnavailableEvent value)  trackUnavailable,required TResult Function( PlaybackErrorEvent value)  playbackError,required TResult Function( PlaybackModeChangedEvent value)  playbackModeChanged,required TResult Function( ReplayPlayQueueEvent value)  replayEvent,}){
 final _that = this;
 switch (_that) {
 case PlaybackStateChangedEvent():
@@ -123,7 +124,8 @@ return playbackStateChanged(_that);case RequestMoreTracksEvent():
 return requestMoreTracks(_that);case TracksAddedEvent():
 return tracksAdded(_that);case TracksRemovedEvent():
 return tracksRemoved(_that);case TrackMovedEvent():
-return trackMoved(_that);case PlaybackErrorEvent():
+return trackMoved(_that);case TrackUnavailableEvent():
+return trackUnavailable(_that);case PlaybackErrorEvent():
 return playbackError(_that);case PlaybackModeChangedEvent():
 return playbackModeChanged(_that);case ReplayPlayQueueEvent():
 return replayEvent(_that);}
@@ -140,7 +142,7 @@ return replayEvent(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( PlaybackStateChangedEvent value)?  playbackStateChanged,TResult? Function( RequestMoreTracksEvent value)?  requestMoreTracks,TResult? Function( TracksAddedEvent value)?  tracksAdded,TResult? Function( TracksRemovedEvent value)?  tracksRemoved,TResult? Function( TrackMovedEvent value)?  trackMoved,TResult? Function( PlaybackErrorEvent value)?  playbackError,TResult? Function( PlaybackModeChangedEvent value)?  playbackModeChanged,TResult? Function( ReplayPlayQueueEvent value)?  replayEvent,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( PlaybackStateChangedEvent value)?  playbackStateChanged,TResult? Function( RequestMoreTracksEvent value)?  requestMoreTracks,TResult? Function( TracksAddedEvent value)?  tracksAdded,TResult? Function( TracksRemovedEvent value)?  tracksRemoved,TResult? Function( TrackMovedEvent value)?  trackMoved,TResult? Function( TrackUnavailableEvent value)?  trackUnavailable,TResult? Function( PlaybackErrorEvent value)?  playbackError,TResult? Function( PlaybackModeChangedEvent value)?  playbackModeChanged,TResult? Function( ReplayPlayQueueEvent value)?  replayEvent,}){
 final _that = this;
 switch (_that) {
 case PlaybackStateChangedEvent() when playbackStateChanged != null:
@@ -148,7 +150,8 @@ return playbackStateChanged(_that);case RequestMoreTracksEvent() when requestMor
 return requestMoreTracks(_that);case TracksAddedEvent() when tracksAdded != null:
 return tracksAdded(_that);case TracksRemovedEvent() when tracksRemoved != null:
 return tracksRemoved(_that);case TrackMovedEvent() when trackMoved != null:
-return trackMoved(_that);case PlaybackErrorEvent() when playbackError != null:
+return trackMoved(_that);case TrackUnavailableEvent() when trackUnavailable != null:
+return trackUnavailable(_that);case PlaybackErrorEvent() when playbackError != null:
 return playbackError(_that);case PlaybackModeChangedEvent() when playbackModeChanged != null:
 return playbackModeChanged(_that);case ReplayPlayQueueEvent() when replayEvent != null:
 return replayEvent(_that);case _:
@@ -168,14 +171,15 @@ return replayEvent(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( PlaybackState state,  int seq)?  playbackStateChanged,TResult Function( int seq)?  requestMoreTracks,TResult Function( List<Track> tracks,  int seq,  int? index)?  tracksAdded,TResult Function( List<int> indices,  int seq)?  tracksRemoved,TResult Function( int fromIndex,  int toIndex,  int seq)?  trackMoved,TResult Function( String message,  int seq)?  playbackError,TResult Function( PlaybackMode mode,  int seq)?  playbackModeChanged,TResult Function( PlayQueueState state,  int serverTimeNs,  int seq)?  replayEvent,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( PlaybackState state,  int seq)?  playbackStateChanged,TResult Function( int seq)?  requestMoreTracks,TResult Function( List<Track> tracks,  int seq,  int? index)?  tracksAdded,TResult Function( List<int> indices,  int seq)?  tracksRemoved,TResult Function( int fromIndex,  int toIndex,  int seq)?  trackMoved,TResult Function( int index,  bool unavailable,  int seq)?  trackUnavailable,TResult Function( String message,  int seq)?  playbackError,TResult Function( PlaybackMode mode,  int seq)?  playbackModeChanged,TResult Function( PlayQueueState state,  int serverTimeNs,  int seq)?  replayEvent,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case PlaybackStateChangedEvent() when playbackStateChanged != null:
 return playbackStateChanged(_that.state,_that.seq);case RequestMoreTracksEvent() when requestMoreTracks != null:
 return requestMoreTracks(_that.seq);case TracksAddedEvent() when tracksAdded != null:
 return tracksAdded(_that.tracks,_that.seq,_that.index);case TracksRemovedEvent() when tracksRemoved != null:
 return tracksRemoved(_that.indices,_that.seq);case TrackMovedEvent() when trackMoved != null:
-return trackMoved(_that.fromIndex,_that.toIndex,_that.seq);case PlaybackErrorEvent() when playbackError != null:
+return trackMoved(_that.fromIndex,_that.toIndex,_that.seq);case TrackUnavailableEvent() when trackUnavailable != null:
+return trackUnavailable(_that.index,_that.unavailable,_that.seq);case PlaybackErrorEvent() when playbackError != null:
 return playbackError(_that.message,_that.seq);case PlaybackModeChangedEvent() when playbackModeChanged != null:
 return playbackModeChanged(_that.mode,_that.seq);case ReplayPlayQueueEvent() when replayEvent != null:
 return replayEvent(_that.state,_that.serverTimeNs,_that.seq);case _:
@@ -196,14 +200,15 @@ return replayEvent(_that.state,_that.serverTimeNs,_that.seq);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( PlaybackState state,  int seq)  playbackStateChanged,required TResult Function( int seq)  requestMoreTracks,required TResult Function( List<Track> tracks,  int seq,  int? index)  tracksAdded,required TResult Function( List<int> indices,  int seq)  tracksRemoved,required TResult Function( int fromIndex,  int toIndex,  int seq)  trackMoved,required TResult Function( String message,  int seq)  playbackError,required TResult Function( PlaybackMode mode,  int seq)  playbackModeChanged,required TResult Function( PlayQueueState state,  int serverTimeNs,  int seq)  replayEvent,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( PlaybackState state,  int seq)  playbackStateChanged,required TResult Function( int seq)  requestMoreTracks,required TResult Function( List<Track> tracks,  int seq,  int? index)  tracksAdded,required TResult Function( List<int> indices,  int seq)  tracksRemoved,required TResult Function( int fromIndex,  int toIndex,  int seq)  trackMoved,required TResult Function( int index,  bool unavailable,  int seq)  trackUnavailable,required TResult Function( String message,  int seq)  playbackError,required TResult Function( PlaybackMode mode,  int seq)  playbackModeChanged,required TResult Function( PlayQueueState state,  int serverTimeNs,  int seq)  replayEvent,}) {final _that = this;
 switch (_that) {
 case PlaybackStateChangedEvent():
 return playbackStateChanged(_that.state,_that.seq);case RequestMoreTracksEvent():
 return requestMoreTracks(_that.seq);case TracksAddedEvent():
 return tracksAdded(_that.tracks,_that.seq,_that.index);case TracksRemovedEvent():
 return tracksRemoved(_that.indices,_that.seq);case TrackMovedEvent():
-return trackMoved(_that.fromIndex,_that.toIndex,_that.seq);case PlaybackErrorEvent():
+return trackMoved(_that.fromIndex,_that.toIndex,_that.seq);case TrackUnavailableEvent():
+return trackUnavailable(_that.index,_that.unavailable,_that.seq);case PlaybackErrorEvent():
 return playbackError(_that.message,_that.seq);case PlaybackModeChangedEvent():
 return playbackModeChanged(_that.mode,_that.seq);case ReplayPlayQueueEvent():
 return replayEvent(_that.state,_that.serverTimeNs,_that.seq);}
@@ -220,14 +225,15 @@ return replayEvent(_that.state,_that.serverTimeNs,_that.seq);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( PlaybackState state,  int seq)?  playbackStateChanged,TResult? Function( int seq)?  requestMoreTracks,TResult? Function( List<Track> tracks,  int seq,  int? index)?  tracksAdded,TResult? Function( List<int> indices,  int seq)?  tracksRemoved,TResult? Function( int fromIndex,  int toIndex,  int seq)?  trackMoved,TResult? Function( String message,  int seq)?  playbackError,TResult? Function( PlaybackMode mode,  int seq)?  playbackModeChanged,TResult? Function( PlayQueueState state,  int serverTimeNs,  int seq)?  replayEvent,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( PlaybackState state,  int seq)?  playbackStateChanged,TResult? Function( int seq)?  requestMoreTracks,TResult? Function( List<Track> tracks,  int seq,  int? index)?  tracksAdded,TResult? Function( List<int> indices,  int seq)?  tracksRemoved,TResult? Function( int fromIndex,  int toIndex,  int seq)?  trackMoved,TResult? Function( int index,  bool unavailable,  int seq)?  trackUnavailable,TResult? Function( String message,  int seq)?  playbackError,TResult? Function( PlaybackMode mode,  int seq)?  playbackModeChanged,TResult? Function( PlayQueueState state,  int serverTimeNs,  int seq)?  replayEvent,}) {final _that = this;
 switch (_that) {
 case PlaybackStateChangedEvent() when playbackStateChanged != null:
 return playbackStateChanged(_that.state,_that.seq);case RequestMoreTracksEvent() when requestMoreTracks != null:
 return requestMoreTracks(_that.seq);case TracksAddedEvent() when tracksAdded != null:
 return tracksAdded(_that.tracks,_that.seq,_that.index);case TracksRemovedEvent() when tracksRemoved != null:
 return tracksRemoved(_that.indices,_that.seq);case TrackMovedEvent() when trackMoved != null:
-return trackMoved(_that.fromIndex,_that.toIndex,_that.seq);case PlaybackErrorEvent() when playbackError != null:
+return trackMoved(_that.fromIndex,_that.toIndex,_that.seq);case TrackUnavailableEvent() when trackUnavailable != null:
+return trackUnavailable(_that.index,_that.unavailable,_that.seq);case PlaybackErrorEvent() when playbackError != null:
 return playbackError(_that.message,_that.seq);case PlaybackModeChangedEvent() when playbackModeChanged != null:
 return playbackModeChanged(_that.mode,_that.seq);case ReplayPlayQueueEvent() when replayEvent != null:
 return replayEvent(_that.state,_that.serverTimeNs,_that.seq);case _:
@@ -585,6 +591,76 @@ class _$TrackMovedEventCopyWithImpl<$Res>
 fromIndex: null == fromIndex ? _self.fromIndex : fromIndex // ignore: cast_nullable_to_non_nullable
 as int,toIndex: null == toIndex ? _self.toIndex : toIndex // ignore: cast_nullable_to_non_nullable
 as int,seq: null == seq ? _self.seq : seq // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class TrackUnavailableEvent implements PlayQueueEvent {
+  const TrackUnavailableEvent({required this.index, required this.unavailable, required this.seq});
+  
+
+ final  int index;
+ final  bool unavailable;
+@override final  int seq;
+
+/// Create a copy of PlayQueueEvent
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$TrackUnavailableEventCopyWith<TrackUnavailableEvent> get copyWith => _$TrackUnavailableEventCopyWithImpl<TrackUnavailableEvent>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is TrackUnavailableEvent&&(identical(other.index, index) || other.index == index)&&(identical(other.unavailable, unavailable) || other.unavailable == unavailable)&&(identical(other.seq, seq) || other.seq == seq));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,index,unavailable,seq);
+
+@override
+String toString() {
+  return 'PlayQueueEvent.trackUnavailable(index: $index, unavailable: $unavailable, seq: $seq)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $TrackUnavailableEventCopyWith<$Res> implements $PlayQueueEventCopyWith<$Res> {
+  factory $TrackUnavailableEventCopyWith(TrackUnavailableEvent value, $Res Function(TrackUnavailableEvent) _then) = _$TrackUnavailableEventCopyWithImpl;
+@override @useResult
+$Res call({
+ int index, bool unavailable, int seq
+});
+
+
+
+
+}
+/// @nodoc
+class _$TrackUnavailableEventCopyWithImpl<$Res>
+    implements $TrackUnavailableEventCopyWith<$Res> {
+  _$TrackUnavailableEventCopyWithImpl(this._self, this._then);
+
+  final TrackUnavailableEvent _self;
+  final $Res Function(TrackUnavailableEvent) _then;
+
+/// Create a copy of PlayQueueEvent
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? index = null,Object? unavailable = null,Object? seq = null,}) {
+  return _then(TrackUnavailableEvent(
+index: null == index ? _self.index : index // ignore: cast_nullable_to_non_nullable
+as int,unavailable: null == unavailable ? _self.unavailable : unavailable // ignore: cast_nullable_to_non_nullable
+as bool,seq: null == seq ? _self.seq : seq // ignore: cast_nullable_to_non_nullable
 as int,
   ));
 }

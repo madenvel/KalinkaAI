@@ -207,12 +207,30 @@ class QueueItemRow extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    track.title,
-                    style: titleStyle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: false,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (track.unavailable) ...[
+                        Tooltip(
+                          message: 'Unavailable — could not load this track',
+                          child: const Icon(
+                            Icons.error_outline,
+                            size: 16,
+                            color: KalinkaColors.actionDelete,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Expanded(
+                        child: Text(
+                          track.title,
+                          style: titleStyle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                        ),
+                      ),
+                    ],
                   ),
                   SizedBox(height: isNowPlaying ? 4 : 2),
                   Row(
