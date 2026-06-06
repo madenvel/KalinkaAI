@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../widgets/kalinka_bottom_sheet.dart' show showKalinkaConfirmDialog;
 import '../widgets/kalinka_button.dart';
 import '../widgets/pending_changes_banner.dart';
+import '../widgets/restart_confirm_dialog.dart';
 import '../widgets/restart_overlay.dart';
 import '../widgets/expert_settings_screen.dart';
 import '../widgets/settings_controls/settings_toggle.dart';
@@ -159,8 +160,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                                 settingsState.schema!.pages.length - 1,
                               ),
                               children: [
-                                for (final page
-                                    in settingsState.schema!.pages)
+                                for (final page in settingsState.schema!.pages)
                                   SchemaPageRenderer(
                                     key: ValueKey('page_${page.id}'),
                                     page: page,
@@ -292,73 +292,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   Future<void> _onRestart() async {
     final confirmed = await showKalinkaConfirmDialog<bool>(
       context: context,
-      builder: (ctx) => Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: KalinkaColors.surfaceRaised,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: KalinkaColors.borderDefault),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.7),
-                  blurRadius: 60,
-                  offset: const Offset(0, -20),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.restart_alt,
-                  size: 40,
-                  color: KalinkaColors.accent,
-                ),
-              const SizedBox(height: 14),
-              Text(
-                'Restart server?',
-                style: KalinkaTextStyles.dialogTitle,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Applies any pending changes and restarts the server. '
-                'Playback will stop briefly.',
-                style: KalinkaTextStyles.dialogBody,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 22),
-              Row(
-                children: [
-                  Expanded(
-                    child: KalinkaButton(
-                      label: 'Cancel',
-                      variant: KalinkaButtonVariant.neutral,
-                      fullWidth: true,
-                      onTap: () => Navigator.pop(ctx, false),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: KalinkaButton(
-                      label: 'Restart',
-                      variant: KalinkaButtonVariant.accent,
-                      fullWidth: true,
-                      onTap: () => Navigator.pop(ctx, true),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          ),
-          SizedBox(height: MediaQuery.of(ctx).padding.bottom + 28),
-        ],
-      ),
+      builder: (_) => const RestartConfirmDialog(),
     );
     if (confirmed != true || !mounted) return;
     setState(() => _restartOverlayOpen = true);
@@ -453,4 +387,3 @@ class _ExpertModeHeaderToggle extends ConsumerWidget {
     );
   }
 }
-
