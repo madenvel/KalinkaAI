@@ -43,38 +43,58 @@ class MultiSelectBottomBar extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Cancel (left) + centered "N TRACKS SELECTED" label.
+                // Left-aligned "N TRACKS SELECTED" label + a labelled Cancel
+                // chip on the right (clear tap target, unambiguous action).
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Stack(
-                    alignment: Alignment.center,
+                  child: Row(
                     children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {
-                            KalinkaHaptics.lightImpact();
-                            ref
-                                .read(selectionStateProvider.notifier)
-                                .exitSelectionMode();
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 2,
-                            ),
-                            child: Icon(
-                              Icons.close,
-                              size: 20,
-                              color: KalinkaColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ),
                       Text(
                         '${selection.count} TRACKS SELECTED',
                         style: KalinkaTextStyles.batchBarLabel,
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          KalinkaHaptics.lightImpact();
+                          ref
+                              .read(selectionStateProvider.notifier)
+                              .exitSelectionMode();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: KalinkaColors.surfaceElevated,
+                            border: Border.all(
+                              color: KalinkaColors.borderDefault,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.close,
+                                size: 15,
+                                color: KalinkaColors.textSecondary,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Cancel',
+                                style: KalinkaFonts.sans(
+                                  fontSize: KalinkaTypography.baseSize + 1,
+                                  fontWeight: FontWeight.w600,
+                                  color: KalinkaColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
