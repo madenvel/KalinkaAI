@@ -753,7 +753,7 @@ class _AiSuggestionsHeader extends ConsumerWidget {
                 KalinkaHaptics.lightImpact();
                 final notifier = ref.read(selectionStateProvider.notifier);
                 if (allSelected) {
-                  notifier.exitSelectionMode();
+                  notifier.deselectTracks(trackIds);
                 } else {
                   notifier.selectTracks(trackIds);
                 }
