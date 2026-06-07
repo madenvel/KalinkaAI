@@ -185,20 +185,13 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
                 ),
               ),
             ),
-            if (selection.isActive) ...[
-              const Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: MultiSelectTopBar(),
-              ),
+            if (selection.isActive)
               const Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
                 child: MultiSelectBottomBar(),
               ),
-            ],
           ],
         ),
       ),

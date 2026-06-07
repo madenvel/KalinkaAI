@@ -7,88 +7,8 @@ import '../theme/app_theme.dart';
 import '../utils/play_next.dart';
 import '../utils/haptics.dart';
 
-/// Top bar shown during multi-select mode.
-/// Done | "N selected"
-class MultiSelectTopBar extends ConsumerWidget {
-  const MultiSelectTopBar({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selection = ref.watch(selectionStateProvider);
-
-    return AnimatedSlide(
-      offset: selection.isActive ? Offset.zero : const Offset(0, -1),
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeInOutQuart,
-      child: AnimatedOpacity(
-        opacity: selection.isActive ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 280),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: KalinkaColors.surfaceBase,
-            border: const Border(
-              bottom: BorderSide(color: KalinkaColors.borderDefault, width: 1),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Cancel
-              GestureDetector(
-                onTap: () {
-                  KalinkaHaptics.lightImpact();
-                  ref.read(selectionStateProvider.notifier).exitSelectionMode();
-                },
-                child: Text(
-                  'Done',
-                  style: KalinkaFonts.sans(
-                    fontSize: KalinkaTypography.baseSize + 4,
-                    color: KalinkaColors.textSecondary,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              // N selected
-              RichText(
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: '${selection.count}',
-                      style: KalinkaFonts.sans(
-                        fontSize: KalinkaTypography.baseSize + 4,
-                        fontWeight: FontWeight.w600,
-                        color: KalinkaColors.textPrimary,
-                      ),
-                    ),
-                    TextSpan(
-                      text: ' selected',
-                      style: KalinkaFonts.sans(
-                        fontSize: KalinkaTypography.baseSize + 4,
-                        fontWeight: FontWeight.w600,
-                        color: KalinkaColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Bottom batch bar shown during multi-select mode.
-/// "N TRACKS SELECTED" label, Append and Play next buttons.
+/// Cancel (✕) + "N TRACKS SELECTED" label, then Play now / Play next / queue.
 class MultiSelectBottomBar extends ConsumerWidget {
   const MultiSelectBottomBar({super.key});
 
@@ -123,12 +43,40 @@ class MultiSelectBottomBar extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Label
+                // Cancel (left) + centered "N TRACKS SELECTED" label.
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    '${selection.count} TRACKS SELECTED',
-                    style: KalinkaTextStyles.batchBarLabel,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            KalinkaHaptics.lightImpact();
+                            ref
+                                .read(selectionStateProvider.notifier)
+                                .exitSelectionMode();
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            child: Icon(
+                              Icons.close,
+                              size: 20,
+                              color: KalinkaColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${selection.count} TRACKS SELECTED',
+                        style: KalinkaTextStyles.batchBarLabel,
+                      ),
+                    ],
                   ),
                 ),
                 // Three buttons: Play now | Play next | Add to queue
