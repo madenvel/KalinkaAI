@@ -8,11 +8,9 @@ import '../utils/play_next.dart';
 import '../utils/haptics.dart';
 
 /// Top bar shown during multi-select mode.
-/// Cancel | "N selected" | Select all
+/// Done | "N selected"
 class MultiSelectTopBar extends ConsumerWidget {
-  final Iterable<String>? allItemIds;
-
-  const MultiSelectTopBar({super.key, this.allItemIds});
+  const MultiSelectTopBar({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -81,24 +79,6 @@ class MultiSelectTopBar extends ConsumerWidget {
                 ),
               ),
               const Spacer(),
-              // Select all
-              GestureDetector(
-                onTap: () {
-                  KalinkaHaptics.lightImpact();
-                  if (allItemIds != null) {
-                    ref
-                        .read(selectionStateProvider.notifier)
-                        .selectAll(allItemIds!);
-                  }
-                },
-                child: Text(
-                  'Select all',
-                  style: KalinkaFonts.sans(
-                    fontSize: KalinkaTypography.baseSize + 4,
-                    color: KalinkaColors.textSecondary,
-                  ),
-                ),
-              ),
             ],
           ),
         ),
