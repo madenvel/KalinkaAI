@@ -163,14 +163,31 @@ class SelectionStateNotifier extends Notifier<SelectionState> {
     }
   }
 
-  /// Activate selection mode (if needed) and select exactly the given track
-  /// [ids], replacing any current single-track selection. Used by the
-  /// AI-results "Select all" affordance, which must also reach tracks hidden
-  /// behind collapsed sections.
+  /// Activate selection mode (if needed) and add the given track [ids] to the
+  /// selection. Used by the AI-results "Select all" affordance, which must also
+  /// reach tracks hidden behind collapsed sections. Any selected containers
+  /// (albums/artists/playlists) are left untouched — tracks are independent.
   void selectTracks(Iterable<String> ids) {
     final idSet = {...ids};
     if (idSet.isEmpty) return;
-    state = SelectionState(isActive: true, selectedIds: idSet);
+    state = state.copyWith(
+      isActive: true,
+      selectedIds: {...state.selectedIds, ...idSet},
+    );
+  }
+
+  /// Remove the given track [ids] from the selection, leaving any selected
+  /// containers (albums/artists/playlists) intact. The inverse of
+  /// [selectTracks] — used by the AI-results "Clear" affordance, which is
+  /// scoped to tracks only (unlike [exitSelectionMode]). Fully exits selection
+  /// mode only if nothing remains selected.
+  void deselectTracks(Iterable<String> ids) {
+    final remaining = {...state.selectedIds}..removeAll(ids);
+    if (remaining.isEmpty && state.selectedContainerIds.isEmpty) {
+      state = const SelectionState();
+      return;
+    }
+    state = state.copyWith(selectedIds: remaining);
   }
 
   void exitSelectionMode() {
