@@ -163,8 +163,14 @@ class SelectionStateNotifier extends Notifier<SelectionState> {
     }
   }
 
-  void selectAll(Iterable<String> ids) {
-    state = state.copyWith(selectedIds: {...state.selectedIds, ...ids});
+  /// Activate selection mode (if needed) and select exactly the given track
+  /// [ids], replacing any current single-track selection. Used by the
+  /// AI-results "Select all" affordance, which must also reach tracks hidden
+  /// behind collapsed sections.
+  void selectTracks(Iterable<String> ids) {
+    final idSet = {...ids};
+    if (idSet.isEmpty) return;
+    state = SelectionState(isActive: true, selectedIds: idSet);
   }
 
   void exitSelectionMode() {

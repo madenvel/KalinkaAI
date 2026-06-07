@@ -20,6 +20,7 @@ import 'search_cards/section_header.dart';
 import 'selection_overlay.dart';
 import 'zero_state_surface.dart';
 import '../theme/app_theme.dart';
+import '../utils/haptics.dart';
 
 /// Inline search results feed used in both phone and tablet layouts.
 /// Manages its own ScrollController. Includes skeleton loading,
@@ -185,16 +186,11 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
               ),
             ),
             if (selection.isActive) ...[
-              Positioned(
+              const Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                child: MultiSelectTopBar(
-                  allItemIds: searchState
-                      .searchResults?[SearchType.track]
-                      ?.items
-                      .map((item) => item.id),
-                ),
+                child: MultiSelectTopBar(),
               ),
               const Positioned(
                 bottom: 0,
@@ -523,6 +519,23 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     final totalItems = groups.fold<int>(0, (sum, g) => sum + g.items.length);
     _triggerStagger(totalItems);
 
+    // The primary track group(s) merge with the AI header into one card; album
+    // and artist groups render below it as plain "Related …" sections.
+    final trackGroups = groups
+        .where((g) => _aiGroupType(g.items) == BrowseType.track)
+        .toList();
+    final relatedGroups = groups
+        .where((g) => _aiGroupType(g.items) != BrowseType.track)
+        .toList();
+
+    // Every track shown in the card — including ones hidden behind a collapsed
+    // section — so "Select all" reaches the full set, not just the visible rows.
+    final allTrackIds = <String>[
+      for (final group in trackGroups)
+        for (final item in group.items)
+          if (item.browseType == BrowseType.track) item.id,
+    ];
+
     final children = <Widget>[];
 
     if (totalItems == 0) {
@@ -546,17 +559,9 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         ),
       ));
     } else {
-      for (int g = 0; g < groups.length; g++) {
-        final group = groups[g];
-        if (group.label != null) {
-          children.add(SectionHeader(
-            label: group.label!,
-            count: group.items.length,
-            showDivider: g > 0,
-          ));
-        }
+      BrowseItemRows rowsFor(({String? id, String? label, List<BrowseItem> items}) group) {
         final groupId = group.id;
-        children.add(BrowseItemRows(
+        return BrowseItemRows(
           items: group.items,
           visibleLimit: aiGroupVisibleLimit,
           isExpanded: groupId != null && expanded.contains(groupId),
@@ -565,7 +570,55 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
               : () => ref
                   .read(searchStateProvider.notifier)
                   .revealAiSection(groupId),
+        );
+      }
+
+      // ── AI tracks card: header + track rows merged onto one surface ──
+      if (trackGroups.isNotEmpty) {
+        children.add(Container(
+          margin: const EdgeInsets.only(top: 12),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+          decoration: BoxDecoration(
+            color: KalinkaColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _AiSuggestionsHeader(trackIds: allTrackIds),
+              const SizedBox(height: 4),
+              const Divider(
+                color: KalinkaColors.borderSubtle,
+                thickness: 1,
+                height: 16,
+              ),
+              for (final group in trackGroups) rowsFor(group),
+            ],
+          ),
         ));
+      } else {
+        // No tracks — still label the feed as AI-generated.
+        children.add(const Padding(
+          padding: EdgeInsets.only(top: 12),
+          child: _AiSuggestionsHeader(trackIds: []),
+        ));
+      }
+
+      // ── Related sections (albums, artists): plain rows, no card ──
+      if (relatedGroups.isNotEmpty) {
+        children.add(const SizedBox(height: 18));
+      }
+      for (int g = 0; g < relatedGroups.length; g++) {
+        final group = relatedGroups[g];
+        if (group.label != null) {
+          children.add(SectionHeader(
+            label: _relatedLabel(group.label!),
+            count: group.items.length,
+            showDivider: g > 0,
+          ));
+        }
+        children.add(rowsFor(group));
       }
     }
 
@@ -634,6 +687,115 @@ class _IndexerStatusGate extends ConsumerWidget {
     final progressPct =
         ref.watch(indexerStatusProvider.select((s) => s.progressPct));
     return IndexerStatusBanner(progressPct: progressPct);
+  }
+}
+
+/// Dominant renderable type of an AI result group — the first item that isn't a
+/// catalog/unknown wrapper. Used to split track groups (the card) from album and
+/// artist groups (the "Related …" sections below).
+BrowseType _aiGroupType(List<BrowseItem> items) {
+  for (final item in items) {
+    if (item.browseType != BrowseType.unknown &&
+        item.browseType != BrowseType.catalog) {
+      return item.browseType;
+    }
+  }
+  return BrowseType.unknown;
+}
+
+/// Prefixes a group label with "Related " unless it already starts that way,
+/// e.g. "Albums" → "Related Albums".
+String _relatedLabel(String label) {
+  return label.toLowerCase().startsWith('related') ? label : 'Related $label';
+}
+
+/// Header above AI-generated search results. Labels the feed as AI suggestions
+/// and offers a one-tap select/clear affordance covering every track — including
+/// those hidden behind a collapsed section — so the bottom batch bar can act on
+/// the whole set (play / play next / add to queue).
+class _AiSuggestionsHeader extends ConsumerWidget {
+  final List<String> trackIds;
+
+  const _AiSuggestionsHeader({required this.trackIds});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasTracks = trackIds.isNotEmpty;
+    final allSelected = ref.watch(
+      selectionStateProvider.select(
+        (s) => hasTracks && trackIds.every(s.selectedIds.contains),
+      ),
+    );
+
+    return Row(
+        children: [
+          const Icon(
+            Icons.auto_awesome,
+            size: 16,
+            color: KalinkaColors.accentTint,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AI SUGGESTIONS',
+                  style: KalinkaTextStyles.sectionLabel.copyWith(
+                    color: KalinkaColors.accentTint,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Curated for your search',
+                  style: KalinkaTextStyles.trackRowSubtitle,
+                ),
+              ],
+            ),
+          ),
+          if (hasTracks)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                KalinkaHaptics.lightImpact();
+                final notifier = ref.read(selectionStateProvider.notifier);
+                if (allSelected) {
+                  notifier.exitSelectionMode();
+                } else {
+                  notifier.selectTracks(trackIds);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: allSelected
+                      ? KalinkaColors.accentSubtle
+                      : KalinkaColors.surfaceElevated,
+                  border: Border.all(
+                    color: allSelected
+                        ? KalinkaColors.accentBorder
+                        : KalinkaColors.borderDefault,
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  allSelected ? 'Clear' : 'Select all',
+                  style: KalinkaFonts.sans(
+                    fontSize: KalinkaTypography.baseSize + 1,
+                    fontWeight: FontWeight.w600,
+                    color: allSelected
+                        ? KalinkaColors.accentTint
+                        : KalinkaColors.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+        ],
+    );
   }
 }
 
