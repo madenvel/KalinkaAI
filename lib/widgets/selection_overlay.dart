@@ -8,7 +8,7 @@ import '../utils/play_next.dart';
 import '../utils/haptics.dart';
 
 /// Bottom batch bar shown during multi-select mode.
-/// Cancel (✕) + "N TRACKS SELECTED" label, then Play now / Play next / queue.
+/// "N SELECTED" label + Cancel (✕) chip, then Play now / Play next / queue.
 class MultiSelectBottomBar extends ConsumerWidget {
   const MultiSelectBottomBar({super.key});
 
@@ -43,14 +43,17 @@ class MultiSelectBottomBar extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Left-aligned "N TRACKS SELECTED" label + a labelled Cancel
-                // chip on the right (clear tap target, unambiguous action).
+                // Left-aligned "N SELECTED" label + a labelled Cancel chip on
+                // the right (clear tap target, unambiguous action). The label
+                // stays generic because selection.count mixes tracks and
+                // containers (albums/artists/playlists) — calling them all
+                // "tracks" would misreport the count.
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
                       Text(
-                        '${selection.count} TRACKS SELECTED',
+                        '${selection.count} SELECTED',
                         style: KalinkaTextStyles.batchBarLabel,
                       ),
                       const Spacer(),
