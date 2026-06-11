@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Kalinka color palette — high-contrast grayscale with berry & brass accents
 class KalinkaColors {
@@ -211,11 +210,13 @@ class KalinkaFonts {
   }
 
   static TextTheme monoTextTheme([TextTheme? textTheme]) {
-    return GoogleFonts.getTextTheme(monoFamily, textTheme);
+    return (textTheme ?? ThemeData.dark().textTheme)
+        .apply(fontFamily: monoFamily);
   }
 
   static TextTheme sansTextTheme([TextTheme? textTheme]) {
-    return GoogleFonts.getTextTheme(sansFamily, textTheme);
+    return (textTheme ?? ThemeData.dark().textTheme)
+        .apply(fontFamily: sansFamily);
   }
 
   static TextStyle _style(
@@ -228,9 +229,8 @@ class KalinkaFonts {
     double? letterSpacing,
     double? height,
   }) {
-    return GoogleFonts.getFont(
-      fontFamily,
-      textStyle: textStyle,
+    return (textStyle ?? const TextStyle()).copyWith(
+      fontFamily: fontFamily,
       color: color,
       fontSize: fontSize,
       fontWeight: fontWeight,

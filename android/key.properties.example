@@ -1,0 +1,8 @@
+# Copy to android/key.properties and fill in. Never commit key.properties.
+# Generate the keystore once with:
+#   keytool -genkey -v -keystore ~/kalinka-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias kalinka
+storePassword=<keystore password>
+keyPassword=<key password>
+keyAlias=kalinka
+storeFile=<absolute path to kalinka-release.jks>
