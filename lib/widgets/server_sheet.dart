@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/app_version_provider.dart';
 import '../providers/connection_settings_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/server_info_provider.dart';
@@ -90,7 +91,36 @@ class ServerSheetContent extends ConsumerWidget {
             if (context.mounted) Navigator.pop(context);
           },
         ),
+        const _AppVersionFooter(),
       ],
+    );
+  }
+}
+
+/// Muted app version line at the bottom of the sheet.
+class _AppVersionFooter extends ConsumerWidget {
+  const _AppVersionFooter();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final info = ref.watch(appVersionProvider).value;
+    if (info == null) return const SizedBox.shrink();
+
+    // Prefer the git-derived version when the build embedded one (release
+    // script); it carries commits-since-tag + hash for untagged builds.
+    final label = gitDescribe.isNotEmpty
+        ? 'Kalinka $gitDescribe'
+        : 'Kalinka v${info.version}';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: KalinkaTextStyles.timeLabel.copyWith(
+          color: KalinkaColors.textMuted,
+        ),
+      ),
     );
   }
 }
@@ -434,8 +464,8 @@ class _TabletServerSheetContent extends ConsumerWidget {
         ),
         _SheetRow(
           icon: Icons.logout,
-          iconBgColor: KalinkaColors.statusOffline.withValues(alpha: 0.12),
-          iconColor: KalinkaColors.statusOffline,
+          iconBgColor: KalinkaColors.accent.withValues(alpha: 0.14),
+          iconColor: KalinkaColors.accent,
           label: 'Disconnect',
           sublabel: '',
           isDanger: true,
@@ -445,6 +475,7 @@ class _TabletServerSheetContent extends ConsumerWidget {
             await onClose();
           },
         ),
+        const _AppVersionFooter(),
       ],
     );
   }
