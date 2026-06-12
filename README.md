@@ -1,6 +1,8 @@
 # Kalinka
 Kalinka Player client with AI search and recommendations
 
+Website: [kalinkaplayer.com](https://kalinkaplayer.com)
+
 ## Getting started
 - **[Initial setup guide](docs/initial-setup.md)** — server installation,
   pointing it at your music collection, and connecting the app.
