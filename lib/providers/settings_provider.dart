@@ -132,6 +132,30 @@ class SettingsNotifier extends Notifier<SettingsState> {
     }
   }
 
+  /// Re-fetch only the live enum option lists (e.g. ALSA devices after
+  /// plugging in a DAC) without touching schema, values, or staged
+  /// changes — unlike [loadConfig], which resets the staging area.
+  Future<void> refreshEnumOptions() async {
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      final envelope = (await api.getSettings()).cast<String, dynamic>();
+      final rawOptions =
+          (envelope['enum_options'] as Map? ?? {}).cast<String, dynamic>();
+      final enumOptions = <String, List<OptionSpec>>{};
+      rawOptions.forEach((path, raw) {
+        if (raw is List) {
+          enumOptions[path] = raw
+              .whereType<Map>()
+              .map((e) => OptionSpec.fromJson(e.cast<String, dynamic>()))
+              .toList();
+        }
+      });
+      state = state.copyWith(enumOptions: enumOptions);
+    } catch (_) {
+      // Best-effort refresh — keep the previous lists on failure.
+    }
+  }
+
   /// Stage a change for ``path``. If the new value matches the current
   /// server-side value (i.e. the user just typed their way back to the
   /// original), the entry is *unstaged* instead — the row no longer

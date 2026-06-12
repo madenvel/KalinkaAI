@@ -1,7 +1,8 @@
 import 'dart:async' show Timer;
 import 'dart:convert' show jsonEncode;
 
-import 'package:dio/dio.dart' show BaseOptions, Dio, Headers, Options, Response;
+import 'package:dio/dio.dart'
+    show BaseOptions, Dio, DioException, Headers, Options, Response;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/connection_settings_provider.dart'
     show connectionSettingsProvider;
@@ -93,7 +94,20 @@ abstract class KalinkaPlayerProxy {
     required Map<String, dynamic> changes,
   });
   Future<void> restartServer();
+
+  /// Play a short test tone on one channel (`left` / `right`). [device] is
+  /// the ALSA identifier to play through — pass the user's (possibly not
+  /// yet applied) selection; the server falls back to its configured output
+  /// when omitted. Throws [TestToneUnsupportedException] when the server
+  /// predates the `/server/test_tone` endpoint.
+  Future<void> testTone(String channel, {String? device});
   void close();
+}
+
+/// The connected server has no `/server/test_tone` endpoint (older build).
+class TestToneUnsupportedException implements Exception {
+  @override
+  String toString() => 'Server does not support test tone playback';
 }
 
 class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
@@ -608,6 +622,30 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
         throw Exception('Failed to restart server, url=${response.realUri}');
       }
     });
+  }
+
+  @override
+  Future<void> testTone(String channel, {String? device}) async {
+    try {
+      final response = await client.post(
+        '/server/test_tone',
+        options: Options(contentType: Headers.jsonContentType),
+        data: jsonEncode({
+          'channel': channel,
+          if (device != null && device.isNotEmpty) 'device': device,
+        }),
+      );
+      if (response.statusCode != 200) {
+        throw Exception('Failed to play test tone, url=${response.realUri}');
+      }
+    } on DioException catch (e) {
+      // 404/405: endpoint not implemented by this server version.
+      final status = e.response?.statusCode;
+      if (status == 404 || status == 405) {
+        throw TestToneUnsupportedException();
+      }
+      rethrow;
+    }
   }
 
   StatusMessage statusMessageFromResponse(Response response) {

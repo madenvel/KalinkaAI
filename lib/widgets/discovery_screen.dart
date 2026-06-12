@@ -19,12 +19,23 @@ class DiscoveryScreen extends ConsumerStatefulWidget {
   final String? currentServerHost;
   final bool isTablet;
 
+  /// When false, the selected server is held in memory only (no
+  /// SharedPreferences write). Used by the setup wizard so an interrupted
+  /// run leaves no stored server behind.
+  final bool persistConnection;
+
+  /// When set, called after a successful connect instead of closing the
+  /// screen — for embedded use (setup wizard step).
+  final VoidCallback? onConnected;
+
   const DiscoveryScreen({
     super.key,
     this.onClose,
     this.allowCancel = true,
     this.currentServerHost,
     this.isTablet = false,
+    this.persistConnection = true,
+    this.onConnected,
   });
 
   @override
@@ -76,8 +87,12 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     });
 
     try {
-      // Save connection settings
-      await settings.setDevice(name, host, port);
+      // Save connection settings (in memory only for the setup wizard)
+      if (widget.persistConnection) {
+        await settings.setDevice(name, host, port);
+      } else {
+        settings.setDeviceEphemeral(name, host, port);
+      }
 
       // Recreate API client against the newly selected server.
       ref.invalidate(httpClientProvider);
@@ -92,9 +107,13 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
 
       connection.connected();
 
-      // Success — close discovery
+      // Success — hand off to the embedding wizard, or close discovery
       if (mounted) {
-        await _animateClose();
+        if (widget.onConnected != null) {
+          widget.onConnected!();
+        } else {
+          await _animateClose();
+        }
       }
     } catch (e) {
       // Reset connection state so the retry timer / websocket take over.

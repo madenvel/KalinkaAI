@@ -4,10 +4,12 @@ import '../providers/app_state_provider.dart';
 import '../providers/connection_settings_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
+import '../providers/onboarding_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/clear_all_confirm_dialog.dart';
+import '../widgets/coach_marks_overlay.dart';
 import '../widgets/completion_strip.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/discovery_screen.dart';
@@ -22,6 +24,7 @@ import '../widgets/queue_management_tray.dart';
 import '../widgets/queue_zone.dart';
 import '../widgets/search_results_feed.dart';
 import '../widgets/server_sheet.dart';
+import 'onboarding_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/kalinka_toast_overlay.dart';
 import '../widgets/side_panel.dart';
@@ -39,6 +42,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
   static const _tabletBreakpoint = 900.0;
 
   final _searchBarKey = GlobalKey<KalinkaSearchBarState>();
+  final _connectionDotKey = GlobalKey();
 
   // Tablet-only overlay state (phone uses Navigator/modals instead).
   bool _serverSheetOpen = false;
@@ -53,8 +57,15 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
   void initState() {
     super.initState();
 
-    // Check for first launch — no stored server
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // First launch: run the setup wizard. The provider marks pre-wizard
+      // installs (server already stored) as complete on its own, so they
+      // fall through to the regular flow below.
+      if (!ref.read(onboardingStatusProvider).oobeComplete) {
+        Navigator.of(context).push(_onboardingRoute());
+        return;
+      }
+      // Set up but no stored server (e.g. after Disconnect): plain discovery.
       final settings = ref.read(connectionSettingsProvider);
       if (!settings.isSet) {
         final isTablet = MediaQuery.of(context).size.width >= _tabletBreakpoint;
@@ -65,6 +76,20 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
         }
       }
     });
+  }
+
+  Route<void> _onboardingRoute() {
+    return PageRouteBuilder(
+      opaque: true,
+      transitionDuration: const Duration(milliseconds: 280),
+      reverseTransitionDuration: const Duration(milliseconds: 280),
+      pageBuilder: (_, __, ___) => const Material(
+        type: MaterialType.transparency,
+        child: OnboardingScreen(),
+      ),
+      transitionsBuilder: (_, anim, __, child) =>
+          FadeTransition(opacity: anim, child: child),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -300,6 +325,14 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
     final searchActive = searchState.searchActive;
     final connectionState = ref.watch(connectionStateProvider);
 
+    // One-time UI tour: first time the queue is visible with a live
+    // connection (right after the setup wizard, or after upgrading).
+    final onboarding = ref.watch(onboardingStatusProvider);
+    final showCoachMarks = onboarding.oobeComplete &&
+        !onboarding.coachMarksShown &&
+        connectionState == ConnectionStatus.connected &&
+        !searchActive;
+
     return PopScope(
       canPop: !searchActive,
       onPopInvokedWithResult: (didPop, _) {
@@ -325,6 +358,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                 child: HeaderZone(
                   searchBarKey: _searchBarKey,
                   onServerChipTap: _showServerSheet,
+                  connectionDotKey: _connectionDotKey,
                 ),
               ),
               const ConnectionBanner(),
@@ -414,6 +448,31 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             bottom: 0,
             child: IgnorePointer(child: KalinkaToastOverlay()),
           ),
+          // One-time first-run tour
+          if (showCoachMarks)
+            Positioned.fill(
+              child: CoachMarksOverlay(
+                stops: [
+                  CoachMarkStop(
+                    targetKey: _searchBarKey,
+                    title: 'Search your library',
+                    body: 'Type to find tracks, albums and artists — or '
+                        'flip on the AI pill to search by mood, like '
+                        '“mellow late-night jazz”.',
+                  ),
+                  CoachMarkStop(
+                    targetKey: _connectionDotKey,
+                    title: 'Your server lives here',
+                    body: 'The green dot shows you’re connected. Tap it '
+                        'for server status, settings, and switching '
+                        'servers.',
+                  ),
+                ],
+                onDismiss: () => ref
+                    .read(onboardingStatusProvider.notifier)
+                    .markCoachMarksShown(),
+              ),
+            ),
         ],
       ),
     );

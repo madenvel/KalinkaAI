@@ -80,6 +80,20 @@ class ConnectionSettingsNotifier extends Notifier<ConnectionSettings> {
     state = ConnectionSettings(name: name, host: host, port: port);
   }
 
+  /// Set device for this session only — nothing written to SharedPreferences.
+  /// Used during onboarding so that an interrupted run leaves no stored
+  /// server behind and the wizard restarts from the beginning. Call
+  /// [persist] (or [setDevice]) once setup is committed.
+  void setDeviceEphemeral(String name, String host, int port) {
+    state = ConnectionSettings(name: name, host: host, port: port);
+  }
+
+  /// Persist the current in-memory connection (after an ephemeral connect).
+  Future<void> persist() async {
+    if (!state.isSet) return;
+    await setDevice(state.name, state.host, state.port);
+  }
+
   /// Reset connection settings
   void reset() {
     state = ConnectionSettings(name: '', host: '', port: 0);

@@ -1,0 +1,71 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'connection_settings_provider.dart';
+
+/// First-run state persisted across launches.
+///
+/// `oobeComplete` flips only when the user finishes the whole setup wizard
+/// (final restart triggered). An interrupted run — app killed mid-wizard —
+/// leaves it false and, because the wizard connects ephemerally, no stored
+/// server either, so the next launch restarts setup from the beginning.
+/// Backgrounding does not reset anything: the wizard's widget state stays
+/// alive while the app is alive.
+///
+/// `coachMarksShown` flips after the one-time UI tour on the play queue.
+class OnboardingStatus {
+  final bool oobeComplete;
+  final bool coachMarksShown;
+
+  const OnboardingStatus({
+    required this.oobeComplete,
+    required this.coachMarksShown,
+  });
+
+  OnboardingStatus copyWith({bool? oobeComplete, bool? coachMarksShown}) {
+    return OnboardingStatus(
+      oobeComplete: oobeComplete ?? this.oobeComplete,
+      coachMarksShown: coachMarksShown ?? this.coachMarksShown,
+    );
+  }
+}
+
+class OnboardingStatusNotifier extends Notifier<OnboardingStatus> {
+  static const String sharedPrefOobeComplete = 'Kalinka.oobeComplete';
+  static const String sharedPrefCoachMarksShown = 'Kalinka.coachMarksShown';
+
+  @override
+  OnboardingStatus build() {
+    final prefs = ref.read(sharedPrefsProvider);
+    var oobeComplete = prefs.getBool(sharedPrefOobeComplete) ?? false;
+
+    // Upgrade path: installs that predate the wizard already have a server
+    // stored. Treat them as set up — they only get the coach-mark tour.
+    if (!oobeComplete && ref.read(connectionSettingsProvider).isSet) {
+      oobeComplete = true;
+      prefs.setBool(sharedPrefOobeComplete, true);
+    }
+
+    return OnboardingStatus(
+      oobeComplete: oobeComplete,
+      coachMarksShown: prefs.getBool(sharedPrefCoachMarksShown) ?? false,
+    );
+  }
+
+  Future<void> markOobeComplete() async {
+    await ref
+        .read(sharedPrefsProvider)
+        .setBool(sharedPrefOobeComplete, true);
+    state = state.copyWith(oobeComplete: true);
+  }
+
+  Future<void> markCoachMarksShown() async {
+    await ref
+        .read(sharedPrefsProvider)
+        .setBool(sharedPrefCoachMarksShown, true);
+    state = state.copyWith(coachMarksShown: true);
+  }
+}
+
+final onboardingStatusProvider =
+    NotifierProvider<OnboardingStatusNotifier, OnboardingStatus>(
+      OnboardingStatusNotifier.new,
+    );

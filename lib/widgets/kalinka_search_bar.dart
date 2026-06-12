@@ -26,6 +26,9 @@ class KalinkaSearchBar extends ConsumerStatefulWidget {
   final double height;
   final EdgeInsetsGeometry? contentPadding;
 
+  /// Anchor for the first-run coach-mark spotlight on the connection dot.
+  final GlobalKey? connectionDotKey;
+
   const KalinkaSearchBar({
     super.key,
     this.alwaysExpanded = false,
@@ -36,6 +39,7 @@ class KalinkaSearchBar extends ConsumerStatefulWidget {
     this.fullBleedMode = false,
     this.height = 44,
     this.contentPadding,
+    this.connectionDotKey,
   });
 
   @override
@@ -535,7 +539,12 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
             ? () => widget.onServerChipTap!()
             : null,
         behavior: HitTestBehavior.opaque,
-        child: SizedBox(width: 36, height: 44, child: Center(child: dot)),
+        child: SizedBox(
+          key: widget.connectionDotKey,
+          width: 36,
+          height: 44,
+          child: Center(child: dot),
+        ),
       ),
     );
   }
