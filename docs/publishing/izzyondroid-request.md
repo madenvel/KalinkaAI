@@ -40,6 +40,13 @@ changelogs) is in the repo under `fastlane/metadata/android/`.
 - App artwork (icon/branding) is under a proprietary license
   (`LICENSE-ASSETS` in the repo); code is Apache-2.0. Please apply the
   `NonFreeAssets` label if appropriate.
+- Regarding the AI policy: this is not an AI-generated app. It is a
+  personal project I design, write and review myself; some commits use
+  AI-assisted tooling (transparently credited in the commit history, as
+  is increasingly standard practice). The Kalinka Music Server it pairs
+  with represents over two years of my own development, predating any
+  AI assistance. I maintain both projects actively and take full
+  responsibility for the code I ship.
 
 ---
 
