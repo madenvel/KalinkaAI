@@ -51,10 +51,7 @@ class OnboardingStepScaffold extends StatelessWidget {
                     const SizedBox(height: 8),
                     _buildProgressBar(),
                     const SizedBox(height: 20),
-                    Text(
-                      title,
-                      style: KalinkaTextStyles.dialogTitle,
-                    ),
+                    Text(title, style: KalinkaTextStyles.dialogTitle),
                     if (subtitle != null) ...[
                       const SizedBox(height: 6),
                       Text(
@@ -147,7 +144,33 @@ class OnboardingSectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-      child: Text(text.toUpperCase(), style: KalinkaTextStyles.sectionHeaderMuted),
+      child: Text(
+        text.toUpperCase(),
+        style: KalinkaTextStyles.sectionHeaderMuted,
+      ),
+    );
+  }
+}
+
+/// Explanatory note for wizard steps. Larger and brighter than the
+/// settings screen's [FooterNote] — first-run copy is read once and must
+/// be readable at a glance, not blend into the chrome.
+class OnboardingNote extends StatelessWidget {
+  final String text;
+
+  const OnboardingNote(this.text, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+      child: Text(
+        text,
+        style: KalinkaTextStyles.trayRowSublabel.copyWith(
+          fontSize: KalinkaTypography.baseSize + 3,
+          height: 1.55,
+        ),
+      ),
     );
   }
 }

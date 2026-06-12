@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/settings_provider.dart';
-import '../settings_controls/footer_note.dart';
 import '../settings_controls/settings_card.dart';
 import 'onboarding_fields.dart';
 import 'onboarding_step_scaffold.dart';
@@ -31,15 +30,16 @@ class OnboardingFeaturesStep extends ConsumerWidget {
             OnboardingFieldRow(
               path: aiSearchPath,
               label: 'AI search',
-              help: 'Find music by mood or description — “mellow '
+              help:
+                  'Find music by mood or description — “mellow '
                   'late-night jazz” — instead of exact titles.',
             ),
           ],
         ),
-        const FooterNote(
-          text: 'The server downloads a ~285 MB model the first time AI '
-              'search runs, then indexes your library in the background. '
-              'Searches stay on your server — nothing leaves your network.',
+        const OnboardingNote(
+          'The server downloads a ~285 MB model the first time AI '
+          'search runs, then indexes your library in the background. '
+          'Searches stay on your server — nothing leaves your network.',
         ),
         const OnboardingSectionLabel('Track identification'),
         SettingsCard(
@@ -47,7 +47,8 @@ class OnboardingFeaturesStep extends ConsumerWidget {
             const OnboardingFieldRow(
               path: acoustidEnabledPath,
               label: 'AcoustID fingerprinting',
-              help: 'Identifies poorly tagged tracks by their audio '
+              help:
+                  'Identifies poorly tagged tracks by their audio '
                   'fingerprint and fills in the metadata.',
             ),
             if (acoustidEnabled)
@@ -58,11 +59,11 @@ class OnboardingFeaturesStep extends ConsumerWidget {
               ),
           ],
         ),
-        const FooterNote(
-          text: 'AcoustID needs a free API key: create an account at '
-              'acoustid.org, register an application, and paste its API '
-              'key here. You can also do this later in Settings — '
-              'fingerprinting stays off until a key is set.',
+        const OnboardingNote(
+          'AcoustID needs a free API key: create an account at '
+          'acoustid.org, register an application, and paste its API '
+          'key here. You can also do this later in Settings — '
+          'fingerprinting stays off until a key is set.',
         ),
       ],
     );

@@ -219,9 +219,7 @@ class _SpeakerTestDialogState extends ConsumerState<SpeakerTestDialog>
 
     return Column(
       children: [
-        active
-            ? FadeTransition(opacity: _pulseAnimation, child: tile)
-            : tile,
+        active ? FadeTransition(opacity: _pulseAnimation, child: tile) : tile,
         const SizedBox(height: 8),
         Text(
           label,
