@@ -102,8 +102,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
       // Dynamic enum options: `{path: [{value, label}, …]}`. Present
       // only for fields the server resolves live (e.g. ALSA devices);
       // absent fields fall back to the schema's static enum_values.
-      final rawOptions =
-          (envelope['enum_options'] as Map? ?? {}).cast<String, dynamic>();
+      final rawOptions = (envelope['enum_options'] as Map? ?? {})
+          .cast<String, dynamic>();
       final enumOptions = <String, List<OptionSpec>>{};
       rawOptions.forEach((path, raw) {
         if (raw is List) {
@@ -118,10 +118,9 @@ class SettingsNotifier extends Notifier<SettingsState> {
         schema: schema,
         // If the two endpoints disagree (plugin reloaded between the two
         // fetches), prefer the schema version — UI rendering is driven by it.
-        schemaVersion:
-            valuesVersion == schema.schemaVersion
-                ? schema.schemaVersion
-                : schema.schemaVersion,
+        schemaVersion: valuesVersion == schema.schemaVersion
+            ? schema.schemaVersion
+            : schema.schemaVersion,
         values: values,
         enumOptions: enumOptions,
         stagedChanges: {},
@@ -129,30 +128,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
-    }
-  }
-
-  /// Re-fetch only the live enum option lists (e.g. ALSA devices after
-  /// plugging in a DAC) without touching schema, values, or staged
-  /// changes — unlike [loadConfig], which resets the staging area.
-  Future<void> refreshEnumOptions() async {
-    try {
-      final api = ref.read(kalinkaProxyProvider);
-      final envelope = (await api.getSettings()).cast<String, dynamic>();
-      final rawOptions =
-          (envelope['enum_options'] as Map? ?? {}).cast<String, dynamic>();
-      final enumOptions = <String, List<OptionSpec>>{};
-      rawOptions.forEach((path, raw) {
-        if (raw is List) {
-          enumOptions[path] = raw
-              .whereType<Map>()
-              .map((e) => OptionSpec.fromJson(e.cast<String, dynamic>()))
-              .toList();
-        }
-      });
-      state = state.copyWith(enumOptions: enumOptions);
-    } catch (_) {
-      // Best-effort refresh — keep the previous lists on failure.
     }
   }
 

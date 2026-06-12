@@ -4,7 +4,6 @@ import '../../data_model/presentation_schema.dart' show ModuleSpec;
 import '../../providers/connection_settings_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_theme.dart';
-import '../settings_controls/footer_note.dart';
 import '../settings_controls/settings_card.dart';
 import '../settings_controls/warning_note.dart';
 import 'onboarding_fields.dart';
@@ -49,9 +48,10 @@ class OnboardingReviewStep extends ConsumerWidget {
         const <String>[];
 
     // Device control choice: the first enabled device plugin, if any.
-    final devices = schemaModulesOfKind(state.schema, 'device')
-        .where((m) => m.id != 'dummydevice')
-        .toList();
+    final devices = schemaModulesOfKind(
+      state.schema,
+      'device',
+    ).where((m) => m.id != 'dummydevice').toList();
     ModuleSpec? controlledDevice;
     for (final m in devices) {
       if (state.getEffective('devices.${m.id}.enabled') == true) {
@@ -95,33 +95,32 @@ class OnboardingReviewStep extends ConsumerWidget {
             _SummaryRow(label: 'Audio output', value: deviceLabel),
             _SummaryRow(
               label: 'Music folders',
-              value: folders.isEmpty
-                  ? 'None yet'
-                  : folders.join('\n'),
+              value: folders.isEmpty ? 'None yet' : folders.join('\n'),
             ),
             _SummaryRow(label: 'Device control', value: deviceControlValue),
             _SummaryRow(label: 'AI search', value: aiSearchOn ? 'On' : 'Off'),
-            _SummaryRow(
-              label: 'AcoustID',
-              value: acoustidOn ? 'On' : 'Off',
-            ),
+            _SummaryRow(label: 'AcoustID', value: acoustidOn ? 'On' : 'Off'),
           ],
         ),
         if (folders.isEmpty)
           const WarningNote(
-            message: 'No music folders configured — the library will be '
+            severity: WarningNoteSeverity.warning,
+            message:
+                'No music folders configured — the library will be '
                 'empty. Go back to add folders, or add them later in '
                 'Settings.',
           ),
         if (acoustidOn && acoustidKey.isEmpty)
           const WarningNote(
-            message: 'AcoustID is on but has no API key — fingerprinting '
+            severity: WarningNoteSeverity.warning,
+            message:
+                'AcoustID is on but has no API key — fingerprinting '
                 'won’t run until one is set.',
           ),
-        const FooterNote(
-          text: 'Finishing saves these settings and restarts the server so '
-              'they take effect — that takes about half a minute. The app '
-              'reconnects automatically and drops you on the play queue.',
+        const OnboardingNote(
+          'Finishing saves these settings and restarts the server so '
+          'they take effect — that takes about half a minute. The app '
+          'reconnects automatically and drops you on the play queue.',
         ),
       ],
     );

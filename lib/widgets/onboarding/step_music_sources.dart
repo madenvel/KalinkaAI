@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/presentation_schema.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_theme.dart';
-import '../settings_controls/footer_note.dart';
 import '../settings_controls/settings_card.dart';
 import '../settings_controls/settings_toggle.dart';
 import '../settings_controls/warning_note.dart';
@@ -16,10 +15,17 @@ class OnboardingMusicSourcesStep extends ConsumerWidget {
 
   static const _foldersPath = 'input_modules.localfiles.music_folders';
 
+  /// Only plugins that work out of the box belong in first-run setup —
+  /// account-based sources like Qobuz stay in Settings.
+  static const _setupPluginIds = {'localfiles', 'jamendo'};
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(settingsProvider);
-    final modules = schemaModulesOfKind(state.schema, 'input_module');
+    final modules = schemaModulesOfKind(
+      state.schema,
+      'input_module',
+    ).where((m) => _setupPluginIds.contains(m.id)).toList();
 
     final folders =
         (state.getEffective(_foldersPath) as List?)
@@ -36,37 +42,39 @@ class OnboardingMusicSourcesStep extends ConsumerWidget {
       children: [
         const OnboardingSectionLabel('Input plugins'),
         SettingsCard(
-          children: [
-            for (final m in modules) _PluginRow(module: m),
-          ],
+          children: [for (final m in modules) _PluginRow(module: m)],
         ),
-        const FooterNote(
-          text: 'More plugins — like Jamendo internet radio — will appear '
-              'here in future releases.',
+        const OnboardingNote(
+          'More plugins — like Jamendo internet radio — will appear here '
+          'in future releases.',
         ),
         const OnboardingSectionLabel('Music folders'),
+        const OnboardingNote(
+          'These folders are on the Kalinka server, not on this device. '
+          'The server scans them and keeps your library up to date.',
+        ),
         const SettingsCard(
           children: [
             OnboardingFieldRow(
               path: _foldersPath,
               label: 'Folders to scan',
-              help: 'Add every folder that holds your music. The server '
-                  'scans them and keeps the library up to date as files '
-                  'change.',
+              help: 'Add every folder on the server that holds your music.',
             ),
           ],
         ),
         if (hasHomeFolder)
-          const WarningNote(
-            message: 'The server can’t read home directories (its sandbox '
-                'blocks /home). Move music to /srv/music or a drive '
-                'mounted under /media instead.',
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: WarningNote(
+              severity: WarningNoteSeverity.warning,
+              message:
+                  'The server can’t read music from home folders. '
+                  'Keep it in /srv/music or on a drive under /media.',
+            ),
           ),
-        const FooterNote(
-          text: 'Folders live on the server, not on this device, and must '
-              'be readable by the server’s service user. The initial scan '
-              'of a large library can take a while — it runs in the '
-              'background after setup.',
+        const OnboardingNote(
+          'The first scan of a big library takes a while — it runs in the '
+          'background after setup.',
         ),
       ],
     );
@@ -116,9 +124,7 @@ class _PluginRow extends ConsumerWidget {
       },
     );
     if (isLocalFiles || enabledField == null) {
-      toggle = IgnorePointer(
-        child: Opacity(opacity: 0.4, child: toggle),
-      );
+      toggle = IgnorePointer(child: Opacity(opacity: 0.4, child: toggle));
     }
 
     return Padding(
