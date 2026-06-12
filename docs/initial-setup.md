@@ -60,6 +60,9 @@ files must be readable by user/group `kalusr` (`g+rX` or world-readable).
 
 ## 3. Connect the app and finish configuration
 
+(Illustrated walkthrough with screenshots: see the
+[app manual](app-manual.md).)
+
 1. Install the Kalinka app
    ([releases](https://github.com/madenvel/KalinkaAI/releases)) on a phone
    on the same network.
