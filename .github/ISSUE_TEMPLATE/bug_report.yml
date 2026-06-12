@@ -1,0 +1,57 @@
+name: 📱 App bug report
+description: A problem with the Kalinka app — UI, remote control, crashes on your device
+labels: [bug]
+body:
+  - type: checkboxes
+    attributes:
+      label: Right repo?
+      description: >-
+        The app is the remote control — anything rendered on your phone, tablet or desktop screen.
+        If the problem is the sound itself (gapless / bit-perfect playback, DAC output), library
+        indexing, tag repair or AI mood search results, that's the server — file it on
+        [KalinkaPlayer](https://github.com/madenvel/KalinkaPlayer/issues/new/choose) instead.
+      options:
+        - label: This is an app/UI issue, not a server issue
+          required: true
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: What went wrong, and what did you expect instead? Screenshots welcome.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: false
+  - type: input
+    attributes:
+      label: App version
+      placeholder: e.g. 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Platform
+      options:
+        - Android
+        - Linux desktop
+        - Other (describe below)
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Device & OS version
+      placeholder: e.g. Pixel 8, Android 15 · or · Fedora 44, GNOME 49
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Kalinka server version
+      description: Shown in the app's connection screen, if you can reach it.
+      placeholder: e.g. 3.0.0
+    validations:
+      required: false
