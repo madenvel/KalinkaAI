@@ -1,0 +1,38 @@
+# Draft build recipe for official F-Droid inclusion.
+# Destination: fdroiddata repo as metadata/org.kalinka.kalinka.yml
+# Submit: fork https://gitlab.com/fdroid/fdroiddata, add this file,
+# open a merge request (title: "New app: Kalinka").
+Categories:
+  - Multimedia
+License: Apache-2.0
+AuthorName: Dmitry Savin
+SourceCode: https://github.com/madenvel/KalinkaAI
+IssueTracker: https://github.com/madenvel/KalinkaAI/issues
+
+AutoName: Kalinka
+
+RepoType: git
+Repo: https://github.com/madenvel/KalinkaAI.git
+
+Builds:
+  - versionName: 0.1.0
+    versionCode: 1
+    commit: v0.1.0
+    output: build/app/outputs/flutter-apk/app-release.apk
+    srclibs:
+      - flutter@3.35.4
+    rm:
+      - ios
+      - macos
+      - linux
+      - windows
+      - web
+    build:
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get
+      - $$flutter$$/bin/flutter build apk --release
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[\d.]+$
+CurrentVersion: 0.1.0
+CurrentVersionCode: 1

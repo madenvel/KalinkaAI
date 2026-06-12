@@ -1,0 +1,7 @@
+First public alpha release.
+
+• Playback and queue control with reorder, swipe and batch actions
+• Library browsing and search with filters and favourites
+• AI search and suggestions over your local library
+• Automatic server discovery via mDNS
+• Device volume control and schema-driven server settings
