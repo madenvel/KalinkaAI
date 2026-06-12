@@ -31,9 +31,15 @@ browse your library, queue music and control playback on your hi-fi
 from the phone. Fastlane metadata (descriptions, icon, screenshots,
 changelogs) is in the repo under `fastlane/metadata/android/`.
 
-**Anti-features:** none known — no trackers, no ads, no proprietary
-dependencies; the app only talks to the user's own server on the
-local network.
+**Anti-features / disclosures:**
+- No trackers, no ads, no proprietary dependencies.
+- `usesCleartextTraffic="true"`: required by design — the app talks to
+  the user's own Kalinka server over plain HTTP on the local network
+  (arbitrary private IPs, so a domain-based Network Security Config
+  cannot express this). No internet services are contacted.
+- App artwork (icon/branding) is under a proprietary license
+  (`LICENSE-ASSETS` in the repo); code is Apache-2.0. Please apply the
+  `NonFreeAssets` label if appropriate.
 
 ---
 
