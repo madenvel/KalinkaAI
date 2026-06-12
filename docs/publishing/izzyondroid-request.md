@@ -1,7 +1,10 @@
 # IzzyOnDroid inclusion request (draft)
 
-File a new issue at https://gitlab.com/IzzyOnDroid/repo/-/issues/new
-(choose the "Add App" template if offered) with the following content:
+IzzyOnDroid migrated from GitLab (now archived/read-only) to Codeberg.
+File a new issue at https://codeberg.org/IzzyOnDroid/repodata/issues
+(choose the "Add App" template if offered — needs a free Codeberg
+account) with the following content. Their inclusion policy:
+https://izzyondroid.org/docs/general/AppInclusionPolicy/
 
 ---
 
