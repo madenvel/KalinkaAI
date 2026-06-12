@@ -98,7 +98,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
       final schema = results[0] as PresentationSchema;
       final envelope = (results[1] as Map).cast<String, dynamic>();
       final values = (envelope['values'] as Map? ?? {}).cast<String, dynamic>();
-      final valuesVersion = envelope['schema_version'] as String?;
       // Dynamic enum options: `{path: [{value, label}, …]}`. Present
       // only for fields the server resolves live (e.g. ALSA devices);
       // absent fields fall back to the schema's static enum_values.
@@ -116,11 +115,10 @@ class SettingsNotifier extends Notifier<SettingsState> {
 
       state = state.copyWith(
         schema: schema,
-        // If the two endpoints disagree (plugin reloaded between the two
-        // fetches), prefer the schema version — UI rendering is driven by it.
-        schemaVersion: valuesVersion == schema.schemaVersion
-            ? schema.schemaVersion
-            : schema.schemaVersion,
+        // The values endpoint reports its own schema_version; if the two
+        // disagree (plugin reloaded between the two fetches), the schema's
+        // version wins — UI rendering is driven by it.
+        schemaVersion: schema.schemaVersion,
         values: values,
         enumOptions: enumOptions,
         stagedChanges: {},

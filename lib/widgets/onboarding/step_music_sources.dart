@@ -44,10 +44,12 @@ class OnboardingMusicSourcesStep extends ConsumerWidget {
         SettingsCard(
           children: [for (final m in modules) _PluginRow(module: m)],
         ),
-        const OnboardingNote(
-          'More plugins — like Jamendo internet radio — will appear here '
-          'in future releases.',
-        ),
+        // Only promise Jamendo while it isn't actually in the list yet.
+        if (!modules.any((m) => m.id == 'jamendo'))
+          const OnboardingNote(
+            'More plugins — like Jamendo internet radio — will appear here '
+            'in future releases.',
+          ),
         const OnboardingSectionLabel('Music folders'),
         const OnboardingNote(
           'These folders are on the Kalinka server, not on this device. '

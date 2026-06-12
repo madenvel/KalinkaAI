@@ -54,7 +54,11 @@ class OnboardingStatusNotifier extends Notifier<OnboardingStatus> {
     // stored. Treat them as set up — they only get the coach-mark tour.
     if (!oobeComplete && ref.read(connectionSettingsProvider).isSet) {
       oobeComplete = true;
-      prefs.setBool(sharedPrefOobeComplete, true);
+      // Intentionally fire-and-forget: build() is synchronous and the
+      // in-memory state already carries the answer. If the write never
+      // lands, the next launch re-derives the same result from the stored
+      // server, so a failure here is benign.
+      prefs.setBool(sharedPrefOobeComplete, true).ignore();
     }
 
     return OnboardingStatus(

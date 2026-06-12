@@ -36,7 +36,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   int _step = 0;
   bool _restartOverlayOpen = false;
-  bool _committed = false;
+  // Set when the restart succeeded and persistence was kicked off;
+  // completes once the connection and the first-run flag are written.
+  Future<void>? _commitFuture;
 
   void _onConnected() {
     ref.read(settingsProvider.notifier).loadConfig();
@@ -65,9 +67,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     await ref.read(onboardingStatusProvider.notifier).markOobeComplete();
   }
 
-  void _onRestartDismissed() {
+  Future<void> _onRestartDismissed() async {
     setState(() => _restartOverlayOpen = false);
-    if (_committed && mounted) {
+    final commit = _commitFuture;
+    if (commit == null) return; // Restart failed — stay in the wizard.
+    // The overlay's auto-dismiss can fire while the prefs writes are still
+    // in flight; don't leave the wizard until they've finished.
+    await commit;
+    if (mounted) {
       Navigator.of(context).pop();
     }
   }
@@ -75,9 +82,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen(restartProvider, (prev, next) {
-      if (next.isDone && prev?.isDone != true && !_committed) {
-        _committed = true;
-        _commitSetup();
+      if (next.isDone && prev?.isDone != true && _commitFuture == null) {
+        // A failed write is benign — the wizard would simply run again on
+        // the next launch — so log and still let the user into the app.
+        _commitFuture = _commitSetup().catchError((Object e) {
+          debugPrint('Onboarding: failed to persist setup: $e');
+        });
       }
     });
 
