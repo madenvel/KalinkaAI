@@ -1,0 +1,5 @@
+Maintenance release for F-Droid/IzzyOnDroid inclusion:
+
+• Remove Google Play dependency-metadata block from APKs (encrypted blob only readable by Google)
+
+No functional changes.
