@@ -15,7 +15,15 @@ class HeaderZone extends ConsumerStatefulWidget {
   final VoidCallback? onServerChipTap;
   final GlobalKey<KalinkaSearchBarState>? searchBarKey;
 
-  const HeaderZone({super.key, this.onServerChipTap, this.searchBarKey});
+  /// Anchor for the first-run coach-mark spotlight on the connection dot.
+  final GlobalKey? connectionDotKey;
+
+  const HeaderZone({
+    super.key,
+    this.onServerChipTap,
+    this.searchBarKey,
+    this.connectionDotKey,
+  });
 
   @override
   ConsumerState<HeaderZone> createState() => _HeaderZoneState();
@@ -148,6 +156,7 @@ class _HeaderZoneState extends ConsumerState<HeaderZone>
                     fullBleedMode: searchActive,
                     height: searchActive ? 54 : 44,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    connectionDotKey: widget.connectionDotKey,
                   ),
                 ),
               ],
