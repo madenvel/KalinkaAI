@@ -32,8 +32,21 @@ class OnboardingStatusNotifier extends Notifier<OnboardingStatus> {
   static const String sharedPrefOobeComplete = 'Kalinka.oobeComplete';
   static const String sharedPrefCoachMarksShown = 'Kalinka.coachMarksShown';
 
+  /// Testing hook: `flutter run --dart-define=KALINKA_FORCE_OOBE=true`
+  /// replays the setup wizard and the coach-mark tour on every launch,
+  /// regardless of stored flags or a stored server. Finishing the wizard
+  /// still behaves normally within the session; the next launch resets.
+  static const bool forceOobe = bool.fromEnvironment('KALINKA_FORCE_OOBE');
+
   @override
   OnboardingStatus build() {
+    if (forceOobe) {
+      return const OnboardingStatus(
+        oobeComplete: false,
+        coachMarksShown: false,
+      );
+    }
+
     final prefs = ref.read(sharedPrefsProvider);
     var oobeComplete = prefs.getBool(sharedPrefOobeComplete) ?? false;
 
