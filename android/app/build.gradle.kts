@@ -51,6 +51,14 @@ android {
         }
     }
 
+    dependenciesInfo {
+        // No Google-encrypted dependency metadata in the APK/AAB —
+        // it is unreadable by anyone but Google Play and gets flagged
+        // by F-Droid/IzzyOnDroid scanners.
+        includeInApk = false
+        includeInBundle = false
+    }
+
     buildTypes {
         release {
             // Falls back to debug keys when key.properties is absent,
