@@ -15,6 +15,7 @@ import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../utils/playback_utils.dart';
 import 'gradient_progress_line.dart';
+import 'play_pause_glyph.dart';
 import 'procedural_album_art.dart';
 import 'source_badge.dart';
 
@@ -218,23 +219,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     );
   }
 
-  void _showPlaybackErrorDialog(String? message) {
-    if (!mounted) return;
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Playback error'),
-        content: Text(message ?? 'An unknown playback error occurred.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Dismiss'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Track? _peekIncomingTrack(bool isNext) {
     final queueState = ref.read(playQueueStateStoreProvider);
     final trackList = queueState.trackList;
@@ -337,19 +321,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
 
     final searchState = ref.watch(searchStateProvider);
     final shouldHide = searchState.searchActive && searchState.keyboardVisible;
-
-    ref.listen(
-      playQueueStateStoreProvider.select(
-        (s) => (state: s.playbackState.state, message: s.playbackState.message),
-      ),
-      (prev, next) {
-        if (next.state == PlayerStateType.error &&
-            (prev?.state != PlayerStateType.error ||
-                prev?.message != next.message)) {
-          _showPlaybackErrorDialog(next.message);
-        }
-      },
-    );
 
     final connectionState = ref.watch(connectionStateProvider);
     final isOffline =
@@ -590,40 +561,17 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
             child: SizedBox(
               width: 26,
               height: 26,
-              child: Center(child: _buildPlayPauseGlyph(playerState)),
+              child: Center(
+                child: PlayPauseGlyph(
+                  playerState: playerState,
+                  iconSize: 26,
+                  statusSize: 22,
+                ),
+              ),
             ),
           ),
         ),
       ),
-    );
-  }
-
-  /// The inner glyph shown inside the play/pause button: spinner while
-  /// buffering, warning icon on error, otherwise the play/pause icon.
-  Widget _buildPlayPauseGlyph(PlayerStateType? playerState) {
-    if (playerState == PlayerStateType.buffering) {
-      return const SizedBox(
-        width: 22,
-        height: 22,
-        child: CircularProgressIndicator(
-          strokeWidth: 2.5,
-          valueColor: AlwaysStoppedAnimation<Color>(KalinkaColors.background),
-        ),
-      );
-    }
-    if (playerState == PlayerStateType.error) {
-      return const Icon(
-        Icons.warning_rounded,
-        size: 22,
-        color: KalinkaColors.accent,
-      );
-    }
-    return Icon(
-      playerState == PlayerStateType.playing
-          ? Icons.pause_rounded
-          : Icons.play_arrow_rounded,
-      size: 26,
-      color: KalinkaColors.background,
     );
   }
 }

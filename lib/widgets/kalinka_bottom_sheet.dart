@@ -70,10 +70,11 @@ Future<T?> showKalinkaBottomSheet<T>({
 Future<T?> showKalinkaConfirmDialog<T>({
   required BuildContext context,
   required Widget Function(BuildContext) builder,
+  Color? barrierColor,
 }) {
   return showGeneralDialog<T>(
     context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.60),
+    barrierColor: barrierColor ?? Colors.black.withValues(alpha: 0.60),
     barrierDismissible: true,
     barrierLabel: 'Dismiss',
     transitionDuration: const Duration(milliseconds: 280),

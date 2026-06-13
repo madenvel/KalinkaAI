@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../utils/playback_utils.dart';
 import '../providers/source_modules_provider.dart';
+import 'play_pause_glyph.dart';
 import 'playback_progress_slider.dart';
 import 'procedural_album_art.dart';
 import 'server_chip.dart';
@@ -395,12 +396,11 @@ class _TransportControls extends ConsumerWidget {
             onTap: playPauseDisabled
                 ? null
                 : () => sendPlayPauseCommand(ref, playerState),
-            child: Icon(
-              playerState == PlayerStateType.playing
-                  ? Icons.pause_rounded
-                  : Icons.play_arrow_rounded,
-              size: 38,
-              color: KalinkaColors.background,
+            child: PlayPauseGlyph(
+              playerState: playerState,
+              iconSize: 38,
+              statusSize: 30,
+              spinnerStrokeWidth: 3,
             ),
           ),
           _TransportButton(
