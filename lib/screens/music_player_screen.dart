@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data_model/data_model.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/connection_settings_provider.dart';
 import '../providers/connection_state_provider.dart';
@@ -20,6 +21,7 @@ import '../widgets/kalinka_bottom_sheet.dart';
 import '../widgets/kalinka_search_bar.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/now_playing_content.dart';
+import '../widgets/playback_error_dialog.dart';
 import '../widgets/queue_management_tray.dart';
 import '../widgets/queue_zone.dart';
 import '../widgets/search_results_feed.dart';
@@ -272,9 +274,38 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
     );
   }
 
+  void _showPlaybackErrorDialog(String? message) {
+    if (!mounted) return;
+    final isTablet = MediaQuery.of(context).size.width >= _tabletBreakpoint;
+    showKalinkaConfirmDialog<void>(
+      context: context,
+      // On tablet the dialog paints its own right-half scrim, so keep the
+      // global barrier transparent to leave the now-playing panel undimmed.
+      barrierColor: isTablet ? Colors.transparent : null,
+      builder: (_) => PlaybackErrorDialog(message: message, isTablet: isTablet),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.read(mediaNotificationProvider);
+
+    // Surface playback errors as a dialog in both phone and tablet layouts.
+    // Lives here (not in MiniPlayer) because the mini player is only mounted
+    // in the phone layout.
+    ref.listen(
+      playQueueStateStoreProvider.select(
+        (s) => (state: s.playbackState.state, message: s.playbackState.message),
+      ),
+      (prev, next) {
+        if (next.state == PlayerStateType.error &&
+            (prev?.state != PlayerStateType.error ||
+                prev?.message != next.message)) {
+          _showPlaybackErrorDialog(next.message);
+        }
+      },
+    );
+
     return Scaffold(
       backgroundColor: KalinkaColors.background,
       body: LayoutBuilder(
@@ -533,13 +564,30 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             ),
             // Divider
             Container(width: 1, color: KalinkaColors.borderSubtle),
-            // Right panel: SidePanel (tabbed search/queue).
-            // SizedBox.expand() here for the same reason: tight constraints
-            // make RepaintBoundary a relayout boundary so layout invalidations
-            // within SidePanel don't cross into the left panel.
+            // Right panel: connection banner + SidePanel (tabbed search/queue)
+            // + escalation card. The connection UI lives here on tablet so it
+            // appears alongside the queue/search, mirroring the phone layout
+            // (where the banner sits below the header and the card above the
+            // mini player).
+            // SizedBox.expand() here for the same reason as the left panel:
+            // tight constraints make RepaintBoundary a relayout boundary so
+            // layout invalidations within SidePanel don't cross into it.
             Expanded(
               child: SizedBox.expand(
-                child: RepaintBoundary(child: SafeArea(child: SidePanel())),
+                child: RepaintBoundary(
+                  child: SafeArea(
+                    child: Column(
+                      children: [
+                        const ConnectionBanner(),
+                        Expanded(child: SidePanel()),
+                        EscalationCard(
+                          onScanForServers: () =>
+                              setState(() => _discoveryOpen = true),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
