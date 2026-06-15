@@ -25,6 +25,14 @@ class ModulesEmptyState extends StatelessWidget {
               'sources like Qobuz, Jamendo, or your local library.';
     final icon = isDevice ? Icons.speaker_outlined : Icons.extension_outlined;
 
+    // The icon sits above the text, so centring the whole group would push the
+    // text below the midline. Shift the group up by half the icon block (icon +
+    // gap) so the text lands on the vertical centre — this offset is exact
+    // regardless of how tall the text wraps.
+    const iconSize = 100.0;
+    const iconGap = 14.0;
+    const groupOffset = (iconSize + iconGap) / 2;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -32,38 +40,41 @@ class ModulesEmptyState extends StatelessWidget {
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 100,
-                    height: 100,
-                    child: CustomPaint(
-                      painter: _EmptyRingsPainter(),
-                      child: Center(
-                        child: Icon(
-                          icon,
-                          size: 30,
-                          color: KalinkaColors.textSecondary,
+              child: Transform.translate(
+                offset: const Offset(0, -groupOffset),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: iconSize,
+                      height: iconSize,
+                      child: CustomPaint(
+                        painter: _EmptyRingsPainter(),
+                        child: Center(
+                          child: Icon(
+                            icon,
+                            size: 30,
+                            color: KalinkaColors.textSecondary,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    title,
-                    style: KalinkaTextStyles.emptyQueueTitle,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    description,
-                    style: KalinkaTextStyles.emptyQueueSubtitle.copyWith(
-                      height: 1.5,
+                    const SizedBox(height: iconGap),
+                    Text(
+                      title,
+                      style: KalinkaTextStyles.emptyQueueTitle,
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+                    const SizedBox(height: 10),
+                    Text(
+                      description,
+                      style: KalinkaTextStyles.emptyQueueSubtitle.copyWith(
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
