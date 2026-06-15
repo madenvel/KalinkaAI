@@ -28,7 +28,7 @@ class ModulesEmptyState extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+          padding: const EdgeInsets.symmetric(horizontal: 40),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: Center(
