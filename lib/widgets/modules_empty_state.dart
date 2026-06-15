@@ -49,7 +49,7 @@ class ModulesEmptyState extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 14),
                   Text(
                     title,
                     style: KalinkaTextStyles.emptyQueueTitle,
