@@ -243,10 +243,16 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
         connectionStatus == ConnectionStatus.offline;
 
     // Sync text field if query changed externally (e.g. history tap).
-    if (_isActive &&
-        _textController.text != searchState.query &&
-        !_searchFocusNode.hasFocus) {
+    //
+    // This must run even while the field holds focus: tapping a recent-search
+    // chip re-executes the query without dropping focus, and the bar still
+    // needs to show the chosen term. During live typing the controller text
+    // already matches state.query, so this never clobbers in-progress input.
+    if (_isActive && _textController.text != searchState.query) {
       _textController.text = searchState.query;
+      _textController.selection = TextSelection.collapsed(
+        offset: searchState.query.length,
+      );
       if (searchState.query.isNotEmpty) {
         _clearButtonController.value = 1.0;
       } else {
