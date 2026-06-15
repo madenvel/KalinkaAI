@@ -8,18 +8,19 @@ import '../theme/app_theme.dart';
 /// centred icon, a Playfair display title, and a sans-serif explanation that
 /// tells the user they need to install plugins to populate the list.
 class ModulesEmptyState extends StatelessWidget {
-  /// True for the output-devices tab, false for the input-modules tab. Switches
-  /// the icon and copy so each tab reads correctly.
+  /// True for the devices tab, false for the input-modules tab. Switches the
+  /// icon and copy so each tab reads correctly.
   final bool isDevice;
 
   const ModulesEmptyState({super.key, required this.isDevice});
 
   @override
   Widget build(BuildContext context) {
-    final title = isDevice ? 'No Output Devices' : 'No Input Modules';
+    final title = isDevice ? 'No Devices' : 'No Input Modules';
     final description = isDevice
-        ? 'Install an output device plugin on your server to play music through '
-              'speakers, a DAC, or a network endpoint.'
+        ? 'Install a device plugin on your server to let Kalinka control your '
+              'playback hardware — power it on and off, adjust volume, and pause '
+              'playback when it turns off.'
         : 'Install an input module plugin on your server to stream music from '
               'sources like Qobuz, Jamendo, or your local library.';
     final icon = isDevice ? Icons.speaker_outlined : Icons.extension_outlined;
