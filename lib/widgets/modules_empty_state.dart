@@ -26,12 +26,15 @@ class ModulesEmptyState extends StatelessWidget {
     final icon = isDevice ? Icons.speaker_outlined : Icons.extension_outlined;
 
     // The icon sits above the text, so centring the whole group would push the
-    // text below the midline. Shift the group up by half the icon block (icon +
-    // gap) so the text lands on the vertical centre — this offset is exact
-    // regardless of how tall the text wraps.
+    // text below the midline. Bias the group upward with bottom padding so the
+    // text lands on the vertical centre with the icon just above it. A centred
+    // child shifts up by half its bottom padding, so padding == icon + gap
+    // moves the text block up by exactly half the icon block. Doing this in
+    // layout (rather than a transform) keeps the scroll view aware of the
+    // offset, so nothing is clipped on short viewports or large text scale.
     const iconSize = 100.0;
     const iconGap = 14.0;
-    const groupOffset = (iconSize + iconGap) / 2;
+    const bottomBias = iconSize + iconGap;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -40,8 +43,8 @@ class ModulesEmptyState extends StatelessWidget {
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: Center(
-              child: Transform.translate(
-                offset: const Offset(0, -groupOffset),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: bottomBias),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
