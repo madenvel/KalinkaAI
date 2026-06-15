@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../providers/connection_state_provider.dart';
 import '../providers/restart_provider.dart';
 import '../providers/settings_provider.dart';
 import '../data_model/presentation_schema.dart' show PageSpec;
 import '../theme/app_theme.dart';
+import '../widgets/connection_banner.dart';
 import '../widgets/kalinka_bottom_sheet.dart' show showKalinkaConfirmDialog;
 import '../widgets/kalinka_button.dart';
 import '../widgets/pending_changes_banner.dart';
@@ -85,6 +87,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   Widget build(BuildContext context) {
     final settingsState = ref.watch(settingsProvider);
     final expertMode = ref.watch(expertModeProvider);
+    final connectionState = ref.watch(connectionStateProvider);
+    final disconnected =
+        connectionState == ConnectionStatus.reconnecting ||
+        connectionState == ConnectionStatus.offline;
+
+    // Reload the settings once the connection comes back, so stale or
+    // half-loaded config from before the drop is replaced.
+    ref.listen<ConnectionStatus>(connectionStateProvider, (prev, next) {
+      if (next == ConnectionStatus.connected &&
+          (prev == ConnectionStatus.reconnecting ||
+              prev == ConnectionStatus.offline)) {
+        ref.read(settingsProvider.notifier).loadConfig();
+      }
+    });
 
     return Stack(
       children: [
@@ -97,79 +113,92 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 children: [
                   // Header (carries the Expert mode toggle on the right)
                   _buildHeader(),
-                  // Pending changes banner
-                  PendingChangesBanner(onApply: _onApply),
-                  // Tab bar — only meaningful in simple mode; expert is
-                  // a single flat about:config-style screen.
-                  if (!expertMode) _buildTabBar(settingsState.schema?.pages),
-                  // Loading / error state
-                  if (settingsState.isLoading)
-                    const Expanded(
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(
-                            KalinkaColors.accent,
+                  // Reconnecting / offline indicator — the same banner the
+                  // queue screen shows. Self-hides when connected.
+                  const ConnectionBanner(),
+                  if (disconnected)
+                    // Server unreachable: replace the apply bar, tab bar and
+                    // settings body with a placeholder. Settings reload
+                    // automatically once the connection returns (the
+                    // ref.listen above), swapping this back for the apply bar.
+                    _buildDisconnectedPlaceholder()
+                  else ...[
+                    // Pending changes banner — only actionable while
+                    // connected, since applying restarts the server.
+                    PendingChangesBanner(onApply: _onApply),
+                    // Tab bar — only meaningful in simple mode; expert is
+                    // a single flat about:config-style screen.
+                    if (!expertMode) _buildTabBar(settingsState.schema?.pages),
+                    // Loading / error state
+                    if (settingsState.isLoading)
+                      const Expanded(
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(
+                              KalinkaColors.accent,
+                            ),
                           ),
                         ),
-                      ),
-                    )
-                  else if (settingsState.error != null &&
-                      settingsState.schema == null)
-                    Expanded(
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: KalinkaColors.statusOffline,
-                              size: 32,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Could not load settings',
-                              style: KalinkaTextStyles.cardTitle,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              settingsState.error!,
-                              textAlign: TextAlign.center,
-                              style: KalinkaTextStyles.trayRowSublabel,
-                            ),
-                            const SizedBox(height: 16),
-                            KalinkaButton(
-                              label: 'Retry',
-                              variant: KalinkaButtonVariant.accent,
-                              size: KalinkaButtonSize.compact,
-                              onTap: () => ref
-                                  .read(settingsProvider.notifier)
-                                  .loadConfig(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else if (settingsState.schema != null)
-                    Expanded(
-                      child: expertMode
-                          ? const ExpertSettingsScreen()
-                          : IndexedStack(
-                              index: _tabIndex.clamp(
-                                0,
-                                settingsState.schema!.pages.length - 1,
+                      )
+                    else if (settingsState.error != null &&
+                        settingsState.schema == null)
+                      Expanded(
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: KalinkaColors.statusOffline,
+                                size: 32,
                               ),
-                              children: [
-                                for (final page in settingsState.schema!.pages)
-                                  SchemaPageRenderer(
-                                    key: ValueKey('page_${page.id}'),
-                                    page: page,
-                                  ),
-                              ],
-                            ),
-                    )
-                  else
-                    const Expanded(child: SizedBox.shrink()),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Could not load settings',
+                                style: KalinkaTextStyles.cardTitle,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                settingsState.error!,
+                                textAlign: TextAlign.center,
+                                style: KalinkaTextStyles.trayRowSublabel,
+                              ),
+                              const SizedBox(height: 16),
+                              KalinkaButton(
+                                label: 'Retry',
+                                variant: KalinkaButtonVariant.accent,
+                                size: KalinkaButtonSize.compact,
+                                onTap: () => ref
+                                    .read(settingsProvider.notifier)
+                                    .loadConfig(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else if (settingsState.schema != null)
+                      Expanded(
+                        child: expertMode
+                            ? const ExpertSettingsScreen()
+                            : IndexedStack(
+                                index: _tabIndex.clamp(
+                                  0,
+                                  settingsState.schema!.pages.length - 1,
+                                ),
+                                children: [
+                                  for (final page
+                                      in settingsState.schema!.pages)
+                                    SchemaPageRenderer(
+                                      key: ValueKey('page_${page.id}'),
+                                      page: page,
+                                    ),
+                                ],
+                              ),
+                      )
+                    else
+                      const Expanded(child: SizedBox.shrink()),
+                  ],
                 ],
               ),
             ),
@@ -297,6 +326,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     if (confirmed != true || !mounted) return;
     setState(() => _restartOverlayOpen = true);
     ref.read(restartProvider.notifier).executeRestart();
+  }
+
+  /// Shown in place of the settings body while the server is unreachable.
+  /// The [ConnectionBanner] above already explains the reconnecting/offline
+  /// state, so this stays a calm, minimal placeholder.
+  Widget _buildDisconnectedPlaceholder() {
+    return Expanded(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_outlined,
+              color: KalinkaColors.textSecondary,
+              size: 32,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Server not connected',
+              style: KalinkaTextStyles.cardTitle,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Settings will reload once the connection is restored.',
+              textAlign: TextAlign.center,
+              style: KalinkaTextStyles.trayRowSublabel,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildTabBar(List<PageSpec>? pages) {
