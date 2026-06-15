@@ -23,6 +23,7 @@ import 'settings_controls/settings_text_input.dart';
 import 'settings_controls/settings_toggle.dart';
 import 'settings_controls/settings_toggleable_section.dart';
 import 'settings_controls/warning_note.dart';
+import 'modules_empty_state.dart';
 
 // ---------------------------------------------------------------------------
 // Icons
@@ -725,8 +726,29 @@ class SchemaPageRenderer extends ConsumerWidget {
   final PageSpec page;
   const SchemaPageRenderer({super.key, required this.page});
 
+  /// True for the output-devices page. Page ids mirror the config paths
+  /// (`devices.*`), so a `device` substring identifies it.
+  bool get _isDevicePage =>
+      page.id.toLowerCase().contains('device') ||
+      page.title.toLowerCase().contains('device');
+
+  /// True for either plugin-backed page (input modules or output devices) —
+  /// the pages whose body is a list of installed plugins.
+  bool get _isPluginPage =>
+      _isDevicePage ||
+      page.id.toLowerCase().contains('module') ||
+      page.title.toLowerCase().contains('module');
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // A modules/devices page with nothing to show means the server has no
+    // plugins of that kind installed. Surface a dedicated empty state telling
+    // the user to install plugins rather than rendering a blank list. The
+    // General page (base_config) always carries sections, so it never trips
+    // this branch.
+    if (_isPluginPage && page.modules.isEmpty && page.sections.isEmpty) {
+      return ModulesEmptyState(isDevice: _isDevicePage);
+    }
     return ListView(
       padding: const EdgeInsets.only(bottom: 32),
       children: [
