@@ -1,0 +1,7 @@
+First feature release since the alpha:
+
+• First-run setup wizard (OOBE) and a one-time UI tour
+• Empty states for the Modules and Devices tabs when no plugins are installed
+• Settings screen now shows connection/reconnect state and reloads on reconnect
+• Tapping a recent search now shows the chosen term in the search bar
+• Illustrated in-app manual and setup guide
