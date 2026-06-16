@@ -56,14 +56,16 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
         searchState.librarySections != null ||
         searchState.recentlyFavourited.isNotEmpty;
 
-    // Structured shimmer while reconnecting (the disconnect window, always),
-    // or while the zero-state loads for the first time with nothing cached to
-    // show — reads as "refreshing" instead of an empty surface or a scatter
-    // of per-section spinners.
+    // Structured shimmer only when there's nothing cached to show yet — a cold
+    // first load, or a reconnect that lands before any content has loaded. When
+    // cached content exists it stays browsable through the reconnect (matching
+    // the search results) and refreshes underneath once reconnected, rather
+    // than being hidden behind this non-scrollable placeholder.
     final showShimmer =
-        connectionStatus == ConnectionStatus.reconnecting ||
-        ((searchState.isLoading || searchState.isZeroStateLoading) &&
-            !hasZeroStateContent);
+        (connectionStatus == ConnectionStatus.reconnecting ||
+                searchState.isLoading ||
+                searchState.isZeroStateLoading) &&
+            !hasZeroStateContent;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
