@@ -148,94 +148,11 @@ void main() {
     });
   });
 
-  group('error popup', () {
-    testWidgets('shows AlertDialog on transition to error', (tester) async {
-      final container = ProviderContainer(
-        overrides: _buildOverrides(queueState: PlayQueueState.empty),
-      );
-      addTearDown(container.dispose);
-
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(home: Scaffold(body: MiniPlayer())),
-        ),
-      );
-      await tester.pump();
-
-      expect(find.byType(AlertDialog), findsNothing);
-
-      (container.read(playQueueStateStoreProvider.notifier)
-              as _SettableQueueNotifier)
-          .emit(_queueWithState(
-        state: PlayerStateType.error,
-        message: 'Unsupported codec',
-      ));
-      await tester.pump();
-
-      expect(find.byType(AlertDialog), findsOneWidget);
-      expect(find.text('Unsupported codec'), findsOneWidget);
-    });
-
-    testWidgets('does not show dialog when already in error on first build',
-        (tester) async {
-      // Starting in error state is not a transition — no dialog.
-      final container = ProviderContainer(
-        overrides: _buildOverrides(
-          queueState: _queueWithState(
-            state: PlayerStateType.error,
-            message: 'Codec error',
-          ),
-        ),
-      );
-      addTearDown(container.dispose);
-
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(home: Scaffold(body: MiniPlayer())),
-        ),
-      );
-      await tester.pump();
-
-      expect(find.byType(AlertDialog), findsNothing);
-    });
-
-    testWidgets('shows new dialog when error message changes', (tester) async {
-      final container = ProviderContainer(
-        overrides: _buildOverrides(
-          queueState: _queueWithState(
-            state: PlayerStateType.error,
-            message: 'First error',
-          ),
-        ),
-      );
-      addTearDown(container.dispose);
-
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(home: Scaffold(body: MiniPlayer())),
-        ),
-      );
-      await tester.pump();
-
-      // No dialog for the initial state — not a transition.
-      expect(find.byType(AlertDialog), findsNothing);
-
-      // A second distinct error fires a dialog.
-      (container.read(playQueueStateStoreProvider.notifier)
-              as _SettableQueueNotifier)
-          .emit(_queueWithState(
-        state: PlayerStateType.error,
-        message: 'Second error',
-      ));
-      await tester.pump();
-
-      expect(find.byType(AlertDialog), findsOneWidget);
-      expect(find.text('Second error'), findsOneWidget);
-    });
-  });
+  // Note: the playback-error dialog moved out of MiniPlayer into
+  // MusicPlayerScreen (it must show in the tablet layout too, where the mini
+  // player isn't mounted). MiniPlayer now only surfaces the error as a warning
+  // icon (covered by 'play button icons' above); dialog behaviour is covered
+  // in playback_error_dialog_test.dart.
 
   group('offline dimming', () {
     testWidgets('content is dimmed when reconnecting', (tester) async {
