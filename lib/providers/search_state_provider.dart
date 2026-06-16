@@ -128,6 +128,11 @@ class SearchState {
   /// True while a scope-filtered list (favourites or playlists) is loading.
   final bool isScopedLoading;
 
+  /// True while the zero-state surface data (genre pills + recently
+  /// favourited) is loading. Combined with [isLoading] (Based on Now
+  /// Playing) it drives the structured zero-state shimmer.
+  final bool isZeroStateLoading;
+
   /// IDs of scoped favourite type sections the user expanded past the
   /// default visible limit.
   final Set<SearchType> scopedExpandedTypes;
@@ -165,6 +170,7 @@ class SearchState {
     this.scopedFavourites,
     this.scopedPlaylists,
     this.isScopedLoading = false,
+    this.isZeroStateLoading = false,
     this.scopedExpandedTypes = const {},
   });
 
@@ -226,6 +232,7 @@ class SearchState {
     BrowseItemsList? scopedPlaylists,
     bool clearScopedPlaylists = false,
     bool? isScopedLoading,
+    bool? isZeroStateLoading,
     Set<SearchType>? scopedExpandedTypes,
   }) {
     return SearchState(
@@ -282,6 +289,7 @@ class SearchState {
           ? null
           : (scopedPlaylists ?? this.scopedPlaylists),
       isScopedLoading: isScopedLoading ?? this.isScopedLoading,
+      isZeroStateLoading: isZeroStateLoading ?? this.isZeroStateLoading,
       scopedExpandedTypes: scopedExpandedTypes ?? this.scopedExpandedTypes,
     );
   }
@@ -336,8 +344,44 @@ class SearchStateNotifier extends Notifier<SearchState> {
           previous != ConnectionStatus.connected) {
         _cache.clear();
         _aiCache.clear();
+        _refreshAfterReconnect();
       }
     });
+  }
+
+  /// Re-fetch whatever the search surface is currently showing after a
+  /// reconnect. Clearing the caches above only helps the *next* query — the
+  /// data already painted on screen is a pre-outage snapshot (or a stuck
+  /// error/skeleton from a fetch that failed mid-outage) and must be pulled
+  /// again so the user isn't left looking at stale results.
+  void _refreshAfterReconnect() {
+    switch (state.searchPhase) {
+      case SearchPhase.inactive:
+        return; // surface closed — nothing visible to refresh
+      case SearchPhase.typing:
+      case SearchPhase.results:
+        // Active query on screen. performSearch routes to the scoped / AI /
+        // typed loader as appropriate and now reaches the server (the cache
+        // was just cleared).
+        if (state.query.trim().isNotEmpty) performSearch();
+      case SearchPhase.activated:
+      case SearchPhase.cleared:
+        // Zero-state — refresh each independently-loaded section.
+        final scope = state.activeScopeFilter;
+        if (scope == FilterPillType.favourites) {
+          _loadScopedFavourites(state.query.trim());
+        } else if (scope == FilterPillType.myPlaylists) {
+          _loadScopedPlaylists();
+        } else {
+          // "All" / genre view shows the "Based on Now Playing" rows.
+          _recommendationsForTrackId = null; // force reload despite same track
+          _loadBrowseRecommendations();
+        }
+        // Genre pills + recently-favourited back the always-visible filter
+        // row and the All/genre teaser, so refresh them in every zero-state.
+        _loadZeroStateData();
+        ref.read(indexerStatusProvider.notifier).refresh();
+    }
   }
 
   void toggle() {
@@ -577,6 +621,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
     final settings = ref.read(connectionSettingsProvider);
     if (!settings.isSet) return;
     final api = ref.read(kalinkaProxyProvider);
+    state = state.copyWith(isZeroStateLoading: true);
     try {
       final (genres, tracks, albums, artists, playlists) = await (
         api.getGenres(null),
@@ -613,9 +658,11 @@ class SearchStateNotifier extends Notifier<SearchState> {
       state = state.copyWith(
         genrePills: genres.items.take(4).toList(),
         recentlyFavourited: filtered,
+        isZeroStateLoading: false,
       );
     } catch (_) {
       // Non-critical — zero state still works without this data
+      state = state.copyWith(isZeroStateLoading: false);
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
+import '../providers/connection_state_provider.dart';
 import '../providers/indexer_status_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../theme/app_theme.dart';
@@ -9,6 +10,7 @@ import 'discover_section.dart';
 import 'indexer_status_banner.dart';
 import 'search_cards/browse_item_rows.dart';
 import 'search_cards/section_header.dart';
+import 'zero_state_shimmer.dart';
 
 /// Zero-state content surface shown when search is activated but no query
 /// has been typed. Comprises two layers:
@@ -45,6 +47,23 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
   @override
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchStateProvider);
+    final connectionStatus = ref.watch(connectionStateProvider);
+
+    // Cached zero-state content already on hand. These fields persist across
+    // open/close, so on a re-open we show them instantly and let the refresh
+    // happen underneath rather than shimmering over data we already have.
+    final hasZeroStateContent =
+        searchState.librarySections != null ||
+        searchState.recentlyFavourited.isNotEmpty;
+
+    // Structured shimmer while reconnecting (the disconnect window, always),
+    // or while the zero-state loads for the first time with nothing cached to
+    // show — reads as "refreshing" instead of an empty surface or a scatter
+    // of per-section spinners.
+    final showShimmer =
+        connectionStatus == ConnectionStatus.reconnecting ||
+        ((searchState.isLoading || searchState.isZeroStateLoading) &&
+            !hasZeroStateContent);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -62,19 +81,25 @@ class _ZeroStateSurfaceState extends ConsumerState<ZeroStateSurface>
         // poll loop doesn't churn the rest of the surface.
         if (searchState.isAiEnabled) const _IndexerStatusGate(),
 
-        // Layer 2 — Scrollable content (recent chips are first section inside)
+        // Layer 2 — Scrollable content (recent chips are first section inside).
+        // Snaps between shimmer and content rather than cross-fading: the two
+        // share no scroll controller, and the file already favours snapping
+        // over per-frame animation to avoid jank (see _AnimatedSection).
         Expanded(
-          child: _ZeroStateContent(
-            searchState: searchState,
-            scrollController: _scrollController,
-            staggerController: _staggerController,
-            onAiTap: (prompt) =>
-                ref.read(searchStateProvider.notifier).reExecuteQuery(prompt),
-            onSectionExpand: (id) => ref
-                .read(searchStateProvider.notifier)
-                .toggleLibrarySectionExpanded(id),
-            onHistoryChanged: () => setState(() {}),
-          ),
+          child: showShimmer
+              ? const ZeroStateShimmer()
+              : _ZeroStateContent(
+                  searchState: searchState,
+                  scrollController: _scrollController,
+                  staggerController: _staggerController,
+                  onAiTap: (prompt) => ref
+                      .read(searchStateProvider.notifier)
+                      .reExecuteQuery(prompt),
+                  onSectionExpand: (id) => ref
+                      .read(searchStateProvider.notifier)
+                      .toggleLibrarySectionExpanded(id),
+                  onHistoryChanged: () => setState(() {}),
+                ),
         ),
       ],
     );
@@ -449,11 +474,11 @@ class _ZeroStateContent extends ConsumerWidget {
           ),
         ),
 
-        // BASED ON NOW PLAYING
+        // BASED ON NOW PLAYING — pops in once its rows have loaded. The
+        // zero-state shimmer covers the initial load, so there's no inline
+        // spinner and no orphaned header while it's still fetching.
         _AnimatedSection(
-          visible:
-              showNowPlaying &&
-              (searchState.isLoading || librarySections?.isNotEmpty == true),
+          visible: showNowPlaying && librarySections?.isNotEmpty == true,
           child: _BasedOnNowPlayingSection(
             searchState: searchState,
             staggerController: staggerController,
@@ -546,22 +571,10 @@ class _BasedOnNowPlayingSection extends StatelessWidget {
       children: [
         const SizedBox(height: 12),
         Text('BASED ON NOW PLAYING', style: KalinkaTextStyles.sectionLabel),
+        // No inline spinner: the zero-state shimmer covers the initial load,
+        // and this section is only rendered once its rows exist.
         if (librarySections != null)
-          ..._buildSections(librarySections, expandedSectionIds)
-        else if (searchState.isLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: KalinkaColors.accent,
-                ),
-              ),
-            ),
-          ),
+          ..._buildSections(librarySections, expandedSectionIds),
       ],
     );
   }
