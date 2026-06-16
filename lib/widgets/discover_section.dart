@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
+import '../providers/connection_state_provider.dart';
 import '../providers/discover_provider.dart';
 import '../theme/app_theme.dart';
 import 'search_cards/browse_item_rows.dart';
@@ -15,6 +16,18 @@ class DiscoverSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Discover shelves are plain FutureProviders that cache their result (or
+    // error) indefinitely. After a reconnect, drop those snapshots so the
+    // shelves re-fetch instead of showing pre-outage data — or a stuck error
+    // from a fetch that failed during the outage.
+    ref.listen(connectionStateProvider, (prev, next) {
+      if (next == ConnectionStatus.connected &&
+          prev != ConnectionStatus.connected) {
+        ref.invalidate(discoverShelfPlansProvider);
+        ref.invalidate(discoverShelfItemsProvider); // family → all shelves
+      }
+    });
+
     final plansAsync = ref.watch(discoverShelfPlansProvider);
 
     return plansAsync.when(

@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
-import '../providers/connection_state_provider.dart';
 import '../providers/search_state_provider.dart';
 import '../providers/selection_state_provider.dart';
 import '../providers/indexer_status_provider.dart';
@@ -88,11 +87,11 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchStateProvider);
     final selection = ref.watch(selectionStateProvider);
-    final connectionStatus = ref.watch(connectionStateProvider);
-    final isOffline =
-        connectionStatus == ConnectionStatus.none ||
-        connectionStatus == ConnectionStatus.reconnecting ||
-        connectionStatus == ConnectionStatus.offline;
+
+    // Connection state no longer gates this feed: cached content stays live
+    // and browsable through reconnects and outages alike. The reconnect
+    // banner and the escalation card (above the mini-player) are the sole
+    // connection-state UI — the surface isn't greyed out or replaced.
 
     // Reset scroll on filter change
     if (searchState.resultsFilter != _previousFilter) {
@@ -162,39 +161,31 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         content = _buildSessionHistory(searchState);
     }
 
-    return IgnorePointer(
-      ignoring: isOffline,
-      child: AnimatedOpacity(
-        opacity: isOffline ? 0.38 : 1.0,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        child: Stack(
-          children: [
-            NotificationListener<ScrollNotification>(
-              onNotification: _onScrollNotification,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeOut,
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(opacity: animation, child: child);
-                },
-                child: KeyedSubtree(
-                  key: ValueKey(searchState.searchPhase),
-                  child: content,
-                ),
-              ),
+    return Stack(
+      children: [
+        NotificationListener<ScrollNotification>(
+          onNotification: _onScrollNotification,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeOut,
+            transitionBuilder: (child, animation) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            child: KeyedSubtree(
+              key: ValueKey(searchState.searchPhase),
+              child: content,
             ),
-            if (selection.isActive)
-              const Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: MultiSelectBottomBar(),
-              ),
-          ],
+          ),
         ),
-      ),
+        if (selection.isActive)
+          const Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: MultiSelectBottomBar(),
+          ),
+      ],
     );
   }
 
