@@ -231,6 +231,7 @@ Widget buildFieldControl({
       return SettingsNumericInput(
         value: value is num ? value : 0,
         onChanged: onChanged,
+        unit: field.constraints?.unit,
         // Match the surrounding controls (text, dropdown) when the
         // row gives us its full width.
         width: compact ? 80 : double.infinity,
