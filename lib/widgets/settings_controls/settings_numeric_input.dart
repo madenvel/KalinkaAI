@@ -12,12 +12,16 @@ class SettingsNumericInput extends StatefulWidget {
   final num value;
   final ValueChanged<num> onChanged;
   final double width;
+  // Optional unit label (e.g. "s", "min", "ms") rendered to the right of
+  // the input box. Sourced from the field's constraints.unit.
+  final String? unit;
 
   const SettingsNumericInput({
     super.key,
     required this.value,
     required this.onChanged,
     this.width = 80,
+    this.unit,
   });
 
   @override
@@ -95,39 +99,58 @@ class _SettingsNumericInputState extends State<SettingsNumericInput> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: widget.width,
-      child: Container(
-        decoration: BoxDecoration(
-          color: KalinkaColors.surfaceElevated,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: KalinkaColors.borderDefault),
-        ),
-        child: TextField(
-          controller: _controller,
-          focusNode: _focusNode,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          textAlign: TextAlign.right,
-          textInputAction: TextInputAction.done,
-          style: KalinkaTextStyles.searchBarInput.copyWith(
-            fontSize: KalinkaTypography.baseSize + 2,
-          ),
-          decoration: InputDecoration(
-            border: InputBorder.none,
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(7),
-              borderSide: const BorderSide(color: Color(0x55FFFFFF)),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 7,
-            ),
-            isDense: true,
-          ),
-          onSubmitted: (_) => _commitIfChanged(),
-          onEditingComplete: _commitIfChanged,
-        ),
+    final box = Container(
+      decoration: BoxDecoration(
+        color: KalinkaColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: KalinkaColors.borderDefault),
       ),
+      child: TextField(
+        controller: _controller,
+        focusNode: _focusNode,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        textAlign: TextAlign.right,
+        textInputAction: TextInputAction.done,
+        style: KalinkaTextStyles.searchBarInput.copyWith(
+          fontSize: KalinkaTypography.baseSize + 2,
+        ),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(7),
+            borderSide: const BorderSide(color: Color(0x55FFFFFF)),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 7,
+          ),
+          isDense: true,
+        ),
+        onSubmitted: (_) => _commitIfChanged(),
+        onEditingComplete: _commitIfChanged,
+      ),
+    );
+
+    final unit = widget.unit;
+    if (unit == null || unit.isEmpty) {
+      return SizedBox(width: widget.width, child: box);
+    }
+
+    // Append the unit to the right of the box. The box keeps its intrinsic
+    // width when finite (compact rows); on the full-width expert layout it
+    // flexes so the unit label stays pinned beside it.
+    final unitLabel = Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Text(unit, style: KalinkaTextStyles.trayRowSublabel),
+    );
+    return Row(
+      mainAxisSize: widget.width.isFinite ? MainAxisSize.min : MainAxisSize.max,
+      children: [
+        widget.width.isFinite
+            ? SizedBox(width: widget.width, child: box)
+            : Expanded(child: box),
+        unitLabel,
+      ],
     );
   }
 }
