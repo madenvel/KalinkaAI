@@ -184,10 +184,23 @@ class MultiSelectBottomBar extends ConsumerWidget {
   }
 }
 
+/// Resolves the InkWell overlay used across the batch bar: a subtle wash on
+/// hover, a stronger accent wash on press. Matches the app's other InkWell
+/// buttons (see KalinkaButton).
+WidgetStateProperty<Color?> _batchOverlay() =>
+    WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.pressed)) {
+        return KalinkaColors.accent.withValues(alpha: 0.20);
+      }
+      if (states.contains(WidgetState.hovered)) {
+        return Colors.white.withValues(alpha: 0.07);
+      }
+      return null;
+    });
+
 /// One of the three primary batch-action buttons (Play now / Play next / Add to
-/// queue). Adds hover (desktop) and pressed feedback the plain GestureDetector
-/// lacked; passing a null [onTap] renders it disabled.
-class _BatchActionButton extends StatefulWidget {
+/// queue). A null [onTap] renders it disabled.
+class _BatchActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
@@ -199,64 +212,29 @@ class _BatchActionButton extends StatefulWidget {
   });
 
   @override
-  State<_BatchActionButton> createState() => _BatchActionButtonState();
-}
-
-class _BatchActionButtonState extends State<_BatchActionButton> {
-  bool _hovered = false;
-  bool _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    final enabled = widget.onTap != null;
+    final enabled = onTap != null;
     final fg = enabled ? KalinkaColors.textPrimary : KalinkaColors.textMuted;
-
-    final Color bg;
-    final Color border;
-    if (!enabled) {
-      bg = KalinkaColors.surfaceElevated;
-      border = KalinkaColors.borderDefault;
-    } else if (_pressed) {
-      bg = KalinkaColors.accent.withValues(alpha: 0.22);
-      border = KalinkaColors.accent;
-    } else if (_hovered) {
-      bg = KalinkaColors.surfaceRaised;
-      border = KalinkaColors.accentTint.withValues(alpha: 0.5);
-    } else {
-      bg = KalinkaColors.surfaceElevated;
-      border = KalinkaColors.borderDefault;
-    }
-
-    return MouseRegion(
-      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: enabled ? (_) => setState(() => _hovered = true) : null,
-      onExit: (_) => setState(() {
-        _hovered = false;
-        _pressed = false;
-      }),
-      child: GestureDetector(
-        onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
-        onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
-        onTapCancel: enabled ? () => setState(() => _pressed = false) : null,
-        onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _pressed ? 0.97 : 1.0,
-          duration: const Duration(milliseconds: 90),
-          curve: Curves.easeOut,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.5,
+      child: Material(
+        color: KalinkaColors.surfaceElevated,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: KalinkaColors.borderDefault),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          overlayColor: _batchOverlay(),
+          child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              color: bg,
-              border: Border.all(color: border, width: 1),
-            ),
             child: Column(
               children: [
-                Icon(widget.icon, size: 16, color: fg),
+                Icon(icon, size: 16, color: fg),
                 const SizedBox(height: 2),
                 Text(
-                  widget.label,
+                  label,
                   style: KalinkaFonts.sans(
                     fontSize: KalinkaTypography.baseSize + 2,
                     fontWeight: FontWeight.w600,
@@ -274,50 +252,25 @@ class _BatchActionButtonState extends State<_BatchActionButton> {
 
 /// Labelled Cancel chip with the same hover/pressed feedback as the action
 /// buttons.
-class _CancelChip extends StatefulWidget {
+class _CancelChip extends StatelessWidget {
   final VoidCallback onTap;
 
   const _CancelChip({required this.onTap});
 
   @override
-  State<_CancelChip> createState() => _CancelChipState();
-}
-
-class _CancelChipState extends State<_CancelChip> {
-  bool _hovered = false;
-  bool _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    final highlighted = _hovered || _pressed;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() {
-        _hovered = false;
-        _pressed = false;
-      }),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTapCancel: () => setState(() => _pressed = false),
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
+    return Material(
+      color: KalinkaColors.surfaceElevated,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: KalinkaColors.borderDefault),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        overlayColor: _batchOverlay(),
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: highlighted
-                ? KalinkaColors.surfaceRaised
-                : KalinkaColors.surfaceElevated,
-            border: Border.all(
-              color: _pressed
-                  ? KalinkaColors.accentTint.withValues(alpha: 0.5)
-                  : KalinkaColors.borderDefault,
-              width: 1,
-            ),
-          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
