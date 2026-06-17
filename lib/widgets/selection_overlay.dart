@@ -275,7 +275,10 @@ class MultiSelectBottomBar extends ConsumerWidget {
     try {
       await api.clear();
       await api.add(ids);
-      await api.play();
+      // Always start from the first track. Passing an explicit index avoids a
+      // backend race where a stale FINISHED event from the just-cleared stream
+      // auto-advances current_track_id, making index-less play() skip track 0.
+      await api.play(0);
       if (!context.mounted) return;
       selectionNotifier.exitSelectionMode();
       showToastIfMounted(context, ref, 'Playing ${selection.count} tracks');
