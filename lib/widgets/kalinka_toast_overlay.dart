@@ -43,7 +43,14 @@ class KalinkaToastOverlay extends ConsumerWidget {
               isTablet ? 0 : 16,
               4,
             ),
-            child: _ToastCard(entry: toast),
+            // Compact (queue-activity) toasts sit as a right-aligned pill above
+            // the mini player; regular toasts stretch full width on phone.
+            child: toast.compact && !isTablet
+                ? Align(
+                    alignment: Alignment.centerRight,
+                    child: _ToastCard(entry: toast),
+                  )
+                : _ToastCard(entry: toast),
           ),
         SizedBox(height: bottomPadding),
       ],
@@ -121,17 +128,29 @@ class _ToastCardState extends State<_ToastCard>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Status dot
-              Container(
-                width: 5,
-                height: 5,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.entry.isError
-                      ? KalinkaColors.statusOffline
-                      : KalinkaColors.statusOnline,
+              // Leading indicator: spinner while loading, otherwise a status dot.
+              if (widget.entry.isLoading)
+                const SizedBox(
+                  width: 13,
+                  height: 13,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.8,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      KalinkaColors.accentTint,
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.entry.isError
+                        ? KalinkaColors.statusOffline
+                        : KalinkaColors.statusOnline,
+                  ),
                 ),
-              ),
               const SizedBox(width: 10),
               // Message
               Flexible(

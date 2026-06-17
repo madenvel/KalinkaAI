@@ -57,47 +57,13 @@ class MultiSelectBottomBar extends ConsumerWidget {
                         style: KalinkaTextStyles.batchBarLabel,
                       ),
                       const Spacer(),
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
+                      _CancelChip(
                         onTap: () {
                           KalinkaHaptics.lightImpact();
                           ref
                               .read(selectionStateProvider.notifier)
                               .exitSelectionMode();
                         },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 7,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: KalinkaColors.surfaceElevated,
-                            border: Border.all(
-                              color: KalinkaColors.borderDefault,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.close,
-                                size: 15,
-                                color: KalinkaColors.textSecondary,
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                'Cancel',
-                                style: KalinkaFonts.sans(
-                                  fontSize: KalinkaTypography.baseSize + 1,
-                                  fontWeight: FontWeight.w600,
-                                  color: KalinkaColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -105,126 +71,42 @@ class MultiSelectBottomBar extends ConsumerWidget {
                 // Three buttons: Play now | Play next | Add to queue
                 Row(
                   children: [
-                    // Play now
                     Expanded(
-                      child: GestureDetector(
+                      child: _BatchActionButton(
+                        icon: Icons.play_arrow,
+                        label: 'Play now',
                         onTap: selection.count > 0
                             ? () {
                                 KalinkaHaptics.mediumImpact();
-                                _playNow(context, ref, selection);
+                                _playNow(ref, selection);
                               }
                             : null,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            color: KalinkaColors.surfaceElevated,
-                            border: Border.all(
-                              color: KalinkaColors.borderDefault,
-                              width: 1,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.play_arrow,
-                                size: 16,
-                                color: KalinkaColors.textPrimary,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Play now',
-                                style: KalinkaFonts.sans(
-                                  fontSize: KalinkaTypography.baseSize + 2,
-                                  fontWeight: FontWeight.w600,
-                                  color: KalinkaColors.textPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Play next
                     Expanded(
-                      child: GestureDetector(
+                      child: _BatchActionButton(
+                        icon: Icons.arrow_upward,
+                        label: 'Play next',
                         onTap: selection.count > 0
                             ? () {
                                 KalinkaHaptics.mediumImpact();
-                                _playNext(context, ref, selection);
+                                _playNext(ref, selection);
                               }
                             : null,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            color: KalinkaColors.surfaceElevated,
-                            border: Border.all(
-                              color: KalinkaColors.borderDefault,
-                              width: 1,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.arrow_upward,
-                                size: 16,
-                                color: KalinkaColors.textPrimary,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Play next',
-                                style: KalinkaFonts.sans(
-                                  fontSize: KalinkaTypography.baseSize + 2,
-                                  fontWeight: FontWeight.w600,
-                                  color: KalinkaColors.textPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Add to queue
                     Expanded(
-                      child: GestureDetector(
+                      child: _BatchActionButton(
+                        icon: Icons.playlist_add,
+                        label: 'Add to queue',
                         onTap: selection.count > 0
                             ? () {
                                 KalinkaHaptics.mediumImpact();
-                                _appendToQueue(context, ref, selection);
+                                _appendToQueue(ref, selection);
                               }
                             : null,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            color: KalinkaColors.surfaceElevated,
-                            border: Border.all(
-                              color: KalinkaColors.borderDefault,
-                              width: 1,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.playlist_add,
-                                size: 16,
-                                color: KalinkaColors.textPrimary,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Add to queue',
-                                style: KalinkaFonts.sans(
-                                  fontSize: KalinkaTypography.baseSize + 2,
-                                  fontWeight: FontWeight.w600,
-                                  color: KalinkaColors.textPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
                     ),
                   ],
@@ -237,88 +119,226 @@ class MultiSelectBottomBar extends ConsumerWidget {
     );
   }
 
-  Future<void> _appendToQueue(
-    BuildContext context,
-    WidgetRef ref,
-    SelectionState selection,
-  ) async {
+  // All three actions dismiss the panel immediately and report progress via the
+  // shared queue-activity spinner (which morphs into the result and survives
+  // concurrent adds), so a large add never leaves the user staring at an
+  // unresponsive panel. selection is a snapshot captured at tap time, so its
+  // count is still valid after exitSelectionMode() as a fallback.
+
+  Future<void> _appendToQueue(WidgetRef ref, SelectionState selection) async {
     final api = ref.read(kalinkaProxyProvider);
+    final toast = ref.read(toastProvider.notifier);
     final selectionNotifier = ref.read(selectionStateProvider.notifier);
     final ids = selectionNotifier.resolveIdsForApi();
+    selectionNotifier.exitSelectionMode();
+    toast.beginQueueActivity('Adding to queue…');
     try {
       // Prefer the server's expanded track count over selection.count, which
       // counts a whole album/playlist as a single item.
       final added = await api.add(ids);
-      if (!context.mounted) return;
-      selectionNotifier.exitSelectionMode();
       final n = added.count ?? selection.count;
-      showToastIfMounted(
-        context,
-        ref,
+      toast.endQueueActivity(
         '$n ${n == 1 ? 'track' : 'tracks'} added to queue',
       );
     } catch (e) {
-      showToastIfMounted(
-        context,
-        ref,
-        'Failed to add to queue: $e',
-        isError: true,
-      );
+      toast.endQueueActivity('Failed to add to queue: $e', isError: true);
     }
   }
 
-  Future<void> _playNow(
-    BuildContext context,
-    WidgetRef ref,
-    SelectionState selection,
-  ) async {
+  Future<void> _playNow(WidgetRef ref, SelectionState selection) async {
     final api = ref.read(kalinkaProxyProvider);
+    final toast = ref.read(toastProvider.notifier);
     final selectionNotifier = ref.read(selectionStateProvider.notifier);
     final ids = selectionNotifier.resolveIdsForApi();
+    selectionNotifier.exitSelectionMode();
+    toast.beginQueueActivity('Starting playback…');
     try {
       await api.clear();
-      // The server expands albums/playlists and reports the real track count,
-      // so prefer it over selection.count (which counts a whole album as 1).
       final added = await api.add(ids);
       // Always start from the first track. Passing an explicit index avoids a
       // backend race where a stale FINISHED event from the just-cleared stream
       // auto-advances current_track_id, making index-less play() skip track 0.
       await api.play(0);
-      if (!context.mounted) return;
-      selectionNotifier.exitSelectionMode();
       final n = added.count ?? selection.count;
-      showToastIfMounted(
-        context,
-        ref,
-        'Playing $n ${n == 1 ? 'track' : 'tracks'}',
-      );
+      toast.endQueueActivity('Playing $n ${n == 1 ? 'track' : 'tracks'}');
     } catch (e) {
-      showToastIfMounted(context, ref, 'Failed to play: $e', isError: true);
+      toast.endQueueActivity('Failed to play: $e', isError: true);
     }
   }
 
-  Future<void> _playNext(
-    BuildContext context,
-    WidgetRef ref,
-    SelectionState selection,
-  ) async {
+  Future<void> _playNext(WidgetRef ref, SelectionState selection) async {
     final api = ref.read(kalinkaProxyProvider);
+    final toast = ref.read(toastProvider.notifier);
     final selectionNotifier = ref.read(selectionStateProvider.notifier);
     final ids = selectionNotifier.resolveIdsForApi();
+    final insertIndex = playNextInsertIndex(ref);
+    selectionNotifier.exitSelectionMode();
+    toast.beginQueueActivity('Queueing next…');
     try {
-      // Prefer the server's expanded track count over selection.count, which
-      // counts a whole album/playlist as a single item.
-      final added = await api.add(ids, index: playNextInsertIndex(ref));
-      if (!context.mounted) return;
-      selectionNotifier.exitSelectionMode();
+      final added = await api.add(ids, index: insertIndex);
       final n = added.count ?? selection.count;
-      showToastIfMounted(
-        context,
-        ref,
-        '$n ${n == 1 ? 'track' : 'tracks'} playing next',
-      );
+      toast.endQueueActivity('$n ${n == 1 ? 'track' : 'tracks'} playing next');
     } catch (e) {
-      showToastIfMounted(context, ref, 'Failed to add: $e', isError: true);
+      toast.endQueueActivity('Failed to add: $e', isError: true);
     }
+  }
+}
+
+/// One of the three primary batch-action buttons (Play now / Play next / Add to
+/// queue). Adds hover (desktop) and pressed feedback the plain GestureDetector
+/// lacked; passing a null [onTap] renders it disabled.
+class _BatchActionButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  const _BatchActionButton({
+    required this.icon,
+    required this.label,
+    this.onTap,
+  });
+
+  @override
+  State<_BatchActionButton> createState() => _BatchActionButtonState();
+}
+
+class _BatchActionButtonState extends State<_BatchActionButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    final fg = enabled ? KalinkaColors.textPrimary : KalinkaColors.textMuted;
+
+    final Color bg;
+    final Color border;
+    if (!enabled) {
+      bg = KalinkaColors.surfaceElevated;
+      border = KalinkaColors.borderDefault;
+    } else if (_pressed) {
+      bg = KalinkaColors.accent.withValues(alpha: 0.22);
+      border = KalinkaColors.accent;
+    } else if (_hovered) {
+      bg = KalinkaColors.surfaceRaised;
+      border = KalinkaColors.accentTint.withValues(alpha: 0.5);
+    } else {
+      bg = KalinkaColors.surfaceElevated;
+      border = KalinkaColors.borderDefault;
+    }
+
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: enabled ? (_) => setState(() => _hovered = true) : null,
+      onExit: (_) => setState(() {
+        _hovered = false;
+        _pressed = false;
+      }),
+      child: GestureDetector(
+        onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
+        onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
+        onTapCancel: enabled ? () => setState(() => _pressed = false) : null,
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _pressed ? 0.97 : 1.0,
+          duration: const Duration(milliseconds: 90),
+          curve: Curves.easeOut,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: bg,
+              border: Border.all(color: border, width: 1),
+            ),
+            child: Column(
+              children: [
+                Icon(widget.icon, size: 16, color: fg),
+                const SizedBox(height: 2),
+                Text(
+                  widget.label,
+                  style: KalinkaFonts.sans(
+                    fontSize: KalinkaTypography.baseSize + 2,
+                    fontWeight: FontWeight.w600,
+                    color: fg,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Labelled Cancel chip with the same hover/pressed feedback as the action
+/// buttons.
+class _CancelChip extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const _CancelChip({required this.onTap});
+
+  @override
+  State<_CancelChip> createState() => _CancelChipState();
+}
+
+class _CancelChipState extends State<_CancelChip> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final highlighted = _hovered || _pressed;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() {
+        _hovered = false;
+        _pressed = false;
+      }),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: highlighted
+                ? KalinkaColors.surfaceRaised
+                : KalinkaColors.surfaceElevated,
+            border: Border.all(
+              color: _pressed
+                  ? KalinkaColors.accentTint.withValues(alpha: 0.5)
+                  : KalinkaColors.borderDefault,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.close,
+                size: 15,
+                color: KalinkaColors.textSecondary,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'Cancel',
+                style: KalinkaFonts.sans(
+                  fontSize: KalinkaTypography.baseSize + 1,
+                  fontWeight: FontWeight.w600,
+                  color: KalinkaColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

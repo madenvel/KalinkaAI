@@ -47,24 +47,29 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
   Future<void> _addToQueue() async {
     final api = ref.read(kalinkaProxyProvider);
     final title = widget.item.playlist?.name ?? widget.item.name ?? 'playlist';
-    final trackCount = widget.item.playlist?.trackCount;
-    try {
-      await api.add([widget.item.id]);
-      showSafeToast('$title — ${trackCount ?? ''} tracks added to queue');
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    await runQueueActivity(
+      pending: 'Adding to queue…',
+      action: () => api.add([widget.item.id]),
+      done: (r) {
+        final n = r.count ?? widget.item.playlist?.trackCount;
+        return n != null
+            ? '$title — $n ${n == 1 ? 'track' : 'tracks'} added to queue'
+            : '$title added to queue';
+      },
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   Future<void> _playNext() async {
     final api = ref.read(kalinkaProxyProvider);
     final title = widget.item.playlist?.name ?? widget.item.name ?? 'playlist';
-    try {
-      await api.add([widget.item.id], index: playNextInsertIndex(ref));
-      showSafeToast('$title playing next');
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    final insertIndex = playNextInsertIndex(ref);
+    await runQueueActivity(
+      pending: 'Queueing next…',
+      action: () => api.add([widget.item.id], index: insertIndex),
+      done: (_) => '$title playing next',
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   void _startLongPress() {
@@ -479,23 +484,24 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack>
   Future<void> _addToQueue() async {
     final api = ref.read(kalinkaProxyProvider);
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-    try {
-      await api.add([widget.item.id]);
-      showSafeToast('"$title" added to queue');
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    await runQueueActivity(
+      pending: 'Adding to queue…',
+      action: () => api.add([widget.item.id]),
+      done: (_) => '"$title" added to queue',
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   Future<void> _playNext() async {
     final api = ref.read(kalinkaProxyProvider);
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-    try {
-      await api.add([widget.item.id], index: playNextInsertIndex(ref));
-      showSafeToast('"$title" playing next');
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    final insertIndex = playNextInsertIndex(ref);
+    await runQueueActivity(
+      pending: 'Queueing next…',
+      action: () => api.add([widget.item.id], index: insertIndex),
+      done: (_) => '"$title" playing next',
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   void _startLongPress() {

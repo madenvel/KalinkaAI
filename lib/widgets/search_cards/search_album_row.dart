@@ -47,24 +47,29 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
   Future<void> _addToQueue() async {
     final api = ref.read(kalinkaProxyProvider);
     final name = widget.item.album?.title ?? widget.item.name ?? 'album';
-    final trackCount = widget.item.album?.trackCount;
-    try {
-      await api.add([widget.item.id]);
-      showSafeToast('$name — ${trackCount ?? ''} tracks added to queue');
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    await runQueueActivity(
+      pending: 'Adding to queue…',
+      action: () => api.add([widget.item.id]),
+      done: (r) {
+        final n = r.count ?? widget.item.album?.trackCount;
+        return n != null
+            ? '$name — $n ${n == 1 ? 'track' : 'tracks'} added to queue'
+            : '$name added to queue';
+      },
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   Future<void> _playNext() async {
     final api = ref.read(kalinkaProxyProvider);
     final name = widget.item.album?.title ?? widget.item.name ?? 'album';
-    try {
-      await api.add([widget.item.id], index: playNextInsertIndex(ref));
-      showSafeToast('$name playing next');
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    final insertIndex = playNextInsertIndex(ref);
+    await runQueueActivity(
+      pending: 'Queueing next…',
+      action: () => api.add([widget.item.id], index: insertIndex),
+      done: (_) => '$name playing next',
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   // --- Row long-press (multi-select) ---
@@ -110,8 +115,11 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
 
   @override
   Widget build(BuildContext context) {
-    final isExpanded = ref.watch(searchStateProvider
-        .select((s) => s.expandedAlbumIds.contains(widget.item.id)));
+    final isExpanded = ref.watch(
+      searchStateProvider.select(
+        (s) => s.expandedAlbumIds.contains(widget.item.id),
+      ),
+    );
 
     final selection = ref.watch(selectionStateProvider);
     final selectionMode = selection.isActive;
@@ -132,7 +140,8 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
 
     final subtitleParts = <String>[
       if (artist.isNotEmpty) artist,
-      if (trackCount != null) '$trackCount ${trackCount == 1 ? 'track' : 'tracks'}',
+      if (trackCount != null)
+        '$trackCount ${trackCount == 1 ? 'track' : 'tracks'}',
     ];
     final subtitle = subtitleParts.join(' \u00B7 ');
 
@@ -160,7 +169,8 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               padding: EdgeInsets.only(
-                top: 8, bottom: 8,
+                top: 8,
+                bottom: 8,
                 left: isExpanded || (selectionMode && isSelected) ? 0 : 3,
                 right: 0,
               ),
@@ -168,20 +178,20 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow> {
                 color: selectionMode && isSelected
                     ? KalinkaColors.accent.withValues(alpha: 0.07)
                     : isExpanded
-                        ? KalinkaColors.surfaceRaised
-                        : Colors.transparent,
+                    ? KalinkaColors.surfaceRaised
+                    : Colors.transparent,
                 border: selectionMode && isSelected
                     ? const Border(
                         left: BorderSide(color: KalinkaColors.accent, width: 3),
                       )
                     : isExpanded
-                        ? Border(
-                            left: BorderSide(
-                              color: KalinkaColors.accent.withValues(alpha: 0.40),
-                              width: 3,
-                            ),
-                          )
-                        : null,
+                    ? Border(
+                        left: BorderSide(
+                          color: KalinkaColors.accent.withValues(alpha: 0.40),
+                          width: 3,
+                        ),
+                      )
+                    : null,
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -358,33 +368,33 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
     final tracksAsync = ref.watch(browseDetailProvider(albumId));
 
     return tracksAsync.when(
-        data: (browseList) {
-          final tracks = browseList.items
-              .where((item) => item.track != null)
-              .toList();
+      data: (browseList) {
+        final tracks = browseList.items
+            .where((item) => item.track != null)
+            .toList();
 
-          if (tracks.isEmpty) {
-            return _buildTrackList(browseList.items, ref);
-          }
-          return _buildTrackList(tracks, ref);
-        },
-        loading: () => const Padding(
-          padding: EdgeInsets.all(16),
-          child: Center(
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+        if (tracks.isEmpty) {
+          return _buildTrackList(browseList.items, ref);
+        }
+        return _buildTrackList(tracks, ref);
+      },
+      loading: () => const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
           ),
         ),
-        error: (e, _) => Padding(
-          padding: const EdgeInsets.all(12),
-          child: Text(
-            'Failed to load tracks',
-            style: KalinkaTextStyles.trackRowSubtitle,
-          ),
+      ),
+      error: (e, _) => Padding(
+        padding: const EdgeInsets.all(12),
+        child: Text(
+          'Failed to load tracks',
+          style: KalinkaTextStyles.trackRowSubtitle,
         ),
+      ),
     );
   }
 
@@ -501,23 +511,24 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow>
   Future<void> _addToQueue() async {
     final api = ref.read(kalinkaProxyProvider);
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-    try {
-      await api.add([widget.item.id]);
-      showSafeToast('"$title" added to queue');
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    await runQueueActivity(
+      pending: 'Adding to queue…',
+      action: () => api.add([widget.item.id]),
+      done: (_) => '"$title" added to queue',
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   Future<void> _playNext() async {
     final api = ref.read(kalinkaProxyProvider);
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-    try {
-      await api.add([widget.item.id], index: playNextInsertIndex(ref));
-      showSafeToast('"$title" playing next');
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    final insertIndex = playNextInsertIndex(ref);
+    await runQueueActivity(
+      pending: 'Queueing next…',
+      action: () => api.add([widget.item.id], index: insertIndex),
+      done: (_) => '"$title" playing next',
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   void _startLongPress() {
@@ -575,28 +586,28 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow>
 
     // Now-playing detection — scope the watch so we don't rebuild on every
     // position tick (PlaybackState.position updates frequently while playing).
-    final currentTrackId =
-        ref.watch(playerStateProvider.select((s) => s.currentTrack?.id));
+    final currentTrackId = ref.watch(
+      playerStateProvider.select((s) => s.currentTrack?.id),
+    );
     final isCurrentTrack =
         widget.item.id.isNotEmpty && currentTrackId == widget.item.id;
 
     // Clear optimistic flash once server confirms, or revert if different track.
-    ref.listen(
-      playerStateProvider.select((s) => s.currentTrack?.id),
-      (prev, next) {
-        if (!mounted) return;
-        if (next == widget.item.id && _tappedToPlay) {
-          setState(() => _tappedToPlay = false);
-        } else if (_tappedToPlay && next != null && next != widget.item.id) {
-          _flashController.reset();
-          setState(() => _tappedToPlay = false);
-        }
-      },
-    );
+    ref.listen(playerStateProvider.select((s) => s.currentTrack?.id), (
+      prev,
+      next,
+    ) {
+      if (!mounted) return;
+      if (next == widget.item.id && _tappedToPlay) {
+        setState(() => _tappedToPlay = false);
+      } else if (_tappedToPlay && next != null && next != widget.item.id) {
+        _flashController.reset();
+        setState(() => _tappedToPlay = false);
+      }
+    });
 
     // Now-playing row decoration
-    final showNowPlaying =
-        !selectionMode && (_tappedToPlay || isCurrentTrack);
+    final showNowPlaying = !selectionMode && (_tappedToPlay || isCurrentTrack);
     final Color rowBg;
     if (selectionMode && inSelectionHighlight) {
       rowBg = KalinkaColors.accent.withValues(alpha: 0.05);
@@ -610,8 +621,7 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow>
 
     // Left-edge indicator bar drawn as an overlay so it doesn't push content
     // right the way a Border would.
-    final Color? barColor =
-        showNowPlaying ? KalinkaColors.accentBorder : null;
+    final Color? barColor = showNowPlaying ? KalinkaColors.accentBorder : null;
 
     // Sibling dimming: animated fade-in (200ms), instant restore.
     final dimmed = widget.siblingIsPlaying && !selectionMode;
@@ -646,72 +656,75 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow>
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(color: rowBg),
               child: AnimatedOpacity(
-            opacity: dimmed ? 0.7 : 1.0,
-            duration: dimDuration,
-            curve: Curves.easeOut,
-            child: Row(
-              children: [
-                // Track number or selection indicator
-                SizedBox(
-                  width: 24,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      if (selectionMode)
-                        Icon(
-                          inSelectionHighlight
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          size: 16,
-                          color: inSelectionHighlight
-                              ? KalinkaColors.accent
-                              : KalinkaColors.textSecondary,
-                        )
-                      else
-                        Text(
-                          '${widget.index}',
-                          style: KalinkaTextStyles.trackRowSubtitle,
-                          textAlign: TextAlign.center,
-                        ),
-                      if (_longPressing && _longPressProgress > 0)
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: LongPressRingPainter(
-                              progress: _longPressProgress,
-                              color: KalinkaColors.accent,
+                opacity: dimmed ? 0.7 : 1.0,
+                duration: dimDuration,
+                curve: Curves.easeOut,
+                child: Row(
+                  children: [
+                    // Track number or selection indicator
+                    SizedBox(
+                      width: 24,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          if (selectionMode)
+                            Icon(
+                              inSelectionHighlight
+                                  ? Icons.check_circle
+                                  : Icons.radio_button_unchecked,
+                              size: 16,
+                              color: inSelectionHighlight
+                                  ? KalinkaColors.accent
+                                  : KalinkaColors.textSecondary,
+                            )
+                          else
+                            Text(
+                              '${widget.index}',
+                              style: KalinkaTextStyles.trackRowSubtitle,
+                              textAlign: TextAlign.center,
                             ),
+                          if (_longPressing && _longPressProgress > 0)
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: LongPressRingPainter(
+                                  progress: _longPressProgress,
+                                  color: KalinkaColors.accent,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: KalinkaTextStyles.trackRowTitle.copyWith(
+                          color:
+                              selectionMode &&
+                                  containerSelected &&
+                                  !trackSelected
+                              ? KalinkaColors.textSecondary
+                              : null,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (!selectionMode) ...[
+                      if (duration != null)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Text(
+                            duration,
+                            style: KalinkaTextStyles.trackRowSubtitle,
                           ),
                         ),
                     ],
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: KalinkaTextStyles.trackRowTitle.copyWith(
-                      color: selectionMode && containerSelected && !trackSelected
-                          ? KalinkaColors.textSecondary
-                          : null,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (!selectionMode) ...[
-                  if (duration != null)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Text(
-                        duration,
-                        style: KalinkaTextStyles.trackRowSubtitle,
-                      ),
-                    ),
-                ],
-              ],
+              ),
             ),
-          ),
-        ),
             if (barColor != null)
               Positioned(
                 left: 0,
