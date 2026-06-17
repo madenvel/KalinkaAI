@@ -42,8 +42,11 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
 
   @override
   Widget build(BuildContext context) {
-    final isExpanded = ref.watch(searchStateProvider
-        .select((s) => s.expandedArtistIds.contains(widget.item.id)));
+    final isExpanded = ref.watch(
+      searchStateProvider.select(
+        (s) => s.expandedArtistIds.contains(widget.item.id),
+      ),
+    );
 
     final artist = widget.item.artist;
     final name = artist?.name ?? widget.item.name ?? 'Unknown';
@@ -68,7 +71,8 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             padding: EdgeInsets.only(
-              top: 10, bottom: 10,
+              top: 10,
+              bottom: 10,
               left: isExpanded ? 0 : 3,
               right: 4,
             ),
@@ -118,11 +122,10 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
                               fit: BoxFit.cover,
                               gaplessPlayback: true,
                               filterQuality: FilterQuality.low,
-                              errorBuilder: (_, __, ___) =>
-                                  ProceduralAlbumArt(
-                                    trackId: widget.item.id,
-                                    size: 52,
-                                  ),
+                              errorBuilder: (_, __, ___) => ProceduralAlbumArt(
+                                trackId: widget.item.id,
+                                size: 52,
+                              ),
                             )
                           : ProceduralAlbumArt(
                               trackId: widget.item.id,
@@ -215,8 +218,11 @@ class _ArtistExpansionContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final browseAsync = ref.watch(browseDetailProvider(artistId));
-    final showAllAlbums = ref.watch(searchStateProvider
-        .select((s) => s.artistMoreAlbumsExpanded.contains(artistId)));
+    final showAllAlbums = ref.watch(
+      searchStateProvider.select(
+        (s) => s.artistMoreAlbumsExpanded.contains(artistId),
+      ),
+    );
 
     return Padding(
       padding: const EdgeInsets.only(left: 16),
@@ -342,23 +348,24 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
   Future<void> _addToQueue() async {
     final api = ref.read(kalinkaProxyProvider);
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-    try {
-      await api.add([widget.item.id]);
-      showSafeToast('"$title" added to queue');
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    await runQueueActivity(
+      pending: 'Adding to queue…',
+      action: () => api.add([widget.item.id]),
+      done: (_) => '"$title" added to queue',
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   Future<void> _playNext() async {
     final api = ref.read(kalinkaProxyProvider);
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-    try {
-      await api.add([widget.item.id], index: playNextInsertIndex(ref));
-      showSafeToast('"$title" playing next');
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    final insertIndex = playNextInsertIndex(ref);
+    await runQueueActivity(
+      pending: 'Queueing next…',
+      action: () => api.add([widget.item.id], index: insertIndex),
+      done: (_) => '"$title" playing next',
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   Future<void> _playTrack() async {
@@ -565,36 +572,45 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
   Future<void> _addToQueue() async {
     final api = ref.read(kalinkaProxyProvider);
     final ids = widget.tracks.map((t) => t.id).toList();
-    final message =
-        '${widget.tracks.length} tracks by ${widget.artistName} added to queue';
-    try {
-      await api.add(ids);
-      showSafeToast(message);
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    await runQueueActivity(
+      pending: 'Adding to queue…',
+      action: () => api.add(ids),
+      done: (r) {
+        final n = r.count ?? widget.tracks.length;
+        return '$n ${n == 1 ? 'track' : 'tracks'} by ${widget.artistName} '
+            'added to queue';
+      },
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   Future<void> _playNext() async {
     final api = ref.read(kalinkaProxyProvider);
     final ids = widget.tracks.map((t) => t.id).toList();
-    final message =
-        '${widget.tracks.length} tracks by ${widget.artistName} playing next';
-    try {
-      await api.add(ids, index: playNextInsertIndex(ref));
-      showSafeToast(message);
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    final insertIndex = playNextInsertIndex(ref);
+    await runQueueActivity(
+      pending: 'Queueing next…',
+      action: () => api.add(ids, index: insertIndex),
+      done: (r) {
+        final n = r.count ?? widget.tracks.length;
+        return '$n ${n == 1 ? 'track' : 'tracks'} by ${widget.artistName} '
+            'playing next';
+      },
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final singlesKey = 'singles_${widget.artistId}';
-    final showAllTracks = ref.watch(searchStateProvider
-        .select((s) => s.albumMoreTracksExpanded.contains(singlesKey)));
+    final showAllTracks = ref.watch(
+      searchStateProvider.select(
+        (s) => s.albumMoreTracksExpanded.contains(singlesKey),
+      ),
+    );
     final selectionMode = ref.watch(
-        selectionStateProvider.select((s) => s.isActive));
+      selectionStateProvider.select((s) => s.isActive),
+    );
 
     return Column(
       children: [

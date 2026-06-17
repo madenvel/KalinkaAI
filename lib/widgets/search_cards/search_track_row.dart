@@ -103,23 +103,24 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
   Future<void> _addToQueue() async {
     final api = ref.read(kalinkaProxyProvider);
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-    try {
-      await api.add([widget.item.id]);
-      showSafeToast('"$title" added to queue');
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    await runQueueActivity(
+      pending: 'Adding to queue…',
+      action: () => api.add([widget.item.id]),
+      done: (_) => '"$title" added to queue',
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   Future<void> _playNext() async {
     final api = ref.read(kalinkaProxyProvider);
     final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-    try {
-      await api.add([widget.item.id], index: playNextInsertIndex(ref));
-      showSafeToast('"$title" playing next');
-    } catch (e) {
-      showSafeToast('Failed to add: $e', isError: true);
-    }
+    final insertIndex = playNextInsertIndex(ref);
+    await runQueueActivity(
+      pending: 'Queueing next…',
+      action: () => api.add([widget.item.id], index: insertIndex),
+      done: (_) => '"$title" playing next',
+      failed: (e) => 'Failed to add: $e',
+    );
   }
 
   // --- Row long-press (multi-select) ---
@@ -185,29 +186,29 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
     // Only rebuild on currentTrack ID changes — not on every position tick.
     // PlaybackState.position updates frequently while playing; watching the
     // whole state would re-`build()` every visible track row each tick.
-    final currentTrackId =
-        ref.watch(playerStateProvider.select((s) => s.currentTrack?.id));
+    final currentTrackId = ref.watch(
+      playerStateProvider.select((s) => s.currentTrack?.id),
+    );
     final isCurrentTrack =
         widget.item.id.isNotEmpty && currentTrackId == widget.item.id;
     // Clear optimistic flash once server confirms this track is current,
     // or instantly revert if a different track became current.
-    ref.listen(
-      playerStateProvider.select((s) => s.currentTrack?.id),
-      (prev, next) {
-        if (!mounted) return;
-        if (next == widget.item.id && _tappedToPlay) {
-          setState(() => _tappedToPlay = false);
-        } else if (_tappedToPlay && next != null && next != widget.item.id) {
-          // A different track was chosen — clear our flash instantly.
-          _flashController.reset();
-          setState(() => _tappedToPlay = false);
-        }
-      },
-    );
+    ref.listen(playerStateProvider.select((s) => s.currentTrack?.id), (
+      prev,
+      next,
+    ) {
+      if (!mounted) return;
+      if (next == widget.item.id && _tappedToPlay) {
+        setState(() => _tappedToPlay = false);
+      } else if (_tappedToPlay && next != null && next != widget.item.id) {
+        // A different track was chosen — clear our flash instantly.
+        _flashController.reset();
+        setState(() => _tappedToPlay = false);
+      }
+    });
 
     // Now-playing row decoration
-    final showNowPlaying =
-        !selectionMode && (_tappedToPlay || isCurrentTrack);
+    final showNowPlaying = !selectionMode && (_tappedToPlay || isCurrentTrack);
     final Color baseRowBg;
     if (selectionMode && isSelected) {
       baseRowBg = KalinkaColors.accent.withValues(alpha: 0.07);
@@ -239,13 +240,10 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
                     fit: BoxFit.cover,
                     gaplessPlayback: true,
                     filterQuality: FilterQuality.low,
-                    errorBuilder: (_, __, ___) => ProceduralAlbumArt(
-                      trackId: widget.item.id,
-                      size: 44,
-                    ),
+                    errorBuilder: (_, __, ___) =>
+                        ProceduralAlbumArt(trackId: widget.item.id, size: 44),
                   )
-                : ProceduralAlbumArt(
-                    trackId: widget.item.id, size: 44),
+                : ProceduralAlbumArt(trackId: widget.item.id, size: 44),
           ),
           if (_longPressing && _longPressProgress > 0)
             Positioned.fill(
@@ -263,11 +261,7 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
                   color: KalinkaColors.accent.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Icon(
-                  Icons.check,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                child: const Icon(Icons.check, color: Colors.white, size: 20),
               ),
             ),
         ],
@@ -312,10 +306,7 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
       trailing: duration != null
           ? Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: Text(
-                duration,
-                style: KalinkaTextStyles.trackRowSubtitle,
-              ),
+              child: Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
             )
           : null,
     );
@@ -345,8 +336,8 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
               builder: (context, child) {
                 final Color rowBg =
                     (showNowPlaying && _flashController.isAnimating)
-                        ? (_flashColorAnim.value ?? baseRowBg)
-                        : baseRowBg;
+                    ? (_flashColorAnim.value ?? baseRowBg)
+                    : baseRowBg;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   decoration: BoxDecoration(color: rowBg),
