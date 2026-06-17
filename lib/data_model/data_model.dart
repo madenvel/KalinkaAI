@@ -1159,28 +1159,6 @@ class Genre {
   Map<String, dynamic> toJson() => {"id": id, "name": name};
 }
 
-class FavoriteAdded {
-  final String id;
-
-  FavoriteAdded({required this.id});
-
-  factory FavoriteAdded.fromJson(Map<String, dynamic> json) =>
-      FavoriteAdded(id: json["id"]);
-
-  Map<String, dynamic> toJson() => {"id": id};
-}
-
-class FavoriteRemoved {
-  final String id;
-
-  FavoriteRemoved({required this.id});
-
-  factory FavoriteRemoved.fromJson(Map<String, dynamic> json) =>
-      FavoriteRemoved(id: json["id"]);
-
-  Map<String, dynamic> toJson() => {"id": id};
-}
-
 class StatusMessage {
   final String? message;
 
@@ -1340,24 +1318,6 @@ class ModulesAndDevices {
       devices: (devices ?? this.devices).map(clone).toList(),
     );
   }
-}
-
-enum SearchMode { ai, local, remote, hybrid }
-
-enum QueueAction { insertNext, append, replace }
-
-sealed class SearchResultItem {
-  const SearchResultItem();
-}
-
-class TrackResult extends SearchResultItem {
-  final Track track;
-  const TrackResult(this.track);
-}
-
-class AlbumResult extends SearchResultItem {
-  final Album album;
-  const AlbumResult(this.album);
 }
 
 class StageStatus {
