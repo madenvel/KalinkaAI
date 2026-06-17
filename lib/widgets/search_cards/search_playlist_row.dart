@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
+import '../../providers/app_state_provider.dart';
 import '../../providers/browse_detail_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_state_provider.dart';
@@ -107,8 +108,11 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
 
   @override
   Widget build(BuildContext context) {
-    final isExpanded = ref.watch(searchStateProvider
-        .select((s) => s.expandedAlbumIds.contains(widget.item.id)));
+    final isExpanded = ref.watch(
+      searchStateProvider.select(
+        (s) => s.expandedAlbumIds.contains(widget.item.id),
+      ),
+    );
     final urlResolver = ref.read(urlResolverProvider);
 
     final selection = ref.watch(selectionStateProvider);
@@ -122,7 +126,8 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
     final description = playlist?.description ?? '';
 
     final subtitleParts = <String>[
-      if (trackCount != null) '$trackCount ${trackCount == 1 ? 'track' : 'tracks'}',
+      if (trackCount != null)
+        '$trackCount ${trackCount == 1 ? 'track' : 'tracks'}',
       if (description.isNotEmpty) description,
     ];
     final subtitle = subtitleParts.join(' \u00B7 ');
@@ -158,7 +163,8 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               padding: EdgeInsets.only(
-                top: 8, bottom: 8,
+                top: 8,
+                bottom: 8,
                 left: isExpanded || (selectionMode && isSelected) ? 0 : 3,
                 right: 0,
               ),
@@ -166,20 +172,20 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow> {
                 color: selectionMode && isSelected
                     ? KalinkaColors.accent.withValues(alpha: 0.07)
                     : isExpanded
-                        ? KalinkaColors.surfaceRaised
-                        : Colors.transparent,
+                    ? KalinkaColors.surfaceRaised
+                    : Colors.transparent,
                 border: selectionMode && isSelected
                     ? const Border(
                         left: BorderSide(color: KalinkaColors.accent, width: 3),
                       )
                     : isExpanded
-                        ? Border(
-                            left: BorderSide(
-                              color: KalinkaColors.accent.withValues(alpha: 0.40),
-                              width: 3,
-                            ),
-                          )
-                        : null,
+                    ? Border(
+                        left: BorderSide(
+                          color: KalinkaColors.accent.withValues(alpha: 0.40),
+                          width: 3,
+                        ),
+                      )
+                    : null,
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -405,24 +411,67 @@ class _InlinePlaylistTrack extends ConsumerStatefulWidget {
       _InlinePlaylistTrackState();
 }
 
-class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
+class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack>
+    with SingleTickerProviderStateMixin {
   bool _longPressing = false;
   double _longPressProgress = 0.0;
   Timer? _longPressTimer;
 
+  // ── Play-on-tap flash animation (mirrors the album inline track row) ──────
+  late final AnimationController _flashController;
+  late final Animation<Color?> _flashColorAnim;
+  bool _tappedToPlay = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _flashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+    _flashColorAnim = TweenSequence<Color?>([
+      TweenSequenceItem(
+        tween: ColorTween(
+          begin: Colors.transparent,
+          end: KalinkaColors.accent.withValues(alpha: 0.15),
+        ).chain(CurveTween(curve: Curves.easeIn)),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: ColorTween(
+          begin: KalinkaColors.accent.withValues(alpha: 0.15),
+          end: KalinkaColors.accentSubtle,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 2,
+      ),
+    ]).animate(_flashController);
+    _flashController.addListener(() => setState(() {}));
+  }
+
   @override
   void dispose() {
+    _flashController.dispose();
     _longPressTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _playTrack() async {
+    // Start flash animation immediately on tap, before the async API call.
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    setState(() => _tappedToPlay = true);
+    if (!reduceMotion) _flashController.forward(from: 0.0);
+
     final api = ref.read(kalinkaProxyProvider);
     try {
       await api.clear();
       await api.add([widget.containerId]);
       await api.play(widget.index - 1);
     } catch (e) {
+      // API failed — revert optimistic flash.
+      if (mounted) {
+        _flashController.reset();
+        setState(() => _tappedToPlay = false);
+      }
       showSafeToast('Failed to play: $e', isError: true);
     }
   }
@@ -516,6 +565,45 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
         );
     final inSelectionHighlight = isSelected || trackSelected;
 
+    // Now-playing detection — scope the watch so we don't rebuild on every
+    // position tick (PlaybackState.position updates frequently while playing).
+    final currentTrackId = ref.watch(
+      playerStateProvider.select((s) => s.currentTrack?.id),
+    );
+    final isCurrentTrack =
+        widget.item.id.isNotEmpty && currentTrackId == widget.item.id;
+
+    // Clear optimistic flash once server confirms, or revert if different track.
+    ref.listen(playerStateProvider.select((s) => s.currentTrack?.id), (
+      prev,
+      next,
+    ) {
+      if (!mounted) return;
+      if (next == widget.item.id && _tappedToPlay) {
+        setState(() => _tappedToPlay = false);
+      } else if (_tappedToPlay && next != null && next != widget.item.id) {
+        _flashController.reset();
+        setState(() => _tappedToPlay = false);
+      }
+    });
+
+    // Now-playing row decoration (only outside selection mode).
+    final showNowPlaying = !selectionMode && (_tappedToPlay || isCurrentTrack);
+    final Color rowBg;
+    if (selectionMode && inSelectionHighlight) {
+      rowBg = KalinkaColors.accent.withValues(alpha: 0.07);
+    } else if (showNowPlaying && _flashController.isAnimating) {
+      rowBg = _flashColorAnim.value ?? Colors.transparent;
+    } else if (showNowPlaying) {
+      rowBg = KalinkaColors.accentSubtle;
+    } else {
+      rowBg = Colors.transparent;
+    }
+
+    // Left-edge now-playing bar, drawn as an overlay so it doesn't push
+    // content right the way the selection Border does.
+    final Color? barColor = showNowPlaying ? KalinkaColors.accentBorder : null;
+
     return SwipeToActRow(
       enabled: !selectionMode,
       onAddToQueue: _addToQueue,
@@ -538,138 +626,154 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack> {
         onLongPressEnd: selectionMode ? null : (_) => _cancelLongPress(),
         onLongPressCancel: selectionMode ? null : _cancelLongPress,
         behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: selectionMode && inSelectionHighlight
-                ? KalinkaColors.accent.withValues(alpha: 0.07)
-                : Colors.transparent,
-            border: selectionMode && inSelectionHighlight
-                ? const Border(
-                    left: BorderSide(color: KalinkaColors.accent, width: 2),
-                  )
-                : null,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Artwork + selection overlay (search-results style)
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: resolvedImageUrl != null
-                          ? Image.network(
-                              resolvedImageUrl,
-                              width: 44,
-                              height: 44,
-                              cacheWidth: 132,
-                              cacheHeight: 132,
-                              fit: BoxFit.cover,
-                              gaplessPlayback: true,
-                              filterQuality: FilterQuality.low,
-                              errorBuilder: (_, __, ___) => ProceduralAlbumArt(
-                                trackId: widget.item.id,
-                                size: 44,
-                              ),
-                            )
-                          : ProceduralAlbumArt(
-                              trackId: widget.item.id,
-                              size: 44,
-                            ),
-                    ),
-                    if (_longPressing && _longPressProgress > 0)
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: LongPressRingPainter(
-                            progress: _longPressProgress,
-                            color: KalinkaColors.accent,
-                          ),
-                        ),
-                      ),
-                    if (selectionMode && inSelectionHighlight)
-                      Container(
-                        decoration: BoxDecoration(
-                          color: KalinkaColors.accent.withValues(alpha: 0.4),
+        child: Stack(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: rowBg,
+                border: selectionMode && inSelectionHighlight
+                    ? const Border(
+                        left: BorderSide(color: KalinkaColors.accent, width: 2),
+                      )
+                    : null,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Artwork + selection overlay (search-results style)
+                  SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ClipRRect(
                           borderRadius: BorderRadius.circular(6),
+                          child: resolvedImageUrl != null
+                              ? Image.network(
+                                  resolvedImageUrl,
+                                  width: 44,
+                                  height: 44,
+                                  cacheWidth: 132,
+                                  cacheHeight: 132,
+                                  fit: BoxFit.cover,
+                                  gaplessPlayback: true,
+                                  filterQuality: FilterQuality.low,
+                                  errorBuilder: (_, __, ___) =>
+                                      ProceduralAlbumArt(
+                                        trackId: widget.item.id,
+                                        size: 44,
+                                      ),
+                                )
+                              : ProceduralAlbumArt(
+                                  trackId: widget.item.id,
+                                  size: 44,
+                                ),
                         ),
-                        child: const Icon(
-                          Icons.check,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: KalinkaTextStyles.trackRowTitle.copyWith(
-                        color:
-                            selectionMode && containerSelected && !trackSelected
-                            ? KalinkaColors.textSecondary
-                            : null,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    if (subtitle.isNotEmpty)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          if (!(selectionMode && inSelectionHighlight))
-                            SourceBadge(
-                              entityId: widget.item.id,
-                              size: SourceBadgeSize.small,
-                            ),
-                          if (!(selectionMode && inSelectionHighlight) &&
-                              ref.watch(sourceCountProvider) > 1)
-                            const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              subtitle,
-                              style: KalinkaTextStyles.trackRowSubtitle
-                                  .copyWith(
-                                    color:
-                                        selectionMode &&
-                                            containerSelected &&
-                                            !trackSelected
-                                        ? KalinkaColors.textMuted
-                                        : null,
-                                  ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                        if (_longPressing && _longPressProgress > 0)
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: LongPressRingPainter(
+                                progress: _longPressProgress,
+                                color: KalinkaColors.accent,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-              if (!selectionMode) ...[
-                if (duration != null)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(
-                      duration,
-                      style: KalinkaTextStyles.trackRowSubtitle,
+                        if (selectionMode && inSelectionHighlight)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: KalinkaColors.accent.withValues(
+                                alpha: 0.4,
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-              ],
-            ],
-          ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: KalinkaTextStyles.trackRowTitle.copyWith(
+                            color:
+                                selectionMode &&
+                                    containerSelected &&
+                                    !trackSelected
+                                ? KalinkaColors.textSecondary
+                                : null,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        if (subtitle.isNotEmpty)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (!(selectionMode && inSelectionHighlight))
+                                SourceBadge(
+                                  entityId: widget.item.id,
+                                  size: SourceBadgeSize.small,
+                                ),
+                              if (!(selectionMode && inSelectionHighlight) &&
+                                  ref.watch(sourceCountProvider) > 1)
+                                const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  subtitle,
+                                  style: KalinkaTextStyles.trackRowSubtitle
+                                      .copyWith(
+                                        color:
+                                            selectionMode &&
+                                                containerSelected &&
+                                                !trackSelected
+                                            ? KalinkaColors.textMuted
+                                            : null,
+                                      ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (!selectionMode) ...[
+                    if (duration != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Text(
+                          duration,
+                          style: KalinkaTextStyles.trackRowSubtitle,
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+            if (barColor != null)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Container(width: 2, color: barColor),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -698,11 +802,7 @@ class _PlaylistBadge extends StatelessWidget {
         color: Colors.black.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: const Icon(
-        Icons.queue_music,
-        size: 11,
-        color: Colors.white,
-      ),
+      child: const Icon(Icons.queue_music, size: 11, color: Colors.white),
     );
   }
 }
