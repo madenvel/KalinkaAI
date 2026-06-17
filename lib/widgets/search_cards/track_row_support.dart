@@ -86,6 +86,7 @@ mixin LongPressRingMixin<T extends StatefulWidget> on State<T> {
         HapticFeedback.mediumImpact();
         if (!mounted) return;
         onComplete();
+        if (!mounted) return;
         setState(() {
           longPressing = false;
           longPressProgress = 0.0;
