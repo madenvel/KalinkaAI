@@ -37,15 +37,13 @@ class _SwipeToActRowState extends State<SwipeToActRow>
   static const double _settleEpsilon = 0.5;
   static const double _resistanceCoefficient = 60.0;
 
-  // Raw finger travel required to trigger an action, as a fraction of screen
-  // width, clamped to a reachable range. Previously the trigger was a fixed
-  // ~122px raw (≈34% of a 360px phone) which testers found too far to swipe.
+  // Raw finger travel to trigger, as a fraction of screen width (clamped).
+  // Replaces a fixed ~122px reach that testers found too far on phones.
   static const double _rawTriggerFraction = 0.18;
   static const double _rawTriggerMin = 60.0;
   static const double _rawTriggerMax = 96.0;
 
-  // Effective drag offset (post-resistance) that triggers an action.
-  // Recomputed each build from the screen width (see [build]).
+  // Effective (post-resistance) trigger offset; recomputed each build.
   double _hapticThreshold = 200.0 / 3.0;
 
   double _dragOffset = 0.0;
@@ -188,8 +186,7 @@ class _SwipeToActRowState extends State<SwipeToActRow>
 
   @override
   Widget build(BuildContext context) {
-    // Scale the activation distance to the screen so the swipe needs a
-    // consistent, reachable finger travel across phone sizes and tablets.
+    // Scale the trigger distance to the screen for consistent reach.
     final rawTrigger = (MediaQuery.sizeOf(context).width * _rawTriggerFraction)
         .clamp(_rawTriggerMin, _rawTriggerMax)
         .toDouble();

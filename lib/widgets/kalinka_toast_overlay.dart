@@ -43,8 +43,7 @@ class KalinkaToastOverlay extends ConsumerWidget {
               isTablet ? 0 : 16,
               4,
             ),
-            // Compact (queue-activity) toasts sit as a right-aligned pill above
-            // the mini player; regular toasts stretch full width on phone.
+            // Compact toasts sit as a right-aligned pill; others stretch.
             child: toast.compact && !isTablet
                 ? Align(
                     alignment: Alignment.centerRight,
@@ -128,7 +127,6 @@ class _ToastCardState extends State<_ToastCard>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Leading indicator: spinner while loading, otherwise a status dot.
               if (widget.entry.isLoading)
                 const SizedBox(
                   width: 13,

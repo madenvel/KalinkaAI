@@ -1184,8 +1184,8 @@ class FavoriteRemoved {
 class StatusMessage {
   final String? message;
 
-  /// Number of items the server acted on, when reported (e.g. `/queue/add`
-  /// returns the count of tracks added after expanding albums/playlists).
+  /// Tracks the server acted on, when reported (`/queue/add` returns this after
+  /// expanding albums/playlists).
   final int? count;
 
   StatusMessage({this.message, this.count});

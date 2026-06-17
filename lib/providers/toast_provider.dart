@@ -9,13 +9,11 @@ class ToastEntry {
   final String message;
   final bool isError;
 
-  /// When true the card shows a spinner instead of a status dot and does not
-  /// auto-dismiss (used for the shared "queue activity" toast while an add or
-  /// playback request is in flight).
+  /// Spinner instead of a status dot, and no auto-dismiss. Used for the shared
+  /// queue-activity toast while a request is in flight.
   final bool isLoading;
 
-  /// When true the card renders as a compact, right-aligned pill (used for the
-  /// queue-activity spinner and its result) rather than a full-width toast.
+  /// Render as a compact right-aligned pill rather than a full-width toast.
   final bool compact;
 
   /// When true the [_ToastCard] widget plays its exit animation.
@@ -59,9 +57,8 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
   int _counter = 0;
   bool _isDisposed = false;
 
-  // Shared "queue activity" toast: a single spinner that reflects all in-flight
-  // add/playback requests. Stays a spinner while [_pendingQueueOps] > 0 and
-  // morphs into the result of the last operation to finish.
+  // Shared queue-activity toast: one spinner for all in-flight add/playback
+  // requests, kept while _pendingQueueOps > 0, then morphed into the result.
   int _pendingQueueOps = 0;
   String? _queueActivityToastId;
 
@@ -114,17 +111,15 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
     _restartDisplayTimer(id, _successDisplayMs);
   }
 
-  /// Begin one queue add/playback operation. Shows the shared spinner toast,
-  /// or — if a previous result toast is still on screen — reverts it back to a
-  /// spinner. Every call MUST be paired with [endQueueActivity].
+  /// Begin one add/playback operation: shows the shared spinner, reviving a
+  /// still-visible result toast. Must be paired with [endQueueActivity].
   void beginQueueActivity(String message) {
     if (_isDisposed) return;
     _pendingQueueOps++;
 
     final activeId = _queueActivityToastId;
     if (activeId != null && state.any((e) => e.id == activeId)) {
-      // Revive/keep the existing activity toast as a spinner. Cancelling its
-      // timer covers the "result still showing, user adds again" case.
+      // Revive the existing toast as a spinner (handles result → spinner).
       _timers.remove(activeId)?.cancel();
       state = [
         for (final e in state)
@@ -149,17 +144,15 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
     );
   }
 
-  /// Complete one queue operation. While other operations are still in flight
-  /// the spinner stays; when the last one finishes the toast morphs into
-  /// [message] and auto-dismisses.
+  /// Complete one operation: the spinner stays while others are in flight, then
+  /// the last to finish morphs it into [message] and auto-dismisses.
   void endQueueActivity(String message, {bool isError = false}) {
     if (_isDisposed) return;
     if (_pendingQueueOps > 0) _pendingQueueOps--;
 
     final activeId = _queueActivityToastId;
     if (activeId == null || !state.any((e) => e.id == activeId)) {
-      // Activity toast was evicted (e.g. by other toasts) — surface the result
-      // as a normal compact toast instead.
+      // Spinner was evicted — show the result as a fresh toast.
       final id = _appendToast(
         message: message,
         isError: isError,
@@ -234,9 +227,8 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
     var list = [...state, entry];
 
     if (list.length > _maxToasts) {
-      // Evict the oldest NON-loading toast so the in-flight queue-activity
-      // spinner survives a burst of other toasts. Fall back to the oldest only
-      // if every toast is a spinner (shouldn't happen — there's at most one).
+      // Evict the oldest non-loading toast so the in-flight spinner survives a
+      // burst of others (fall back to oldest if somehow all are spinners).
       final oldestNonLoading = list.indexWhere((t) => !t.isLoading);
       final removeIndex = oldestNonLoading == -1 ? 0 : oldestNonLoading;
       final removed = list[removeIndex];
@@ -299,12 +291,9 @@ extension ConsumerStateToastX<T extends ConsumerStatefulWidget>
     ref.read(toastProvider.notifier).show(message, isError: isError);
   }
 
-  /// Runs a queue add/playback request behind the shared activity spinner: shows
-  /// [pending] while [action] is in flight, then morphs the toast into [done]
-  /// (or [failed] on error). Safe to call concurrently — overlapping calls keep
-  /// the spinner until the last finishes. The toast notifier is captured up
-  /// front so completion is reported even if this widget is disposed mid-request
-  /// (e.g. the row scrolls off).
+  /// Runs an add/playback request behind the shared spinner: [pending] while in
+  /// flight, then [done]/[failed]. Concurrency-safe, and reports completion even
+  /// if the widget is disposed mid-request (the notifier is captured up front).
   Future<void> runQueueActivity<R>({
     required String pending,
     required Future<R> Function() action,
