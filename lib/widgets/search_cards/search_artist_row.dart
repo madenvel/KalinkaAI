@@ -1,8 +1,4 @@
-import 'dart:async';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
 import '../../providers/browse_detail_provider.dart';
@@ -20,6 +16,7 @@ import 'long_press_ring_painter.dart';
 import '../../providers/toast_provider.dart';
 import 'expand_chevron_button.dart';
 import 'search_album_row.dart';
+import 'track_row_support.dart';
 
 const _dimmedColor = Color(0xFF48485A);
 
@@ -333,41 +330,8 @@ class _ArtistTrackRow extends ConsumerStatefulWidget {
   ConsumerState<_ArtistTrackRow> createState() => _ArtistTrackRowState();
 }
 
-class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
-  // Long-press ring animation
-  bool _longPressing = false;
-  double _longPressProgress = 0.0;
-  Timer? _longPressTimer;
-
-  @override
-  void dispose() {
-    _longPressTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _addToQueue() async {
-    final api = ref.read(kalinkaProxyProvider);
-    final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-    await runQueueActivity(
-      pending: 'Adding to queue…',
-      action: () => api.add([widget.item.id]),
-      done: (_) => '"$title" added to queue',
-      failed: (e) => 'Failed to add: $e',
-    );
-  }
-
-  Future<void> _playNext() async {
-    final api = ref.read(kalinkaProxyProvider);
-    final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-    final insertIndex = playNextInsertIndex(ref);
-    await runQueueActivity(
-      pending: 'Queueing next…',
-      action: () => api.add([widget.item.id], index: insertIndex),
-      done: (_) => '"$title" playing next',
-      failed: (e) => 'Failed to add: $e',
-    );
-  }
-
+class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow>
+    with LongPressRingMixin {
   Future<void> _playTrack() async {
     final api = ref.read(kalinkaProxyProvider);
     try {
@@ -386,44 +350,11 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
     }
   }
 
-  void _startLongPress() {
-    _longPressing = true;
-    _longPressProgress = 0.0;
-    const tickDuration = Duration(milliseconds: 16);
-    _longPressTimer = Timer.periodic(tickDuration, (timer) {
-      if (!mounted || !_longPressing) {
-        timer.cancel();
-        if (mounted) setState(() => _longPressProgress = 0.0);
-        return;
-      }
-      setState(() {
-        _longPressProgress = min(1.0, _longPressProgress + 16 / 500);
-      });
-      if (_longPressProgress >= 1.0) {
-        timer.cancel();
-        HapticFeedback.mediumImpact();
-        ref
-            .read(selectionStateProvider.notifier)
-            .selectSingleTrackInContainer(widget.containerId, widget.item.id);
-        setState(() {
-          _longPressing = false;
-          _longPressProgress = 0.0;
-        });
-      }
-    });
-  }
-
-  void _cancelLongPress() {
-    _longPressing = false;
-    _longPressTimer?.cancel();
-    if (mounted) setState(() => _longPressProgress = 0.0);
-  }
-
   @override
   Widget build(BuildContext context) {
     final track = widget.item.track;
     final title = track?.title ?? widget.item.name ?? 'Unknown';
-    final duration = _formatDuration(
+    final duration = formatTrackDuration(
       track?.duration != null ? track!.duration * 1000 : null,
     );
 
@@ -441,8 +372,8 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
 
     return SwipeToActRow(
       enabled: !selectionMode,
-      onAddToQueue: _addToQueue,
-      onPlayNext: _playNext,
+      onAddToQueue: () => addTrackToQueue(widget.item),
+      onPlayNext: () => playTrackNext(widget.item),
       child: GestureDetector(
         onTap: () {
           if (selectionMode) {
@@ -457,9 +388,18 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
             _playTrack();
           }
         },
-        onLongPressStart: selectionMode ? null : (_) => _startLongPress(),
-        onLongPressEnd: selectionMode ? null : (_) => _cancelLongPress(),
-        onLongPressCancel: selectionMode ? null : _cancelLongPress,
+        onLongPressStart: selectionMode
+            ? null
+            : (_) => startLongPressRing(
+                () => ref
+                    .read(selectionStateProvider.notifier)
+                    .selectSingleTrackInContainer(
+                      widget.containerId,
+                      widget.item.id,
+                    ),
+              ),
+        onLongPressEnd: selectionMode ? null : (_) => cancelLongPressRing(),
+        onLongPressCancel: selectionMode ? null : cancelLongPressRing,
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
@@ -494,11 +434,11 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
                         style: KalinkaTextStyles.trackRowSubtitle,
                         textAlign: TextAlign.center,
                       ),
-                    if (_longPressing && _longPressProgress > 0)
+                    if (longPressing && longPressProgress > 0)
                       Positioned.fill(
                         child: CustomPaint(
                           painter: LongPressRingPainter(
-                            progress: _longPressProgress,
+                            progress: longPressProgress,
                             color: KalinkaColors.accent,
                           ),
                         ),
@@ -536,14 +476,6 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow> {
         ),
       ),
     );
-  }
-
-  String? _formatDuration(int? ms) {
-    if (ms == null) return null;
-    final seconds = ms ~/ 1000;
-    final m = seconds ~/ 60;
-    final s = seconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
   }
 }
 

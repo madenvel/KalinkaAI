@@ -1,8 +1,4 @@
-import 'dart:async';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
 import '../../providers/app_state_provider.dart';
@@ -12,12 +8,12 @@ import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../providers/source_modules_provider.dart';
 import '../../theme/app_theme.dart';
-import '../../utils/play_next.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
 import '../swipe_to_act_row.dart';
 import '../track_tile_layout.dart';
 import 'long_press_ring_painter.dart';
+import 'track_row_support.dart';
 
 /// Track row for search results.
 /// ~60px height, 44x44 thumbnail, title/artist/duration.
@@ -34,12 +30,7 @@ class SearchTrackRow extends ConsumerStatefulWidget {
 }
 
 class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
-    with SingleTickerProviderStateMixin {
-  // Long-press ring animation (row long-press → multi-select)
-  bool _longPressing = false;
-  double _longPressProgress = 0.0;
-  Timer? _longPressTimer;
-
+    with SingleTickerProviderStateMixin, LongPressRingMixin {
   // ── Play-on-tap flash animation ──────────────────────────────────────────
   late final AnimationController _flashController;
   late final Animation<Color?> _flashColorAnim;
@@ -73,7 +64,6 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
   @override
   void dispose() {
     _flashController.dispose();
-    _longPressTimer?.cancel();
     super.dispose();
   }
 
@@ -100,65 +90,6 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
     }
   }
 
-  Future<void> _addToQueue() async {
-    final api = ref.read(kalinkaProxyProvider);
-    final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-    await runQueueActivity(
-      pending: 'Adding to queue…',
-      action: () => api.add([widget.item.id]),
-      done: (_) => '"$title" added to queue',
-      failed: (e) => 'Failed to add: $e',
-    );
-  }
-
-  Future<void> _playNext() async {
-    final api = ref.read(kalinkaProxyProvider);
-    final title = widget.item.track?.title ?? widget.item.name ?? 'track';
-    final insertIndex = playNextInsertIndex(ref);
-    await runQueueActivity(
-      pending: 'Queueing next…',
-      action: () => api.add([widget.item.id], index: insertIndex),
-      done: (_) => '"$title" playing next',
-      failed: (e) => 'Failed to add: $e',
-    );
-  }
-
-  // --- Row long-press (multi-select) ---
-
-  void _startLongPress() {
-    _longPressing = true;
-    _longPressProgress = 0.0;
-    const tickDuration = Duration(milliseconds: 16);
-    _longPressTimer = Timer.periodic(tickDuration, (timer) {
-      if (!mounted || !_longPressing) {
-        timer.cancel();
-        if (mounted) setState(() => _longPressProgress = 0.0);
-        return;
-      }
-      setState(() {
-        _longPressProgress = min(1.0, _longPressProgress + 16 / 500);
-      });
-      if (_longPressProgress >= 1.0) {
-        timer.cancel();
-        HapticFeedback.mediumImpact();
-        if (!mounted) return;
-        ref
-            .read(selectionStateProvider.notifier)
-            .enterSelectionMode(widget.item.id);
-        setState(() {
-          _longPressing = false;
-          _longPressProgress = 0.0;
-        });
-      }
-    });
-  }
-
-  void _cancelLongPress() {
-    _longPressing = false;
-    _longPressTimer?.cancel();
-    if (mounted) setState(() => _longPressProgress = 0.0);
-  }
-
   @override
   Widget build(BuildContext context) {
     final selection = ref.watch(selectionStateProvider);
@@ -173,7 +104,7 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
       artist,
       album,
     ].where((s) => s.isNotEmpty).join(' \u00B7 ');
-    final duration = _formatDuration(
+    final duration = formatTrackDuration(
       track?.duration != null ? track!.duration * 1000 : null,
     );
 
@@ -245,11 +176,11 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
                   )
                 : ProceduralAlbumArt(trackId: widget.item.id, size: 44),
           ),
-          if (_longPressing && _longPressProgress > 0)
+          if (longPressing && longPressProgress > 0)
             Positioned.fill(
               child: CustomPaint(
                 painter: LongPressRingPainter(
-                  progress: _longPressProgress,
+                  progress: longPressProgress,
                   color: KalinkaColors.accent,
                 ),
               ),
@@ -313,8 +244,8 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
 
     return SwipeToActRow(
       enabled: !selectionMode,
-      onAddToQueue: _addToQueue,
-      onPlayNext: _playNext,
+      onAddToQueue: () => addTrackToQueue(widget.item),
+      onPlayNext: () => playTrackNext(widget.item),
       child: GestureDetector(
         onTap: () {
           if (selectionMode) {
@@ -323,9 +254,15 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
             _playTrack();
           }
         },
-        onLongPressStart: selectionMode ? null : (_) => _startLongPress(),
-        onLongPressEnd: selectionMode ? null : (_) => _cancelLongPress(),
-        onLongPressCancel: selectionMode ? null : _cancelLongPress,
+        onLongPressStart: selectionMode
+            ? null
+            : (_) => startLongPressRing(
+                () => ref
+                    .read(selectionStateProvider.notifier)
+                    .enterSelectionMode(widget.item.id),
+              ),
+        onLongPressEnd: selectionMode ? null : (_) => cancelLongPressRing(),
+        onLongPressCancel: selectionMode ? null : cancelLongPressRing,
         child: Stack(
           children: [
             // The flash animation only repaints the background — `tileChild`
@@ -359,13 +296,5 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
         ),
       ),
     );
-  }
-
-  String? _formatDuration(int? ms) {
-    if (ms == null) return null;
-    final seconds = ms ~/ 1000;
-    final m = seconds ~/ 60;
-    final s = seconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
   }
 }
