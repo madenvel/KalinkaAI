@@ -119,11 +119,9 @@ class MultiSelectBottomBar extends ConsumerWidget {
     );
   }
 
-  // All three actions dismiss the panel immediately and report progress via the
-  // shared queue-activity spinner (which morphs into the result and survives
-  // concurrent adds), so a large add never leaves the user staring at an
-  // unresponsive panel. selection is a snapshot captured at tap time, so its
-  // count is still valid after exitSelectionMode() as a fallback.
+  // Each action dismisses the panel immediately and reports progress via the
+  // shared spinner. `selection` is a tap-time snapshot, so its count stays
+  // valid after exitSelectionMode() as a fallback.
 
   Future<void> _appendToQueue(WidgetRef ref, SelectionState selection) async {
     final api = ref.read(kalinkaProxyProvider);
@@ -133,8 +131,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
     selectionNotifier.exitSelectionMode();
     toast.beginQueueActivity('Adding to queue…');
     try {
-      // Prefer the server's expanded track count over selection.count, which
-      // counts a whole album/playlist as a single item.
+      // Use the server's expanded count, not selection.count (album = 1 item).
       final added = await api.add(ids);
       final n = added.count ?? selection.count;
       toast.endQueueActivity(
@@ -155,9 +152,8 @@ class MultiSelectBottomBar extends ConsumerWidget {
     try {
       await api.clear();
       final added = await api.add(ids);
-      // Always start from the first track. Passing an explicit index avoids a
-      // backend race where a stale FINISHED event from the just-cleared stream
-      // auto-advances current_track_id, making index-less play() skip track 0.
+      // Explicit index 0: avoids a backend race where a stale FINISHED from the
+      // cleared stream advances current_track_id, making play() skip track 0.
       await api.play(0);
       final n = added.count ?? selection.count;
       toast.endQueueActivity('Playing $n ${n == 1 ? 'track' : 'tracks'}');
@@ -184,9 +180,8 @@ class MultiSelectBottomBar extends ConsumerWidget {
   }
 }
 
-/// Resolves the InkWell overlay used across the batch bar: a subtle wash on
-/// hover, a stronger accent wash on press. Matches the app's other InkWell
-/// buttons (see KalinkaButton).
+/// InkWell overlay for the batch bar: subtle wash on hover, accent on press
+/// (matches KalinkaButton).
 WidgetStateProperty<Color?> _batchOverlay() =>
     WidgetStateProperty.resolveWith((states) {
       if (states.contains(WidgetState.pressed)) {
