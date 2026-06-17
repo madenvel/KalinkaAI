@@ -246,13 +246,16 @@ class MultiSelectBottomBar extends ConsumerWidget {
     final selectionNotifier = ref.read(selectionStateProvider.notifier);
     final ids = selectionNotifier.resolveIdsForApi();
     try {
-      await api.add(ids);
+      // Prefer the server's expanded track count over selection.count, which
+      // counts a whole album/playlist as a single item.
+      final added = await api.add(ids);
       if (!context.mounted) return;
       selectionNotifier.exitSelectionMode();
+      final n = added.count ?? selection.count;
       showToastIfMounted(
         context,
         ref,
-        '${selection.count} tracks added to queue',
+        '$n ${n == 1 ? 'track' : 'tracks'} added to queue',
       );
     } catch (e) {
       showToastIfMounted(
@@ -274,14 +277,21 @@ class MultiSelectBottomBar extends ConsumerWidget {
     final ids = selectionNotifier.resolveIdsForApi();
     try {
       await api.clear();
-      await api.add(ids);
+      // The server expands albums/playlists and reports the real track count,
+      // so prefer it over selection.count (which counts a whole album as 1).
+      final added = await api.add(ids);
       // Always start from the first track. Passing an explicit index avoids a
       // backend race where a stale FINISHED event from the just-cleared stream
       // auto-advances current_track_id, making index-less play() skip track 0.
       await api.play(0);
       if (!context.mounted) return;
       selectionNotifier.exitSelectionMode();
-      showToastIfMounted(context, ref, 'Playing ${selection.count} tracks');
+      final n = added.count ?? selection.count;
+      showToastIfMounted(
+        context,
+        ref,
+        'Playing $n ${n == 1 ? 'track' : 'tracks'}',
+      );
     } catch (e) {
       showToastIfMounted(context, ref, 'Failed to play: $e', isError: true);
     }
@@ -296,13 +306,16 @@ class MultiSelectBottomBar extends ConsumerWidget {
     final selectionNotifier = ref.read(selectionStateProvider.notifier);
     final ids = selectionNotifier.resolveIdsForApi();
     try {
-      await api.add(ids, index: playNextInsertIndex(ref));
+      // Prefer the server's expanded track count over selection.count, which
+      // counts a whole album/playlist as a single item.
+      final added = await api.add(ids, index: playNextInsertIndex(ref));
       if (!context.mounted) return;
       selectionNotifier.exitSelectionMode();
+      final n = added.count ?? selection.count;
       showToastIfMounted(
         context,
         ref,
-        '${selection.count} tracks playing next',
+        '$n ${n == 1 ? 'track' : 'tracks'} playing next',
       );
     } catch (e) {
       showToastIfMounted(context, ref, 'Failed to add: $e', isError: true);

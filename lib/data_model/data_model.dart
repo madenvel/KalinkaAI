@@ -1184,12 +1184,16 @@ class FavoriteRemoved {
 class StatusMessage {
   final String? message;
 
-  StatusMessage({this.message});
+  /// Number of items the server acted on, when reported (e.g. `/queue/add`
+  /// returns the count of tracks added after expanding albums/playlists).
+  final int? count;
+
+  StatusMessage({this.message, this.count});
 
   factory StatusMessage.fromJson(Map<String, dynamic> json) =>
-      StatusMessage(message: json["message"]);
+      StatusMessage(message: json["message"], count: json["count"]);
 
-  Map<String, dynamic> toJson() => {"message": message};
+  Map<String, dynamic> toJson() => {"message": message, "count": count};
 }
 
 class SeekStatusMessage extends StatusMessage {
