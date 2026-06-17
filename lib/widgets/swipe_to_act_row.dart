@@ -191,7 +191,8 @@ class _SwipeToActRowState extends State<SwipeToActRow>
     // Scale the activation distance to the screen so the swipe needs a
     // consistent, reachable finger travel across phone sizes and tablets.
     final rawTrigger = (MediaQuery.sizeOf(context).width * _rawTriggerFraction)
-        .clamp(_rawTriggerMin, _rawTriggerMax);
+        .clamp(_rawTriggerMin, _rawTriggerMax)
+        .toDouble();
     _hapticThreshold = _applyResistance(rawTrigger);
 
     Widget inner;
