@@ -1169,7 +1169,10 @@ class StatusMessage {
   StatusMessage({this.message, this.count});
 
   factory StatusMessage.fromJson(Map<String, dynamic> json) =>
-      StatusMessage(message: json["message"], count: json["count"]);
+      StatusMessage(
+        message: json["message"],
+        count: (json["count"] as num?)?.toInt(),
+      );
 
   Map<String, dynamic> toJson() => {"message": message, "count": count};
 }
