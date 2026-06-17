@@ -234,8 +234,16 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
     var list = [...state, entry];
 
     if (list.length > _maxToasts) {
-      final removed = list.first;
-      list = list.sublist(1);
+      // Evict the oldest NON-loading toast so the in-flight queue-activity
+      // spinner survives a burst of other toasts. Fall back to the oldest only
+      // if every toast is a spinner (shouldn't happen — there's at most one).
+      final oldestNonLoading = list.indexWhere((t) => !t.isLoading);
+      final removeIndex = oldestNonLoading == -1 ? 0 : oldestNonLoading;
+      final removed = list[removeIndex];
+      list = [
+        ...list.sublist(0, removeIndex),
+        ...list.sublist(removeIndex + 1),
+      ];
       _timers.remove(removed.id)?.cancel();
       if (removed.id == _trackDeletionToastId) {
         _trackDeletionToastId = null;
