@@ -33,11 +33,20 @@ class _SwipeToActRowState extends State<SwipeToActRow>
   static const double _iconSize = 24.0;
   static const double _iconMinSize = 12.0;
   static const double _iconPadding = 16.0;
-  static const double _maxDrag = 200.0;
-  static const double _hapticThreshold = _maxDrag / 3.0;
   static const double _dragActivationThreshold = 14.0;
   static const double _settleEpsilon = 0.5;
   static const double _resistanceCoefficient = 60.0;
+
+  // Raw finger travel required to trigger an action, as a fraction of screen
+  // width, clamped to a reachable range. Previously the trigger was a fixed
+  // ~122px raw (≈34% of a 360px phone) which testers found too far to swipe.
+  static const double _rawTriggerFraction = 0.18;
+  static const double _rawTriggerMin = 60.0;
+  static const double _rawTriggerMax = 96.0;
+
+  // Effective drag offset (post-resistance) that triggers an action.
+  // Recomputed each build from the screen width (see [build]).
+  double _hapticThreshold = 200.0 / 3.0;
 
   double _dragOffset = 0.0;
   double _rawDragOffset = 0.0;
@@ -179,6 +188,12 @@ class _SwipeToActRowState extends State<SwipeToActRow>
 
   @override
   Widget build(BuildContext context) {
+    // Scale the activation distance to the screen so the swipe needs a
+    // consistent, reachable finger travel across phone sizes and tablets.
+    final rawTrigger = (MediaQuery.sizeOf(context).width * _rawTriggerFraction)
+        .clamp(_rawTriggerMin, _rawTriggerMax);
+    _hapticThreshold = _applyResistance(rawTrigger);
+
     Widget inner;
 
     if (!widget.enabled ||
