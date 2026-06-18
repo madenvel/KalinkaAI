@@ -11,24 +11,41 @@ import 'kalinka_button.dart';
 ///   - "Skip" (primary/accent): advance to the next track and close.
 ///   - "Dismiss" (neutral): just close.
 ///
-/// Render via [showKalinkaConfirmDialog] so it slides up over the scrim.
+/// Render via [showKalinkaConfirmDialog] with `barrierColor: Colors.transparent`
+/// — the widget paints its own scrim so it can react to window resizes.
 ///
-/// On tablet the dialog is confined to the right half of the screen (the
-/// queue/search panel) so it doesn't dim or span the now-playing panel. In
-/// that mode the widget paints its own scrim — pass `barrierColor:
-/// Colors.transparent` to the show call so the global barrier stays clear.
+/// The tablet/phone decision is made reactively from [MediaQuery] inside
+/// [build], so resizing the window (e.g. tablet → phone) re-lays the dialog out
+/// live: on a narrow window it spans the full width; on a wide one it confines
+/// the scrim + card to the right half (the queue/search panel) so the
+/// now-playing panel on the left stays undimmed.
 class PlaybackErrorDialog extends ConsumerWidget {
   final String? message;
 
-  /// When true, the scrim + card are constrained to the right half of the
-  /// screen instead of spanning the full width.
-  final bool isTablet;
+  /// Width at/above which the dialog confines itself to the right half. Matches
+  /// MusicPlayerScreen's tablet layout breakpoint.
+  static const double _tabletBreakpoint = 900.0;
 
-  const PlaybackErrorDialog({super.key, this.message, this.isTablet = false});
+  const PlaybackErrorDialog({super.key, this.message});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!isTablet) return _buildCard(context, ref);
+    final isTablet =
+        MediaQuery.of(context).size.width >= _tabletBreakpoint;
+
+    final scrim = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.pop(context),
+      child: ColoredBox(color: Colors.black.withValues(alpha: 0.60)),
+    );
+
+    if (!isTablet) {
+      // Phone: full-width scrim with the card anchored to the bottom.
+      return Stack(
+        fit: StackFit.expand,
+        children: [scrim, _buildCard(context, ref)],
+      );
+    }
 
     // Tablet: left half kept clear (dismiss-on-tap), right half scrimmed with
     // the card anchored to its bottom. Tapping the scrim dismisses; tapping the
@@ -46,16 +63,7 @@ class PlaybackErrorDialog extends ConsumerWidget {
         Expanded(
           child: Stack(
             fit: StackFit.expand,
-            children: [
-              // Scrim behind the card: taps here (above/around the card)
-              // dismiss the dialog.
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.pop(context),
-                child: ColoredBox(color: Colors.black.withValues(alpha: 0.60)),
-              ),
-              _buildCard(context, ref),
-            ],
+            children: [scrim, _buildCard(context, ref)],
           ),
         ),
       ],
