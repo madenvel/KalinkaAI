@@ -276,13 +276,19 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
 
   void _showPlaybackErrorDialog(String? message) {
     if (!mounted) return;
-    showKalinkaConfirmDialog<void>(
-      context: context,
-      // The dialog paints its own scrim (full-width on phone, right-half on
-      // tablet) and re-lays-out on resize, so keep the global barrier clear.
-      barrierColor: Colors.transparent,
-      builder: (_) => PlaybackErrorDialog(message: message),
-    );
+    // Defer to the next frame: the error listener fires mid-connect while the
+    // provider graph is still settling, and inserting the dialog in that frame
+    // rebuilds the overlay against dirty providers (setState during build).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showKalinkaConfirmDialog<void>(
+        context: context,
+        // The dialog paints its own scrim and re-lays-out on resize, so keep
+        // the global barrier clear.
+        barrierColor: Colors.transparent,
+        builder: (_) => PlaybackErrorDialog(message: message),
+      );
+    });
   }
 
   @override
