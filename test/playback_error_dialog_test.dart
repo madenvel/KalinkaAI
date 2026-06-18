@@ -65,13 +65,18 @@ void main() {
       expect(find.text('This track couldn’t be played.'), findsOneWidget);
     });
 
-    testWidgets('tablet layout still renders the card', (tester) async {
+    testWidgets('wide (tablet) layout still renders the card', (tester) async {
+      // The tablet/phone split is decided reactively from MediaQuery, so drive
+      // it with a wide surface rather than a constructor flag.
       await tester.pumpWidget(
         ProviderScope(
           overrides: _overrides(),
           child: const MaterialApp(
-            home: Scaffold(
-              body: PlaybackErrorDialog(message: 'Boom', isTablet: true),
+            home: MediaQuery(
+              data: MediaQueryData(size: Size(1200, 800)),
+              child: Scaffold(
+                body: PlaybackErrorDialog(message: 'Boom'),
+              ),
             ),
           ),
         ),
