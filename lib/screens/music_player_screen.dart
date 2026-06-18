@@ -631,16 +631,30 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
 /// self-dismisses once the window grows past the tablet breakpoint, where the
 /// player instead lives permanently in the left panel — otherwise the sheet
 /// would float on top of the tablet layout.
-class _ExpandedPlayerSheet extends StatelessWidget {
+class _ExpandedPlayerSheet extends StatefulWidget {
   final double breakpoint;
 
   const _ExpandedPlayerSheet({required this.breakpoint});
 
   @override
+  State<_ExpandedPlayerSheet> createState() => _ExpandedPlayerSheetState();
+}
+
+class _ExpandedPlayerSheetState extends State<_ExpandedPlayerSheet> {
+  bool _dismissing = false;
+
+  @override
   Widget build(BuildContext context) {
-    if (MediaQuery.of(context).size.width >= breakpoint) {
+    // Dismiss exactly once when crossing into the tablet layout. Scheduling a
+    // pop on every resize frame re-ran after the route was gone and threw
+    // "No element" (Navigator.pop on empty history) mid-resize.
+    if (!_dismissing &&
+        MediaQuery.of(context).size.width >= widget.breakpoint) {
+      _dismissing = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) Navigator.of(context).pop();
+        if (mounted && (ModalRoute.of(context)?.isCurrent ?? false)) {
+          Navigator.of(context).pop();
+        }
       });
     }
     return SizedBox.expand(
