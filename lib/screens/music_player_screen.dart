@@ -49,6 +49,10 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
   // Tablet-only overlay state (phone uses Navigator/modals instead).
   bool _serverSheetOpen = false;
   bool _settingsOpen = false;
+  // True once the settings panel fully covers the content behind it (after its
+  // slide-in). Used to Offstage the occluded content so it isn't painted while
+  // hidden — but only after the animation, so the slide-in still shows it.
+  bool _settingsCovering = false;
   bool _discoveryOpen = false;
 
   // Tracks the last layout decision so we can sync search/queue state when
@@ -177,8 +181,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       // Override the M3 default 640px cap so the sheet fills the window and
       // resizes smoothly instead of centering with the layout poking out.
       constraints: const BoxConstraints(maxWidth: double.infinity),
-      builder: (_) =>
-          const _ExpandedPlayerSheet(breakpoint: _tabletBreakpoint),
+      builder: (_) => const _ExpandedPlayerSheet(breakpoint: _tabletBreakpoint),
     );
   }
 
@@ -349,7 +352,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
     // One-time UI tour: first time the queue is visible with a live
     // connection (right after the setup wizard, or after upgrading).
     final onboarding = ref.watch(onboardingStatusProvider);
-    final showCoachMarks = onboarding.oobeComplete &&
+    final showCoachMarks =
+        onboarding.oobeComplete &&
         !onboarding.coachMarksShown &&
         connectionState == ConnectionStatus.connected &&
         !searchActive;
@@ -375,95 +379,103 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       },
       child: Stack(
         children: [
-          // Main content: Header + Banner + CompletionStrip + Content Zone + Escalation + MiniPlayer
-          Column(
-            children: [
-              RepaintBoundary(
-                child: HeaderZone(
-                  searchBarKey: _searchBarKey,
-                  onServerChipTap: _showServerSheet,
-                  connectionDotKey: _connectionDotKey,
+          // Main content: Header + Banner + CompletionStrip + Content Zone +
+          // Escalation + MiniPlayer. Offstaged (not painted) once settings
+          // fully covers it; still rendered during the slide-in/out.
+          Offstage(
+            offstage: _settingsCovering,
+            child: Column(
+              children: [
+                RepaintBoundary(
+                  child: HeaderZone(
+                    searchBarKey: _searchBarKey,
+                    onServerChipTap: _showServerSheet,
+                    connectionDotKey: _connectionDotKey,
+                  ),
                 ),
-              ),
-              const ConnectionBanner(),
-              // Pinned completion strip — only visible during typing
-              const CompletionStrip(),
-              Expanded(
-                child: connectionState == ConnectionStatus.none
-                    ? _buildDisconnectedState()
-                    : Stack(
-                        children: [
-                          // Queue is not rendered while search is active on phone.
-                          if (!searchActive)
-                            RepaintBoundary(
-                              child: QueueZone(
-                                onOpenManagementTray: _showQueueManagementTray,
+                const ConnectionBanner(),
+                // Pinned completion strip — only visible during typing
+                const CompletionStrip(),
+                Expanded(
+                  child: connectionState == ConnectionStatus.none
+                      ? _buildDisconnectedState()
+                      : Stack(
+                          children: [
+                            // Queue is not rendered while search is active on phone.
+                            if (!searchActive)
+                              RepaintBoundary(
+                                child: QueueZone(
+                                  onOpenManagementTray:
+                                      _showQueueManagementTray,
+                                ),
                               ),
-                            ),
-                          // Scrim overlay — tappable to dismiss search
-                          if (searchActive)
-                            Positioned.fill(
-                              child: GestureDetector(
-                                onTap: () {
-                                  _searchBarKey.currentState?.cancelSearch();
-                                  ref
-                                      .read(searchStateProvider.notifier)
-                                      .deactivateSearch();
-                                },
-                                child: AnimatedOpacity(
-                                  opacity: searchActive ? 1.0 : 0.0,
-                                  duration: Duration(
-                                    milliseconds: searchActive ? 200 : 180,
-                                  ),
-                                  curve: Curves.easeOut,
-                                  child: const ColoredBox(
-                                    color: Color(0x66000000),
+                            // Scrim overlay — tappable to dismiss search
+                            if (searchActive)
+                              Positioned.fill(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _searchBarKey.currentState?.cancelSearch();
+                                    ref
+                                        .read(searchStateProvider.notifier)
+                                        .deactivateSearch();
+                                  },
+                                  child: AnimatedOpacity(
+                                    opacity: searchActive ? 1.0 : 0.0,
+                                    duration: Duration(
+                                      milliseconds: searchActive ? 200 : 180,
+                                    ),
+                                    curve: Curves.easeOut,
+                                    child: const ColoredBox(
+                                      color: Color(0x66000000),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          // Search results (slide up + fade)
-                          if (searchActive)
-                            AnimatedSlide(
-                              offset: searchActive
-                                  ? Offset.zero
-                                  : const Offset(0, 0.03),
-                              duration: Duration(
-                                milliseconds: searchActive ? 240 : 180,
-                              ),
-                              curve: searchActive
-                                  ? const Cubic(0.4, 0, 0.2, 1)
-                                  : Curves.easeIn,
-                              child: AnimatedOpacity(
-                                opacity: searchActive ? 1.0 : 0.0,
+                            // Search results (slide up + fade)
+                            if (searchActive)
+                              AnimatedSlide(
+                                offset: searchActive
+                                    ? Offset.zero
+                                    : const Offset(0, 0.03),
                                 duration: Duration(
                                   milliseconds: searchActive ? 240 : 180,
                                 ),
                                 curve: searchActive
-                                    ? Curves.easeOut
+                                    ? const Cubic(0.4, 0, 0.2, 1)
                                     : Curves.easeIn,
-                                child: const ColoredBox(
-                                  color: KalinkaColors.background,
-                                  child: SearchResultsFeed(),
+                                child: AnimatedOpacity(
+                                  opacity: searchActive ? 1.0 : 0.0,
+                                  duration: Duration(
+                                    milliseconds: searchActive ? 240 : 180,
+                                  ),
+                                  curve: searchActive
+                                      ? Curves.easeOut
+                                      : Curves.easeIn,
+                                  child: const ColoredBox(
+                                    color: KalinkaColors.background,
+                                    child: SearchResultsFeed(),
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
+                ),
+                EscalationCard(
+                  onScanForServers: () {
+                    final settings = ref.read(connectionSettingsProvider);
+                    Navigator.of(context).push(
+                      _discoveryRoute(
+                        allowCancel: settings.isSet,
+                        currentServerHost: settings.isSet
+                            ? settings.host
+                            : null,
                       ),
-              ),
-              EscalationCard(
-                onScanForServers: () {
-                  final settings = ref.read(connectionSettingsProvider);
-                  Navigator.of(context).push(
-                    _discoveryRoute(
-                      allowCancel: settings.isSet,
-                      currentServerHost: settings.isSet ? settings.host : null,
-                    ),
-                  );
-                },
-              ),
-              MiniPlayer(onTap: _showExpandedPlayer),
-            ],
+                    );
+                  },
+                ),
+                MiniPlayer(onTap: _showExpandedPlayer),
+              ],
+            ),
           ),
           // Toast overlay — floats above MiniPlayer, ignores pointer input
           const Positioned(
@@ -478,7 +490,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
           if (_settingsOpen)
             Positioned.fill(
               child: SettingsScreen(
-                onClose: () => setState(() => _settingsOpen = false),
+                onClose: () => setState(() {
+                  _settingsOpen = false;
+                  _settingsCovering = false;
+                }),
+                onCoverageChanged: (covering) =>
+                    setState(() => _settingsCovering = covering),
               ),
             ),
           // One-time first-run tour
@@ -489,14 +506,16 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                   CoachMarkStop(
                     targetKey: _searchBarKey,
                     title: 'Search your library',
-                    body: 'Type to find tracks, albums and artists — or '
+                    body:
+                        'Type to find tracks, albums and artists — or '
                         'flip on the AI pill to search by mood, like '
                         '“mellow late-night jazz”.',
                   ),
                   CoachMarkStop(
                     targetKey: _connectionDotKey,
                     title: 'Your server lives here',
-                    body: 'The green dot shows you’re connected. Tap it '
+                    body:
+                        'The green dot shows you’re connected. Tap it '
                         'for server status, settings, and switching '
                         'servers.',
                   ),
@@ -529,12 +548,16 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                 child: RepaintBoundary(
                   child: Stack(
                     children: [
-                      SafeArea(
-                        child: NowPlayingContent(
-                          isTablet: true,
-                          onServerChipTap: () {
-                            setState(() => _serverSheetOpen = true);
-                          },
+                      // Offstaged once settings fully covers the left panel.
+                      Offstage(
+                        offstage: _settingsCovering,
+                        child: SafeArea(
+                          child: NowPlayingContent(
+                            isTablet: true,
+                            onServerChipTap: () {
+                              setState(() => _serverSheetOpen = true);
+                            },
+                          ),
                         ),
                       ),
                       // Server sheet overlay (left panel only)
@@ -559,8 +582,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                         Positioned.fill(
                           child: ClipRect(
                             child: SettingsScreen(
-                              onClose: () =>
-                                  setState(() => _settingsOpen = false),
+                              onClose: () => setState(() {
+                                _settingsOpen = false;
+                                _settingsCovering = false;
+                              }),
+                              onCoverageChanged: (covering) =>
+                                  setState(() => _settingsCovering = covering),
                             ),
                           ),
                         ),

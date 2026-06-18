@@ -20,12 +20,16 @@ import '../widgets/settings_renderer.dart';
 ///
 /// Slides in from the right, loads server config on init.
 class SettingsScreen extends ConsumerStatefulWidget {
-  /// Optional close callback for tablet Stack overlay mode.
-  /// When null (phone Navigator route), [Navigator.pop] is used instead.
+  /// Optional close callback for overlay mode (phone full-screen / tablet left
+  /// panel). When null, [Navigator.pop] is used instead.
   final VoidCallback? onClose;
-  final VoidCallback? onDismissing;
 
-  const SettingsScreen({super.key, this.onClose, this.onDismissing});
+  /// Fires `true` once the slide-in finishes (the panel now fully covers what's
+  /// behind it) and `false` the moment the slide-out begins. Lets the host stop
+  /// painting the occluded content without flashing during the animation.
+  final ValueChanged<bool>? onCoverageChanged;
+
+  const SettingsScreen({super.key, this.onClose, this.onCoverageChanged});
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -52,7 +56,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             curve: const Cubic(0.4, 0, 0.2, 1),
           ),
         );
-    _slideController.forward();
+    _slideController.forward().whenComplete(() {
+      if (mounted) widget.onCoverageChanged?.call(true);
+    });
 
     // Load config
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -68,8 +74,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
   Future<void> _animateClose() async {
     if (widget.onClose != null) {
-      // Tablet Stack overlay mode — animate out, then remove via callback.
-      widget.onDismissing?.call();
+      // Overlay mode — reveal what's behind us before sliding out, then remove.
+      widget.onCoverageChanged?.call(false);
       await _slideController.reverse();
       widget.onClose!();
     } else {
@@ -354,10 +360,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               size: 32,
             ),
             const SizedBox(height: 12),
-            Text(
-              'Server not connected',
-              style: KalinkaTextStyles.cardTitle,
-            ),
+            Text('Server not connected', style: KalinkaTextStyles.cardTitle),
             const SizedBox(height: 8),
             Text(
               'Settings will reload once the connection is restored.',
