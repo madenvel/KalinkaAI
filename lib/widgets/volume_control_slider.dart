@@ -23,18 +23,27 @@ class _NowPlayingVolumeControlState
   double _localVolumeProgress = 0.0;
   int? _volumeBeforeSeq;
   double _lastHapticVolumePosition = -1.0;
-  ProviderSubscription? _extDeviceStateStoreProviderSubscription;
   Timer? _volumeDebounceTimer;
   int? _pendingVolume;
 
   @override
-  void initState() {
-    super.initState();
+  void dispose() {
+    _volumeDebounceTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Clear the local volume value once server events confirm the update.
-    _extDeviceStateStoreProviderSubscription = ref.listenManual<int>(
+    // Registered in build (not initState via listenManual): this widget can be
+    // mounted during a parent's build, where a synchronous listenManual flush
+    // schedules a provider refresh mid-build and throws.
+    ref.listen<int>(
       extDeviceStateStoreProvider.select((s) => s.seq),
       (prev, next) {
-        if (_isAdjustingVolume && _volumeBeforeSeq != null && next != _volumeBeforeSeq) {
+        if (_isAdjustingVolume &&
+            _volumeBeforeSeq != null &&
+            next != _volumeBeforeSeq) {
           setState(() {
             _isAdjustingVolume = false;
             _volumeBeforeSeq = null;
@@ -42,17 +51,7 @@ class _NowPlayingVolumeControlState
         }
       },
     );
-  }
 
-  @override
-  void dispose() {
-    _volumeDebounceTimer?.cancel();
-    _extDeviceStateStoreProviderSubscription?.close();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
     final volumeState = ref.watch(volumeStateProvider);
     if (!volumeState.supported) return const SizedBox.shrink();
 
