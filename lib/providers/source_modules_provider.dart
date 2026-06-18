@@ -56,16 +56,28 @@ final sourceModulesProvider = FutureProvider<List<ModuleInfo>>((ref) async {
 });
 
 /// Number of enabled input sources. Returns 0 while loading.
+///
+/// Selects the count off [sourceModulesProvider] rather than watching the whole
+/// AsyncValue: on (re)connect the future reloads (data → loading → data), and a
+/// plain watch would re-notify this provider mid-build whenever a widget pulled
+/// it in during that reload — `setState() called during build`. Loading states
+/// carry the previous value forward, so the selected count is stable across the
+/// transition and only changes when the module list actually does.
 final sourceCountProvider = Provider<int>((ref) {
-  return ref.watch(sourceModulesProvider).value?.length ?? 0;
+  return ref.watch(
+    sourceModulesProvider.select((m) => m.value?.length ?? 0),
+  );
 });
 
 /// Maps source name -> display info (title, abbreviation, color).
 /// Returns empty map while loading.
+///
+/// Selects the module list (see [sourceCountProvider] for why) so reload
+/// transitions don't trigger a rebuild-during-build.
 final sourceDisplayInfoProvider = Provider<Map<String, SourceDisplayInfo>>((
   ref,
 ) {
-  final modules = ref.watch(sourceModulesProvider).value;
+  final modules = ref.watch(sourceModulesProvider.select((m) => m.value));
   if (modules == null) return {};
   final map = <String, SourceDisplayInfo>{};
   for (final m in modules) {
