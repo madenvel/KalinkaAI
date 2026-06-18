@@ -103,7 +103,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
     String? currentServerHost,
   }) {
     return PageRouteBuilder(
-      opaque: true,
+      // Non-opaque so the player below stays onstage: an opaque route takes it
+      // offstage, which makes Riverpod 3 pause its subscriptions; connect-time
+      // provider churn then resumes them mid-transition (setState during build).
+      // The discovery screen paints its own opaque background, so it still
+      // fully covers the player.
+      opaque: false,
       transitionDuration: const Duration(milliseconds: 280),
       reverseTransitionDuration: const Duration(milliseconds: 280),
       pageBuilder: (_, __, ___) => Material(
