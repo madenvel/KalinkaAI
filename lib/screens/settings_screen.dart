@@ -102,7 +102,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       }
     });
 
-    return Stack(
+    final content = Stack(
       children: [
         SlideTransition(
           position: _slideAnimation,
@@ -216,6 +216,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             ),
           ),
       ],
+    );
+
+    // As an overlay (onClose set) intercept the system back to animate out,
+    // matching the header back button. As a route the transition handles it.
+    if (widget.onClose == null) return content;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _animateClose();
+      },
+      child: content,
     );
   }
 

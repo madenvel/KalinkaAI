@@ -123,25 +123,6 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
     );
   }
 
-  Route<void> _settingsRoute() {
-    return PageRouteBuilder(
-      opaque: true,
-      transitionDuration: const Duration(milliseconds: 320),
-      reverseTransitionDuration: const Duration(milliseconds: 320),
-      pageBuilder: (_, __, ___) => const Material(
-        type: MaterialType.transparency,
-        child: SettingsScreen(),
-      ),
-      transitionsBuilder: (_, anim, __, child) {
-        final slide = Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
-            .animate(
-              CurvedAnimation(parent: anim, curve: const Cubic(0.4, 0, 0.2, 1)),
-            );
-        return SlideTransition(position: slide, child: child);
-      },
-    );
-  }
-
   Future<void> _showServerSheet() async {
     final result = await showKalinkaBottomSheet<ServerSheetAction>(
       context: context,
@@ -150,7 +131,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
     if (!mounted) return;
     switch (result) {
       case ServerSheetAction.openSettings:
-        Navigator.of(context).push(_settingsRoute());
+        setState(() => _settingsOpen = true);
       case ServerSheetAction.openDiscovery:
         final settings = ref.read(connectionSettingsProvider);
         Navigator.of(context).push(
@@ -374,9 +355,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
         !searchActive;
 
     return PopScope(
-      canPop: !searchActive,
+      canPop: !searchActive && !_settingsOpen,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
+        // Settings is a full-screen overlay here; it owns its own back via an
+        // internal PopScope (animated close), so leave it alone.
+        if (_settingsOpen) return;
         final notifier = ref.read(searchStateProvider.notifier);
         final state = ref.read(searchStateProvider);
         final barState = _searchBarKey.currentState;
@@ -488,6 +472,15 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             bottom: 0,
             child: IgnorePointer(child: KalinkaToastOverlay()),
           ),
+          // Settings — full-screen overlay on phone (slides in from the right).
+          // The same flag renders it in the left panel on tablet, so resizing
+          // across the breakpoint just re-homes it.
+          if (_settingsOpen)
+            Positioned.fill(
+              child: SettingsScreen(
+                onClose: () => setState(() => _settingsOpen = false),
+              ),
+            ),
           // One-time first-run tour
           if (showCoachMarks)
             Positioned.fill(
@@ -558,12 +551,17 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                             },
                           ),
                         ),
-                      // Settings screen overlay (left panel only)
+                      // Settings screen overlay (left panel only). ClipRect
+                      // keeps the slide-in within the left half — the Stack
+                      // doesn't clip a paint-time transform, so without it the
+                      // animation bleeds over the queue on the right.
                       if (_settingsOpen)
                         Positioned.fill(
-                          child: SettingsScreen(
-                            onClose: () =>
-                                setState(() => _settingsOpen = false),
+                          child: ClipRect(
+                            child: SettingsScreen(
+                              onClose: () =>
+                                  setState(() => _settingsOpen = false),
+                            ),
                           ),
                         ),
                     ],
