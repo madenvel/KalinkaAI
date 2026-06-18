@@ -452,17 +452,21 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow>
     if (!reduceMotion) _flashController.forward(from: 0.0);
 
     final api = ref.read(kalinkaProxyProvider);
+    final toast = ref.read(toastProvider.notifier);
+    toast.beginQueueActivity('Starting playback…');
     try {
       await api.clear();
-      await api.add([widget.containerId]);
+      final added = await api.add([widget.containerId]);
       await api.play(widget.index - 1);
+      final n = added.count ?? 0;
+      toast.endQueueActivity('Playing $n ${n == 1 ? 'track' : 'tracks'}');
     } catch (e) {
       // API failed — revert optimistic flash.
       if (mounted) {
         _flashController.reset();
         setState(() => _tappedToPlay = false);
       }
-      showSafeToast('Failed to play: $e', isError: true);
+      toast.endQueueActivity('Failed to play: $e', isError: true);
     }
   }
 
