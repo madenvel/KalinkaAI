@@ -175,7 +175,7 @@ class SchemaFieldRenderer extends ConsumerWidget {
       divisions: 100,
       minLabel: fmt(min),
       maxLabel: fmt(max),
-      valueLabel: fmt(v),
+      formatValue: fmt,
       onChanged: (nv) => notifier.stageChange(field.path, nv.round()),
     );
   }
@@ -237,9 +237,28 @@ Widget buildFieldControl({
         width: compact ? 80 : double.infinity,
       );
     case WidgetKind.numberSlider:
-      // Slider has its own label + range chrome and is rendered by
-      // its caller. Returning a placeholder keeps the dispatch total.
-      return const SizedBox.shrink();
+      // SchemaFieldRenderer renders sliders bare (with the field label) before
+      // reaching here; the expert/onboarding rows route through this dispatch
+      // and already show the label above, so render the slider with an empty
+      // label — just the value readout and range chrome.
+      final sv = (value as num? ?? 0).toDouble();
+      final sc = field.constraints;
+      final sMin = sc?.sliderMin ?? sc?.ge ?? 0;
+      final sMax = sc?.sliderMax ?? sc?.le ?? 100;
+      final sUnit = sc?.unit ?? '';
+      String sFmt(num n) => '${n.toInt()}${sUnit.isEmpty ? '' : ' $sUnit'}';
+      return SettingsSlider(
+        label: '',
+        value: sv.clamp(sMin, sMax),
+        min: sMin,
+        max: sMax,
+        divisions: 100,
+        minLabel: sFmt(sMin),
+        maxLabel: sFmt(sMax),
+        formatValue: sFmt,
+        onChanged: (nv) => onChanged(nv.round()),
+        dense: true,
+      );
     case WidgetKind.enumDropdown:
       // Dropdown — used for enums whose options are long, numerous,
       // or resolved live (e.g. ALSA devices). Live options ship in

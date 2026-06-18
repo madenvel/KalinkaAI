@@ -241,10 +241,8 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              if (!(selectionMode && isSelected))
-                                SourceBadge(entityId: widget.item.id),
-                              if (!(selectionMode && isSelected) &&
-                                  ref.watch(sourceCountProvider) > 1)
+                              SourceBadge(entityId: widget.item.id),
+                              if (ref.watch(sourceCountProvider) > 1)
                                 const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
@@ -330,11 +328,18 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
         final tracks = browseList.items
             .where((item) => item.track != null)
             .toList();
+        final display = tracks.isEmpty ? browseList.items : tracks;
 
-        if (tracks.isEmpty) {
-          return _buildTrackList(browseList.items, ref);
+        if (display.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              'No tracks in this album',
+              style: KalinkaTextStyles.trackRowSubtitle,
+            ),
+          );
         }
-        return _buildTrackList(tracks, ref);
+        return _buildTrackList(display, ref);
       },
       loading: () => const Padding(
         padding: EdgeInsets.all(16),
