@@ -193,12 +193,11 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       backgroundColor: KalinkaColors.background,
       barrierColor: Colors.transparent,
       useSafeArea: true,
-      builder: (sheetContext) => SizedBox.expand(
-        child: NowPlayingContent(
-          showOverlayHeader: true,
-          onClose: () => Navigator.pop(sheetContext),
-        ),
-      ),
+      // Override the M3 default 640px cap so the sheet fills the window and
+      // resizes smoothly instead of centering with the layout poking out.
+      constraints: const BoxConstraints(maxWidth: double.infinity),
+      builder: (_) =>
+          const _ExpandedPlayerSheet(breakpoint: _tabletBreakpoint),
     );
   }
 
@@ -624,6 +623,31 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Full-screen Now Playing shown as a modal sheet in the phone layout. It
+/// self-dismisses once the window grows past the tablet breakpoint, where the
+/// player instead lives permanently in the left panel — otherwise the sheet
+/// would float on top of the tablet layout.
+class _ExpandedPlayerSheet extends StatelessWidget {
+  final double breakpoint;
+
+  const _ExpandedPlayerSheet({required this.breakpoint});
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).size.width >= breakpoint) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) Navigator.of(context).pop();
+      });
+    }
+    return SizedBox.expand(
+      child: NowPlayingContent(
+        showOverlayHeader: true,
+        onClose: () => Navigator.of(context).pop(),
+      ),
     );
   }
 }
