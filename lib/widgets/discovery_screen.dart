@@ -132,17 +132,21 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
       await _fadeController.reverse();
       widget.onClose!();
     } else {
-      // Phone Navigator route mode.
-      if (!mounted) return;
-      final navigator = Navigator.of(context);
-      final route = ModalRoute.of(context);
-      // A dialog may be pushed over us mid-connect; remove our own route so a
-      // plain pop doesn't dismiss that dialog instead, stranding "Connecting…".
-      if (route != null && !route.isCurrent) {
-        navigator.removeRoute(route);
-      } else {
-        navigator.pop();
-      }
+      // Phone Navigator route mode. Defer to the next frame: tearing the route
+      // down in the connect callback rebuilds the overlay while the provider
+      // graph is still settling (setState during build).
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final navigator = Navigator.of(context);
+        final route = ModalRoute.of(context);
+        // A dialog may be pushed over us mid-connect; remove our own route so a
+        // plain pop doesn't dismiss that dialog instead, stranding "Connecting…".
+        if (route != null && !route.isCurrent) {
+          navigator.removeRoute(route);
+        } else {
+          navigator.pop();
+        }
+      });
     }
   }
 
