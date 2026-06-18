@@ -276,13 +276,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
 
   void _showPlaybackErrorDialog(String? message) {
     if (!mounted) return;
-    final isTablet = MediaQuery.of(context).size.width >= _tabletBreakpoint;
     showKalinkaConfirmDialog<void>(
       context: context,
-      // On tablet the dialog paints its own right-half scrim, so keep the
-      // global barrier transparent to leave the now-playing panel undimmed.
-      barrierColor: isTablet ? Colors.transparent : null,
-      builder: (_) => PlaybackErrorDialog(message: message, isTablet: isTablet),
+      // The dialog paints its own scrim (full-width on phone, right-half on
+      // tablet) and re-lays-out on resize, so keep the global barrier clear.
+      barrierColor: Colors.transparent,
+      builder: (_) => PlaybackErrorDialog(message: message),
     );
   }
 
