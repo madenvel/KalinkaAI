@@ -136,11 +136,8 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
       if (!mounted) return;
       final navigator = Navigator.of(context);
       final route = ModalRoute.of(context);
-      // During the connect handshake a dialog (e.g. a replayed playback error
-      // from the server's queue) can be pushed on top of this discovery route.
-      // A plain pop would dismiss that dialog instead of this screen, stranding
-      // the user on "Connecting…". Remove our own route specifically so the
-      // dialog stays visible over the now-revealed queue.
+      // A dialog may be pushed over us mid-connect; remove our own route so a
+      // plain pop doesn't dismiss that dialog instead, stranding "Connecting…".
       if (route != null && !route.isCurrent) {
         navigator.removeRoute(route);
       } else {
