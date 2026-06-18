@@ -250,10 +250,8 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow>
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              if (!(selectionMode && isSelected))
-                                SourceBadge(entityId: widget.item.id),
-                              if (!(selectionMode && isSelected) &&
-                                  ref.watch(sourceCountProvider) > 1)
+                              SourceBadge(entityId: widget.item.id),
+                              if (ref.watch(sourceCountProvider) > 1)
                                 const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
@@ -636,13 +634,11 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack>
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              if (!(selectionMode && inSelectionHighlight))
-                                SourceBadge(
-                                  entityId: widget.item.id,
-                                  size: SourceBadgeSize.small,
-                                ),
-                              if (!(selectionMode && inSelectionHighlight) &&
-                                  ref.watch(sourceCountProvider) > 1)
+                              SourceBadge(
+                                entityId: widget.item.id,
+                                size: SourceBadgeSize.small,
+                              ),
+                              if (ref.watch(sourceCountProvider) > 1)
                                 const SizedBox(width: 6),
                               Expanded(
                                 child: Text(

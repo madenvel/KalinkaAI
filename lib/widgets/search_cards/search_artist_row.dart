@@ -131,38 +131,37 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Name + stats
+                  // Name (with source badge) + stats
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          name,
-                          style: KalinkaTextStyles.trackRowTitle.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             SourceBadge(entityId: widget.item.id),
-                            if (stats.isNotEmpty) ...[
-                              if (ref.watch(sourceCountProvider) > 1)
-                                const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  stats,
-                                  style: KalinkaTextStyles.trackRowSubtitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                            if (ref.watch(sourceCountProvider) > 1)
+                              const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                name,
+                                style: KalinkaTextStyles.trackRowTitle.copyWith(
+                                  fontWeight: FontWeight.w600,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ],
+                            ),
                           ],
                         ),
+                        if (stats.isNotEmpty)
+                          Text(
+                            stats,
+                            style: KalinkaTextStyles.trackRowSubtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                       ],
                     ),
                   ),
@@ -360,15 +359,10 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow>
 
     final selection = ref.watch(selectionStateProvider);
     final selectionMode = selection.isActive;
+    // Loose tracks select individually — the 'singles_<artistId>' key is
+    // synthetic and has no browseDetailProvider backing.
     final isSelected = selection.selectedIds.contains(widget.item.id);
-    final containerSelected = selection.isContainerSelected(widget.containerId);
-    final trackSelected =
-        containerSelected &&
-        selection.isTrackInContainerSelected(
-          widget.containerId,
-          widget.item.id,
-        );
-    final inSelectionHighlight = isSelected || trackSelected;
+    final inSelectionHighlight = isSelected;
 
     return SwipeToActRow(
       enabled: !selectionMode,
@@ -377,13 +371,7 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow>
       child: GestureDetector(
         onTap: () {
           if (selectionMode) {
-            if (containerSelected) {
-              ref
-                  .read(selectionStateProvider.notifier)
-                  .toggleTrackInContainer(widget.containerId, widget.item.id);
-            } else {
-              ref.read(selectionStateProvider.notifier).toggle(widget.item.id);
-            }
+            ref.read(selectionStateProvider.notifier).toggle(widget.item.id);
           } else {
             _playTrack();
           }
@@ -393,28 +381,24 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow>
             : (_) => startLongPressRing(
                 () => ref
                     .read(selectionStateProvider.notifier)
-                    .selectSingleTrackInContainer(
-                      widget.containerId,
-                      widget.item.id,
-                    ),
+                    .enterSelectionMode(widget.item.id),
               ),
         onLongPressEnd: selectionMode ? null : (_) => cancelLongPressRing(),
         onLongPressCancel: selectionMode ? null : cancelLongPressRing,
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          constraints: const BoxConstraints(minHeight: 40),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: selectionMode && inSelectionHighlight
-                ? KalinkaColors.accent.withValues(alpha: 0.07)
-                : KalinkaColors.surfaceInput,
+                ? KalinkaColors.accent.withValues(alpha: 0.05)
+                : Colors.transparent,
           ),
           child: Row(
             children: [
               // Track number / long-press indicator / selection icon
               SizedBox(
-                width: 20,
+                width: 24,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -423,7 +407,7 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow>
                         inSelectionHighlight
                             ? Icons.check_circle
                             : Icons.radio_button_unchecked,
-                        size: 14,
+                        size: 16,
                         color: inSelectionHighlight
                             ? KalinkaColors.accent
                             : KalinkaColors.textSecondary,
@@ -451,12 +435,7 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow>
               Expanded(
                 child: Text(
                   title,
-                  style: KalinkaTextStyles.trackRowTitle.copyWith(
-                    fontSize: KalinkaTypography.baseSize + 2,
-                    color: selectionMode && containerSelected && !trackSelected
-                        ? KalinkaColors.textSecondary
-                        : null,
-                  ),
+                  style: KalinkaTextStyles.trackRowTitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -465,7 +444,7 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow>
               if (!selectionMode)
                 if (duration != null)
                   Padding(
-                    padding: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.only(right: 8),
                     child: Text(
                       duration,
                       style: KalinkaTextStyles.trackRowSubtitle,
@@ -498,8 +477,21 @@ class _SinglesSection extends ConsumerStatefulWidget {
   ConsumerState<_SinglesSection> createState() => _SinglesSectionState();
 }
 
-class _SinglesSectionState extends ConsumerState<_SinglesSection> {
+class _SinglesSectionState extends ConsumerState<_SinglesSection>
+    with LongPressRingMixin {
   bool _expanded = false;
+
+  /// Loose tracks have no real container, so "select the whole singles bucket"
+  /// is just selecting/clearing every loose track id individually.
+  void _toggleSelectAll(bool anySelected) {
+    final ids = widget.tracks.map((t) => t.id);
+    final notifier = ref.read(selectionStateProvider.notifier);
+    if (anySelected) {
+      notifier.deselectTracks(ids);
+    } else {
+      notifier.selectTracks(ids);
+    }
+  }
 
   Future<void> _addToQueue() async {
     final api = ref.read(kalinkaProxyProvider);
@@ -540,42 +532,116 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
         (s) => s.albumMoreTracksExpanded.contains(singlesKey),
       ),
     );
-    final selectionMode = ref.watch(
-      selectionStateProvider.select((s) => s.isActive),
+    final selection = ref.watch(selectionStateProvider);
+    final selectionMode = selection.isActive;
+    final anySelected = widget.tracks.any(
+      (t) => selection.selectedIds.contains(t.id),
     );
+    final allSelected =
+        widget.tracks.isNotEmpty &&
+        widget.tracks.every((t) => selection.selectedIds.contains(t.id));
+    final isPartial = anySelected && !allSelected;
+    final showSelected = selectionMode && anySelected;
 
     return Column(
       children: [
-        // Singles header row
+        // Singles header row — mirrors SearchAlbumRow (list icon for artwork).
         SwipeToActRow(
           enabled: !selectionMode,
           onAddToQueue: _addToQueue,
           onPlayNext: _playNext,
           child: GestureDetector(
-            onTap: () => setState(() => _expanded = !_expanded),
+            onTap: () {
+              if (selectionMode) {
+                _toggleSelectAll(anySelected);
+              } else {
+                setState(() => _expanded = !_expanded);
+              }
+            },
+            onLongPressStart: selectionMode
+                ? null
+                : (_) => startLongPressRing(() => _toggleSelectAll(false)),
+            onLongPressEnd: selectionMode ? null : (_) => cancelLongPressRing(),
+            onLongPressCancel: selectionMode ? null : cancelLongPressRing,
             behavior: HitTestBehavior.opaque,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: const BoxDecoration(
-                color: KalinkaColors.surfaceRaised,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: EdgeInsets.only(
+                top: 8,
+                bottom: 8,
+                left: _expanded || showSelected ? 0 : 3,
+                right: 0,
+              ),
+              decoration: BoxDecoration(
+                color: showSelected
+                    ? KalinkaColors.accent.withValues(alpha: 0.07)
+                    : _expanded
+                    ? KalinkaColors.surfaceRaised
+                    : Colors.transparent,
+                border: showSelected
+                    ? const Border(
+                        left: BorderSide(color: KalinkaColors.accent, width: 3),
+                      )
+                    : _expanded
+                    ? Border(
+                        left: BorderSide(
+                          color: KalinkaColors.accent.withValues(alpha: 0.40),
+                          width: 3,
+                        ),
+                      )
+                    : null,
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // List icon in 44x44 container
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: KalinkaColors.surfaceElevated,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.queue_music,
-                      size: 16,
-                      color: _dimmedColor,
+                  // List icon, sized like the 60x60 album thumbnail
+                  SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: KalinkaColors.surfaceElevated,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.queue_music,
+                            size: 22,
+                            color: _dimmedColor,
+                          ),
+                        ),
+                        if (longPressing && longPressProgress > 0)
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: LongPressRingPainter(
+                                progress: longPressProgress,
+                                color: KalinkaColors.accent,
+                              ),
+                            ),
+                          ),
+                        if (showSelected)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: KalinkaColors.accent.withValues(
+                                  alpha: 0.4,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                isPartial ? Icons.remove : Icons.check,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   // Title + count
                   Expanded(
                     child: Column(
@@ -584,52 +650,25 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
                         Text(
                           'Singles & Loose Tracks',
                           style: KalinkaTextStyles.trackRowTitle.copyWith(
-                            color: KalinkaColors.textSecondary,
+                            color: showSelected
+                                ? KalinkaColors.accentTint
+                                : null,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          '${widget.tracks.length} tracks',
+                          '${widget.tracks.length} '
+                          '${widget.tracks.length == 1 ? 'track' : 'tracks'}',
                           style: KalinkaTextStyles.trackRowSubtitle,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  // Chevron
-                  Material(
-                    color: KalinkaColors.surfaceElevated,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(
-                        color: KalinkaColors.borderDefault,
-                      ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => setState(() => _expanded = !_expanded),
-                      overlayColor: WidgetStateProperty.resolveWith((states) {
-                        if (states.contains(WidgetState.pressed)) {
-                          return Colors.white.withValues(alpha: 0.08);
-                        }
-                        return null;
-                      }),
-                      child: SizedBox(
-                        width: 28,
-                        height: 28,
-                        child: AnimatedRotation(
-                          turns: _expanded ? 0.5 : 0.0,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          child: const Icon(
-                            Icons.expand_more,
-                            size: 14,
-                            color: KalinkaColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ),
+                  const SizedBox(width: 12),
+                  ExpandChevronButton(
+                    isExpanded: _expanded,
+                    onTap: () => setState(() => _expanded = !_expanded),
                   ),
                 ],
               ),
@@ -662,12 +701,11 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection> {
     final singlesKey = 'singles_${widget.artistId}';
 
     return Container(
-      margin: const EdgeInsets.only(left: 8),
-      decoration: BoxDecoration(
-        color: KalinkaColors.surfaceInput,
+      margin: const EdgeInsets.only(left: 16),
+      decoration: const BoxDecoration(
         border: Border(
           left: BorderSide(
-            color: KalinkaColors.gold.withValues(alpha: 0.18),
+            color: KalinkaColors.borderSubtle,
             width: 1,
           ),
         ),

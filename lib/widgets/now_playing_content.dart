@@ -92,10 +92,28 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
         ),
       ),
     );
+    // Also rebuild when the queue contents/index change — e.g. Clear All empties
+    // the queue without ever clearing playbackState.currentTrack (which is sticky
+    // via PlaybackState.copyWith), so the trackId selector above wouldn't fire.
+    final queueView = ref.watch(
+      playQueueStateStoreProvider.select(
+        (s) => (length: s.trackList.length, index: s.playbackState.index ?? 0),
+      ),
+    );
     // Read full state without watching — content is current because the
-    // selector above already gated the rebuild on a meaningful change.
+    // selectors above already gated the rebuild on a meaningful change.
     final playbackState = ref.read(playerStateProvider);
-    final currentTrack = playbackState.currentTrack;
+    final trackList = ref.read(playQueueStateStoreProvider).trackList;
+    // Derive the current track from the queue (like MiniPlayer) so an emptied
+    // queue resolves to "no track" instead of the stale currentTrack.
+    final Track? currentTrack;
+    if (queueView.index >= 0 && queueView.index < trackList.length) {
+      currentTrack = trackList[queueView.index];
+    } else if (trackList.isNotEmpty) {
+      currentTrack = playbackState.currentTrack;
+    } else {
+      currentTrack = null;
+    }
     final urlResolver = ref.read(urlResolverProvider);
 
     final durationMs = (currentTrack?.duration ?? 0) * 1000;
