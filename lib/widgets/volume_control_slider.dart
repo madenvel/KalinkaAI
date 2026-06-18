@@ -34,10 +34,7 @@ class _NowPlayingVolumeControlState
 
   @override
   Widget build(BuildContext context) {
-    // Clear the local volume value once server events confirm the update.
-    // Registered in build (not initState via listenManual): this widget can be
-    // mounted during a parent's build, where a synchronous listenManual flush
-    // schedules a provider refresh mid-build and throws.
+    // In build, not initState: listenManual can flush mid-parent-build and throw.
     ref.listen<int>(
       extDeviceStateStoreProvider.select((s) => s.seq),
       (prev, next) {
