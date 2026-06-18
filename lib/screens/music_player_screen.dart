@@ -298,8 +298,17 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
         (s) => (state: s.playbackState.state, message: s.playbackState.message),
       ),
       (prev, next) {
+        // Skip the first state observed after (re)connect. A queue whose last
+        // track errored in a previous session replays as state==error, but
+        // that's stale — not a live failure. Surfacing it raced with the
+        // discovery screen's close: the dialog landed on top of the connecting
+        // overlay, so the success-path Navigator.pop dismissed the dialog
+        // instead, stranding the app on "Connecting…". Only react to errors
+        // that follow a real prior playback state.
+        final prevState = prev?.state;
+        if (prevState == null) return;
         if (next.state == PlayerStateType.error &&
-            (prev?.state != PlayerStateType.error ||
+            (prevState != PlayerStateType.error ||
                 prev?.message != next.message)) {
           _showPlaybackErrorDialog(next.message);
         }
