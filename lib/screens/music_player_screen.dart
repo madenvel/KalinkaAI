@@ -380,10 +380,14 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       child: Stack(
         children: [
           // Main content: Header + Banner + CompletionStrip + Content Zone +
-          // Escalation + MiniPlayer. Offstaged (not painted) once settings
-          // fully covers it; still rendered during the slide-in/out.
-          Offstage(
-            offstage: _settingsCovering,
+          // Escalation + MiniPlayer. Not painted once settings fully covers it;
+          // still rendered during the slide-in/out. maintainSize keeps it as
+          // the Stack's sizing child so Positioned.fill below stays full-size.
+          Visibility(
+            visible: !_settingsCovering,
+            maintainState: true,
+            maintainAnimation: true,
+            maintainSize: true,
             child: Column(
               children: [
                 RepaintBoundary(
@@ -548,9 +552,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                 child: RepaintBoundary(
                   child: Stack(
                     children: [
-                      // Offstaged once settings fully covers the left panel.
-                      Offstage(
-                        offstage: _settingsCovering,
+                      // Not painted once settings fully covers the left panel.
+                      Visibility(
+                        visible: !_settingsCovering,
+                        maintainState: true,
+                        maintainAnimation: true,
+                        maintainSize: true,
                         child: SafeArea(
                           child: NowPlayingContent(
                             isTablet: true,
