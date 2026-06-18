@@ -207,17 +207,19 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
     return Stack(
       children: [
         if (isOffline)
-          Expanded(
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: 0.4,
-                child: _buildQueueContent(
-                  nowPlayingTrack,
-                  queueTracks,
-                  previousTracks,
-                  currentIndex,
-                  shuffleEnabled,
-                ),
+          // No Expanded here: this Stack child must size from the Stack's
+          // constraints (like the connected branch below). Expanded inside a
+          // Stack applies FlexParentData to a RenderStack child and throws at
+          // layout — in release that renders as a gray ErrorWidget.
+          IgnorePointer(
+            child: Opacity(
+              opacity: 0.4,
+              child: _buildQueueContent(
+                nowPlayingTrack,
+                queueTracks,
+                previousTracks,
+                currentIndex,
+                shuffleEnabled,
               ),
             ),
           )
