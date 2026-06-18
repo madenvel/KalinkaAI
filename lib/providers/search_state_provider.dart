@@ -1033,7 +1033,17 @@ class SearchStateNotifier extends Notifier<SearchState> {
   }
 
   String? _currentRecommendationsTargetId() {
-    final currentTrack = ref.read(playerStateProvider).currentTrack;
+    final playback = ref.read(playerStateProvider);
+    // `currentTrack` is sticky: it survives stop/queue-clear, so gate on the
+    // actual playback state and a non-empty queue.
+    final isActive =
+        playback.state == PlayerStateType.playing ||
+        playback.state == PlayerStateType.paused ||
+        playback.state == PlayerStateType.buffering;
+    final hasQueue = ref.read(playQueueProvider).isNotEmpty;
+    if (!isActive || !hasQueue) return null;
+
+    final currentTrack = playback.currentTrack;
     return (currentTrack?.album?.id.isNotEmpty == true)
         ? currentTrack!.album!.id
         : (currentTrack?.id.isNotEmpty == true ? currentTrack!.id : null);
@@ -1048,14 +1058,11 @@ class SearchStateNotifier extends Notifier<SearchState> {
   Future<void> _loadBrowseRecommendations() async {
     final settings = ref.read(connectionSettingsProvider);
     if (!settings.isSet) return;
-    final currentTrack = ref.read(playerStateProvider).currentTrack;
 
     state = state.copyWith(isLoading: true, clearError: true);
 
-    // Determine the ID to call getMetadata on
-    final targetId = (currentTrack?.album?.id.isNotEmpty == true)
-        ? currentTrack!.album!.id
-        : (currentTrack?.id.isNotEmpty == true ? currentTrack!.id : null);
+    // Null when nothing is actively playing (stopped / empty queue).
+    final targetId = _currentRecommendationsTargetId();
     _recommendationsForTrackId = targetId;
 
     try {
