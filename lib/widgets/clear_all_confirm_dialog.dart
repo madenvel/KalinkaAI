@@ -4,6 +4,9 @@ import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 import 'kalinka_button.dart';
 
+// Matches the split-layout switch in MusicPlayerScreen.
+const _tabletBreakpoint = 900.0;
+
 /// Confirmation dialog content for clearing the entire queue.
 ///
 /// Returns `true` if the user confirmed and the clear succeeded,
@@ -15,7 +18,7 @@ class ClearAllConfirmDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
+    final content = Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Container(
@@ -110,6 +113,18 @@ class ClearAllConfirmDialog extends ConsumerWidget {
           ),
         ),
         SizedBox(height: MediaQuery.of(context).padding.bottom + 28),
+      ],
+    );
+
+    // On tablet the queue lives in the right half, so anchor the dialog there
+    // rather than spanning the whole window. Empty left half lets taps fall
+    // through to the barrier to dismiss. Phone keeps the full-width sheet.
+    final width = MediaQuery.of(context).size.width;
+    if (width < _tabletBreakpoint) return content;
+    return Row(
+      children: [
+        const Expanded(child: SizedBox.expand()),
+        Expanded(child: content),
       ],
     );
   }
