@@ -132,8 +132,20 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
       await _fadeController.reverse();
       widget.onClose!();
     } else {
-      // Phone Navigator route mode — route transition handles animation.
-      Navigator.pop(context);
+      // Phone Navigator route mode.
+      if (!mounted) return;
+      final navigator = Navigator.of(context);
+      final route = ModalRoute.of(context);
+      // During the connect handshake a dialog (e.g. a replayed playback error
+      // from the server's queue) can be pushed on top of this discovery route.
+      // A plain pop would dismiss that dialog instead of this screen, stranding
+      // the user on "Connecting…". Remove our own route specifically so the
+      // dialog stays visible over the now-revealed queue.
+      if (route != null && !route.isCurrent) {
+        navigator.removeRoute(route);
+      } else {
+        navigator.pop();
+      }
     }
   }
 
