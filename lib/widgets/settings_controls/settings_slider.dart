@@ -60,6 +60,16 @@ class _SettingsSliderState extends State<SettingsSlider> {
   /// [widget.value] is shown). Kept local so dragging doesn't stage changes.
   double? _dragValue;
 
+  @override
+  void didUpdateWidget(covariant SettingsSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Drop the held drag value once the parent commits the new value, so we
+    // don't snap back to the old value for a frame on release (see onChangeEnd).
+    if (_dragValue != null && widget.value != oldWidget.value) {
+      _dragValue = null;
+    }
+  }
+
   String _format(num n) =>
       widget.formatValue?.call(n) ??
       n.toStringAsFixed(n == n.roundToDouble() ? 0 : 1);
@@ -85,6 +95,39 @@ class _SettingsSliderState extends State<SettingsSlider> {
       ),
     );
 
+    final sliderControl = SliderTheme(
+      data: SliderThemeData(
+        activeTrackColor: KalinkaColors.accent,
+        inactiveTrackColor: KalinkaColors.surfaceElevated,
+        thumbColor: Colors.white,
+        overlayColor: KalinkaColors.accent.withValues(alpha: 0.15),
+        trackHeight: 4,
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+      ),
+      child: Slider(
+        value: liveValue,
+        min: widget.min,
+        max: widget.max,
+        divisions: widget.divisions,
+        onChanged: (value) {
+          final tickSize = (widget.max - widget.min) * 0.10;
+          if ((value - _lastHapticPosition).abs() >= tickSize) {
+            KalinkaHaptics.selectionClick();
+            _lastHapticPosition = value;
+          }
+          setState(() => _dragValue = value);
+        },
+        onChangeEnd: (value) {
+          // Hold the released value (don't null it) so the readout doesn't snap
+          // back to the old widget.value for a frame; didUpdateWidget clears it
+          // once the parent commits the new value.
+          _dragValue = value;
+          widget.onChanged(value);
+        },
+      ),
+    );
+
     return Padding(
       padding: dense
           ? EdgeInsets.zero
@@ -102,9 +145,11 @@ class _SettingsSliderState extends State<SettingsSlider> {
             ),
             SizedBox(height: dense ? 2 : 6),
           ],
-          // Value readout floating above the thumb.
-          SizedBox(
-            height: 18,
+          // Value readout floating above the thumb. minHeight (not a fixed
+          // height) plus a zero-opacity sizer let the row grow with the text
+          // height, so the readout doesn't clip under larger text scaling.
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 18),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final trackWidth = constraints.maxWidth - 2 * _trackInset;
@@ -112,6 +157,8 @@ class _SettingsSliderState extends State<SettingsSlider> {
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
+                    // Invisible copy that sizes the row to the text height.
+                    Opacity(opacity: 0, child: valueText),
                     Positioned(
                       left: thumbX,
                       bottom: 0,
@@ -126,39 +173,18 @@ class _SettingsSliderState extends State<SettingsSlider> {
               },
             ),
           ),
-          // Slider — constrained to a tight height in dense mode so the
-          // hidden Material tap target doesn't inflate the row.
+          // Slider — kept visually compact in dense mode, but the gesture area
+          // keeps a 48dp minimum touch target via OverflowBox so it isn't hard
+          // to hit (the row layout still only reserves the compact height).
           SizedBox(
             height: dense ? 28 : null,
-            child: SliderTheme(
-              data: SliderThemeData(
-                activeTrackColor: KalinkaColors.accent,
-                inactiveTrackColor: KalinkaColors.surfaceElevated,
-                thumbColor: Colors.white,
-                overlayColor: KalinkaColors.accent.withValues(alpha: 0.15),
-                trackHeight: 4,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-              ),
-              child: Slider(
-                value: liveValue,
-                min: widget.min,
-                max: widget.max,
-                divisions: widget.divisions,
-                onChanged: (value) {
-                  final tickSize = (widget.max - widget.min) * 0.10;
-                  if ((value - _lastHapticPosition).abs() >= tickSize) {
-                    KalinkaHaptics.selectionClick();
-                    _lastHapticPosition = value;
-                  }
-                  setState(() => _dragValue = value);
-                },
-                onChangeEnd: (value) {
-                  setState(() => _dragValue = null);
-                  widget.onChanged(value);
-                },
-              ),
-            ),
+            child: dense
+                ? OverflowBox(
+                    minHeight: 48,
+                    maxHeight: 48,
+                    child: sliderControl,
+                  )
+                : sliderControl,
           ),
           // Range labels.
           if (widget.minLabel != null || widget.maxLabel != null)
