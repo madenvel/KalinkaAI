@@ -92,11 +92,8 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
         ),
       ),
     );
-    // Also rebuild when the queue contents/index change — e.g. Clear All empties
-    // the queue without ever clearing playbackState.currentTrack (which is sticky
-    // via PlaybackState.copyWith), so the trackId selector above wouldn't fire.
-    // seq bumps on every queue event, so same-length/index changes (e.g. an
-    // in-place track replacement or unavailable flag) still trigger a rebuild.
+    // Rebuild on any queue change: index/length covers Clear All (currentTrack
+    // is sticky), seq covers same-index in-place changes.
     final queueView = ref.watch(
       playQueueStateStoreProvider.select(
         (s) => (

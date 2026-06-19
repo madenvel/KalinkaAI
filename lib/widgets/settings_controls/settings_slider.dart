@@ -63,8 +63,7 @@ class _SettingsSliderState extends State<SettingsSlider> {
   @override
   void didUpdateWidget(covariant SettingsSlider oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Drop the held drag value once the parent commits the new value, so we
-    // don't snap back to the old value for a frame on release (see onChangeEnd).
+    // Drop the held drag value once the parent commits, avoiding a snap-back.
     if (_dragValue != null && widget.value != oldWidget.value) {
       _dragValue = null;
     }
@@ -119,9 +118,7 @@ class _SettingsSliderState extends State<SettingsSlider> {
           setState(() => _dragValue = value);
         },
         onChangeEnd: (value) {
-          // Hold the released value (don't null it) so the readout doesn't snap
-          // back to the old widget.value for a frame; didUpdateWidget clears it
-          // once the parent commits the new value.
+          // Hold until the parent commits (cleared in didUpdateWidget).
           _dragValue = value;
           widget.onChanged(value);
         },
@@ -145,9 +142,8 @@ class _SettingsSliderState extends State<SettingsSlider> {
             ),
             SizedBox(height: dense ? 2 : 6),
           ],
-          // Value readout floating above the thumb. minHeight (not a fixed
-          // height) plus a zero-opacity sizer let the row grow with the text
-          // height, so the readout doesn't clip under larger text scaling.
+          // Value readout floating above the thumb. minHeight + invisible
+          // sizer so it grows with text scaling instead of clipping.
           ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 18),
             child: LayoutBuilder(
@@ -157,7 +153,7 @@ class _SettingsSliderState extends State<SettingsSlider> {
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    // Invisible copy that sizes the row to the text height.
+                    // Sizes the row to the text height.
                     Opacity(opacity: 0, child: valueText),
                     Positioned(
                       left: thumbX,
@@ -173,9 +169,7 @@ class _SettingsSliderState extends State<SettingsSlider> {
               },
             ),
           ),
-          // Slider — kept visually compact in dense mode, but the gesture area
-          // keeps a 48dp minimum touch target via OverflowBox so it isn't hard
-          // to hit (the row layout still only reserves the compact height).
+          // Compact row in dense mode; OverflowBox keeps a 48dp touch target.
           SizedBox(
             height: dense ? 28 : null,
             child: dense
