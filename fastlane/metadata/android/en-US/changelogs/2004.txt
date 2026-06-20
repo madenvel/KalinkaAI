@@ -1,0 +1,8 @@
+Bug fixes:
+- Fix blank screen and gray queue area when reconnecting on startup
+- Make Settings a responsive overlay across phone and tablet
+- Fix Now Playing crashes when resizing between phone and tablet layouts
+- Fix volume slider and connect crashes (setState during build)
+- Show spinner and toast when tapping a track in an album or playlist
+- Keep search browsable through reconnects; hide "Based on Now Playing" when idle
+- Fix playback error dialog and status UI across phone and tablet
