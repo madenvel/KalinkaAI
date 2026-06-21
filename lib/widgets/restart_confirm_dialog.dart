@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'kalinka_button.dart';
 
+// Matches the split-layout switch in MusicPlayerScreen.
+const _tabletBreakpoint = 900.0;
+
 /// Confirmation dialog for restarting the server.
 ///
 /// Returns `true` when the user confirms, `false`/`null` when cancelled —
@@ -12,7 +15,7 @@ class RestartConfirmDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final content = Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Container(
@@ -77,6 +80,18 @@ class RestartConfirmDialog extends StatelessWidget {
           ),
         ),
         SizedBox(height: MediaQuery.of(context).padding.bottom + 28),
+      ],
+    );
+
+    // On tablet, settings live in the left half, so anchor the dialog there
+    // rather than spanning the whole window. Empty right half lets taps fall
+    // through to the barrier to dismiss. Phone keeps the full-width sheet.
+    final width = MediaQuery.of(context).size.width;
+    if (width < _tabletBreakpoint) return content;
+    return Row(
+      children: [
+        Expanded(child: content),
+        const Expanded(child: SizedBox.expand()),
       ],
     );
   }
