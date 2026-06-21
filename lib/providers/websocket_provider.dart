@@ -9,6 +9,13 @@ import 'package:logger/logger.dart';
 
 final logger = Logger();
 
+/// Heartbeat interval for the event sockets. Dart sends a WebSocket ping on
+/// this cadence and closes the socket if the peer stops answering, so a
+/// connection killed while backgrounded (machine sleep, NAT/idle timeout)
+/// is detected instead of lingering silently half-open. The pings also keep
+/// idle NAT mappings alive, preventing some drops outright.
+const _heartbeatInterval = Duration(seconds: 15);
+
 /// Provides a configured WebSocket connection for the given path.
 ///
 /// This keeps all connection semantics (host/port, ws vs wss) in one place,
@@ -61,6 +68,9 @@ final webSocketProvider = FutureProvider.family<WebSocket, String>((
 
   try {
     final socket = await WebSocket.connect(uri.toString());
+    // Enable the heartbeat. When the peer stops answering pings the socket
+    // closes, ending the stream so wire_event_provider's reconnect path runs.
+    socket.pingInterval = _heartbeatInterval;
     Future.microtask(connection.connected);
 
     ref.onDispose(() {
