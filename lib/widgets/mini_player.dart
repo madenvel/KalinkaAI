@@ -383,10 +383,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
 
   /// 2px progress line pinned above the main content. Uses its own [Consumer]
   /// so only the line rebuilds when playback time ticks.
-  Widget _buildProgressLine(
-    GradientProgressLineMode mode,
-    int durationMs,
-  ) {
+  Widget _buildProgressLine(GradientProgressLineMode mode, int durationMs) {
     return RepaintBoundary(
       child: Consumer(
         builder: (context, ref, _) {
@@ -446,6 +443,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                 _buildPlayPauseButton(
                   playerState: playerState,
                   isOffline: isOffline,
+                  hasTrack: currentTrack != null,
                 ),
               ],
             ),
@@ -531,41 +529,44 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
 
   /// Stationary 46×46 play/pause control. Disabled (no tap handler) when the
   /// player state doesn't allow toggling, and fully ignored while offline.
+  /// Greyed out and inert when there's no track loaded.
   Widget _buildPlayPauseButton({
     required PlayerStateType? playerState,
     required bool isOffline,
+    required bool hasTrack,
   }) {
-    final disabled = isPlayPauseDisabled(playerState);
+    final disabled = !hasTrack || isPlayPauseDisabled(playerState);
     return IgnorePointer(
       ignoring: isOffline,
-      child: GestureDetector(
-        onTapDown: disabled
-            ? null
-            : (_) => playerState == PlayerStateType.playing
-                  ? KalinkaHaptics.lightImpact()
-                  : KalinkaHaptics.mediumImpact(),
-        onTap: disabled
-            ? null
-            : () => sendPlayPauseCommand(ref, playerState),
-        child: Container(
-          width: 46,
-          height: 46,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-          ),
-          // Fixed 26×26 glyph slot for every state keeps visual weight
-          // stable and prevents the spinner from appearing offset against
-          // the icon.
-          child: Center(
-            child: SizedBox(
-              width: 26,
-              height: 26,
-              child: Center(
-                child: PlayPauseGlyph(
-                  playerState: playerState,
-                  iconSize: 26,
-                  statusSize: 22,
+      child: Opacity(
+        opacity: hasTrack ? 1.0 : 0.4,
+        child: GestureDetector(
+          onTapDown: disabled
+              ? null
+              : (_) => playerState == PlayerStateType.playing
+                    ? KalinkaHaptics.lightImpact()
+                    : KalinkaHaptics.mediumImpact(),
+          onTap: disabled ? null : () => sendPlayPauseCommand(ref, playerState),
+          child: Container(
+            width: 46,
+            height: 46,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            // Fixed 26×26 glyph slot for every state keeps visual weight
+            // stable and prevents the spinner from appearing offset against
+            // the icon.
+            child: Center(
+              child: SizedBox(
+                width: 26,
+                height: 26,
+                child: Center(
+                  child: PlayPauseGlyph(
+                    playerState: playerState,
+                    iconSize: 26,
+                    statusSize: 22,
+                  ),
                 ),
               ),
             ),

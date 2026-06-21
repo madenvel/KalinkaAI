@@ -364,7 +364,13 @@ class _TransportControls extends ConsumerWidget {
     final isRepeatAll = playbackMode.repeatAll;
     final isRepeatOne = playbackMode.repeatSingle;
 
-    final playPauseDisabled = isPlayPauseDisabled(playerState);
+    // No track loaded → the transport buttons (prev / play-pause / next) go
+    // inactive. Shuffle and repeat are switches that apply to whatever plays
+    // next, so they stay live.
+    final hasTrack = ref.watch(
+      playQueueStateStoreProvider.select((s) => s.trackList.isNotEmpty),
+    );
+    final playPauseDisabled = !hasTrack || isPlayPauseDisabled(playerState);
 
     return RepaintBoundary(
       child: Row(
@@ -388,50 +394,63 @@ class _TransportControls extends ConsumerWidget {
               Icons.shuffle,
               size: 22,
               color: isShuffle
-                  ? KalinkaColors.gold
+                  ? KalinkaColors.accent
                   : KalinkaColors.textSecondary,
             ),
           ),
-          _TransportButton(
-            hitDiameter: 52,
-            onTapDown: (_) => KalinkaHaptics.mediumImpact(),
-            onTap: () => api.sendQueueCommand(const QueueCommand.prev()),
-            child: const Icon(
-              Icons.skip_previous_rounded,
-              size: 36,
-              color: KalinkaColors.textPrimary,
+          Opacity(
+            opacity: hasTrack ? 1.0 : 0.4,
+            child: _TransportButton(
+              hitDiameter: 52,
+              onTapDown: hasTrack ? (_) => KalinkaHaptics.mediumImpact() : null,
+              onTap: hasTrack
+                  ? () => api.sendQueueCommand(const QueueCommand.prev())
+                  : null,
+              child: const Icon(
+                Icons.skip_previous_rounded,
+                size: 36,
+                color: KalinkaColors.textPrimary,
+              ),
             ),
           ),
-          _TransportButton(
-            hitDiameter: 68,
-            background: Colors.white,
-            // Ripple has to read against the white face of the play/pause
-            // disc, so use a dark tint instead of the default white-on-dark.
-            splashColor: KalinkaColors.background.withValues(alpha: 0.18),
-            highlightColor: KalinkaColors.background.withValues(alpha: 0.08),
-            onTapDown: playPauseDisabled
-                ? null
-                : (_) => playerState == PlayerStateType.playing
-                      ? KalinkaHaptics.lightImpact()
-                      : KalinkaHaptics.mediumImpact(),
-            onTap: playPauseDisabled
-                ? null
-                : () => sendPlayPauseCommand(ref, playerState),
-            child: PlayPauseGlyph(
-              playerState: playerState,
-              iconSize: 38,
-              statusSize: 30,
-              spinnerStrokeWidth: 3,
+          Opacity(
+            opacity: hasTrack ? 1.0 : 0.4,
+            child: _TransportButton(
+              hitDiameter: 68,
+              background: Colors.white,
+              // Ripple has to read against the white face of the play/pause
+              // disc, so use a dark tint instead of the default white-on-dark.
+              splashColor: KalinkaColors.background.withValues(alpha: 0.18),
+              highlightColor: KalinkaColors.background.withValues(alpha: 0.08),
+              onTapDown: playPauseDisabled
+                  ? null
+                  : (_) => playerState == PlayerStateType.playing
+                        ? KalinkaHaptics.lightImpact()
+                        : KalinkaHaptics.mediumImpact(),
+              onTap: playPauseDisabled
+                  ? null
+                  : () => sendPlayPauseCommand(ref, playerState),
+              child: PlayPauseGlyph(
+                playerState: playerState,
+                iconSize: 38,
+                statusSize: 30,
+                spinnerStrokeWidth: 3,
+              ),
             ),
           ),
-          _TransportButton(
-            hitDiameter: 52,
-            onTapDown: (_) => KalinkaHaptics.mediumImpact(),
-            onTap: () => api.sendQueueCommand(const QueueCommand.next()),
-            child: const Icon(
-              Icons.skip_next_rounded,
-              size: 36,
-              color: KalinkaColors.textPrimary,
+          Opacity(
+            opacity: hasTrack ? 1.0 : 0.4,
+            child: _TransportButton(
+              hitDiameter: 52,
+              onTapDown: hasTrack ? (_) => KalinkaHaptics.mediumImpact() : null,
+              onTap: hasTrack
+                  ? () => api.sendQueueCommand(const QueueCommand.next())
+                  : null,
+              child: const Icon(
+                Icons.skip_next_rounded,
+                size: 36,
+                color: KalinkaColors.textPrimary,
+              ),
             ),
           ),
           _TransportButton(
