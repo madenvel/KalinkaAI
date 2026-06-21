@@ -189,7 +189,10 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
               qualityLabel: qualityLabel,
             ),
             const SizedBox(height: 24),
-            PlaybackProgressSlider(durationMs: durationMs),
+            PlaybackProgressSlider(
+              durationMs: durationMs,
+              enabled: currentTrack != null,
+            ),
             const SizedBox(height: 20),
             const _TransportControls(),
             const SizedBox(height: 16),

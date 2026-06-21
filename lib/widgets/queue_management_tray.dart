@@ -72,7 +72,7 @@ class QueueManagementTrayContent extends ConsumerWidget {
               : 'Off \u2014 plays in order',
           trailing: _buildToggleSwitch(
             value: isShuffle,
-            activeColor: KalinkaColors.gold,
+            activeColor: KalinkaColors.accent,
             onTap: () {
               isShuffle
                   ? KalinkaHaptics.lightImpact()
