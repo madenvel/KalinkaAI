@@ -34,6 +34,15 @@ class ConnectionStateNotifier extends Notifier<ConnectionStatus> {
   int _retryCount = 0;
   DateTime? _reconnectStartedAt;
 
+  /// When the app was last backgrounded (null while foregrounded).
+  DateTime? _backgroundedAt;
+
+  /// A background longer than this forces a fresh event socket on resume —
+  /// the old one may have silently died while suspended without ever firing
+  /// a close event, leaving a half-open connection the heartbeat hasn't yet
+  /// caught.
+  static const _staleSocketThreshold = Duration(seconds: 20);
+
   /// When the connection was last known to be healthy.
   DateTime? lastConnectedAt;
 
@@ -59,14 +68,30 @@ class ConnectionStateNotifier extends Notifier<ConnectionStatus> {
 
   void _onLifecycleChange(AppLifecycleState lifecycle) {
     if (lifecycle == AppLifecycleState.resumed) {
+      final backgroundedFor = _backgroundedAt == null
+          ? Duration.zero
+          : DateTime.now().difference(_backgroundedAt!);
+      _backgroundedAt = null;
+
       // Foregrounded: restart reconnection immediately if it was paused.
       if (state == ConnectionStatus.reconnecting ||
           state == ConnectionStatus.offline) {
         _startRetryTimer();
         _attemptReconnect();
+      } else if (state == ConnectionStatus.connected &&
+          backgroundedFor >= _staleSocketThreshold) {
+        // Still "connected" after a long background, but the event socket may
+        // have died silently while suspended (no close event ever fired).
+        // Bump the retry epoch to rebuild the socket from scratch: if the
+        // server is still reachable the new socket connects and we stay
+        // connected, otherwise its failure drops us into the reconnect cycle.
+        ref.read(retryEpochProvider.notifier).increment();
       }
     } else {
-      // Backgrounded: pause reconnection attempts to save battery.
+      // Backgrounded: pause reconnection attempts to save battery and record
+      // when we went down so resume can tell a quick app-switch from a long
+      // suspend.
+      _backgroundedAt ??= DateTime.now();
       _cancelRetryTimer();
     }
   }
