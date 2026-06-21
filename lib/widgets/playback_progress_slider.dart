@@ -12,7 +12,15 @@ import '../utils/haptics.dart';
 class PlaybackProgressSlider extends ConsumerStatefulWidget {
   final int durationMs;
 
-  const PlaybackProgressSlider({super.key, required this.durationMs});
+  /// When false (no track loaded), the slider is inactive — faded and not
+  /// draggable.
+  final bool enabled;
+
+  const PlaybackProgressSlider({
+    super.key,
+    required this.durationMs,
+    this.enabled = true,
+  });
 
   @override
   ConsumerState<PlaybackProgressSlider> createState() =>
@@ -71,75 +79,81 @@ class _PlaybackProgressSliderState
               : 0.0);
 
     return RepaintBoundary(
-      child: Column(
-        children: [
-          SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 3,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-              activeTrackColor: KalinkaColors.accent,
-              inactiveTrackColor: KalinkaColors.borderDefault,
-              thumbColor: Colors.white,
-              overlayColor: KalinkaColors.accent.withValues(alpha: 0.25),
-            ),
-            child: Slider(
-              value: progress,
-              onChanged: (value) {
-                if (!_isSeeking) {
-                  KalinkaHaptics.mediumImpact();
-                  _lastHapticSeekPosition = value;
-                } else if ((value - _lastHapticSeekPosition).abs() >= 0.05) {
-                  KalinkaHaptics.selectionClick();
-                  _lastHapticSeekPosition = value;
-                }
-                setState(() {
-                  _isSeeking = true;
-                  _seekProgress = value;
-                  _seekPositionMs = (value * widget.durationMs).toInt();
-                });
-              },
-              onChangeEnd: (value) {
-                KalinkaHaptics.lightImpact();
-                final newPositionMs = (value * widget.durationMs).toInt();
-                setState(() {
-                  _seekBeforeSeq = ref.read(playQueueStateStoreProvider).seq;
-                });
-                ref
-                    .read(kalinkaWsApiProvider)
-                    .sendQueueCommand(
-                      QueueCommand.seek(positionMs: newPositionMs),
-                    );
-              },
-            ),
-          ),
-          // SizedBox gives tight constraints (tight width from Column + fixed
-          // height here), making the Row a Flutter relayout boundary. This
-          // prevents RenderParagraph.markNeedsLayout() from propagating up
-          // through the RepaintBoundary and causing a full-screen relayout on
-          // every playback-time tick.
-          SizedBox(
-            width: double
-                .infinity, // combined with height → tight on both axes → relayout boundary
-            height: 20,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _formatTime(positionMs),
-                    style: KalinkaTextStyles.timeLabel,
-                  ),
-                  Text(
-                    _formatTime(widget.durationMs),
-                    style: KalinkaTextStyles.timeLabel,
-                  ),
-                ],
+      child: Opacity(
+        opacity: widget.enabled ? 1.0 : 0.4,
+        child: Column(
+          children: [
+            SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                activeTrackColor: KalinkaColors.accent,
+                inactiveTrackColor: KalinkaColors.borderDefault,
+                thumbColor: Colors.white,
+                overlayColor: KalinkaColors.accent.withValues(alpha: 0.25),
+              ),
+              child: Slider(
+                value: progress,
+                onChanged: !widget.enabled
+                    ? null
+                    : (value) {
+                        if (!_isSeeking) {
+                          KalinkaHaptics.mediumImpact();
+                          _lastHapticSeekPosition = value;
+                        } else if ((value - _lastHapticSeekPosition).abs() >=
+                            0.05) {
+                          KalinkaHaptics.selectionClick();
+                          _lastHapticSeekPosition = value;
+                        }
+                        setState(() {
+                          _isSeeking = true;
+                          _seekProgress = value;
+                          _seekPositionMs = (value * widget.durationMs).toInt();
+                        });
+                      },
+                onChangeEnd: (value) {
+                  KalinkaHaptics.lightImpact();
+                  final newPositionMs = (value * widget.durationMs).toInt();
+                  setState(() {
+                    _seekBeforeSeq = ref.read(playQueueStateStoreProvider).seq;
+                  });
+                  ref
+                      .read(kalinkaWsApiProvider)
+                      .sendQueueCommand(
+                        QueueCommand.seek(positionMs: newPositionMs),
+                      );
+                },
               ),
             ),
-          ),
-        ],
+            // SizedBox gives tight constraints (tight width from Column + fixed
+            // height here), making the Row a Flutter relayout boundary. This
+            // prevents RenderParagraph.markNeedsLayout() from propagating up
+            // through the RepaintBoundary and causing a full-screen relayout on
+            // every playback-time tick.
+            SizedBox(
+              width: double
+                  .infinity, // combined with height → tight on both axes → relayout boundary
+              height: 20,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _formatTime(positionMs),
+                      style: KalinkaTextStyles.timeLabel,
+                    ),
+                    Text(
+                      _formatTime(widget.durationMs),
+                      style: KalinkaTextStyles.timeLabel,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
