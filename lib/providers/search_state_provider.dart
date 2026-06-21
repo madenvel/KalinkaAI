@@ -327,8 +327,28 @@ class SearchStateNotifier extends Notifier<SearchState> {
   void _setupCacheInvalidation() {
     ref.listen(connectionSettingsProvider, (previous, next) {
       if (previous?.host != next.host || previous?.port != next.port) {
+        // Switching servers invalidates everything: the in-memory caches AND
+        // the results already painted on screen, which belong to the old
+        // server. A server switch doesn't dip the connection state out of
+        // ``connected`` (the socket rebuilds in place), so the reconnect
+        // listener below never fires — wipe the visible state and re-fetch
+        // here instead, or stale items linger with no resolvable content.
         _cache.clear();
         _aiCache.clear();
+        _recommendationsForTrackId = null;
+        state = state.copyWith(
+          clearSearchResults: true,
+          clearAiSearchResults: true,
+          aiExpandedSections: const {},
+          clearScopedFavourites: true,
+          clearScopedPlaylists: true,
+          recentlyFavourited: const [],
+          genrePills: const [],
+          librarySections: const [],
+          browseRecommendations: const [],
+          clearError: true,
+        );
+        _refreshAfterReconnect();
       }
     });
 
