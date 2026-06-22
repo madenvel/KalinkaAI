@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data_model/data_model.dart' show DeviceVolume;
 import '../data_model/kalinka_ws_api.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
@@ -26,30 +27,51 @@ class _NowPlayingVolumeControlState
   Timer? _volumeDebounceTimer;
   int? _pendingVolume;
 
+  // Mirrored provider state. Populated via post-frame subscriptions rather than
+  // read in build: this widget mounts inside a parent's build, where reading the
+  // device-state graph cold-flushes it and schedules a provider refresh mid-build
+  // (setState-during-build crash). A post-frame flush runs between frames safely.
+  DeviceVolume _volumeState = DeviceVolume.empty;
+  ProviderSubscription? _volumeSub;
+  ProviderSubscription? _seqSub;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _volumeSub = ref.listenManual(
+        volumeStateProvider,
+        (prev, next) => setState(() => _volumeState = next),
+        fireImmediately: true,
+      );
+      _seqSub = ref.listenManual<int>(
+        extDeviceStateStoreProvider.select((s) => s.seq),
+        (prev, next) {
+          if (_isAdjustingVolume &&
+              _volumeBeforeSeq != null &&
+              next != _volumeBeforeSeq) {
+            setState(() {
+              _isAdjustingVolume = false;
+              _volumeBeforeSeq = null;
+            });
+          }
+        },
+      );
+    });
+  }
+
   @override
   void dispose() {
     _volumeDebounceTimer?.cancel();
+    _volumeSub?.close();
+    _seqSub?.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // In build, not initState: listenManual can flush mid-parent-build and throw.
-    ref.listen<int>(
-      extDeviceStateStoreProvider.select((s) => s.seq),
-      (prev, next) {
-        if (_isAdjustingVolume &&
-            _volumeBeforeSeq != null &&
-            next != _volumeBeforeSeq) {
-          setState(() {
-            _isAdjustingVolume = false;
-            _volumeBeforeSeq = null;
-          });
-        }
-      },
-    );
-
-    final volumeState = ref.watch(volumeStateProvider);
+    final volumeState = _volumeState;
     if (!volumeState.supported) return const SizedBox.shrink();
 
     return RepaintBoundary(
