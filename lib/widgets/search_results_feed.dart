@@ -551,9 +551,21 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
           isExpanded: groupId != null && expanded.contains(groupId),
           onToggleExpand: groupId == null
               ? null
-              : () => ref
-                  .read(searchStateProvider.notifier)
-                  .revealAiSection(groupId),
+              : () {
+                  final wasExpanded = expanded.contains(groupId);
+                  ref
+                      .read(searchStateProvider.notifier)
+                      .revealAiSection(groupId);
+                  // Collapsing leaves the viewport scrolled down past the now-
+                  // hidden rows — return to the top of the feed.
+                  if (wasExpanded && _scrollController.hasClients) {
+                    _scrollController.animateTo(
+                      0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                },
         );
       }
 
