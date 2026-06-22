@@ -94,6 +94,17 @@ set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 
+# Application icon, loaded at runtime as the window/taskbar icon.
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/kalinka.png"
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}" COMPONENT Runtime)
+
+# Desktop-entry template + per-user installer, shipped in the bundle so the
+# release tarball can register Kalinka with the desktop environment.
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/org.kalinka.kalinka.desktop"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}" COMPONENT Runtime)
+install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/packaging/install.sh"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}" COMPONENT Runtime)
+
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   COMPONENT Runtime)
 

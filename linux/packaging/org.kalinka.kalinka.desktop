@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Kalinka
+GenericName=Music Player
+Comment=Kalinka music streaming client
+# Exec/Icon are filled in by install.sh at install time.
+Exec=@EXEC@
+Icon=@ICON@
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=music;audio;player;streaming;
+StartupNotify=true

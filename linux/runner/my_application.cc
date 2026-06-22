@@ -19,6 +19,27 @@ static void first_frame_cb(MyApplication *self, FlView *view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
+// Resolve the bundled icon (installed at <exe_dir>/data/kalinka.png) and apply
+// it as the window/taskbar icon.
+static void set_window_icon(GtkWindow *window) {
+  g_autofree gchar *exe = g_file_read_link("/proc/self/exe", nullptr);
+  if (exe == nullptr) {
+    return;
+  }
+  g_autofree gchar *exe_dir = g_path_get_dirname(exe);
+  g_autofree gchar *icon_path =
+      g_build_filename(exe_dir, "data", "kalinka.png", nullptr);
+
+  g_autoptr(GError) error = nullptr;
+  g_autoptr(GdkPixbuf) icon = gdk_pixbuf_new_from_file(icon_path, &error);
+  if (icon == nullptr) {
+    g_warning("Failed to load window icon: %s", error->message);
+    return;
+  }
+  gtk_window_set_icon(window, icon);
+  gtk_window_set_default_icon(icon);
+}
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication *application) {
   MyApplication *self = MY_APPLICATION(application);
@@ -45,12 +66,14 @@ static void my_application_activate(GApplication *application) {
   if (use_header_bar) {
     GtkHeaderBar *header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "kalinka");
+    gtk_header_bar_set_title(header_bar, "Kalinka");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "kalinka");
+    gtk_window_set_title(window, "Kalinka");
   }
+
+  set_window_icon(window);
 
   gtk_window_set_default_size(window, 1280, 720);
 

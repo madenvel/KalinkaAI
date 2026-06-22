@@ -32,6 +32,23 @@ render_fg() {
   echo "  ${safe}×${safe} (safe zone) in ${canvas}×${canvas} canvas → $out"
 }
 
+# Render the icon onto an opaque black circle — for the Linux desktop/window
+# icon. The K artwork sits in the inner safe zone so it is never clipped by the
+# circle edge.
+render_circle() {
+  local size=$1 out=$2
+  local safe=$(( size * 7 / 10 ))
+  local tmp; tmp="$(mktemp --suffix=.png)"
+  $R -w "$safe" -h "$safe" "$SVG" -o "$tmp"
+  mkdir -p "$(dirname "$out")"
+  local r=$(( size / 2 ))
+  magick -size "${size}x${size}" xc:none \
+    -fill black -draw "circle ${r},${r} ${r},0" \
+    "$tmp" -gravity Center -composite "$out"
+  rm -f "$tmp"
+  echo "  $size×$size (black circle) → $out"
+}
+
 # Render monochrome white icon for Android notification small icon.
 # All visible pixels become white; transparency is preserved.
 render_notification() {
@@ -109,7 +126,7 @@ magick "$WINTMP/win_16.png" "$WINTMP/win_32.png" "$WINTMP/win_48.png" \
 echo "  → windows/runner/resources/app_icon.ico"
 
 echo "=== Linux ==="
-render 512 linux/kalinka.png
+render_circle 512 linux/kalinka.png
 
 echo ""
 echo "Done."

@@ -79,6 +79,10 @@ major bump. The repo is `madenvel/KalinkaAI`; releases go to GitHub Releases.
 7. **Publish.** Write release notes (Added / Changed / Fixed, an Installation
    section with the md5 verify instructions, the cert SHA-256, and a Linux
    desktop note — mirror the previous release's body) to a temp file, then:
+   - In the Linux desktop note, tell users to extract the tarball and run
+     `./install.sh` to register the app (launcher icon + "Kalinka" name);
+     `./install.sh --uninstall` reverses it. The app still runs directly via
+     the `kalinka` binary without installing.
    ```bash
    gh release create v<v> --title "Kalinka <v>" --notes-file /tmp/relnotes.md \
      dist/kalinka-<v>-arm64-v8a.apk dist/kalinka-<v>-armeabi-v7a.apk \
