@@ -1177,7 +1177,8 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
   void revealAiSection(String sectionId) {
     final updated = Set<String>.from(state.aiExpandedSections);
-    updated.add(sectionId);
+    // Toggle: "Show N more" expands, "Show fewer" collapses.
+    if (!updated.remove(sectionId)) updated.add(sectionId);
     state = state.copyWith(aiExpandedSections: updated);
   }
 
