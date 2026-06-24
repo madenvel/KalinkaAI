@@ -529,7 +529,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         final items = section.sections!;
         final groupId = section.id;
         final preview = section.catalog?.previewConfig;
-        final title = section.name ?? section.catalog?.title ?? '';
+        final title = section.name ?? '';
         final icon = _sectionIcon(preview?.icon);
 
         final rows = BrowseItemRows(
@@ -660,8 +660,6 @@ IconData? _sectionIcon(String? id) {
       return Icons.album_outlined;
     case 'artist':
       return Icons.person_outline;
-    case 'track':
-      return Icons.music_note;
     default:
       return null;
   }
