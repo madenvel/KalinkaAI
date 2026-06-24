@@ -1,0 +1,6 @@
+- AI search: BEST MATCH block and backend-driven result sections
+- Linux: capitalized app title, circular icon, desktop entry
+- Fixed "Show fewer" not collapsing AI suggestion sections
+- Fixed volume slider crash; disabled transport controls when no track
+- Detect dead connections via heartbeat and refresh on resume
+- Clear stale search results when switching servers
