@@ -484,56 +484,21 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
   Widget _buildAiResultsFeed(SearchState state) {
     final topLevel = state.aiSearchResults!.items;
 
-    // The AI endpoint groups results into catalog containers (e.g. "Tracks",
-    // "Albums", "Artists") whose actual renderable items live in `sections`.
-    // Flatten by walking top-level items: catalogs contribute a section
-    // header + their section children; bare items render directly.
-    const aiGroupVisibleLimit = 5;
+    // Each top-level item is a backend-described section: a catalog carrying a
+    // preview_config (icon + layout) plus its renderable children in
+    // `sections`. The feed renders each section verbatim — it does not rename,
+    // regroup by content type, or re-interpret what the server sent. The
+    // section's representation (card vs plain list) comes from
+    // preview_config.type; its label / subtitle / icon come from the section.
+    const defaultVisibleLimit = 5;
     final expanded = state.aiExpandedSections;
-    final groups = <({String? id, String? label, List<BrowseItem> items})>[];
-    for (final item in topLevel) {
-      if (item.catalog != null && item.sections != null) {
-        groups.add((id: item.id, label: item.name, items: item.sections!));
-      } else if (item.browseType != BrowseType.unknown &&
-          item.browseType != BrowseType.catalog) {
-        groups.add((id: null, label: null, items: [item]));
-      }
-    }
+    final sections = topLevel
+        .where((s) => s.catalog != null && (s.sections?.isNotEmpty ?? false))
+        .toList();
 
-    final totalItems = groups.fold<int>(0, (sum, g) => sum + g.items.length);
+    final totalItems =
+        sections.fold<int>(0, (sum, s) => sum + s.sections!.length);
     _triggerStagger(totalItems);
-
-    // BEST MATCH (literal/navigational hits) is pulled out as its own block
-    // above the AI suggestions — never merged into the tracks card or the
-    // "Related …" groups. Identified by the searcher's catalog id.
-    ({String? id, String? label, List<BrowseItem> items})? bestMatchGroup;
-    final rankedGroups =
-        <({String? id, String? label, List<BrowseItem> items})>[];
-    for (final g in groups) {
-      if (bestMatchGroup == null &&
-          (g.id?.contains('catalog:best_match') ?? false)) {
-        bestMatchGroup = g;
-      } else {
-        rankedGroups.add(g);
-      }
-    }
-
-    // The primary track group(s) merge with the AI header into one card; album
-    // and artist groups render below it as plain "Related …" sections.
-    final trackGroups = rankedGroups
-        .where((g) => _aiGroupType(g.items) == BrowseType.track)
-        .toList();
-    final relatedGroups = rankedGroups
-        .where((g) => _aiGroupType(g.items) != BrowseType.track)
-        .toList();
-
-    // Every track shown in the card — including ones hidden behind a collapsed
-    // section — so "Select all" reaches the full set, not just the visible rows.
-    final allTrackIds = <String>[
-      for (final group in trackGroups)
-        for (final item in group.items)
-          if (item.browseType == BrowseType.track) item.id,
-    ];
 
     final children = <Widget>[];
 
@@ -558,83 +523,60 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         ),
       ));
     } else {
-      BrowseItemRows rowsFor(({String? id, String? label, List<BrowseItem> items}) group) {
-        final groupId = group.id;
-        return BrowseItemRows(
-          items: group.items,
-          visibleLimit: aiGroupVisibleLimit,
-          isExpanded: groupId != null && expanded.contains(groupId),
-          onToggleExpand: groupId == null
-              ? null
-              : () {
-                  final wasExpanded = expanded.contains(groupId);
-                  ref
-                      .read(searchStateProvider.notifier)
-                      .revealAiSection(groupId);
-                  // Collapsing leaves the viewport scrolled down past the now-
-                  // hidden rows — return to the top of the feed.
-                  if (wasExpanded && _scrollController.hasClients) {
-                    _scrollController.animateTo(
-                      0,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                    );
-                  }
-                },
+      children.add(const SizedBox(height: 12));
+      for (int i = 0; i < sections.length; i++) {
+        final section = sections[i];
+        final items = section.sections!;
+        final groupId = section.id;
+        final preview = section.catalog?.previewConfig;
+        final title = section.name ?? section.catalog?.title ?? '';
+        final icon = _sectionIcon(preview?.icon);
+
+        final rows = BrowseItemRows(
+          items: items,
+          visibleLimit: defaultVisibleLimit,
+          isExpanded: expanded.contains(groupId),
+          onToggleExpand: () {
+            final wasExpanded = expanded.contains(groupId);
+            ref.read(searchStateProvider.notifier).revealAiSection(groupId);
+            // Collapsing leaves the viewport scrolled down past the now-hidden
+            // rows — return to the top of the feed.
+            if (wasExpanded && _scrollController.hasClients) {
+              _scrollController.animateTo(
+                0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          },
         );
-      }
 
-      // ── BEST MATCH: literal hits, rendered above the AI suggestions ──
-      if (bestMatchGroup != null) {
-        children.add(_BestMatchCard(items: bestMatchGroup.items));
-      }
+        if (i > 0) children.add(const SizedBox(height: 18));
 
-      // ── AI tracks card: header + track rows merged onto one surface ──
-      if (trackGroups.isNotEmpty) {
-        children.add(Container(
-          margin: const EdgeInsets.only(top: 12),
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-          decoration: BoxDecoration(
-            color: KalinkaColors.surfaceRaised,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _AiSuggestionsHeader(trackIds: allTrackIds),
-              const SizedBox(height: 4),
-              const Divider(
-                color: KalinkaColors.borderSubtle,
-                thickness: 1,
-                height: 16,
-              ),
-              for (final group in trackGroups) rowsFor(group),
-            ],
-          ),
-        ));
-      } else {
-        // No tracks — still label the feed as AI-generated.
-        children.add(const Padding(
-          padding: EdgeInsets.only(top: 12),
-          child: _AiSuggestionsHeader(trackIds: []),
-        ));
-      }
-
-      // ── Related sections (albums, artists): plain rows, no card ──
-      if (relatedGroups.isNotEmpty) {
-        children.add(const SizedBox(height: 18));
-      }
-      for (int g = 0; g < relatedGroups.length; g++) {
-        final group = relatedGroups[g];
-        if (group.label != null) {
-          children.add(SectionHeader(
-            label: _relatedLabel(group.label!),
-            count: group.items.length,
-            showDivider: g > 0,
+        if (preview?.type == PreviewType.card) {
+          // Card representation: bordered surface + select-all for tracks.
+          final trackIds = <String>[
+            for (final item in items)
+              if (item.browseType == BrowseType.track) item.id,
+          ];
+          children.add(_SectionCard(
+            icon: icon,
+            title: title,
+            subtitle: section.subname,
+            trackIds: trackIds,
+            child: rows,
           ));
+        } else {
+          // Plain section: header + rows.
+          children.add(SectionHeader(
+            label: title,
+            subtitle: section.subname,
+            icon: icon,
+            count: items.length,
+            showDivider: false,
+          ));
+          children.add(rows);
         }
-        children.add(rowsFor(group));
       }
     }
 
@@ -706,33 +648,44 @@ class _IndexerStatusGate extends ConsumerWidget {
   }
 }
 
-/// Dominant renderable type of an AI result group — the first item that isn't a
-/// catalog/unknown wrapper. Used to split track groups (the card) from album and
-/// artist groups (the "Related …" sections below).
-BrowseType _aiGroupType(List<BrowseItem> items) {
-  for (final item in items) {
-    if (item.browseType != BrowseType.unknown &&
-        item.browseType != BrowseType.catalog) {
-      return item.browseType;
-    }
+/// Maps a backend section icon id (from `preview_config.icon`) to a concrete
+/// icon. Unknown / null ids render no icon — the UI never invents one.
+IconData? _sectionIcon(String? id) {
+  switch (id) {
+    case 'best_match':
+      return Icons.star_rounded;
+    case 'ai_suggestions':
+      return Icons.auto_awesome;
+    case 'album':
+      return Icons.album_outlined;
+    case 'artist':
+      return Icons.person_outline;
+    case 'track':
+      return Icons.music_note;
+    default:
+      return null;
   }
-  return BrowseType.unknown;
 }
 
-/// Prefixes a group label with "Related " unless it already starts that way,
-/// e.g. "Albums" → "Related Albums".
-String _relatedLabel(String label) {
-  return label.toLowerCase().startsWith('related') ? label : 'Related $label';
-}
-
-/// Header above AI-generated search results. Labels the feed as AI suggestions
-/// and offers a one-tap select/clear affordance covering every track — including
-/// those hidden behind a collapsed section — so the bottom batch bar can act on
-/// the whole set (play / play next / add to queue).
-class _AiSuggestionsHeader extends ConsumerWidget {
+/// A backend-described "card" section (preview_config.type == card): a bordered
+/// surface with a header (icon + title + subtitle) wrapping a list of rows. When
+/// the section contains tracks it also offers a one-tap select/clear affordance
+/// covering every track id — including ones hidden behind a collapsed section —
+/// so the bottom batch bar can act on the whole set.
+class _SectionCard extends ConsumerWidget {
+  final IconData? icon;
+  final String title;
+  final String? subtitle;
   final List<String> trackIds;
+  final Widget child;
 
-  const _AiSuggestionsHeader({required this.trackIds});
+  const _SectionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.trackIds,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -743,94 +696,7 @@ class _AiSuggestionsHeader extends ConsumerWidget {
       ),
     );
 
-    return Row(
-        children: [
-          const Icon(
-            Icons.auto_awesome,
-            size: 16,
-            color: KalinkaColors.accentTint,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'AI SUGGESTIONS',
-                  style: KalinkaTextStyles.sectionLabel.copyWith(
-                    color: KalinkaColors.accentTint,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Curated for your search',
-                  style: KalinkaTextStyles.trackRowSubtitle,
-                ),
-              ],
-            ),
-          ),
-          if (hasTracks)
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                KalinkaHaptics.lightImpact();
-                final notifier = ref.read(selectionStateProvider.notifier);
-                if (allSelected) {
-                  notifier.deselectTracks(trackIds);
-                } else {
-                  notifier.selectTracks(trackIds);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: allSelected
-                      ? KalinkaColors.accentSubtle
-                      : KalinkaColors.surfaceElevated,
-                  border: Border.all(
-                    color: allSelected
-                        ? KalinkaColors.accentBorder
-                        : KalinkaColors.borderDefault,
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  allSelected ? 'Clear' : 'Select all',
-                  style: KalinkaFonts.sans(
-                    fontSize: KalinkaTypography.baseSize + 1,
-                    fontWeight: FontWeight.w600,
-                    color: allSelected
-                        ? KalinkaColors.accentTint
-                        : KalinkaColors.textPrimary,
-                  ),
-                ),
-              ),
-            ),
-        ],
-    );
-  }
-}
-
-/// Top "BEST MATCH" block: literal/navigational hits (exact-ish artist /
-/// album / track name matches from full-text search) shown as one flat,
-/// score-ordered list above the AI suggestions. Mixed entity types render
-/// in place via [BrowseItemRows], each row keeping its own inline actions
-/// (play/enqueue for tracks, expand for albums/artists). Styled to mirror
-/// the AI suggestions card so the two read as sibling result surfaces, with
-/// BEST MATCH on top.
-class _BestMatchCard extends StatelessWidget {
-  final List<BrowseItem> items;
-
-  const _BestMatchCard({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
       decoration: BoxDecoration(
         color: KalinkaColors.surfaceRaised,
@@ -842,30 +708,71 @@ class _BestMatchCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.center_focus_strong,
-                size: 16,
-                color: KalinkaColors.accent,
-              ),
-              const SizedBox(width: 8),
+              if (icon != null) ...[
+                Icon(icon, size: 16, color: KalinkaColors.accentTint),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'BEST MATCH',
+                      title.toUpperCase(),
                       style: KalinkaTextStyles.sectionLabel.copyWith(
-                        color: KalinkaColors.accent,
+                        color: KalinkaColors.accentTint,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Top results for your search',
-                      style: KalinkaTextStyles.trackRowSubtitle,
-                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: KalinkaTextStyles.trackRowSubtitle,
+                      ),
+                    ],
                   ],
                 ),
               ),
+              if (hasTracks)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    KalinkaHaptics.lightImpact();
+                    final notifier = ref.read(selectionStateProvider.notifier);
+                    if (allSelected) {
+                      notifier.deselectTracks(trackIds);
+                    } else {
+                      notifier.selectTracks(trackIds);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      color: allSelected
+                          ? KalinkaColors.accentSubtle
+                          : KalinkaColors.surfaceElevated,
+                      border: Border.all(
+                        color: allSelected
+                            ? KalinkaColors.accentBorder
+                            : KalinkaColors.borderDefault,
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      allSelected ? 'Clear' : 'Select all',
+                      style: KalinkaFonts.sans(
+                        fontSize: KalinkaTypography.baseSize + 1,
+                        fontWeight: FontWeight.w600,
+                        color: allSelected
+                            ? KalinkaColors.accentTint
+                            : KalinkaColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 4),
@@ -874,9 +781,7 @@ class _BestMatchCard extends StatelessWidget {
             thickness: 1,
             height: 16,
           ),
-          // visibleLimit omitted: BEST MATCH is small (<= 6) and always shown
-          // in full — no "show more" affordance.
-          BrowseItemRows(items: items),
+          child,
         ],
       ),
     );
