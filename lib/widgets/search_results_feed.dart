@@ -503,12 +503,27 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     final totalItems = groups.fold<int>(0, (sum, g) => sum + g.items.length);
     _triggerStagger(totalItems);
 
+    // BEST MATCH (literal/navigational hits) is pulled out as its own block
+    // above the AI suggestions — never merged into the tracks card or the
+    // "Related …" groups. Identified by the searcher's catalog id.
+    ({String? id, String? label, List<BrowseItem> items})? bestMatchGroup;
+    final rankedGroups =
+        <({String? id, String? label, List<BrowseItem> items})>[];
+    for (final g in groups) {
+      if (bestMatchGroup == null &&
+          (g.id?.contains('catalog:best_match') ?? false)) {
+        bestMatchGroup = g;
+      } else {
+        rankedGroups.add(g);
+      }
+    }
+
     // The primary track group(s) merge with the AI header into one card; album
     // and artist groups render below it as plain "Related …" sections.
-    final trackGroups = groups
+    final trackGroups = rankedGroups
         .where((g) => _aiGroupType(g.items) == BrowseType.track)
         .toList();
-    final relatedGroups = groups
+    final relatedGroups = rankedGroups
         .where((g) => _aiGroupType(g.items) != BrowseType.track)
         .toList();
 
@@ -567,6 +582,11 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
                   }
                 },
         );
+      }
+
+      // ── BEST MATCH: literal hits, rendered above the AI suggestions ──
+      if (bestMatchGroup != null) {
+        children.add(_BestMatchCard(items: bestMatchGroup.items));
       }
 
       // ── AI tracks card: header + track rows merged onto one surface ──
@@ -791,6 +811,74 @@ class _AiSuggestionsHeader extends ConsumerWidget {
               ),
             ),
         ],
+    );
+  }
+}
+
+/// Top "BEST MATCH" block: literal/navigational hits (exact-ish artist /
+/// album / track name matches from full-text search) shown as one flat,
+/// score-ordered list above the AI suggestions. Mixed entity types render
+/// in place via [BrowseItemRows], each row keeping its own inline actions
+/// (play/enqueue for tracks, expand for albums/artists). Styled to mirror
+/// the AI suggestions card so the two read as sibling result surfaces, with
+/// BEST MATCH on top.
+class _BestMatchCard extends StatelessWidget {
+  final List<BrowseItem> items;
+
+  const _BestMatchCard({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      decoration: BoxDecoration(
+        color: KalinkaColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.center_focus_strong,
+                size: 16,
+                color: KalinkaColors.accent,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'BEST MATCH',
+                      style: KalinkaTextStyles.sectionLabel.copyWith(
+                        color: KalinkaColors.accent,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Top results for your search',
+                      style: KalinkaTextStyles.trackRowSubtitle,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Divider(
+            color: KalinkaColors.borderSubtle,
+            thickness: 1,
+            height: 16,
+          ),
+          // visibleLimit omitted: BEST MATCH is small (<= 6) and always shown
+          // in full — no "show more" affordance.
+          BrowseItemRows(items: items),
+        ],
+      ),
     );
   }
 }
