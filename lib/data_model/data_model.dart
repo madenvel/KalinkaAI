@@ -420,7 +420,7 @@ class Playlist {
   };
 }
 
-enum PreviewType { imageText, textOnly, carousel, tile, tileNumbered, none }
+enum PreviewType { imageText, textOnly, carousel, tile, tileNumbered, card, none }
 
 extension PreviewTypeExtension on PreviewType {
   String toValue() {
@@ -435,6 +435,8 @@ extension PreviewTypeExtension on PreviewType {
         return 'tile';
       case PreviewType.tileNumbered:
         return 'tile_numbered';
+      case PreviewType.card:
+        return 'card';
       case PreviewType.none:
         return 'none';
     }
@@ -452,10 +454,14 @@ extension PreviewTypeExtension on PreviewType {
         return PreviewType.tile;
       case 'tile_numbered':
         return PreviewType.tileNumbered;
+      case 'card':
+        return PreviewType.card;
       case 'none':
         return PreviewType.none;
       default:
-        throw Exception('Invalid PreviewType value: $value');
+        // Tolerate unknown/newer server layout types instead of throwing:
+        // the section still renders as a plain tile list.
+        return PreviewType.tile;
     }
   }
 }
@@ -558,6 +564,10 @@ class Preview {
   final int? itemsCount;
   final PreviewType type;
   final PreviewContentType? contentType;
+
+  /// Semantic icon id for the section header (e.g. "best_match",
+  /// "ai_suggestions", "album", "artist"); mapped to a concrete icon by the UI.
+  final String? icon;
   final int? rowsCount;
   final CardSize? cardSize;
 
@@ -565,6 +575,7 @@ class Preview {
     this.itemsCount,
     required this.type,
     this.contentType,
+    this.icon,
     this.rowsCount,
     this.cardSize,
   });
@@ -575,6 +586,7 @@ class Preview {
     contentType: json["content_type"] == null
         ? null
         : PreviewContentTypeExtension.fromValue(json["content_type"]),
+    icon: json["icon"],
     rowsCount: json["rows_count"],
     cardSize: json["card_size"] == null
         ? null
@@ -585,6 +597,7 @@ class Preview {
     "items_count": itemsCount,
     "type": type.toValue(),
     "content_type": contentType?.toValue(),
+    "icon": icon,
     "rows_count": rowsCount,
     "card_size": cardSize?.toValue(),
   };
@@ -593,6 +606,7 @@ class Preview {
     int? itemsCount,
     PreviewType? type,
     PreviewContentType? contentType,
+    String? icon,
     int? rowsCount,
     CardSize? cardSize,
   }) {
@@ -600,6 +614,7 @@ class Preview {
       itemsCount: itemsCount ?? this.itemsCount,
       type: type ?? this.type,
       contentType: contentType ?? this.contentType,
+      icon: icon ?? this.icon,
       rowsCount: rowsCount ?? this.rowsCount,
       cardSize: cardSize ?? this.cardSize,
     );
@@ -612,13 +627,14 @@ class Preview {
         other.itemsCount == itemsCount &&
         other.type == type &&
         other.contentType == contentType &&
+        other.icon == icon &&
         other.rowsCount == rowsCount &&
         other.cardSize == cardSize;
   }
 
   @override
   int get hashCode =>
-      Object.hash(itemsCount, type, contentType, rowsCount, cardSize);
+      Object.hash(itemsCount, type, contentType, icon, rowsCount, cardSize);
 }
 
 enum CatalogRole { featured, discovery, library, indexNode, hideOnHome }
