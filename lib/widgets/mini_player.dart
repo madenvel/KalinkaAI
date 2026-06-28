@@ -18,6 +18,7 @@ import 'gradient_progress_line.dart';
 import 'play_pause_glyph.dart';
 import 'procedural_album_art.dart';
 import 'source_badge.dart';
+import 'transport_button.dart';
 
 /// Fixed bottom mini player — 72px tall plus safe area inset.
 /// Fades out when keyboard is visible during search.
@@ -409,44 +410,57 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     required PlayerStateType? playerState,
   }) {
     final canSwipe = _latchedCurrentTrack == null;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: widget.onTap,
-      onHorizontalDragStart: canSwipe ? _onHorizontalDragStart : null,
-      onHorizontalDragUpdate: canSwipe ? _onHorizontalDragUpdate : null,
-      onHorizontalDragEnd: canSwipe ? _onHorizontalDragEnd : null,
-      onVerticalDragEnd: (d) {
-        // Swipe up → open now-playing
-        if ((d.primaryVelocity ?? 0) < -200) widget.onTap?.call();
-      },
-      child: AnimatedOpacity(
-        opacity: isOffline ? 0.45 : 1.0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-        child: SizedBox(
-          height: 70,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                _buildAlbumArt(
-                  resolvedImageUrl: resolvedImageUrl,
-                  trackId: currentTrack?.id ?? '',
+    return AnimatedOpacity(
+      opacity: isOffline ? 0.45 : 1.0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+      child: SizedBox(
+        height: 70,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              // Only art + text take the tap-to-open / swipe gestures; the
+              // play button stays outside so the swipe recognizer can't steal
+              // its taps.
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: widget.onTap,
+                  onHorizontalDragStart: canSwipe
+                      ? _onHorizontalDragStart
+                      : null,
+                  onHorizontalDragUpdate: canSwipe
+                      ? _onHorizontalDragUpdate
+                      : null,
+                  onHorizontalDragEnd: canSwipe ? _onHorizontalDragEnd : null,
+                  onVerticalDragEnd: (d) {
+                    // Swipe up → open now-playing
+                    if ((d.primaryVelocity ?? 0) < -200) widget.onTap?.call();
+                  },
+                  child: Row(
+                    children: [
+                      _buildAlbumArt(
+                        resolvedImageUrl: resolvedImageUrl,
+                        trackId: currentTrack?.id ?? '',
+                      ),
+                      const SizedBox(width: 10),
+                      _buildCarouselText(
+                        currentTrack: currentTrack,
+                        incomingTrack: incomingTrack,
+                        carouselOffset: carouselOffset,
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 10),
-                _buildCarouselText(
-                  currentTrack: currentTrack,
-                  incomingTrack: incomingTrack,
-                  carouselOffset: carouselOffset,
-                ),
-                const SizedBox(width: 8),
-                _buildPlayPauseButton(
-                  playerState: playerState,
-                  isOffline: isOffline,
-                  hasTrack: currentTrack != null,
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              _buildPlayPauseButton(
+                playerState: playerState,
+                isOffline: isOffline,
+                hasTrack: currentTrack != null,
+              ),
+            ],
           ),
         ),
       ),
@@ -527,9 +541,10 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
     );
   }
 
-  /// Stationary 46×46 play/pause control. Disabled (no tap handler) when the
-  /// player state doesn't allow toggling, and fully ignored while offline.
-  /// Greyed out and inert when there's no track loaded.
+  /// Stationary 46×46 play/pause control sharing the now-playing
+  /// [TransportButton] (InkWell ripple + press-scale feedback). Disabled when
+  /// the player state doesn't allow toggling, fully ignored while offline, and
+  /// greyed out when there's no track loaded.
   Widget _buildPlayPauseButton({
     required PlayerStateType? playerState,
     required bool isOffline,
@@ -540,35 +555,27 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
       ignoring: isOffline,
       child: Opacity(
         opacity: hasTrack ? 1.0 : 0.4,
-        child: GestureDetector(
+        child: TransportButton(
+          hitDiameter: 46,
+          background: Colors.white,
+          // Ripple has to read against the white face, so use a dark tint.
+          splashColor: KalinkaColors.background.withValues(alpha: 0.18),
+          highlightColor: KalinkaColors.background.withValues(alpha: 0.08),
           onTapDown: disabled
               ? null
               : (_) => playerState == PlayerStateType.playing
                     ? KalinkaHaptics.lightImpact()
                     : KalinkaHaptics.mediumImpact(),
           onTap: disabled ? null : () => sendPlayPauseCommand(ref, playerState),
-          child: Container(
-            width: 46,
-            height: 46,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            // Fixed 26×26 glyph slot for every state keeps visual weight
-            // stable and prevents the spinner from appearing offset against
-            // the icon.
-            child: Center(
-              child: SizedBox(
-                width: 26,
-                height: 26,
-                child: Center(
-                  child: PlayPauseGlyph(
-                    playerState: playerState,
-                    iconSize: 26,
-                    statusSize: 22,
-                  ),
-                ),
-              ),
+          // Fixed 26×26 glyph slot keeps visual weight stable across states
+          // and prevents the spinner from appearing offset against the icon.
+          child: SizedBox(
+            width: 26,
+            height: 26,
+            child: PlayPauseGlyph(
+              playerState: playerState,
+              iconSize: 26,
+              statusSize: 22,
             ),
           ),
         ),
