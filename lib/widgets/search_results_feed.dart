@@ -284,19 +284,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
   }
 
   Widget _buildSkeletonLoading() {
-    return ListView(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, widget.bottomPadding),
-      children: [
-        // AI card skeleton (taller, full-width)
-        const _ShimmerRow(height: 120, isAiCard: true),
-        const SizedBox(height: 12),
-        // Track row skeletons
-        for (int i = 0; i < 3; i++) ...[
-          const _ShimmerRow(height: 60, isAiCard: false),
-          const SizedBox(height: 8),
-        ],
-      ],
-    );
+    return _AiSearchShimmer(bottomPadding: widget.bottomPadding);
   }
 
   Widget _buildResultsFeed(
@@ -830,103 +818,76 @@ class _StaggeredItem extends StatelessWidget {
   }
 }
 
-/// Shimmer skeleton row for loading state.
-class _ShimmerRow extends StatefulWidget {
-  final double height;
-  final bool isAiCard;
+/// Shimmer placeholder mirroring the AI search results structure: a plain
+/// section (icon + title + count, then rows) followed by a bordered card
+/// section (icon + title + Select-all chip, then rows). Shown while AI results
+/// load, so the skeleton matches the real feed instead of a now-removed card.
+class _AiSearchShimmer extends StatefulWidget {
+  final double bottomPadding;
 
-  const _ShimmerRow({required this.height, required this.isAiCard});
+  const _AiSearchShimmer({required this.bottomPadding});
 
   @override
-  State<_ShimmerRow> createState() => _ShimmerRowState();
+  State<_AiSearchShimmer> createState() => _AiSearchShimmerState();
 }
 
-class _ShimmerRowState extends State<_ShimmerRow>
+class _AiSearchShimmerState extends State<_AiSearchShimmer>
     with SingleTickerProviderStateMixin {
-  late AnimationController _shimmerController;
-  late Animation<double> _shimmerAnimation;
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
 
   @override
   void initState() {
     super.initState();
-    _shimmerController = AnimationController(
+    _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
-    _shimmerAnimation = Tween<double>(begin: 0.4, end: 0.7).animate(
-      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
+    _opacity = Tween<double>(begin: 0.4, end: 0.7).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
   }
 
   @override
   void dispose() {
-    _shimmerController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _shimmerAnimation,
-      builder: (context, child) {
-        return Opacity(opacity: _shimmerAnimation.value, child: child);
-      },
-      child: widget.isAiCard ? _buildAiSkeleton() : _buildTrackSkeleton(),
-    );
-  }
-
-  Widget _buildAiSkeleton() {
-    return Container(
-      height: widget.height,
-      decoration: BoxDecoration(
-        color: KalinkaColors.surfaceInput,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      animation: _opacity,
+      builder: (context, child) =>
+          Opacity(opacity: _opacity.value, child: child),
+      child: ListView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(16, 12, 16, widget.bottomPadding),
         children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: KalinkaColors.surfaceElevated,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 160,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: KalinkaColors.surfaceElevated,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    width: 120,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: KalinkaColors.surfaceElevated,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const Spacer(),
+          // Plain section: header (icon + title + count) then rows.
+          _sectionHeader(titleWidth: 150, withCount: true),
+          const SizedBox(height: 4),
+          ..._rows(2),
+          const SizedBox(height: 18),
+          // Card section: bordered surface with header + Select-all then rows.
           Container(
-            height: 28,
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
             decoration: BoxDecoration(
-              color: KalinkaColors.surfaceElevated,
-              borderRadius: BorderRadius.circular(8),
+              color: KalinkaColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _sectionHeader(titleWidth: 130, withSelectAll: true),
+                const Divider(
+                  color: KalinkaColors.borderSubtle,
+                  thickness: 1,
+                  height: 16,
+                ),
+                ..._rows(3),
+              ],
             ),
           ),
         ],
@@ -934,59 +895,120 @@ class _ShimmerRowState extends State<_ShimmerRow>
     );
   }
 
-  Widget _buildTrackSkeleton() {
-    return SizedBox(
-      height: widget.height,
+  /// Header row: a small icon box, a title bar with a subtitle bar beneath,
+  /// and a trailing count bar or Select-all chip.
+  Widget _sectionHeader({
+    required double titleWidth,
+    bool withCount = false,
+    bool withSelectAll = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          // Thumbnail placeholder
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: KalinkaColors.surfaceInput,
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Text placeholders
+          _box(16, radius: 5),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: double.infinity,
-                  height: 10,
-                  margin: const EdgeInsets.only(right: 60),
-                  decoration: BoxDecoration(
-                    color: KalinkaColors.surfaceInput,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  width: 120,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: KalinkaColors.surfaceInput,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
+                _bar(titleWidth, 10),
+                const SizedBox(height: 5),
+                _bar(titleWidth * 0.8, 8),
               ],
             ),
           ),
-          // Duration placeholder
-          Container(
-            width: 32,
-            height: 8,
+          if (withCount) _bar(14, 10),
+          if (withSelectAll) _chip(72),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _rows(int count) {
+    final rows = <Widget>[];
+    for (int i = 0; i < count; i++) {
+      rows.add(_row());
+      if (i < count - 1) {
+        rows.add(const Divider(
+          color: KalinkaColors.borderSubtle,
+          thickness: 1,
+          height: 14,
+        ));
+      }
+    }
+    return rows;
+  }
+
+  /// One row mirroring a track tile: 44×44 artwork + two text lines + a
+  /// duration bar, matching [TrackTileLayout]'s 12/8 padding and 10px gap.
+  Widget _row() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          _box(44),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _line(0.55, 12),
+                const SizedBox(height: 7),
+                _line(0.35, 9),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          _bar(28, 9),
+        ],
+      ),
+    );
+  }
+
+  /// Fixed-size bar — section labels, count, duration.
+  Widget _bar(double width, double height) => Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: KalinkaColors.surfaceInput,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      );
+
+  /// Fractional-width line for row text (fills its column slot to [factor]).
+  Widget _line(double factor, double height) => Align(
+        alignment: Alignment.centerLeft,
+        child: FractionallySizedBox(
+          widthFactor: factor,
+          child: Container(
+            height: height,
             decoration: BoxDecoration(
               color: KalinkaColors.surfaceInput,
               borderRadius: BorderRadius.circular(4),
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      );
+
+  /// Rounded square placeholder (artwork or section icon).
+  Widget _box(double size, {double radius = 6}) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: KalinkaColors.surfaceInput,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      );
+
+  /// Pill placeholder for the Select-all affordance.
+  Widget _chip(double width) => Container(
+        width: width,
+        height: 30,
+        decoration: BoxDecoration(
+          color: KalinkaColors.surfaceInput,
+          borderRadius: BorderRadius.circular(8),
+        ),
+      );
 }
