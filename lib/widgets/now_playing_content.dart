@@ -259,8 +259,18 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
     required String mimeLabel,
     required String qualityLabel,
   }) {
+    String? source;
+    try {
+      source = EntityId.fromString(currentTrack.id).source;
+    } catch (_) {
+      source = null;
+    }
+    final bool isLocal = source != null && isLocalSource(source);
+
     final List<String> parts = [];
-    if (sourceInfo != null) {
+    if (isLocal) {
+      parts.add('My Files');
+    } else if (sourceInfo != null) {
       parts.add(sourceInfo.title);
     }
     final List<String> fmtParts = [

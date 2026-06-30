@@ -19,6 +19,13 @@ class SourceDisplayInfo {
   });
 }
 
+/// Backend identifier for the local-files source.
+const kLocalSourceName = 'localfiles';
+
+/// Whether [name] is the on-device/local-files source. It's treated as the
+/// unmarked default and never shows a source badge.
+bool isLocalSource(String name) => name.toLowerCase() == kLocalSourceName;
+
 /// Curated palette of muted colors for source badges on dark backgrounds.
 ///
 /// Slots are ordered so the alphabet-position mapping in [colorForSourceName]

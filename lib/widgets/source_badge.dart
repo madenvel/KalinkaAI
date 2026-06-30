@@ -9,7 +9,8 @@ enum SourceBadgeSize { standard, small }
 /// Displays a source attribution badge: a pill containing the first letter
 /// of the source name, uppercase, in the source colour.
 ///
-/// Automatically hides when only one source is configured.
+/// Automatically hides when only one source is configured, and always hides
+/// for the local-files source (the unmarked default).
 ///
 /// [size.standard]: 11dp font, 5dp h-padding, 2dp v-padding (list rows, now-playing)
 /// [size.small]:    10dp font, 4dp h-padding, 1.5dp v-padding (queue rows, tiles)
@@ -38,6 +39,8 @@ class SourceBadge extends ConsumerWidget {
     } catch (_) {
       return const SizedBox.shrink();
     }
+
+    if (isLocalSource(source)) return const SizedBox.shrink();
 
     final sourceMap = ref.watch(sourceDisplayInfoProvider);
     final info = sourceMap[source];
