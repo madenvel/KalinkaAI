@@ -411,13 +411,15 @@ class KalinkaSearchBarState extends ConsumerState<KalinkaSearchBar>
         return Opacity(
           opacity: progress,
           child: SizedBox(
-            width: 28 * progress,
+            width: 40 * progress,
+            height: 44,
             child: GestureDetector(
               onTap: progress > 0.5 ? _onClearTapped : null,
-              child: Center(
+              behavior: HitTestBehavior.opaque,
+              child: const Center(
                 child: Icon(
                   Icons.close_rounded,
-                  size: 14,
+                  size: 18,
                   color: KalinkaColors.textMuted,
                 ),
               ),
