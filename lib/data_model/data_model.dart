@@ -682,10 +682,9 @@ class Catalog {
   final Preview? previewConfig;
   final CatalogRole? role;
 
-  /// Input-module source name(s) whose entities this catalog represents — a
-  /// single name for a per-source section, several for a server-assembled
-  /// cross-source one (e.g. Related Albums). Empty when not applicable. Lets the
-  /// app attribute a catalog to its source(s) when id.source is "server".
+  /// Source name(s) whose entities this catalog holds — one for a per-source
+  /// section, several for a cross-source one (e.g. Related Albums), empty when
+  /// not applicable.
   final List<String> sources;
 
   Catalog({
