@@ -371,10 +371,22 @@ class _TransportControls extends ConsumerWidget {
     // No track loaded → the transport buttons (prev / play-pause / next) go
     // inactive. Shuffle and repeat are switches that apply to whatever plays
     // next, so they stay live.
-    final hasTrack = ref.watch(
-      playQueueStateStoreProvider.select((s) => s.trackList.isNotEmpty),
+    final queuePosition = ref.watch(
+      playQueueStateStoreProvider.select(
+        (s) => (length: s.trackList.length, index: s.playbackState.index ?? 0),
+      ),
     );
+    final hasTrack = queuePosition.length > 0;
     final playPauseDisabled = !hasTrack || isPlayPauseDisabled(playerState);
+
+    // Gate prev/next at the queue ends, but only for plain sequential
+    // playback: repeat-all wraps around and shuffle decouples list order from
+    // play order, so in those modes either end stays meaningful.
+    final boundedNav = !isShuffle && !isRepeatAll;
+    final canPrev =
+        hasTrack && (!boundedNav || queuePosition.index > 0);
+    final canNext = hasTrack &&
+        (!boundedNav || queuePosition.index < queuePosition.length - 1);
 
     return RepaintBoundary(
       child: Row(
@@ -403,11 +415,11 @@ class _TransportControls extends ConsumerWidget {
             ),
           ),
           Opacity(
-            opacity: hasTrack ? 1.0 : 0.4,
+            opacity: canPrev ? 1.0 : 0.4,
             child: TransportButton(
               hitDiameter: 52,
-              onTapDown: hasTrack ? (_) => KalinkaHaptics.mediumImpact() : null,
-              onTap: hasTrack
+              onTapDown: canPrev ? (_) => KalinkaHaptics.mediumImpact() : null,
+              onTap: canPrev
                   ? () => api.sendQueueCommand(const QueueCommand.prev())
                   : null,
               child: const Icon(
@@ -443,11 +455,11 @@ class _TransportControls extends ConsumerWidget {
             ),
           ),
           Opacity(
-            opacity: hasTrack ? 1.0 : 0.4,
+            opacity: canNext ? 1.0 : 0.4,
             child: TransportButton(
               hitDiameter: 52,
-              onTapDown: hasTrack ? (_) => KalinkaHaptics.mediumImpact() : null,
-              onTap: hasTrack
+              onTapDown: canNext ? (_) => KalinkaHaptics.mediumImpact() : null,
+              onTap: canNext
                   ? () => api.sendQueueCommand(const QueueCommand.next())
                   : null,
               child: const Icon(
