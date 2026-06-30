@@ -16,6 +16,9 @@ class SectionHeader extends StatelessWidget {
   final bool showDivider;
   final VoidCallback? onOnlyTap;
   final IconData? icon;
+
+  /// Icon tint. Defaults to [KalinkaColors.accent] when null.
+  final Color? iconColor;
   final String? subtitle;
 
   const SectionHeader({
@@ -25,6 +28,7 @@ class SectionHeader extends StatelessWidget {
     this.showDivider = true,
     this.onOnlyTap,
     this.icon,
+    this.iconColor,
     this.subtitle,
   });
 
@@ -44,7 +48,7 @@ class SectionHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 16, color: KalinkaColors.accent),
+                Icon(icon, size: 16, color: iconColor ?? KalinkaColors.accent),
                 const SizedBox(width: 8),
               ],
               Expanded(

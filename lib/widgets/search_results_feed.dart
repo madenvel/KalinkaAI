@@ -6,6 +6,7 @@ import '../data_model/data_model.dart';
 import '../providers/search_state_provider.dart';
 import '../providers/selection_state_provider.dart';
 import '../providers/indexer_status_provider.dart';
+import '../providers/source_modules_provider.dart';
 import 'browse_list.dart';
 import 'indexer_status_banner.dart';
 import 'search_cards/browse_item_rows.dart';
@@ -549,17 +550,20 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
           ];
           children.add(_SectionCard(
             icon: icon,
+            accentColor: _sectionAccent(section),
             title: title,
             subtitle: section.subname,
             trackIds: trackIds,
             child: rows,
           ));
         } else {
-          // Plain section: header + rows.
+          // Plain section: header + rows. Tint the icon to the section's
+          // source badge colour when it resolves to a single source.
           children.add(SectionHeader(
             label: title,
             subtitle: section.subname,
             icon: icon,
+            iconColor: _sectionAccent(section),
             count: items.length,
             showDivider: false,
           ));
@@ -653,6 +657,37 @@ IconData? _sectionIcon(String? id) {
   }
 }
 
+/// Source-badge colour for an AI section, so its icon / card tint match that
+/// source's badge. Uses the catalog's `sources` list — colouring only when it
+/// names exactly one source — and falls back to the id's source when the list
+/// is absent (unless that's the synthetic "server"). Returns null for
+/// cross-source sections (e.g. Related Albums) and unattributable ones, which
+/// keep the default accent / surface.
+Color? _sectionAccent(BrowseItem section) {
+  final sources = section.catalog?.sources ?? const <String>[];
+  String? source;
+  if (sources.length == 1) {
+    source = sources.first;
+  } else if (sources.isEmpty) {
+    final idSource = _parseSource(section.id);
+    if (idSource != 'server') source = idSource;
+  }
+  if (source == null || source.isEmpty) return null;
+  return colorForSourceName(source);
+}
+
+/// Source segment of a `kalinka:{source}:{type}:{id}` entity id, or null when
+/// absent / unparseable.
+String? _parseSource(String? id) {
+  if (id == null) return null;
+  try {
+    final source = EntityId.fromString(id).source;
+    return source.isEmpty ? null : source;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// A backend-described "card" section (preview_config.type == card): a bordered
 /// surface with a header (icon + title + subtitle) wrapping a list of rows. When
 /// the section contains tracks it also offers a one-tap select/clear affordance
@@ -660,6 +695,7 @@ IconData? _sectionIcon(String? id) {
 /// so the bottom batch bar can act on the whole set.
 class _SectionCard extends ConsumerWidget {
   final IconData? icon;
+  final Color? accentColor;
   final String title;
   final String? subtitle;
   final List<String> trackIds;
@@ -667,6 +703,7 @@ class _SectionCard extends ConsumerWidget {
 
   const _SectionCard({
     required this.icon,
+    required this.accentColor,
     required this.title,
     required this.subtitle,
     required this.trackIds,
@@ -682,12 +719,34 @@ class _SectionCard extends ConsumerWidget {
       ),
     );
 
+    final tint = accentColor;
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
       decoration: BoxDecoration(
-        color: KalinkaColors.surfaceRaised,
+        // Subtle wash of the source colour in the leading corner, fading into
+        // the normal raised surface — ties the card to its source badge.
+        color: tint == null ? KalinkaColors.surfaceRaised : null,
+        gradient: tint == null
+            ? null
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                stops: const [0.0, 0.55],
+                colors: [
+                  Color.alphaBlend(
+                    tint.withValues(alpha: 0.10),
+                    KalinkaColors.surfaceRaised,
+                  ),
+                  KalinkaColors.surfaceRaised,
+                ],
+              ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
+        border: Border.all(
+          color: tint == null
+              ? KalinkaColors.borderSubtle
+              : tint.withValues(alpha: 0.22),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -695,7 +754,7 @@ class _SectionCard extends ConsumerWidget {
           Row(
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 16, color: KalinkaColors.accentTint),
+                Icon(icon, size: 16, color: tint ?? KalinkaColors.accentTint),
                 const SizedBox(width: 8),
               ],
               Expanded(

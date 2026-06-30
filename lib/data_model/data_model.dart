@@ -682,6 +682,12 @@ class Catalog {
   final Preview? previewConfig;
   final CatalogRole? role;
 
+  /// Input-module source name(s) whose entities this catalog represents — a
+  /// single name for a per-source section, several for a server-assembled
+  /// cross-source one (e.g. Related Albums). Empty when not applicable. Lets the
+  /// app attribute a catalog to its source(s) when id.source is "server".
+  final List<String> sources;
+
   Catalog({
     required this.id,
     required this.title,
@@ -690,6 +696,7 @@ class Catalog {
     this.description,
     this.previewConfig,
     this.role,
+    this.sources = const [],
   });
 
   static final empty = Catalog(
@@ -700,6 +707,7 @@ class Catalog {
     description: null,
     previewConfig: null,
     role: null,
+    sources: const [],
   );
 
   factory Catalog.fromJson(Map<String, dynamic> json) => Catalog(
@@ -712,6 +720,9 @@ class Catalog {
         ? null
         : Preview.fromJson(json["preview_config"]),
     role: CatalogRoleExtension.fromValue(json["role"] as String?),
+    sources: json["sources"] == null
+        ? const []
+        : List<String>.from(json["sources"]),
   );
 
   Map<String, dynamic> toJson() => {
@@ -722,6 +733,7 @@ class Catalog {
     "can_genre_filter": canGenreFilter,
     "preview_config": previewConfig?.toJson(),
     "role": role?.toValue(),
+    "sources": sources,
   };
 
   Catalog copyWith({
@@ -732,6 +744,7 @@ class Catalog {
     bool? canGenreFilter,
     Preview? previewConfig,
     CatalogRole? role,
+    List<String>? sources,
   }) {
     return Catalog(
       id: id ?? this.id,
@@ -741,6 +754,7 @@ class Catalog {
       canGenreFilter: canGenreFilter ?? this.canGenreFilter,
       previewConfig: previewConfig ?? this.previewConfig,
       role: role ?? this.role,
+      sources: sources ?? this.sources,
     );
   }
 }
