@@ -134,7 +134,8 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         } else {
           inner = _buildSkeletonLoading();
         }
-        content = (!searchState.isAiEnabled && searchState.searchResults != null)
+        content =
+            (!searchState.isAiEnabled && searchState.searchResults != null)
             ? _wrapWithResultsFilter(inner, searchState)
             : inner;
 
@@ -153,7 +154,8 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         } else {
           inner = _buildSkeletonLoading();
         }
-        content = (!searchState.isAiEnabled && searchState.searchResults != null)
+        content =
+            (!searchState.isAiEnabled && searchState.searchResults != null)
             ? _wrapWithResultsFilter(inner, searchState)
             : inner;
 
@@ -214,8 +216,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     final results = searchState.searchResults;
     if (results == null) return {};
     return {
-      for (final entry in results.entries)
-        entry.key: entry.value.items.length,
+      for (final entry in results.entries) entry.key: entry.value.items.length,
     };
   }
 
@@ -339,7 +340,8 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     // Count visible items for stagger animation
     int totalItems = 0;
     if (filter == ResultsFilterType.all) {
-      totalItems = min<int>(artistLimit, artists.length) +
+      totalItems =
+          min<int>(artistLimit, artists.length) +
           min<int>(albumLimit, albums.length) +
           min<int>(trackLimit, tracks.length) +
           min<int>(playlistLimit, playlists.length);
@@ -366,14 +368,19 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     // Results count line
     children.add(ResultsCountLine(counts: counts));
 
-    void addItemsWithDividers(List<BrowseItem> items, Widget Function(BrowseItem) builder) {
+    void addItemsWithDividers(
+      List<BrowseItem> items,
+      Widget Function(BrowseItem) builder,
+    ) {
       for (int i = 0; i < items.length; i++) {
-        children.add(_StaggeredItem(
-          index: staggerIdx++,
-          controller: _staggerController,
-          totalItems: totalItems,
-          child: builder(items[i]),
-        ));
+        children.add(
+          _StaggeredItem(
+            index: staggerIdx++,
+            controller: _staggerController,
+            totalItems: totalItems,
+            child: builder(items[i]),
+          ),
+        );
         if (i < items.length - 1) {
           children.add(divider);
         }
@@ -383,12 +390,15 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
     if (filter == ResultsFilterType.all) {
       // ── Artists section ──
       if (artists.isNotEmpty) {
-        children.add(SectionHeader(
+        children.add(
+          SectionHeader(
             label: 'Artists',
             count: artists.length,
             showDivider: false,
-            onOnlyTap: () => notifier.setResultsFilter(ResultsFilterType.artists),
-        ));
+            onOnlyTap: () =>
+                notifier.setResultsFilter(ResultsFilterType.artists),
+          ),
+        );
         addItemsWithDividers(
           artists.take(artistLimit).toList(),
           (a) => SearchArtistRow(item: a),
@@ -398,12 +408,15 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
       // ── Albums section ──
       if (albums.isNotEmpty) {
-        children.add(SectionHeader(
+        children.add(
+          SectionHeader(
             label: 'Albums',
             count: albums.length,
             showDivider: artists.isNotEmpty,
-            onOnlyTap: () => notifier.setResultsFilter(ResultsFilterType.albums),
-        ));
+            onOnlyTap: () =>
+                notifier.setResultsFilter(ResultsFilterType.albums),
+          ),
+        );
         addItemsWithDividers(
           albums.take(albumLimit).toList(),
           (a) => SearchAlbumRow(item: a),
@@ -413,12 +426,15 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
       // ── Tracks section ──
       if (tracks.isNotEmpty) {
-        children.add(SectionHeader(
+        children.add(
+          SectionHeader(
             label: 'Tracks',
             count: tracks.length,
             showDivider: artists.isNotEmpty || albums.isNotEmpty,
-            onOnlyTap: () => notifier.setResultsFilter(ResultsFilterType.tracks),
-        ));
+            onOnlyTap: () =>
+                notifier.setResultsFilter(ResultsFilterType.tracks),
+          ),
+        );
         addItemsWithDividers(
           tracks.take(trackLimit).toList(),
           (t) => SearchTrackRow(item: t),
@@ -428,12 +444,16 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
 
       // ── Playlists section ──
       if (playlists.isNotEmpty) {
-        children.add(SectionHeader(
+        children.add(
+          SectionHeader(
             label: 'Playlists',
             count: playlists.length,
-            showDivider: artists.isNotEmpty || albums.isNotEmpty || tracks.isNotEmpty,
-            onOnlyTap: () => notifier.setResultsFilter(ResultsFilterType.playlists),
-        ));
+            showDivider:
+                artists.isNotEmpty || albums.isNotEmpty || tracks.isNotEmpty,
+            onOnlyTap: () =>
+                notifier.setResultsFilter(ResultsFilterType.playlists),
+          ),
+        );
         addItemsWithDividers(
           playlists.take(playlistLimit).toList(),
           (p) => SearchPlaylistRow(item: p),
@@ -485,32 +505,36 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
         .where((s) => s.catalog != null && (s.sections?.isNotEmpty ?? false))
         .toList();
 
-    final totalItems =
-        sections.fold<int>(0, (sum, s) => sum + s.sections!.length);
+    final totalItems = sections.fold<int>(
+      0,
+      (sum, s) => sum + s.sections!.length,
+    );
     _triggerStagger(totalItems);
 
     final children = <Widget>[];
 
     if (totalItems == 0) {
       children.add(const SizedBox(height: 60));
-      children.add(Center(
-        child: Column(
-          children: [
-            Icon(
-              Icons.auto_awesome,
-              size: 64,
-              color: KalinkaColors.textSecondary.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text('No AI matches', style: KalinkaTextStyles.cardTitle),
-            const SizedBox(height: 8),
-            Text(
-              'Try rephrasing your prompt',
-              style: KalinkaTextStyles.trackRowSubtitle,
-            ),
-          ],
+      children.add(
+        Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.auto_awesome,
+                size: 64,
+                color: KalinkaColors.textSecondary.withValues(alpha: 0.5),
+              ),
+              const SizedBox(height: 16),
+              Text('No AI matches', style: KalinkaTextStyles.cardTitle),
+              const SizedBox(height: 8),
+              Text(
+                'Try rephrasing your prompt',
+                style: KalinkaTextStyles.trackRowSubtitle,
+              ),
+            ],
+          ),
         ),
-      ));
+      );
     } else {
       children.add(const SizedBox(height: 12));
       for (int i = 0; i < sections.length; i++) {
@@ -540,7 +564,7 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
           },
         );
 
-        if (i > 0) children.add(const SizedBox(height: 18));
+        if (i > 0) children.add(const SizedBox(height: 24));
 
         if (preview?.type == PreviewType.card) {
           // Card representation: bordered surface + select-all for tracks.
@@ -548,25 +572,29 @@ class _SearchResultsFeedState extends ConsumerState<SearchResultsFeed>
             for (final item in items)
               if (item.browseType == BrowseType.track) item.id,
           ];
-          children.add(_SectionCard(
-            icon: icon,
-            accentColor: _sectionAccent(section),
-            title: title,
-            subtitle: section.subname,
-            trackIds: trackIds,
-            child: rows,
-          ));
+          children.add(
+            _SectionCard(
+              icon: icon,
+              accentColor: _sectionAccent(section),
+              title: title,
+              subtitle: section.subname,
+              trackIds: trackIds,
+              child: rows,
+            ),
+          );
         } else {
           // Plain section: header + rows. Tint the icon to the section's
           // source badge colour when it resolves to a single source.
-          children.add(SectionHeader(
-            label: title,
-            subtitle: section.subname,
-            icon: icon,
-            iconColor: _sectionAccent(section),
-            count: items.length,
-            showDivider: false,
-          ));
+          children.add(
+            SectionHeader(
+              label: title,
+              subtitle: section.subname,
+              icon: icon,
+              iconColor: _sectionAccent(section),
+              count: items.length,
+              showDivider: false,
+            ),
+          );
           children.add(rows);
         }
       }
@@ -634,8 +662,9 @@ class _IndexerStatusGate extends ConsumerWidget {
       }),
     );
     if (!showIndexer) return const SizedBox.shrink();
-    final progressPct =
-        ref.watch(indexerStatusProvider.select((s) => s.progressPct));
+    final progressPct = ref.watch(
+      indexerStatusProvider.select((s) => s.progressPct),
+    );
     return IndexerStatusBanner(progressPct: progressPct);
   }
 }
@@ -902,9 +931,10 @@ class _AiSearchShimmerState extends State<_AiSearchShimmer>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
-    _opacity = Tween<double>(begin: 0.4, end: 0.7).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _opacity = Tween<double>(
+      begin: 0.4,
+      end: 0.7,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -989,11 +1019,13 @@ class _AiSearchShimmerState extends State<_AiSearchShimmer>
     for (int i = 0; i < count; i++) {
       rows.add(_row());
       if (i < count - 1) {
-        rows.add(const Divider(
-          color: KalinkaColors.borderSubtle,
-          thickness: 1,
-          height: 14,
-        ));
+        rows.add(
+          const Divider(
+            color: KalinkaColors.borderSubtle,
+            thickness: 1,
+            height: 14,
+          ),
+        );
       }
     }
     return rows;
@@ -1028,46 +1060,46 @@ class _AiSearchShimmerState extends State<_AiSearchShimmer>
 
   /// Fixed-size bar — section labels, count, duration.
   Widget _bar(double width, double height) => Container(
-        width: width,
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: KalinkaColors.surfaceInput,
+      borderRadius: BorderRadius.circular(4),
+    ),
+  );
+
+  /// Fractional-width line for row text (fills its column slot to [factor]).
+  Widget _line(double factor, double height) => Align(
+    alignment: Alignment.centerLeft,
+    child: FractionallySizedBox(
+      widthFactor: factor,
+      child: Container(
         height: height,
         decoration: BoxDecoration(
           color: KalinkaColors.surfaceInput,
           borderRadius: BorderRadius.circular(4),
         ),
-      );
-
-  /// Fractional-width line for row text (fills its column slot to [factor]).
-  Widget _line(double factor, double height) => Align(
-        alignment: Alignment.centerLeft,
-        child: FractionallySizedBox(
-          widthFactor: factor,
-          child: Container(
-            height: height,
-            decoration: BoxDecoration(
-              color: KalinkaColors.surfaceInput,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-        ),
-      );
+      ),
+    ),
+  );
 
   /// Rounded square placeholder (artwork or section icon).
   Widget _box(double size, {double radius = 6}) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: KalinkaColors.surfaceInput,
-          borderRadius: BorderRadius.circular(radius),
-        ),
-      );
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      color: KalinkaColors.surfaceInput,
+      borderRadius: BorderRadius.circular(radius),
+    ),
+  );
 
   /// Pill placeholder for the Select-all affordance.
   Widget _chip(double width) => Container(
-        width: width,
-        height: 30,
-        decoration: BoxDecoration(
-          color: KalinkaColors.surfaceInput,
-          borderRadius: BorderRadius.circular(8),
-        ),
-      );
+    width: width,
+    height: 30,
+    decoration: BoxDecoration(
+      color: KalinkaColors.surfaceInput,
+      borderRadius: BorderRadius.circular(8),
+    ),
+  );
 }
