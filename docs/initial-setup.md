@@ -6,16 +6,34 @@ point it at your music, connect the app.
 ## 1. Install Kalinka Music Server
 
 On the machine that will play the music (Raspberry Pi or any Debian-based
-Linux box connected to your audio gear), download the packages from the
-[latest server release](https://github.com/madenvel/KalinkaPlayer/releases)
-and install them in one transaction:
+Linux box connected to your audio gear), run:
 
 ```bash
-md5sum -c md5.txt   # verify downloads
-sudo apt install ./kalinka-plugin-sdk_*_all.deb \
-                 ./kalinka-server-*.deb \
-                 ./kalinka-plugin-localfiles_*_all.deb
+curl -fsSL https://raw.githubusercontent.com/madenvel/KalinkaPlayer/main/scripts/install-release.sh | sudo bash
 ```
+
+The script detects your architecture, downloads the matching packages from
+the [latest server release](https://github.com/madenvel/KalinkaPlayer/releases/latest),
+and installs them with `apt` so system dependencies come along automatically.
+Upgrading later is the same command. Supported systems: Raspberry Pi OS
+(trixie, 64-bit) / Debian 13 on ARM, and Ubuntu 24.04 on x86_64.
+
+<details>
+<summary>Manual install (without the script)</summary>
+
+Download from the
+[latest release](https://github.com/madenvel/KalinkaPlayer/releases/latest):
+the server package matching your OS — `…debian-13.arm64.deb` for Raspberry
+Pi OS / Debian 13, `…ubuntu-24.04.amd64.deb` for Ubuntu 24.04 — plus **all**
+the `_all.deb` plugin/SDK packages and `SHA256SUMS`. Then, in the download
+directory:
+
+```bash
+sha256sum -c SHA256SUMS --ignore-missing   # verify downloads
+sudo apt install ./*.deb
+```
+
+</details>
 
 The server starts automatically after installation and announces itself on
 the local network. Check it came up with:
@@ -26,37 +44,25 @@ journalctl -u kalinka -f
 
 ## 2. Put your music where the server can see it
 
-This is the step most likely to need manual attention.
+The easy path: the installer creates `/srv/kalinka/music`, the server
+watches it out of the box, and it is writable by everyone — just copy your
+files in (locally, over SFTP, however you like) and skip to step 3.
 
-The server runs as the unprivileged system user `kalusr` inside a systemd
-sandbox. Two consequences:
-
-- **Home directories are off-limits.** The service runs with
-  `ProtectHome=yes`, so anything under `/home/...` is invisible to it —
-  a music folder there will not work even if the path is correct and
-  world-readable.
-- **The default path does not exist yet.** The stock configuration points
-  at `~/Music` of the service user, which is not created on install. Until
-  you set a real folder, the library will simply be empty.
-
-Good locations for the collection:
-
-| Location | Typical use |
-|---|---|
-| `/srv/music` | dedicated folder on the system disk |
-| `/media/<name>` / `/mnt/<name>` | USB drive or NAS mount |
-
-Create the folder (if needed), make it readable by the service, and drop
-your files in:
+To use a collection that already lives somewhere else (USB drive, NAS
+mount, a folder in your home), point the **Local files** module at it in
+step 3 instead. One thing to know: the server runs as the unprivileged
+system user `kalusr`, so the files must be **readable by `kalusr`** —
+world-readable (`o+rX`) or group-readable with `kalusr` in the group.
+Home folders work (the service sees them read-only), but on systems that
+create homes with private permissions you may need to open a path in:
 
 ```bash
-sudo mkdir -p /srv/music
-sudo chgrp -R kalusr /srv/music
-sudo chmod -R g+rX /srv/music
+chmod o+X /home/<you>                    # let the service reach into your home
+chmod -R o+rX /home/<you>/Music          # and read the collection
 ```
 
-For an existing USB/NAS mount you only need the permission part — the
-files must be readable by user/group `kalusr` (`g+rX` or world-readable).
+For a USB/NAS mount the same rule applies — check the files are readable
+by other users (`ls -l`), and fix with `chmod -R o+rX <mount>/music` if not.
 
 ## 3. Connect the app and finish configuration
 
@@ -71,8 +77,10 @@ files must be readable by user/group `kalusr` (`g+rX` or world-readable).
    [Troubleshooting](#troubleshooting).)
 3. Tap the **green status dot** (top-right of the search bar) →
    **Server settings**.
-4. In the **Input Modules** tab, open **Local files** and set
-   **Music folders** to your collection path (e.g. `/srv/music`).
+4. In the **Input Modules** tab, open **Local files** and check
+   **Music folders**: the default `/srv/kalinka/music` is already set —
+   add (or replace it with) your own path if your collection lives
+   elsewhere, e.g. a USB/NAS mount.
 5. In the **General** tab you can adjust the basics visible in the
    simple tier:
    - **Service name** — how the server appears in network discovery
@@ -100,8 +108,8 @@ get embedded.
 
 - **Library stays empty** — check the journal for path errors:
   `journalctl -u kalinka | grep -i "music\|folder\|scan"`. Almost always
-  the folder is under `/home` (sandbox: invisible), missing, or not
-  readable by `kalusr`.
+  the folder path is wrong or the files are not readable by the `kalusr`
+  service user (see step 2).
 - **App finds no server** — phone and server must be on the same
   network/VLAN, and mDNS (UDP 5353 multicast) must not be blocked by the
   router's "client isolation". You can always connect manually:
