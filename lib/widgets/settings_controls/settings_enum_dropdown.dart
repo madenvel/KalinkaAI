@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data_model/presentation_schema.dart' show OptionSpec;
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
+import 'inline_markdown.dart';
 
 /// Dropdown control for enum-like settings whose option set is too
 /// long or too variable for a chip group.
@@ -96,10 +97,7 @@ class SettingsEnumDropdown extends StatelessWidget {
       builder: (ctx) {
         return SafeArea(
           top: false,
-          child: _OptionPicker(
-            options: options,
-            selectedValue: selectedValue,
-          ),
+          child: _OptionPicker(options: options, selectedValue: selectedValue),
         );
       },
     );
@@ -182,8 +180,8 @@ class _OptionPicker extends StatelessWidget {
                                 if (hasDescription)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 2),
-                                    child: Text(
-                                      o.description!,
+                                    child: InlineMarkdown(
+                                      text: o.description!,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: KalinkaTextStyles.trayRowLabel

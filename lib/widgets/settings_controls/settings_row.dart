@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
+import 'inline_markdown.dart';
 
 /// A single setting row with label, optional sublabel, staged/non-default pills,
 /// and a control widget on the right.
@@ -82,7 +83,10 @@ class SettingsRow extends StatelessWidget {
         Text(label, style: KalinkaTextStyles.trayRowLabel),
         if (sublabel != null) ...[
           const SizedBox(height: 2),
-          Text(sublabel!, style: KalinkaTextStyles.trayRowSublabel),
+          InlineMarkdown(
+            text: sublabel!,
+            style: KalinkaTextStyles.trayRowSublabel,
+          ),
         ],
         if (showAmber) ...[
           const SizedBox(height: 4),
