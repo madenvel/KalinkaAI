@@ -54,6 +54,18 @@ class KalinkaButton extends StatelessWidget {
       KalinkaButtonSize.compact => (8.0, 14.0, 10.0),
     };
 
+    final labelText = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: KalinkaTextStyles.trayRowLabel.copyWith(
+        color: textColor,
+        fontSize: size == KalinkaButtonSize.normal
+            ? KalinkaTypography.baseSize + 3
+            : KalinkaTypography.baseSize + 2,
+      ),
+    );
+
     return AnimatedOpacity(
       opacity: enabled ? 1.0 : 0.35,
       duration: const Duration(milliseconds: 150),
@@ -90,15 +102,10 @@ class KalinkaButton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (leading != null) ...[leading!, const SizedBox(width: 8)],
-                Text(
-                  label,
-                  style: KalinkaTextStyles.trayRowLabel.copyWith(
-                    color: textColor,
-                    fontSize: size == KalinkaButtonSize.normal
-                        ? KalinkaTypography.baseSize + 3
-                        : KalinkaTypography.baseSize + 2,
-                  ),
-                ),
+                // Flexible lets long labels truncate, but only when the
+                // width is bounded — intrinsic buttons can sit in unbounded
+                // Rows, where it would assert.
+                if (fullWidth) Flexible(child: labelText) else labelText,
               ],
             ),
           ),
