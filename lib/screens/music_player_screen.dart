@@ -29,6 +29,7 @@ import '../widgets/server_sheet.dart';
 import 'onboarding_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/kalinka_toast_overlay.dart';
+import '../widgets/sheet_anchor.dart';
 import '../widgets/side_panel.dart';
 import '../providers/media_notification_provider.dart';
 import '../providers/tablet_panel_provider.dart';
@@ -46,7 +47,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
   final _searchBarKey = GlobalKey<KalinkaSearchBarState>();
   final _connectionDotKey = GlobalKey();
 
-  // Tablet-only overlay state (phone uses Navigator/modals instead).
+  // In-screen overlays. Settings and discovery render in both layouts;
+  // the server sheet overlay is tablet-only (phone uses a modal sheet).
   bool _serverSheetOpen = false;
   bool _settingsOpen = false;
   // True once the settings panel fully covers the content behind it (after its
@@ -72,14 +74,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
         return;
       }
       // Set up but no stored server (e.g. after Disconnect): plain discovery.
-      final settings = ref.read(connectionSettingsProvider);
-      if (!settings.isSet) {
-        final isTablet = MediaQuery.of(context).size.width >= _tabletBreakpoint;
-        if (isTablet) {
-          setState(() => _discoveryOpen = true);
-        } else {
-          Navigator.of(context).push(_discoveryRoute(allowCancel: false));
-        }
+      if (!ref.read(connectionSettingsProvider).isSet) {
+        setState(() => _discoveryOpen = true);
       }
     });
   }
@@ -102,31 +98,6 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
   // Route & modal helpers
   // ---------------------------------------------------------------------------
 
-  Route<void> _discoveryRoute({
-    required bool allowCancel,
-    String? currentServerHost,
-  }) {
-    return PageRouteBuilder(
-      // Non-opaque so the player below stays onstage: an opaque route takes it
-      // offstage, which makes Riverpod 3 pause its subscriptions; connect-time
-      // provider churn then resumes them mid-transition (setState during build).
-      // The discovery screen paints its own opaque background, so it still
-      // fully covers the player.
-      opaque: false,
-      transitionDuration: const Duration(milliseconds: 280),
-      reverseTransitionDuration: const Duration(milliseconds: 280),
-      pageBuilder: (_, __, ___) => Material(
-        type: MaterialType.transparency,
-        child: DiscoveryScreen(
-          allowCancel: allowCancel,
-          currentServerHost: currentServerHost,
-        ),
-      ),
-      transitionsBuilder: (_, anim, __, child) =>
-          FadeTransition(opacity: anim, child: child),
-    );
-  }
-
   Future<void> _showServerSheet() async {
     final result = await showKalinkaBottomSheet<ServerSheetAction>(
       context: context,
@@ -137,13 +108,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       case ServerSheetAction.openSettings:
         setState(() => _settingsOpen = true);
       case ServerSheetAction.openDiscovery:
-        final settings = ref.read(connectionSettingsProvider);
-        Navigator.of(context).push(
-          _discoveryRoute(
-            allowCancel: settings.isSet,
-            currentServerHost: settings.isSet ? settings.host : null,
-          ),
-        );
+        setState(() => _discoveryOpen = true);
       case null:
         break;
     }
@@ -246,15 +211,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                 size: 16,
                 color: KalinkaColors.accentTint,
               ),
-              onTap: () {
-                final settings = ref.read(connectionSettingsProvider);
-                Navigator.of(context).push(
-                  _discoveryRoute(
-                    allowCancel: settings.isSet,
-                    currentServerHost: settings.isSet ? settings.host : null,
-                  ),
-                );
-              },
+              onTap: () => setState(() => _discoveryOpen = true),
             ),
           ],
         ),
@@ -306,9 +263,18 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
           final isTablet = constraints.maxWidth >= _tabletBreakpoint;
           _maybeSyncOnLayoutChange(isTablet);
           _wasTabletLayout = isTablet;
-          return isTablet
-              ? _buildTabletLayout(context)
-              : _buildPhoneLayout(context);
+          return Stack(
+            // Tight constraints keep the layout root a relayout boundary.
+            fit: StackFit.expand,
+            children: [
+              isTablet
+                  ? _buildTabletLayout(context)
+                  : _buildPhoneLayout(context),
+              // Hosted above the phone/tablet switch so an in-progress scan
+              // (and its state) survives resizing across the breakpoint.
+              if (_discoveryOpen) _buildDiscoveryOverlay(isTablet),
+            ],
+          );
         },
       ),
     );
@@ -465,17 +431,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                         ),
                 ),
                 EscalationCard(
-                  onScanForServers: () {
-                    final settings = ref.read(connectionSettingsProvider);
-                    Navigator.of(context).push(
-                      _discoveryRoute(
-                        allowCancel: settings.isSet,
-                        currentServerHost: settings.isSet
-                            ? settings.host
-                            : null,
-                      ),
-                    );
-                  },
+                  onScanForServers: () => setState(() => _discoveryOpen = true),
                 ),
                 MiniPlayer(onTap: _showExpandedPlayer),
               ],
@@ -534,9 +490,25 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
     );
   }
 
-  Widget _buildTabletLayout(BuildContext context) {
-    final settings = ref.watch(connectionSettingsProvider);
+  Widget _buildDiscoveryOverlay(bool isTablet) {
+    return Positioned.fill(
+      // Consumer keeps settings churn from the overlay's own connect flow
+      // from rebuilding the occluded layout below.
+      child: Consumer(
+        builder: (context, ref, _) {
+          final settings = ref.watch(connectionSettingsProvider);
+          return DiscoveryScreen(
+            allowCancel: settings.isSet,
+            currentServerHost: settings.isSet ? settings.host : null,
+            onClose: () => setState(() => _discoveryOpen = false),
+            isTablet: isTablet,
+          );
+        },
+      ),
+    );
+  }
 
+  Widget _buildTabletLayout(BuildContext context) {
     return Stack(
       children: [
         Row(
@@ -547,58 +519,63 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             // Flutter relayout boundary. Without this, layout invalidations
             // (e.g. progress slider ticks) propagate up to the Row and cause
             // the right panel to relayout and repaint unnecessarily.
+            // SheetAnchor aligns modal bottom sheets launched from this
+            // panel (e.g. settings pickers) with its bounds.
             Expanded(
               child: SizedBox.expand(
                 child: RepaintBoundary(
-                  child: Stack(
-                    children: [
-                      // Not painted once settings fully covers the left panel.
-                      Visibility(
-                        visible: !_settingsCovering,
-                        maintainState: true,
-                        maintainAnimation: true,
-                        maintainSize: true,
-                        child: SafeArea(
-                          child: NowPlayingContent(
-                            isTablet: true,
-                            onServerChipTap: () {
-                              setState(() => _serverSheetOpen = true);
-                            },
-                          ),
-                        ),
-                      ),
-                      // Server sheet overlay (left panel only)
-                      if (_serverSheetOpen)
-                        Positioned.fill(
-                          child: ServerSheet(
-                            onClose: () =>
-                                setState(() => _serverSheetOpen = false),
-                            onOpenDiscovery: () {
-                              setState(() => _discoveryOpen = true);
-                            },
-                            onOpenSettings: () {
-                              setState(() => _settingsOpen = true);
-                            },
-                          ),
-                        ),
-                      // Settings screen overlay (left panel only). ClipRect
-                      // keeps the slide-in within the left half — the Stack
-                      // doesn't clip a paint-time transform, so without it the
-                      // animation bleeds over the queue on the right.
-                      if (_settingsOpen)
-                        Positioned.fill(
-                          child: ClipRect(
-                            child: SettingsScreen(
-                              onClose: () => setState(() {
-                                _settingsOpen = false;
-                                _settingsCovering = false;
-                              }),
-                              onCoverageChanged: (covering) =>
-                                  setState(() => _settingsCovering = covering),
+                  child: SheetAnchor(
+                    child: Stack(
+                      children: [
+                        // Not painted once settings fully covers the left panel.
+                        Visibility(
+                          visible: !_settingsCovering,
+                          maintainState: true,
+                          maintainAnimation: true,
+                          maintainSize: true,
+                          child: SafeArea(
+                            child: NowPlayingContent(
+                              isTablet: true,
+                              onServerChipTap: () {
+                                setState(() => _serverSheetOpen = true);
+                              },
                             ),
                           ),
                         ),
-                    ],
+                        // Server sheet overlay (left panel only)
+                        if (_serverSheetOpen)
+                          Positioned.fill(
+                            child: ServerSheet(
+                              onClose: () =>
+                                  setState(() => _serverSheetOpen = false),
+                              onOpenDiscovery: () {
+                                setState(() => _discoveryOpen = true);
+                              },
+                              onOpenSettings: () {
+                                setState(() => _settingsOpen = true);
+                              },
+                            ),
+                          ),
+                        // Settings screen overlay (left panel only). ClipRect
+                        // keeps the slide-in within the left half — the Stack
+                        // doesn't clip a paint-time transform, so without it the
+                        // animation bleeds over the queue on the right.
+                        if (_settingsOpen)
+                          Positioned.fill(
+                            child: ClipRect(
+                              child: SettingsScreen(
+                                onClose: () => setState(() {
+                                  _settingsOpen = false;
+                                  _settingsCovering = false;
+                                }),
+                                onCoverageChanged: (covering) => setState(
+                                  () => _settingsCovering = covering,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -644,16 +621,6 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             ),
           ),
         ),
-        // Discovery screen overlay (full screen)
-        if (_discoveryOpen)
-          Positioned.fill(
-            child: DiscoveryScreen(
-              allowCancel: settings.isSet,
-              currentServerHost: settings.isSet ? settings.host : null,
-              onClose: () => setState(() => _discoveryOpen = false),
-              isTablet: true,
-            ),
-          ),
       ],
     );
   }

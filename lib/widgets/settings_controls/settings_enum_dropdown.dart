@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data_model/presentation_schema.dart' show OptionSpec;
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
+import '../kalinka_bottom_sheet.dart';
 import 'inline_markdown.dart';
 
 /// Dropdown control for enum-like settings whose option set is too
@@ -87,19 +88,10 @@ class SettingsEnumDropdown extends StatelessWidget {
 
   Future<void> _openPicker(BuildContext context) async {
     KalinkaHaptics.selectionClick();
-    final picked = await showModalBottomSheet<String>(
+    final picked = await showKalinkaBottomSheet<String>(
       context: context,
-      backgroundColor: KalinkaColors.surfaceRaised,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      isScrollControlled: true,
-      builder: (ctx) {
-        return SafeArea(
-          top: false,
-          child: _OptionPicker(options: options, selectedValue: selectedValue),
-        );
-      },
+      contentBuilder: (_) =>
+          _OptionPicker(options: options, selectedValue: selectedValue),
     );
     if (picked != null && picked != selectedValue) onChanged(picked);
   }
@@ -119,100 +111,78 @@ class _OptionPicker extends StatelessWidget {
     final maxHeight = MediaQuery.of(context).size.height * 0.7;
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxHeight),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Grab handle — a small visual affordance that this can be
-          // dismissed with a downward swipe.
-          Container(
-            width: 36,
-            height: 4,
-            margin: const EdgeInsets.only(top: 10, bottom: 8),
-            decoration: BoxDecoration(
-              color: KalinkaColors.borderDefault,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              padding: const EdgeInsets.only(bottom: 12),
-              itemCount: options.length,
-              itemBuilder: (ctx, i) {
-                final o = options[i];
-                final selected = o.value == selectedValue;
-                final hasDescription =
-                    o.description != null && o.description!.isNotEmpty;
-                return Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      KalinkaHaptics.selectionClick();
-                      Navigator.of(ctx).pop(o.value);
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: const EdgeInsets.only(top: 8, bottom: 12),
+        itemCount: options.length,
+        itemBuilder: (ctx, i) {
+          final o = options[i];
+          final selected = o.value == selectedValue;
+          final hasDescription =
+              o.description != null && o.description!.isNotEmpty;
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                KalinkaHaptics.selectionClick();
+                Navigator.of(ctx).pop(o.value);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  o.label,
-                                  style: KalinkaTextStyles.trayRowLabel
-                                      .copyWith(
-                                        color: selected
-                                            ? KalinkaColors.accent
-                                            : KalinkaColors.textPrimary,
-                                        fontSize:
-                                            KalinkaTypography.baseSize + 3,
-                                        fontWeight: selected
-                                            ? FontWeight.w600
-                                            : FontWeight.w400,
-                                      ),
-                                ),
-                                if (hasDescription)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 2),
-                                    child: InlineMarkdown(
-                                      text: o.description!,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: KalinkaTextStyles.trayRowLabel
-                                          .copyWith(
-                                            color: KalinkaColors.textSecondary,
-                                            fontSize:
-                                                KalinkaTypography.baseSize - 1,
-                                            fontWeight: FontWeight.w400,
-                                          ),
-                                    ),
-                                  ),
-                              ],
+                          Text(
+                            o.label,
+                            style: KalinkaTextStyles.trayRowLabel.copyWith(
+                              color: selected
+                                  ? KalinkaColors.accent
+                                  : KalinkaColors.textPrimary,
+                              fontSize: KalinkaTypography.baseSize + 3,
+                              fontWeight: selected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
                             ),
                           ),
-                          if (selected) ...[
-                            const SizedBox(width: 8),
-                            const Icon(
-                              Icons.check,
-                              size: 18,
-                              color: KalinkaColors.accent,
+                          if (hasDescription)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: InlineMarkdown(
+                                text: o.description!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: KalinkaTextStyles.trayRowLabel.copyWith(
+                                  color: KalinkaColors.textSecondary,
+                                  fontSize: KalinkaTypography.baseSize - 1,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
                             ),
-                          ],
                         ],
                       ),
                     ),
-                  ),
-                );
-              },
+                    if (selected) ...[
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.check,
+                        size: 18,
+                        color: KalinkaColors.accent,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

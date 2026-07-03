@@ -12,8 +12,8 @@ import 'sonar_animation.dart';
 ///
 /// Used on first launch (no cancel) and when switching servers (with cancel).
 class DiscoveryScreen extends ConsumerStatefulWidget {
-  /// Optional close callback for tablet Stack overlay mode.
-  /// When null (phone Navigator route), [Navigator.pop] is used instead.
+  /// Close callback for overlay mode. Null only when embedded in the setup
+  /// wizard, where [onConnected] takes over and there is no cancel path.
   final VoidCallback? onClose;
   final bool allowCancel;
   final String? currentServerHost;
@@ -127,14 +127,8 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
   }
 
   Future<void> _animateClose() async {
-    if (widget.onClose != null) {
-      // Tablet Stack overlay mode — animate out, then remove via callback.
-      await _fadeController.reverse();
-      widget.onClose!();
-    } else {
-      // Phone Navigator route mode — route transition handles animation.
-      Navigator.pop(context);
-    }
+    await _fadeController.reverse();
+    widget.onClose?.call();
   }
 
   @override
@@ -142,7 +136,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     final discoveryState = ref.watch(discoveryProvider);
     final showGradient = _isConnecting || discoveryState.isScanning;
 
-    return FadeTransition(
+    final content = FadeTransition(
       opacity: _fadeController,
       child: Container(
         decoration: BoxDecoration(
@@ -193,6 +187,17 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           ),
         ),
       ),
+    );
+
+    // Overlay mode: system back animates the overlay away. The wizard embed
+    // (null onClose) manages its own navigation.
+    if (widget.onClose == null) return content;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _animateClose();
+      },
+      child: content,
     );
   }
 
