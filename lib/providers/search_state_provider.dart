@@ -164,7 +164,7 @@ class SearchState {
     this.recentlyFavourited = const [],
     this.recentlyFavouritedExpanded = false,
     this.genrePills = const [],
-    this.isAiEnabled = false,
+    this.isAiEnabled = true,
     this.aiSearchResults,
     this.aiExpandedSections = const {},
     this.scopedFavourites,
