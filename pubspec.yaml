@@ -49,6 +49,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Virtual clock for driving the AI-history capture timer in unit tests.
+  fake_async: ^1.3.3
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

@@ -436,9 +436,10 @@ class _ZeroStateContent extends ConsumerWidget {
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       children: [
-        // RECENT CHIPS — first section, always shown when history exists
+        // RECENT CHIPS — short-term memory for direct search only. In AI
+        // mode the ASK THE AI section curates its own query history instead.
         _AnimatedSection(
-          visible: history.isNotEmpty,
+          visible: history.isNotEmpty && !searchState.isAiEnabled,
           child: _RecentChipsSection(
             history: history,
             onTap: (q) =>

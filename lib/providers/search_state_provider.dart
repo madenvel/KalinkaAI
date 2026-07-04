@@ -18,6 +18,18 @@ const _maxCachedQueries = 5;
 const _cacheTtlMinutes = 5;
 const _maxCompletions = 3;
 
+// AI zero-state suggestion slots. Recent AI queries are curated into the
+// leading slots; the rest fall back to canned suggestions. Bump
+// [_aiHistorySlotCount] (and add matching [_aiLeadSuggestions]) to widen the
+// row later — a "show more" affordance can then reveal the overflow.
+const _aiSearchHistoryKey = 'Kalinka.aiSearchHistory';
+const _maxAiHistoryItems = 10;
+const _aiHistorySlotCount = 2;
+
+/// How long AI results must sit on screen, untouched, before the query is
+/// curated into the AI suggestion history.
+const _aiHistoryCaptureDelay = Duration(seconds: 10);
+
 /// A single server-defined section of the currently playing album,
 /// together with its first 10 browse results.
 class LibrarySection {
@@ -57,12 +69,18 @@ enum FilterPillType { favourites, myPlaylists }
 /// Type-based filter for results screen
 enum ResultsFilterType { all, artists, albums, tracks, playlists }
 
-/// Stub AI prompt suggestions for zero-state
-const _stubAiPromptSuggestions = [
+/// Canned AI suggestions filling the leading slots until enough real AI
+/// history has been captured to replace them (slot i shows [i] until
+/// history reaches that slot).
+const _aiLeadSuggestions = [
   'something melancholic for tonight',
-  'new additions to the library',
   'continue where I left off',
 ];
+
+/// AI suggestions pinned after the history slots — always shown, never
+/// displaced by history. Backend wiring is still pending for these, so they
+/// don't yet return curated results.
+const _aiPinnedSuggestions = ['new additions to the library'];
 
 /// Search state containing expansion, query, and results
 class SearchState {
@@ -302,6 +320,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
   final Map<String, _CachedAiResult> _aiCache = {};
   Timer? _debounceTimer;
   Timer? _completionHideTimer;
+  Timer? _aiHistoryTimer;
   String? _recommendationsForTrackId;
 
   @override
@@ -312,6 +331,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
     ref.onDispose(() {
       _debounceTimer?.cancel();
       _completionHideTimer?.cancel();
+      _aiHistoryTimer?.cancel();
     });
     return const SearchState();
   }
@@ -426,7 +446,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
   void activateSearch() {
     state = state.copyWith(
       searchPhase: SearchPhase.activated,
-      aiPromptSuggestions: _stubAiPromptSuggestions,
+      aiPromptSuggestions: _buildAiSuggestions(),
     );
     if (_recommendationsAreStale()) {
       _loadBrowseRecommendations();
@@ -439,6 +459,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
   void deactivateSearch() {
     _debounceTimer?.cancel();
     _completionHideTimer?.cancel();
+    _aiHistoryTimer?.cancel();
     ref.read(indexerStatusProvider.notifier).stop();
     ref.read(selectionStateProvider.notifier).exitSelectionMode();
     // Save any session history queries into all-time history
@@ -477,6 +498,8 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
   void toggleAiMode() {
     final newAi = !state.isAiEnabled;
+    // Mode changed — the on-screen query no longer belongs to the AI history.
+    _aiHistoryTimer?.cancel();
     // Drop the other mode's results so the feed switches cleanly between
     // typed-split and AI-merged rendering.
     state = state.copyWith(
@@ -691,6 +714,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
   void clearQueryMidSession() {
     _debounceTimer?.cancel();
     _completionHideTimer?.cancel();
+    _aiHistoryTimer?.cancel();
     final currentQuery = state.query.trim();
     final updated = List<String>.from(state.sessionHistory);
     if (currentQuery.isNotEmpty) {
@@ -717,6 +741,8 @@ class SearchStateNotifier extends Notifier<SearchState> {
       artistMoreAlbumsExpanded: const {},
       albumMoreTracksExpanded: const {},
       resultsFilter: ResultsFilterType.all,
+      // Re-surface any AI queries curated earlier this session.
+      aiPromptSuggestions: _buildAiSuggestions(),
     );
     // If scope-filtered, reload the scoped view without a filter so it
     // shows the full set again after the ×.
@@ -732,6 +758,9 @@ class SearchStateNotifier extends Notifier<SearchState> {
   void setQuery(String query) {
     _debounceTimer?.cancel();
     _completionHideTimer?.cancel();
+    // Any new keystroke means the user is starting another search — the
+    // previous AI result no longer qualifies as "settled".
+    _aiHistoryTimer?.cancel();
 
     final trimmed = query.trim();
 
@@ -940,7 +969,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
         searchPhase: SearchPhase.results,
         completionStripVisible: false,
       );
-      _addToHistory(query);
+      _scheduleAiHistoryCapture(query);
     } else {
       state = state.copyWith(
         isLoading: true,
@@ -972,7 +1001,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
         completionStripVisible: false,
       );
 
-      if (!hasCached) _addToHistory(query);
+      _scheduleAiHistoryCapture(query);
     } catch (e) {
       // Background revalidate failed but the user already has the
       // cached snapshot on screen — leave it. Only surface an error
@@ -1289,6 +1318,9 @@ class SearchStateNotifier extends Notifier<SearchState> {
   }
 
   void _addToHistory(String query) {
+    // Recent chips are the short-term memory for direct (non-AI) searches.
+    // AI queries are curated separately via [_scheduleAiHistoryCapture].
+    if (state.isAiEnabled) return;
     if (query.length < _minHistoryQueryLength) return;
     final lower = query.toLowerCase();
     final history = getSearchHistory();
@@ -1312,6 +1344,62 @@ class SearchStateNotifier extends Notifier<SearchState> {
 
   void clearHistory() {
     _prefs.remove(_searchHistoryKey);
+  }
+
+  // ── AI suggestion history ─────────────────────────────────────────────────
+
+  /// Curated AI queries, most-recent-first. Backs the leading AI suggestion
+  /// slots; see [_buildAiSuggestions].
+  List<String> getAiSearchHistory() {
+    final json = _prefs.getString(_aiSearchHistoryKey);
+    if (json == null) return [];
+    try {
+      return (jsonDecode(json) as List).cast<String>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// AI zero-state suggestions: the leading [_aiHistorySlotCount] slots take
+  /// captured AI history (newest first), falling back to [_aiLeadSuggestions]
+  /// until history fills them, then the always-on [_aiPinnedSuggestions].
+  List<String> _buildAiSuggestions() {
+    final history = getAiSearchHistory();
+    final slots = <String>[];
+    for (var i = 0; i < _aiHistorySlotCount; i++) {
+      if (i < history.length) {
+        slots.add(history[i]);
+      } else if (i < _aiLeadSuggestions.length) {
+        slots.add(_aiLeadSuggestions[i]);
+      }
+    }
+    return [...slots, ..._aiPinnedSuggestions];
+  }
+
+  /// Once AI results have sat untouched for [_aiHistoryCaptureDelay], fold the
+  /// query into the AI suggestion history. Cancelled by any new search, a mode
+  /// toggle, or leaving the surface.
+  void _scheduleAiHistoryCapture(String query) {
+    _aiHistoryTimer?.cancel();
+    _aiHistoryTimer = Timer(_aiHistoryCaptureDelay, () {
+      if (state.isAiEnabled &&
+          state.searchPhase == SearchPhase.results &&
+          state.query.trim() == query) {
+        _captureAiHistory(query);
+      }
+    });
+  }
+
+  void _captureAiHistory(String query) {
+    if (query.length < _minHistoryQueryLength) return;
+    final lower = query.toLowerCase();
+    final history = getAiSearchHistory()
+      ..removeWhere((h) => h.toLowerCase() == lower);
+    history.insert(0, query);
+    if (history.length > _maxAiHistoryItems) {
+      history.removeRange(_maxAiHistoryItems, history.length);
+    }
+    _prefs.setString(_aiSearchHistoryKey, jsonEncode(history));
   }
 }
 
