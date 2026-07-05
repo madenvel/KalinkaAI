@@ -83,14 +83,20 @@ class KalinkaTopBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          Text(
-            'Search for music',
-            // Same font as the settings header's "EXPERT" label (mono, tracked).
-            style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
-              letterSpacing: 1.0,
-              color: KalinkaColors.textPrimary,
+          // Expanded so a narrow screen truncates the title with an ellipsis
+          // instead of letting it run under the connection chip.
+          Expanded(
+            child: Text(
+              'SEARCH FOR MUSIC',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
+                letterSpacing: 1.0,
+                color: KalinkaColors.textPrimary,
+              ),
             ),
           ),
+          const SizedBox(width: 8),
         ],
       );
     }
