@@ -45,8 +45,8 @@ class _SearchComposerState extends ConsumerState<SearchComposer> {
     KalinkaHaptics.lightImpact();
     widget.onSubmit(text);
     widget.controller.clear();
-    // Stay ready for the next query.
-    widget.focusNode.requestFocus();
+    // Drop focus and dismiss the keyboard once the query is sent.
+    widget.focusNode.unfocus();
   }
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {

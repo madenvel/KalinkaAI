@@ -59,7 +59,8 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
   /// Submit from a zero-state tile (history / suggestion run arrow).
   void _submitFromTile(String text) {
     ref.read(searchSessionProvider.notifier).submit(text);
-    _composerFocus.requestFocus();
+    // Sending clears focus and dismisses the keyboard, like the send button.
+    _composerFocus.unfocus();
   }
 
   /// Insert a suggestion into the composer for editing (does not send).
