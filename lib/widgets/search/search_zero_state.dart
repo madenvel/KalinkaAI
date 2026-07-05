@@ -16,10 +16,14 @@ class SearchZeroState extends ConsumerWidget {
   /// Submit a query immediately (suggestion run arrow, history tile).
   final ValueChanged<String> onSubmit;
 
+  /// Extra bottom padding so the list tail clears the floating composer.
+  final double bottomInset;
+
   const SearchZeroState({
     super.key,
     required this.onInsert,
     required this.onSubmit,
+    this.bottomInset = 0,
   });
 
   @override
@@ -29,7 +33,7 @@ class SearchZeroState extends ConsumerWidget {
     final favourites = session.recentFavourites;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 24 + bottomInset),
       children: [
         // ── ASK THE AI ──────────────────────────────────────────────────────
         _label('ASK THE AI'),
@@ -56,7 +60,10 @@ class SearchZeroState extends ConsumerWidget {
                     ref.read(searchSessionProvider.notifier).clearHistory(),
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 6,
+                    horizontal: 4,
+                  ),
                   child: Text('Clear', style: KalinkaTextStyles.clearAllChips),
                 ),
               ),
@@ -67,9 +74,8 @@ class SearchZeroState extends ConsumerWidget {
             (q) => _HistoryTile(
               query: q,
               onTap: () => onSubmit(q),
-              onDelete: () => ref
-                  .read(searchSessionProvider.notifier)
-                  .removeHistoryItem(q),
+              onDelete: () =>
+                  ref.read(searchSessionProvider.notifier).removeHistoryItem(q),
             ),
           ),
         ],

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/search_session_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../theme/app_theme.dart';
+import '../measure_size.dart';
 import '../selection_overlay.dart';
 import 'query_block_view.dart';
 import 'search_composer.dart';
@@ -24,6 +25,15 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
   final _composerFocus = FocusNode();
   final _scrollController = ScrollController();
   String _lastBottomBlockId = '';
+
+  /// Live height of the floating composer, used to pad the content so its tail
+  /// clears the bar as it grows (multi-line) or the keyboard toggles.
+  double _composerHeight = 0;
+
+  void _onComposerHeightChanged(double height) {
+    if (!mounted || _composerHeight == height) return;
+    setState(() => _composerHeight = height);
+  }
 
   @override
   void initState() {
@@ -91,22 +101,32 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
       color: KalinkaColors.background,
       child: Stack(
         children: [
-          Column(
-            children: [
-              Expanded(
-                child: session.isZeroState
-                    ? SearchZeroState(
-                        onInsert: _insert,
-                        onSubmit: _submitFromTile,
-                      )
-                    : _buildBlockList(session),
-              ),
-              SearchComposer(
+          // Content fills the surface and scrolls behind the composer; its tail
+          // is padded clear of the bar by the composer's live height so nothing
+          // important stays hidden under it.
+          Positioned.fill(
+            child: session.isZeroState
+                ? SearchZeroState(
+                    onInsert: _insert,
+                    onSubmit: _submitFromTile,
+                    bottomInset: _composerHeight,
+                  )
+                : _buildBlockList(session, _composerHeight),
+          ),
+          // The composer floats over a gradient that fades the content into the
+          // page. Measured so the content padding above tracks its live height.
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: MeasureSize(
+              onChange: (size) => _onComposerHeightChanged(size.height),
+              child: SearchComposer(
                 controller: _composerController,
                 focusNode: _composerFocus,
                 onSubmit: _submit,
               ),
-            ],
+            ),
           ),
           if (selectionActive)
             const Positioned(
@@ -120,11 +140,11 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
     );
   }
 
-  Widget _buildBlockList(SearchSessionState session) {
+  Widget _buildBlockList(SearchSessionState session, double bottomInset) {
     final blocks = session.blocks;
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomInset),
       itemCount: blocks.length,
       itemBuilder: (context, i) {
         final block = blocks[i];
