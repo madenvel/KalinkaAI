@@ -60,28 +60,38 @@ class KalinkaTopBar extends StatelessWidget {
 
   Widget _buildLeading() {
     if (showBack) {
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: Semantics(
-          label: 'Close search',
-          button: true,
-          child: GestureDetector(
-            onTap: () {
-              KalinkaHaptics.lightImpact();
-              onBack?.call();
-            },
-            behavior: HitTestBehavior.opaque,
-            child: const SizedBox(
-              width: 44,
-              height: 44,
-              child: Icon(
-                Icons.arrow_back,
-                size: 22,
-                color: KalinkaColors.textPrimary,
+      return Row(
+        children: [
+          Semantics(
+            label: 'Close search',
+            button: true,
+            child: GestureDetector(
+              onTap: () {
+                KalinkaHaptics.lightImpact();
+                onBack?.call();
+              },
+              behavior: HitTestBehavior.opaque,
+              child: const SizedBox(
+                width: 44,
+                height: 44,
+                child: Icon(
+                  Icons.arrow_back,
+                  size: 22,
+                  color: KalinkaColors.textPrimary,
+                ),
               ),
             ),
           ),
-        ),
+          const SizedBox(width: 4),
+          Text(
+            'Search for music',
+            style: KalinkaFonts.sans(
+              fontSize: KalinkaTypography.baseSize + 4,
+              fontWeight: FontWeight.w600,
+              color: KalinkaColors.textPrimary,
+            ),
+          ),
+        ],
       );
     }
 
