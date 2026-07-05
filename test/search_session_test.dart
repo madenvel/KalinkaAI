@@ -14,6 +14,7 @@ import 'package:kalinka/widgets/search/search_session_view.dart';
 /// implemented; everything else throws if unexpectedly invoked.
 class _FakeApi implements KalinkaPlayerProxy {
   int aiSearchCalls = 0;
+  int searchCalls = 0;
   final List<String> queries = [];
 
   @override
@@ -26,6 +27,42 @@ class _FakeApi implements KalinkaPlayerProxy {
     aiSearchCalls++;
     queries.add(query);
     return _resultFor(query);
+  }
+
+  @override
+  Future<BrowseItemsList> search(
+    SearchType queryType,
+    String query, {
+    int offset = 0,
+    int limit = 30,
+  }) async {
+    searchCalls++;
+    if (queryType == SearchType.artist) {
+      return BrowseItemsList(0, limit, 1, [
+        BrowseItem(
+          id: 'kalinka:qobuz:artist:kw1',
+          canBrowse: true,
+          canAdd: false,
+          artist: Artist(id: 'kw1', name: 'Keyword Artist'),
+        ),
+      ]);
+    }
+    if (queryType == SearchType.track) {
+      return BrowseItemsList(0, limit, 1, [
+        BrowseItem(
+          id: 'kalinka:qobuz:track:kwt',
+          canBrowse: false,
+          canAdd: true,
+          track: Track(
+            id: 'kwt',
+            title: 'Keyword Track',
+            duration: 150,
+            performer: Artist(id: 'a', name: 'X'),
+          ),
+        ),
+      ]);
+    }
+    return BrowseItemsList(0, limit, 0, []);
   }
 
   @override
@@ -144,6 +181,26 @@ void main() {
       expect(state.blocks.first.results, isNotNull);
       expect(state.blocks.first.resultCount, 2);
       expect(api.aiSearchCalls, 1);
+    });
+
+    test('AI off runs a keyword search grouped by type', () async {
+      final api = _FakeApi();
+      final container = makeContainer(api);
+      final notifier = container.read(searchSessionProvider.notifier);
+      notifier.open();
+
+      notifier.toggleAiMode();
+      expect(container.read(searchSessionProvider).isAiEnabled, isFalse);
+
+      notifier.submit('the beatles');
+      await Future.delayed(const Duration(milliseconds: 900));
+
+      final block = container.read(searchSessionProvider).blocks.first;
+      expect(block.loading, isFalse);
+      expect(api.aiSearchCalls, 0, reason: 'AI off must not call aiSearch');
+      expect(api.searchCalls, 4, reason: 'one keyword search per type');
+      final sectionNames = block.results!.items.map((s) => s.name).toList();
+      expect(sectionNames, ['Artists', 'Tracks']);
     });
 
     test('keeps at most three blocks; older ones drop from view', () async {

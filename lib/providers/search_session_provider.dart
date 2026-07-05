@@ -13,6 +13,10 @@ const _historyKey = 'Kalinka.chatSearchHistory';
 const _maxHistoryItems = 12;
 const _minHistoryQueryLength = 2;
 
+/// Persisted AI-mode toggle (on by default). When on, submitting runs the
+/// natural-language aiSearch; when off, a direct keyword search grouped by type.
+const _aiEnabledKey = 'Kalinka.chatSearchAiEnabled';
+
 /// Visible query blocks kept in the session: one expanded + up to two folded.
 /// Older blocks scroll out of the session view (but their queries still land
 /// in history on exit).
@@ -100,6 +104,10 @@ class SearchSessionState {
   final List<BrowseItem> recentFavourites;
   final bool zeroStateLoading;
 
+  /// AI mode toggle: on runs the natural-language aiSearch, off a direct
+  /// keyword search grouped by type.
+  final bool isAiEnabled;
+
   const SearchSessionState({
     this.isOpen = false,
     this.blocks = const [],
@@ -107,6 +115,7 @@ class SearchSessionState {
     this.history = const [],
     this.recentFavourites = const [],
     this.zeroStateLoading = false,
+    this.isAiEnabled = true,
   });
 
   /// True when the session has no query blocks — the zero state is shown.
@@ -122,6 +131,7 @@ class SearchSessionState {
     List<String>? history,
     List<BrowseItem>? recentFavourites,
     bool? zeroStateLoading,
+    bool? isAiEnabled,
   }) {
     return SearchSessionState(
       isOpen: isOpen ?? this.isOpen,
@@ -130,6 +140,7 @@ class SearchSessionState {
       history: history ?? this.history,
       recentFavourites: recentFavourites ?? this.recentFavourites,
       zeroStateLoading: zeroStateLoading ?? this.zeroStateLoading,
+      isAiEnabled: isAiEnabled ?? this.isAiEnabled,
     );
   }
 }
@@ -149,7 +160,18 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
   SearchSessionState build() {
     _prefs = ref.read(sharedPrefsProvider);
     ref.onDispose(() => _disposed = true);
-    return SearchSessionState(history: _loadHistory());
+    return SearchSessionState(
+      history: _loadHistory(),
+      isAiEnabled: _prefs.getBool(_aiEnabledKey) ?? true,
+    );
+  }
+
+  /// Flip AI mode and persist it. The change applies to the next submitted
+  /// query; blocks already on screen keep their results.
+  void toggleAiMode() {
+    final next = !state.isAiEnabled;
+    _prefs.setBool(_aiEnabledKey, next);
+    state = state.copyWith(isAiEnabled: next);
   }
 
   // ── Open / close ───────────────────────────────────────────────────────────
@@ -209,10 +231,13 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
       return;
     }
 
+    final useAi = state.isAiEnabled;
     final start = DateTime.now();
     try {
       final api = ref.read(kalinkaProxyProvider);
-      final result = await api.aiSearch(query);
+      final result = useAi
+          ? await api.aiSearch(query)
+          : await _keywordSearch(api, query);
       await _holdMinimumLoading(start);
       if (_disposed) return;
       _updateBlock(
@@ -227,6 +252,45 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
         (b) => b.copyWith(loading: false, error: 'Search failed: $e'),
       );
     }
+  }
+
+  /// Direct keyword search (AI off): query each type and fold the results into
+  /// the same section shape aiSearch returns — one section per type — so the
+  /// feed renders them uniformly. Grouped by type here, not by source.
+  Future<BrowseItemsList> _keywordSearch(
+    KalinkaPlayerProxy api,
+    String query,
+  ) async {
+    final results = await Future.wait([
+      api.search(SearchType.artist, query),
+      api.search(SearchType.album, query),
+      api.search(SearchType.track, query),
+      api.search(SearchType.playlist, query),
+    ]);
+    final sections = <BrowseItem>[];
+    void addSection(String key, String title, BrowseItemsList list) {
+      if (list.items.isEmpty) return;
+      sections.add(
+        BrowseItem(
+          id: 'keyword:$key',
+          name: title,
+          canBrowse: false,
+          canAdd: false,
+          catalog: Catalog(id: 'keyword:$key', title: title, canGenreFilter: false),
+          sections: list.items,
+        ),
+      );
+    }
+
+    addSection('artists', 'Artists', results[0]);
+    addSection('albums', 'Albums', results[1]);
+    addSection('tracks', 'Tracks', results[2]);
+    addSection('playlists', 'Playlists', results[3]);
+    final total = sections.fold<int>(
+      0,
+      (n, s) => n + (s.sections?.length ?? 0),
+    );
+    return BrowseItemsList(0, 0, total, sections);
   }
 
   Future<void> _holdMinimumLoading(DateTime start) async {
