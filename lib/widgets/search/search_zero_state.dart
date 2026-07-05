@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/search_session_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
-import 'staging_result_row.dart';
+import '../search_cards/browse_item_rows.dart';
 
 /// Zero state for the search session — shown above the composer before any
 /// query. Three sections: example AI prompts, historical queries, and recent
@@ -79,15 +79,7 @@ class SearchZeroState extends ConsumerWidget {
           const SizedBox(height: 20),
           _label('RECENTLY FAVOURITED'),
           const SizedBox(height: 6),
-          for (int i = 0; i < favourites.length; i++) ...[
-            StagingResultRow(item: favourites[i]),
-            if (i < favourites.length - 1)
-              const Divider(
-                color: KalinkaColors.borderSubtle,
-                thickness: 1,
-                height: 14,
-              ),
-          ],
+          BrowseItemRows(items: favourites),
         ],
       ],
     );

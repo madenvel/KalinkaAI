@@ -4,13 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
 import '../../providers/source_modules_provider.dart';
 import '../../theme/app_theme.dart';
-import '../search_cards/show_more_row.dart';
-import 'staging_result_row.dart';
+import '../search_cards/browse_item_rows.dart';
 
 /// Renders one query block's results as per-source section cards. Results are
 /// never merged into a single ranked list — each backend section (a per-source
-/// catalog) becomes its own bordered card, tinted to its source colour. Rows
-/// stage silently: add to queue / play next by swipe (see [StagingResultRow]).
+/// catalog) becomes its own bordered card, tinted to its source colour. The
+/// rows are the shared search tiles ([BrowseItemRows]): per-type sizes,
+/// hierarchical unrolling (album → tracks, artist → albums), and swipe to add
+/// to queue / play next.
 class StagingResultSections extends StatelessWidget {
   final BrowseItemsList results;
   final Set<String> expandedSections;
@@ -91,28 +92,6 @@ class _SourceSectionCard extends ConsumerWidget {
     final icon = _sectionIcon(section.catalog?.previewConfig?.icon);
     final sourceLabel = _sourceLabel(ref, section);
 
-    final shown = isExpanded ? items : items.take(_defaultVisible).toList();
-    final hiddenCount = items.length - shown.length;
-
-    final rows = <Widget>[];
-    for (int i = 0; i < shown.length; i++) {
-      rows.add(StagingResultRow(item: shown[i]));
-      if (i < shown.length - 1) {
-        rows.add(const Divider(
-          color: KalinkaColors.borderSubtle,
-          thickness: 1,
-          height: 14,
-        ));
-      }
-    }
-    if ((hiddenCount > 0 || isExpanded) && items.length > _defaultVisible) {
-      rows.add(ShowMoreRow(
-        remainingCount: items.length - _defaultVisible,
-        isExpanded: isExpanded,
-        onTap: onToggleExpand,
-      ));
-    }
-
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
       decoration: BoxDecoration(
@@ -175,7 +154,13 @@ class _SourceSectionCard extends ConsumerWidget {
             thickness: 1,
             height: 16,
           ),
-          ...rows,
+          // The shared search tiles: per-type sizes + hierarchical unrolling.
+          BrowseItemRows(
+            items: items,
+            visibleLimit: _defaultVisible,
+            isExpanded: isExpanded,
+            onToggleExpand: onToggleExpand,
+          ),
         ],
       ),
     );

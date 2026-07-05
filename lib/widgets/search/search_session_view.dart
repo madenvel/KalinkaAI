@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/search_session_provider.dart';
+import '../../providers/selection_state_provider.dart';
 import '../../theme/app_theme.dart';
+import '../selection_overlay.dart';
 import 'query_block_view.dart';
 import 'search_composer.dart';
 import 'search_zero_state.dart';
@@ -72,20 +74,40 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
       });
     }
 
+    // The shared tiles long-press into multi-select; surface the same batch
+    // bar the old search feed used so the selection can be acted on.
+    final selectionActive = ref.watch(
+      selectionStateProvider.select((s) => s.isActive),
+    );
+
     return ColoredBox(
       color: KalinkaColors.background,
-      child: Column(
+      child: Stack(
         children: [
-          Expanded(
-            child: session.isZeroState
-                ? SearchZeroState(onInsert: _insert, onSubmit: _submitFromTile)
-                : _buildBlockList(session),
+          Column(
+            children: [
+              Expanded(
+                child: session.isZeroState
+                    ? SearchZeroState(
+                        onInsert: _insert,
+                        onSubmit: _submitFromTile,
+                      )
+                    : _buildBlockList(session),
+              ),
+              SearchComposer(
+                controller: _composerController,
+                focusNode: _composerFocus,
+                onSubmit: _submit,
+              ),
+            ],
           ),
-          SearchComposer(
-            controller: _composerController,
-            focusNode: _composerFocus,
-            onSubmit: _submit,
-          ),
+          if (selectionActive)
+            const Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: MultiSelectBottomBar(),
+            ),
         ],
       ),
     );
