@@ -351,12 +351,16 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
               ],
             ),
           ),
-          // Toast overlay — floats above MiniPlayer, ignores pointer input
-          const Positioned(
+          // Toast overlay — floats above the bottom dock, ignoring pointer
+          // input. Clear the composer on the search screen, or the search pill
+          // + mini player on the main screen.
+          Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: IgnorePointer(child: KalinkaToastOverlay()),
+            child: IgnorePointer(
+              child: KalinkaToastOverlay(bottomOffset: searchOpen ? 116 : 135),
+            ),
           ),
           // Settings — full-screen overlay on phone (slides in from the right).
           // The same flag renders it in the left panel on tablet, so resizing
@@ -574,11 +578,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             ),
           ],
         ),
-        // Toast overlay — bottom-right corner on tablet
-        const Positioned(
+        // Toast overlay — bottom-right of the right panel, lifted clear of the
+        // search dock (or composer, when search is open).
+        Positioned(
           right: 20,
-          bottom: 20,
-          child: IgnorePointer(
+          bottom: searchOpen ? 116 : 80,
+          child: const IgnorePointer(
             child: SizedBox(
               width: 300,
               child: KalinkaToastOverlay(isTablet: true),
