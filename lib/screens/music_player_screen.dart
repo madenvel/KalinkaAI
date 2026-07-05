@@ -507,9 +507,10 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                 child: RepaintBoundary(
                   child: Column(
                     children: [
-                      // Everything above the search dock lives in a Stack so the
-                      // connection sheet overlays as a bottom card confined to
-                      // the right panel and stops above the dock.
+                      // The whole right panel — including the search dock — sits
+                      // in a Stack so the connection sheet overlays it as a
+                      // bottom card, covering the dock rather than stopping above
+                      // it.
                       Expanded(
                         child: Stack(
                           children: [
@@ -543,11 +544,18 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                                           ),
                                   ),
                                 ),
-                                if (!searchOpen)
+                                if (!searchOpen) ...[
                                   EscalationCard(
                                     onScanForServers: () =>
                                         setState(() => _discoveryOpen = true),
                                   ),
+                                  SearchDock(
+                                    bottomSafeArea: true,
+                                    onTap: () => ref
+                                        .read(searchSessionProvider.notifier)
+                                        .open(),
+                                  ),
+                                ],
                               ],
                             ),
                             if (_serverSheetOpen)
@@ -565,12 +573,6 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                           ],
                         ),
                       ),
-                      if (!searchOpen)
-                        SearchDock(
-                          bottomSafeArea: true,
-                          onTap: () =>
-                              ref.read(searchSessionProvider.notifier).open(),
-                        ),
                     ],
                   ),
                 ),
