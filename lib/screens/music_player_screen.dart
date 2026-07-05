@@ -462,29 +462,10 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                           maintainState: true,
                           maintainAnimation: true,
                           maintainSize: true,
-                          child: SafeArea(
-                            child: NowPlayingContent(
-                              isTablet: true,
-                              onServerChipTap: () {
-                                setState(() => _serverSheetOpen = true);
-                              },
-                            ),
+                          child: const SafeArea(
+                            child: NowPlayingContent(isTablet: true),
                           ),
                         ),
-                        // Server sheet overlay (left panel only)
-                        if (_serverSheetOpen)
-                          Positioned.fill(
-                            child: ServerSheet(
-                              onClose: () =>
-                                  setState(() => _serverSheetOpen = false),
-                              onOpenDiscovery: () {
-                                setState(() => _discoveryOpen = true);
-                              },
-                              onOpenSettings: () {
-                                setState(() => _settingsOpen = true);
-                              },
-                            ),
-                          ),
                         // Settings screen overlay (left panel only). ClipRect
                         // keeps the slide-in within the left half — the Stack
                         // doesn't clip a paint-time transform, so without it the
@@ -522,40 +503,70 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                 child: RepaintBoundary(
                   child: Column(
                     children: [
-                      KalinkaTopBar(
-                        showBack: searchOpen,
-                        onBack: () =>
-                            ref.read(searchSessionProvider.notifier).close(),
-                        onServerChipTap: _showServerSheet,
-                      ),
-                      const ConnectionBanner(),
+                      // Everything above the search dock lives in a Stack so the
+                      // connection sheet overlays as a bottom card confined to
+                      // the right panel and stops above the dock.
                       Expanded(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
-                          child: searchOpen
-                              ? const SearchSessionView(key: ValueKey('search'))
-                              : const KeyedSubtree(
-                                  key: ValueKey('queue'),
-                                  child: RepaintBoundary(
-                                    child: QueueZone(
-                                      bottomPadding: 0,
-                                      isTablet: true,
-                                    ),
+                        child: Stack(
+                          children: [
+                            Column(
+                              children: [
+                                KalinkaTopBar(
+                                  showBack: searchOpen,
+                                  onBack: () => ref
+                                      .read(searchSessionProvider.notifier)
+                                      .close(),
+                                  onServerChipTap: () => setState(
+                                    () => _serverSheetOpen = true,
                                   ),
                                 ),
+                                const ConnectionBanner(),
+                                Expanded(
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 200),
+                                    child: searchOpen
+                                        ? const SearchSessionView(
+                                            key: ValueKey('search'),
+                                          )
+                                        : const KeyedSubtree(
+                                            key: ValueKey('queue'),
+                                            child: RepaintBoundary(
+                                              child: QueueZone(
+                                                bottomPadding: 0,
+                                                isTablet: true,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                if (!searchOpen)
+                                  EscalationCard(
+                                    onScanForServers: () =>
+                                        setState(() => _discoveryOpen = true),
+                                  ),
+                              ],
+                            ),
+                            if (_serverSheetOpen)
+                              Positioned.fill(
+                                child: ServerSheet(
+                                  onClose: () => setState(
+                                    () => _serverSheetOpen = false,
+                                  ),
+                                  onOpenDiscovery: () =>
+                                      setState(() => _discoveryOpen = true),
+                                  onOpenSettings: () =>
+                                      setState(() => _settingsOpen = true),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                      if (!searchOpen) ...[
-                        EscalationCard(
-                          onScanForServers: () =>
-                              setState(() => _discoveryOpen = true),
-                        ),
+                      if (!searchOpen)
                         SearchDock(
                           bottomSafeArea: true,
                           onTap: () =>
                               ref.read(searchSessionProvider.notifier).open(),
                         ),
-                      ],
                     ],
                   ),
                 ),
