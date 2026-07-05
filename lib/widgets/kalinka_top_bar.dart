@@ -85,9 +85,9 @@ class KalinkaTopBar extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             'Search for music',
-            style: KalinkaFonts.sans(
-              fontSize: KalinkaTypography.baseSize + 4,
-              fontWeight: FontWeight.w600,
+            // Same font as the settings header's "EXPERT" label (mono, tracked).
+            style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
+              letterSpacing: 1.0,
               color: KalinkaColors.textPrimary,
             ),
           ),
