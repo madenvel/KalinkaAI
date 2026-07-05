@@ -24,7 +24,14 @@ class QueryBlockView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return expanded ? _buildExpanded(context) : _buildFolded(context);
+    // Ease the fold/unfold: the height animates (and clips) as the block swaps
+    // between its compact summary and its full bubble + results.
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeInOut,
+      alignment: Alignment.topCenter,
+      child: expanded ? _buildExpanded(context) : _buildFolded(context),
+    );
   }
 
   Widget _buildExpanded(BuildContext context) {

@@ -92,7 +92,7 @@ class SearchSessionState {
   /// Whether the full-screen search surface is open.
   final bool isOpen;
 
-  /// Query blocks, newest first (index 0 sits at the top of the surface).
+  /// Query blocks in chat order — oldest first, the newest at the bottom.
   final List<SearchQueryBlock> blocks;
 
   /// Id of the currently expanded block. Exactly one block is expanded at a
@@ -212,10 +212,11 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     final block = SearchQueryBlock(id: id, query: query);
     _sessionQueries.add(query);
 
-    // Newest block goes on top; keep only the most recent few visible.
-    final blocks = [block, ...state.blocks];
+    // Newest block appends at the bottom (chat order); keep only the most
+    // recent few, dropping the oldest off the top.
+    final blocks = [...state.blocks, block];
     if (blocks.length > _maxVisibleBlocks) {
-      blocks.removeRange(_maxVisibleBlocks, blocks.length);
+      blocks.removeRange(0, blocks.length - _maxVisibleBlocks);
     }
     state = state.copyWith(blocks: blocks, expandedBlockId: id);
     _runQuery(id, query);

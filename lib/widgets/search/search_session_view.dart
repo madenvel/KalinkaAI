@@ -23,7 +23,7 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
   final _composerController = TextEditingController();
   final _composerFocus = FocusNode();
   final _scrollController = ScrollController();
-  String _lastTopBlockId = '';
+  String _lastBottomBlockId = '';
 
   @override
   void initState() {
@@ -65,12 +65,19 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
   Widget build(BuildContext context) {
     final session = ref.watch(searchSessionProvider);
 
-    // Keep the newest block in view when one is added.
-    final topId = session.blocks.isEmpty ? '' : session.blocks.first.id;
-    if (topId != _lastTopBlockId) {
-      _lastTopBlockId = topId;
+    // Newest block sits at the bottom (chat order); scroll down to it when one
+    // is appended.
+    final bottomId = session.blocks.isEmpty ? '' : session.blocks.last.id;
+    if (bottomId != _lastBottomBlockId) {
+      _lastBottomBlockId = bottomId;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) _scrollController.jumpTo(0);
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
       });
     }
 

@@ -216,7 +216,8 @@ void main() {
 
       final state = container.read(searchSessionProvider);
       expect(state.blocks.length, 3);
-      expect(state.blocks.map((b) => b.query), ['four', 'three', 'two']);
+      // Chat order: oldest first, newest last; 'one' dropped off the top.
+      expect(state.blocks.map((b) => b.query), ['two', 'three', 'four']);
 
       await Future.delayed(const Duration(milliseconds: 900));
     });
@@ -231,8 +232,8 @@ void main() {
       final firstId = container.read(searchSessionProvider).blocks.first.id;
       notifier.submit('second');
       var state = container.read(searchSessionProvider);
-      // Newest is expanded by default.
-      expect(state.expandedBlockId, state.blocks.first.id);
+      // Newest (bottom) is expanded by default.
+      expect(state.expandedBlockId, state.blocks.last.id);
       expect(state.expandedBlockId, isNot(firstId));
 
       notifier.expandBlock(firstId);
