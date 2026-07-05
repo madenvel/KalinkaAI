@@ -2,22 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data_model/data_model.dart';
-import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/source_modules_provider.dart';
-import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
-import '../../utils/haptics.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
+import '../swipe_to_act_row.dart';
 import '../track_tile_layout.dart';
+import '../search_cards/track_row_support.dart';
 
 /// A single search result row on the staging surface.
 ///
-/// Unlike the browse/queue rows, tapping never plays or replaces the queue —
-/// search is a staging surface. The only mutation is the explicit add-to-queue
-/// affordance (the trailing +), which appends to the queue silently and leaves
-/// playback untouched.
+/// Search is a staging surface: tapping never plays or replaces the queue.
+/// The queue is only touched by an explicit swipe — right to add to the end,
+/// left to play next — matching the browse/queue rows elsewhere. Both are
+/// silent and non-destructive; playback is never interrupted.
 class StagingResultRow extends ConsumerStatefulWidget {
   final BrowseItem item;
 
@@ -28,8 +27,6 @@ class StagingResultRow extends ConsumerStatefulWidget {
 }
 
 class _StagingResultRowState extends ConsumerState<StagingResultRow> {
-  bool _added = false;
-
   String get _title =>
       widget.item.track?.title ?? widget.item.name ?? 'Unknown';
 
@@ -54,20 +51,6 @@ class _StagingResultRowState extends ConsumerState<StagingResultRow> {
     }
   }
 
-  Future<void> _add() async {
-    if (widget.item.id.isEmpty) return;
-    KalinkaHaptics.lightImpact();
-    setState(() => _added = true);
-    final api = ref.read(kalinkaProxyProvider);
-    final title = _title;
-    await runQueueActivity(
-      pending: 'Adding to queue…',
-      action: () => api.add([widget.item.id]),
-      done: (_) => '"$title" added to queue',
-      failed: (e) => 'Failed to add: $e',
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final urlResolver = ref.read(urlResolverProvider);
@@ -77,10 +60,14 @@ class _StagingResultRowState extends ConsumerState<StagingResultRow> {
         : null;
     final isArtist = widget.item.browseType == BrowseType.artist;
     final subtitle = _subtitle;
+    final track = widget.item.track;
+    final duration = track != null
+        ? formatTrackDuration(track.duration * 1000)
+        : null;
 
-    return GestureDetector(
-      onTap: _add,
-      behavior: HitTestBehavior.opaque,
+    return SwipeToActRow(
+      onAddToQueue: () => addTrackToQueue(widget.item),
+      onPlayNext: () => playTrackNext(widget.item),
       child: TrackTileLayout(
         padding: const EdgeInsets.symmetric(vertical: 8),
         leadingStartSpacing: 0,
@@ -134,39 +121,12 @@ class _StagingResultRowState extends ConsumerState<StagingResultRow> {
               ),
           ],
         ),
-        trailing: _buildAddButton(),
-      ),
-    );
-  }
-
-  Widget _buildAddButton() {
-    return Semantics(
-      label: 'Add to queue',
-      button: true,
-      child: GestureDetector(
-        onTap: _add,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: _added
-                ? KalinkaColors.accentSubtle
-                : KalinkaColors.surfaceElevated,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: _added
-                  ? KalinkaColors.accentBorder
-                  : KalinkaColors.borderDefault,
-              width: 1,
-            ),
-          ),
-          child: Icon(
-            _added ? Icons.check_rounded : Icons.add_rounded,
-            size: 18,
-            color: _added ? KalinkaColors.accentTint : KalinkaColors.textPrimary,
-          ),
-        ),
+        trailing: duration != null
+            ? Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
+              )
+            : null,
       ),
     );
   }

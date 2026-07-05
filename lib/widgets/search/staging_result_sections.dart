@@ -2,17 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data_model/data_model.dart';
-import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/source_modules_provider.dart';
-import '../../providers/toast_provider.dart';
 import '../../theme/app_theme.dart';
-import '../../utils/haptics.dart';
 import '../search_cards/show_more_row.dart';
 import 'staging_result_row.dart';
 
 /// Renders one query block's results as per-source section cards. Results are
 /// never merged into a single ranked list — each backend section (a per-source
-/// catalog) becomes its own bordered card, tinted to its source colour.
+/// catalog) becomes its own bordered card, tinted to its source colour. Rows
+/// stage silently: add to queue / play next by swipe (see [StagingResultRow]).
 class StagingResultSections extends StatelessWidget {
   final BrowseItemsList results;
   final Set<String> expandedSections;
@@ -72,10 +70,12 @@ class StagingResultSections extends StatelessWidget {
   }
 }
 
-class _SourceSectionCard extends ConsumerStatefulWidget {
+class _SourceSectionCard extends ConsumerWidget {
   final BrowseItem section;
   final bool isExpanded;
   final VoidCallback onToggleExpand;
+
+  static const _defaultVisible = 5;
 
   const _SourceSectionCard({
     required this.section,
@@ -84,41 +84,14 @@ class _SourceSectionCard extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_SourceSectionCard> createState() => _SourceSectionCardState();
-}
-
-class _SourceSectionCardState extends ConsumerState<_SourceSectionCard> {
-  static const _defaultVisible = 5;
-
-  Future<void> _addAll(List<String> trackIds) async {
-    if (trackIds.isEmpty) return;
-    KalinkaHaptics.mediumImpact();
-    final api = ref.read(kalinkaProxyProvider);
-    await runQueueActivity(
-      pending: 'Adding ${trackIds.length} tracks…',
-      action: () => api.add(trackIds),
-      done: (_) => '${trackIds.length} tracks added to queue',
-      failed: (e) => 'Failed to add: $e',
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final section = widget.section;
+  Widget build(BuildContext context, WidgetRef ref) {
     final items = section.sections ?? const <BrowseItem>[];
     final title = section.name ?? '';
     final tint = _sectionAccent(section);
     final icon = _sectionIcon(section.catalog?.previewConfig?.icon);
     final sourceLabel = _sourceLabel(ref, section);
 
-    final trackIds = <String>[
-      for (final item in items)
-        if (item.browseType == BrowseType.track) item.id,
-    ];
-
-    final shown = widget.isExpanded
-        ? items
-        : items.take(_defaultVisible).toList();
+    final shown = isExpanded ? items : items.take(_defaultVisible).toList();
     final hiddenCount = items.length - shown.length;
 
     final rows = <Widget>[];
@@ -132,14 +105,12 @@ class _SourceSectionCardState extends ConsumerState<_SourceSectionCard> {
         ));
       }
     }
-    if (hiddenCount > 0 || widget.isExpanded) {
-      if (items.length > _defaultVisible) {
-        rows.add(ShowMoreRow(
-          remainingCount: items.length - _defaultVisible,
-          isExpanded: widget.isExpanded,
-          onTap: widget.onToggleExpand,
-        ));
-      }
+    if ((hiddenCount > 0 || isExpanded) && items.length > _defaultVisible) {
+      rows.add(ShowMoreRow(
+        remainingCount: items.length - _defaultVisible,
+        isExpanded: isExpanded,
+        onTap: onToggleExpand,
+      ));
     }
 
     return Container(
@@ -197,8 +168,6 @@ class _SourceSectionCardState extends ConsumerState<_SourceSectionCard> {
                   ],
                 ),
               ),
-              if (trackIds.isNotEmpty)
-                _AddAllButton(onTap: () => _addAll(trackIds)),
             ],
           ),
           const Divider(
@@ -208,51 +177,6 @@ class _SourceSectionCardState extends ConsumerState<_SourceSectionCard> {
           ),
           ...rows,
         ],
-      ),
-    );
-  }
-}
-
-class _AddAllButton extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _AddAllButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Add all to queue',
-      button: true,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: KalinkaColors.surfaceElevated,
-            border: Border.all(color: KalinkaColors.borderDefault, width: 1),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.playlist_add_rounded,
-                size: 15,
-                color: KalinkaColors.textPrimary,
-              ),
-              const SizedBox(width: 5),
-              Text(
-                'Add all',
-                style: KalinkaFonts.sans(
-                  fontSize: KalinkaTypography.baseSize + 1,
-                  fontWeight: FontWeight.w600,
-                  color: KalinkaColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
