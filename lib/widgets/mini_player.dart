@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -9,7 +8,7 @@ import '../providers/app_state_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/playback_time_provider.dart';
-import '../providers/search_state_provider.dart';
+import '../providers/search_session_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
@@ -40,9 +39,7 @@ class MiniPlayer extends ConsumerStatefulWidget {
 }
 
 class _MiniPlayerState extends ConsumerState<MiniPlayer>
-    with WidgetsBindingObserver, TickerProviderStateMixin {
-  Timer? _keyboardDismissTimer;
-
+    with TickerProviderStateMixin {
   // ── Carousel swipe state ──────────────────────────────────────────────────
   /// Normalized offset: -1.0 = next track centred, 0 = current, +1.0 = prev centred.
   late AnimationController _carouselController;
@@ -72,8 +69,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-
     _carouselController = AnimationController(
       vsync: this,
       lowerBound: -1.2,
@@ -87,29 +82,8 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _keyboardDismissTimer?.cancel();
     _carouselController.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeMetrics() {
-    final view = WidgetsBinding.instance.platformDispatcher.views.first;
-    final bottomInset = view.viewInsets.bottom / view.devicePixelRatio;
-    final isKeyboard = bottomInset > 100;
-
-    if (isKeyboard) {
-      _keyboardDismissTimer?.cancel();
-      ref.read(searchStateProvider.notifier).setKeyboardVisible(true);
-    } else {
-      _keyboardDismissTimer?.cancel();
-      _keyboardDismissTimer = Timer(const Duration(milliseconds: 80), () {
-        if (mounted) {
-          ref.read(searchStateProvider.notifier).setKeyboardVisible(false);
-        }
-      });
-    }
   }
 
   // ── Gesture handlers ──────────────────────────────────────────────────────
@@ -320,8 +294,11 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
         : _incomingTrackSnapshot ??
               (_swipeIsNext == true ? nextTrack : prevTrack);
 
-    final searchState = ref.watch(searchStateProvider);
-    final shouldHide = searchState.searchActive && searchState.keyboardVisible;
+    // The miniplayer slides away while the search session is open (playback
+    // itself keeps running — only the UI hides).
+    final shouldHide = ref.watch(
+      searchSessionProvider.select((s) => s.isOpen),
+    );
 
     final connectionState = ref.watch(connectionStateProvider);
     final isOffline =
