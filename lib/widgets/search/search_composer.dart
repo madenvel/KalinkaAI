@@ -69,134 +69,135 @@ class _SearchComposerState extends ConsumerState<SearchComposer> {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Container(
-                      constraints: const BoxConstraints(minHeight: 46),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: KalinkaColors.surfaceInput,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: KalinkaColors.borderDefault,
-                          width: 1.5,
+          // The search bar: two halves — the text input on top (the only part
+          // that grows with content) and, below a divider, the AI switch with
+          // the send button (fixed height).
+          child: Container(
+            decoration: BoxDecoration(
+              color: KalinkaColors.surfaceInput,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: KalinkaColors.borderDefault,
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // TOP — text input; grows to a few lines then scrolls.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 11, 14, 9),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1, right: 10),
+                        child: Icon(
+                          isAiEnabled
+                              ? Icons.auto_awesome
+                              : Icons.search_rounded,
+                          size: 16,
+                          color: isAiEnabled
+                              ? KalinkaColors.gold
+                              : KalinkaColors.textMuted,
                         ),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(right: 10),
-                            child: Icon(
-                              isAiEnabled
-                                  ? Icons.auto_awesome
-                                  : Icons.search_rounded,
-                              size: 16,
-                              color: isAiEnabled
-                                  ? KalinkaColors.gold
-                                  : KalinkaColors.textMuted,
+                      Expanded(
+                        child: Focus(
+                          onKeyEvent: _onKeyEvent,
+                          child: TextField(
+                            controller: widget.controller,
+                            focusNode: widget.focusNode,
+                            style: KalinkaTextStyles.searchBarInput,
+                            cursorColor: KalinkaColors.accent,
+                            minLines: 1,
+                            maxLines: 5,
+                            keyboardType: TextInputType.multiline,
+                            textInputAction: TextInputAction.newline,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: InputDecoration(
+                              hintText: isAiEnabled
+                                  ? 'Ask for music…'
+                                  : 'Search music…',
+                              hintStyle: KalinkaTextStyles.searchPlaceholder,
+                              border: InputBorder.none,
+                              isCollapsed: true,
+                              contentPadding: EdgeInsets.zero,
                             ),
                           ),
-                          Expanded(
-                            child: Focus(
-                              onKeyEvent: _onKeyEvent,
-                              child: TextField(
-                                controller: widget.controller,
-                                focusNode: widget.focusNode,
-                                style: KalinkaTextStyles.searchBarInput,
-                                cursorColor: KalinkaColors.accent,
-                                minLines: 1,
-                                maxLines: 5,
-                                keyboardType: TextInputType.multiline,
-                                textInputAction: TextInputAction.newline,
-                                textCapitalization:
-                                    TextCapitalization.sentences,
-                                decoration: InputDecoration(
-                                  hintText: isAiEnabled
-                                      ? 'Ask for music…'
-                                      : 'Search music…',
-                                  hintStyle:
-                                      KalinkaTextStyles.searchPlaceholder,
-                                  border: InputBorder.none,
-                                  isCollapsed: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 13,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  _buildSendButton(),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _buildSwitches(isAiEnabled),
-            ],
+                ),
+                // Divider between the two halves.
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: KalinkaColors.borderSubtle,
+                ),
+                // BOTTOM — AI switch (left) + send (right). Fixed height.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
+                  child: Row(
+                    children: [
+                      _buildAiToggle(isAiEnabled),
+                      const Spacer(),
+                      _buildSendButton(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  /// Switch line beneath the input. Currently the AI-mode toggle; the row is
-  /// laid out to take further switches later.
-  Widget _buildSwitches(bool isAiEnabled) {
+  /// AI-mode toggle pill in the bottom half of the search bar.
+  Widget _buildAiToggle(bool isAiEnabled) {
     final color = isAiEnabled ? KalinkaColors.gold : KalinkaColors.textMuted;
-    return Row(
-      children: [
-        Semantics(
-          label: isAiEnabled
-              ? 'AI search on. Tap to switch to keyword search.'
-              : 'AI search off. Tap to enable AI search.',
-          button: true,
-          child: GestureDetector(
-            onTap: () {
-              KalinkaHaptics.lightImpact();
-              ref.read(searchSessionProvider.notifier).toggleAiMode();
-            },
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                color: const Color(0x0DFFFFFF),
-                border: Border.all(
-                  color: isAiEnabled
-                      ? KalinkaColors.gold.withValues(alpha: 0.6)
-                      : KalinkaColors.borderDefault,
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.auto_awesome, size: 12, color: color),
-                  const SizedBox(width: 5),
-                  Text(
-                    'AI',
-                    style: KalinkaTextStyles.aiBadge.copyWith(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: color,
-                    ),
-                  ),
-                ],
-              ),
+    return Semantics(
+      label: isAiEnabled
+          ? 'AI search on. Tap to switch to keyword search.'
+          : 'AI search off. Tap to enable AI search.',
+      button: true,
+      child: GestureDetector(
+        onTap: () {
+          KalinkaHaptics.lightImpact();
+          ref.read(searchSessionProvider.notifier).toggleAiMode();
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            color: const Color(0x0DFFFFFF),
+            border: Border.all(
+              color: isAiEnabled
+                  ? KalinkaColors.gold.withValues(alpha: 0.6)
+                  : KalinkaColors.borderDefault,
+              width: 1,
             ),
           ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.auto_awesome, size: 12, color: color),
+              const SizedBox(width: 5),
+              Text(
+                'AI',
+                style: KalinkaTextStyles.aiBadge.copyWith(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 
@@ -215,6 +216,8 @@ class _SearchComposerState extends ConsumerState<SearchComposer> {
             scale: animation,
             child: FadeTransition(opacity: animation, child: child),
           ),
+          // The empty slot keeps the bottom half a constant height whether or
+          // not the send button is present.
           child: hasText
               ? Semantics(
                   key: const ValueKey('send'),
@@ -224,21 +227,21 @@ class _SearchComposerState extends ConsumerState<SearchComposer> {
                     onTap: _submit,
                     behavior: HitTestBehavior.opaque,
                     child: Container(
-                      width: 46,
-                      height: 46,
+                      width: 38,
+                      height: 38,
                       decoration: const BoxDecoration(
                         color: KalinkaColors.accent,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.arrow_upward_rounded,
-                        size: 22,
+                        size: 20,
                         color: Colors.white,
                       ),
                     ),
                   ),
                 )
-              : const SizedBox(key: ValueKey('empty'), width: 0, height: 46),
+              : const SizedBox(key: ValueKey('empty'), width: 0, height: 38),
         );
       },
     );
