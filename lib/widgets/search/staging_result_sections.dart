@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data_model/data_model.dart';
+import '../../providers/kalinka_player_api_provider.dart';
+import '../../providers/selection_state_provider.dart';
 import '../../providers/source_modules_provider.dart';
+import '../../providers/toast_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/haptics.dart';
 import '../search_cards/browse_item_rows.dart';
 
 /// Renders one query block's results as per-source section cards. Results are
@@ -92,6 +96,13 @@ class _SourceSectionCard extends ConsumerWidget {
     final icon = _sectionIcon(section.catalog?.previewConfig?.icon);
     final sourceLabel = _sourceLabel(ref, section);
 
+    // Every track in the card, including any hidden behind "show more" — the
+    // batch actions cover the whole set, not just the visible rows.
+    final trackIds = <String>[
+      for (final item in items)
+        if (item.browseType == BrowseType.track) item.id,
+    ];
+
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
       decoration: BoxDecoration(
@@ -147,6 +158,13 @@ class _SourceSectionCard extends ConsumerWidget {
                   ],
                 ),
               ),
+              // One-tap enqueue for the whole card; Select all routes the rest
+              // (play now / play next) through the multi-select toolbar.
+              if (trackIds.isNotEmpty) ...[
+                _EnqueueAllButton(trackIds: trackIds),
+                const SizedBox(width: 6),
+                _SelectAllButton(trackIds: trackIds),
+              ],
             ],
           ),
           const Divider(
@@ -162,6 +180,126 @@ class _SourceSectionCard extends ConsumerWidget {
             onToggleExpand: onToggleExpand,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// One-tap enqueue for every track in a card. Silent and non-destructive:
+/// appends to the queue and reports via the shared activity toast, which is
+/// captured up front so it survives the card scrolling away mid-request.
+class _EnqueueAllButton extends ConsumerWidget {
+  final List<String> trackIds;
+
+  const _EnqueueAllButton({required this.trackIds});
+
+  Future<void> _enqueue(WidgetRef ref) async {
+    KalinkaHaptics.mediumImpact();
+    final api = ref.read(kalinkaProxyProvider);
+    final toast = ref.read(toastProvider.notifier);
+    final n = trackIds.length;
+    toast.beginQueueActivity('Adding $n track${n == 1 ? '' : 's'}…');
+    try {
+      await api.add(trackIds);
+      toast.endQueueActivity('$n track${n == 1 ? '' : 's'} added to queue');
+    } catch (e) {
+      toast.endQueueActivity('Failed to add: $e', isError: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Semantics(
+      label: 'Add all to queue',
+      button: true,
+      child: GestureDetector(
+        onTap: () => _enqueue(ref),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: KalinkaColors.surfaceElevated,
+            border: Border.all(color: KalinkaColors.borderDefault, width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.playlist_add_rounded,
+                size: 15,
+                color: KalinkaColors.textPrimary,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'Enqueue',
+                style: KalinkaFonts.sans(
+                  fontSize: KalinkaTypography.baseSize + 1,
+                  fontWeight: FontWeight.w600,
+                  color: KalinkaColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Select / clear all of a card's tracks (including any hidden behind "show
+/// more"), surfacing the multi-select toolbar for play now / play next / add.
+class _SelectAllButton extends ConsumerWidget {
+  final List<String> trackIds;
+
+  const _SelectAllButton({required this.trackIds});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final allSelected = ref.watch(
+      selectionStateProvider.select(
+        (s) => trackIds.every(s.selectedIds.contains),
+      ),
+    );
+    return Semantics(
+      label: allSelected ? 'Clear selection' : 'Select all tracks',
+      button: true,
+      child: GestureDetector(
+        onTap: () {
+          KalinkaHaptics.lightImpact();
+          final notifier = ref.read(selectionStateProvider.notifier);
+          if (allSelected) {
+            notifier.deselectTracks(trackIds);
+          } else {
+            notifier.selectTracks(trackIds);
+          }
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: allSelected
+                ? KalinkaColors.accentSubtle
+                : KalinkaColors.surfaceElevated,
+            border: Border.all(
+              color: allSelected
+                  ? KalinkaColors.accentBorder
+                  : KalinkaColors.borderDefault,
+              width: 1,
+            ),
+          ),
+          child: Text(
+            allSelected ? 'Clear' : 'Select all',
+            style: KalinkaFonts.sans(
+              fontSize: KalinkaTypography.baseSize + 1,
+              fontWeight: FontWeight.w600,
+              color: allSelected
+                  ? KalinkaColors.accentTint
+                  : KalinkaColors.textPrimary,
+            ),
+          ),
+        ),
       ),
     );
   }
