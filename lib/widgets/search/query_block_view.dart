@@ -1,0 +1,149 @@
+import 'package:flutter/material.dart';
+
+import '../../providers/search_session_provider.dart';
+import '../../theme/app_theme.dart';
+import 'search_loading_indicator.dart';
+import 'staging_result_sections.dart';
+
+/// Renders one [SearchQueryBlock]. When [expanded] it shows the user's query
+/// bubble followed by the loading state or its results; when folded it collapses
+/// to a single tappable summary line.
+class QueryBlockView extends StatelessWidget {
+  final SearchQueryBlock block;
+  final bool expanded;
+  final VoidCallback onExpand;
+  final ValueChanged<String> onToggleSection;
+
+  const QueryBlockView({
+    super.key,
+    required this.block,
+    required this.expanded,
+    required this.onExpand,
+    required this.onToggleSection,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return expanded ? _buildExpanded(context) : _buildFolded(context);
+  }
+
+  Widget _buildExpanded(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildBubble(context),
+        const SizedBox(height: 12),
+        if (block.loading)
+          const SearchLoadingIndicator()
+        else if (block.error != null)
+          _buildError(block.error!)
+        else if (block.results != null)
+          StagingResultSections(
+            results: block.results!,
+            expandedSections: block.expandedSections,
+            onToggleSection: onToggleSection,
+          ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildBubble(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.85),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: KalinkaColors.accentFaded,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(4),
+                ),
+                border: Border.all(color: KalinkaColors.accentBorder, width: 1),
+              ),
+              child: Text(
+                block.query,
+                style: KalinkaTextStyles.trackRowTitle.copyWith(
+                  color: KalinkaColors.textPrimary,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildError(String error) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+      child: Text(
+        error,
+        style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+          color: KalinkaColors.actionDelete,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFolded(BuildContext context) {
+    final count = block.resultCount;
+    final summary = block.loading
+        ? 'Searching…'
+        : count > 0
+        ? '$count result${count == 1 ? '' : 's'}'
+        : 'No results';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Semantics(
+        label: 'Expand query: ${block.query}',
+        button: true,
+        child: GestureDetector(
+          onTap: onExpand,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: KalinkaColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.history_rounded,
+                  size: 15,
+                  color: KalinkaColors.textMuted,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    block.query,
+                    style: KalinkaTextStyles.trackRowTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(summary, style: KalinkaTextStyles.trackRowSubtitle),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.unfold_more_rounded,
+                  size: 16,
+                  color: KalinkaColors.textMuted,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
