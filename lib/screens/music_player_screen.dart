@@ -53,6 +53,9 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
   // hidden — but only after the animation, so the slide-in still shows it.
   bool _settingsCovering = false;
   bool _discoveryOpen = false;
+  // Tablet-only: the queue management tray, hosted here (not inside QueueZone)
+  // so its overlay covers the search dock like the connection sheet.
+  bool _queueTrayOpen = false;
 
   @override
   void initState() {
@@ -125,6 +128,21 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
         );
       case null:
         break;
+    }
+  }
+
+  /// Tablet: act on the panel-level queue management tray's selection.
+  Future<void> _onTabletTrayAction(TrayAction action) async {
+    switch (action) {
+      case TrayAction.clearPlayed:
+        await _clearPlayed();
+      case TrayAction.clearAll:
+        await Future.delayed(const Duration(milliseconds: 160));
+        if (!mounted) return;
+        await showKalinkaConfirmDialog<bool>(
+          context: context,
+          builder: (_) => ClearAllConfirmDialog(onConfirmClearAll: _clearAll),
+        );
     }
   }
 
@@ -533,12 +551,17 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                                         ? const SearchSessionView(
                                             key: ValueKey('search'),
                                           )
-                                        : const KeyedSubtree(
-                                            key: ValueKey('queue'),
+                                        : KeyedSubtree(
+                                            key: const ValueKey('queue'),
                                             child: RepaintBoundary(
                                               child: QueueZone(
                                                 bottomPadding: 0,
                                                 isTablet: true,
+                                                onOpenManagementTray: () =>
+                                                    setState(
+                                                      () =>
+                                                          _queueTrayOpen = true,
+                                                    ),
                                               ),
                                             ),
                                           ),
@@ -568,6 +591,17 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                                       setState(() => _discoveryOpen = true),
                                   onOpenSettings: () =>
                                       setState(() => _settingsOpen = true),
+                                ),
+                              ),
+                            // Queue management tray — same panel-level overlay
+                            // so it covers the search dock too.
+                            if (_queueTrayOpen)
+                              Positioned.fill(
+                                child: TabletQueueManagementTray(
+                                  onClose: () => setState(
+                                    () => _queueTrayOpen = false,
+                                  ),
+                                  onAction: _onTabletTrayAction,
                                 ),
                               ),
                           ],

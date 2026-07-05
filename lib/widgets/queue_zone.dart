@@ -4,16 +4,11 @@ import '../data_model/data_model.dart';
 import '../data_model/kalinka_ws_api.dart' show QueueCommand;
 import '../providers/app_state_provider.dart';
 import '../providers/connection_state_provider.dart';
-import '../providers/kalinka_player_api_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
-import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
-import 'clear_all_confirm_dialog.dart';
 import 'empty_queue_state.dart';
-import 'kalinka_bottom_sheet.dart';
 import 'queue_item_row.dart';
-import 'queue_management_tray.dart';
 import 'queue_section_header.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -50,7 +45,6 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
 
   // ── Drag state ────────────────────────────────────────────────────────────
   bool _isDragging = false;
-  bool _managementTrayOpen = false;
 
   // ── Live references (updated each build, used by reorder callback) ────────
   int _currentIndex = 0;
@@ -63,54 +57,10 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
 
   // ── Management tray ───────────────────────────────────────────────────────
 
-  Future<void> _openManagementTray() async {
-    if (!widget.isTablet) {
-      widget.onOpenManagementTray?.call();
-      return;
-    }
-    if (_managementTrayOpen) return;
-    setState(() => _managementTrayOpen = true);
-  }
-
-  Future<void> _onTabletTrayAction(TrayAction action) async {
-    switch (action) {
-      case TrayAction.clearPlayed:
-        await _clearPlayed();
-      case TrayAction.clearAll:
-        await Future.delayed(const Duration(milliseconds: 160));
-        if (!mounted) return;
-        await showKalinkaConfirmDialog<bool>(
-          context: context,
-          builder: (_) => ClearAllConfirmDialog(onConfirmClearAll: _clearAll),
-        );
-    }
-  }
-
-  // ── Queue actions ─────────────────────────────────────────────────────────
-
-  Future<void> _clearPlayed() async {
-    final queueState = ref.read(playQueueStateStoreProvider);
-    final currentIndex = queueState.playbackState.index ?? 0;
-    final api = ref.read(kalinkaProxyProvider);
-    final toast = ref.read(toastProvider.notifier);
-
-    for (int i = currentIndex - 1; i >= 0; i--) {
-      try {
-        await api.remove(i);
-      } catch (e) {
-        toast.show('Failed to clear played: $e', isError: true);
-        return;
-      }
-    }
-    toast.show('Played tracks cleared');
-  }
-
-  Future<void> _clearAll() async {
-    final api = ref.read(kalinkaProxyProvider);
-    final toast = ref.read(toastProvider.notifier);
-    await api.clear();
-    toast.show('Queue cleared');
-  }
+  /// The tray is a bottom sheet on phone and a panel overlay on tablet; both
+  /// are hosted by the screen (the tablet overlay must cover the search dock),
+  /// so this just forwards to it.
+  void _openManagementTray() => widget.onOpenManagementTray?.call();
 
   // ── Reorder ───────────────────────────────────────────────────────────────
 
@@ -238,19 +188,6 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
             top: (_kHeaderHeight - 36) / 2,
             right: 20,
             child: _buildMenuButton(),
-          ),
-        if (widget.isTablet && _managementTrayOpen)
-          Positioned.fill(
-            child: TabletQueueManagementTray(
-              onClose: () {
-                if (mounted) {
-                  setState(() => _managementTrayOpen = false);
-                }
-              },
-              onAction: (action) {
-                _onTabletTrayAction(action);
-              },
-            ),
           ),
       ],
     );
