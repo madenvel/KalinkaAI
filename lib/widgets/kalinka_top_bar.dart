@@ -85,18 +85,16 @@ class KalinkaTopBar extends StatelessWidget {
       );
     }
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(width: 4),
-        SvgPicture.asset(
-          'assets/images/kalinka_icon.svg',
-          height: 22,
-          width: 22,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 4),
+        child: SvgPicture.asset(
+          'assets/images/kalinka_logo.svg',
+          height: 30,
+          fit: BoxFit.contain,
         ),
-        const SizedBox(width: 10),
-        Text('Kalinka', style: KalinkaTextStyles.nowPlayingLabel),
-      ],
+      ),
     );
   }
 }
