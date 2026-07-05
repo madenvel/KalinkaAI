@@ -232,7 +232,7 @@ class _EnqueueAllButton extends ConsumerWidget {
               ),
               const SizedBox(width: 5),
               Text(
-                'Enqueue',
+                'Add All',
                 style: KalinkaFonts.sans(
                   fontSize: KalinkaTypography.baseSize + 1,
                   fontWeight: FontWeight.w600,
