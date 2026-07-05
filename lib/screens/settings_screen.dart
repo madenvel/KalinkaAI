@@ -238,7 +238,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 20, 16),
       decoration: BoxDecoration(
         color: KalinkaColors.surfaceBase,
         border: const Border(
@@ -252,7 +251,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           ),
         ],
       ),
-      child: Row(
+      // Match the queue/search top-bar height (52), content vertically centered.
+      child: SizedBox(
+        height: 52,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 12, right: 20),
+          child: Row(
         children: [
           // Back button
           Material(
@@ -331,6 +335,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           // spent on a control the user actually interacts with.
           const _ExpertModeHeaderToggle(),
         ],
+          ),
+        ),
       ),
     );
   }
