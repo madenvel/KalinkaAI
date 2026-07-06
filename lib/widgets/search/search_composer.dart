@@ -39,6 +39,25 @@ class SearchComposer extends ConsumerStatefulWidget {
 }
 
 class _SearchComposerState extends ConsumerState<SearchComposer> {
+  @override
+  void initState() {
+    super.initState();
+    widget.focusNode.addListener(_handleFocusChange);
+  }
+
+  @override
+  void dispose() {
+    // The node is owned by the parent; only drop our listener.
+    widget.focusNode.removeListener(_handleFocusChange);
+    super.dispose();
+  }
+
+  // Recolour the pill border (accent when focused, grey otherwise) on focus
+  // changes.
+  void _handleFocusChange() {
+    if (mounted) setState(() {});
+  }
+
   void _submit() {
     final text = widget.controller.text.trim();
     if (text.isEmpty) return;
@@ -68,14 +87,21 @@ class _SearchComposerState extends ConsumerState<SearchComposer> {
     // The search bar floats over a gradient that fades the content scrolling
     // behind it (see [FloatingSearchBar]). The pill has two halves — the text
     // input on top (the only part that grows with content) and, below a
-    // divider, the AI switch with the send button (fixed height).
+    // divider, the AI switch with the send button (fixed height). Its border
+    // is accent while the field holds focus, grey otherwise.
+    final focused = widget.focusNode.hasFocus;
     return FloatingSearchBar(
       bottomSafeArea: true,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
         decoration: BoxDecoration(
           color: KalinkaColors.surfaceInput,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: KalinkaColors.borderDefault, width: 1.5),
+          border: Border.all(
+            color: focused ? KalinkaColors.accent : KalinkaColors.borderDefault,
+            width: 1.5,
+          ),
           boxShadow: FloatingSearchBar.pillShadow,
         ),
         child: Column(
