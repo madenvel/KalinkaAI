@@ -58,7 +58,7 @@ class StagingResultSections extends StatelessWidget {
 
     final children = <Widget>[];
     for (int i = 0; i < sections.length; i++) {
-      if (i > 0) children.add(const SizedBox(height: 12));
+      if (i > 0) children.add(const SizedBox(height: 20));
       final section = sections[i];
       children.add(
         _SourceSectionCard(

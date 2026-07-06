@@ -39,7 +39,7 @@ class QueryBlockView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildBubble(context),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
         if (block.loading)
           const SearchLoadingIndicator()
         else if (block.error != null)
@@ -50,7 +50,7 @@ class QueryBlockView extends StatelessWidget {
             expandedSections: block.expandedSections,
             onToggleSection: onToggleSection,
           ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 20),
       ],
     );
   }
@@ -108,7 +108,7 @@ class QueryBlockView extends StatelessWidget {
         : 'No results';
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 20),
       child: Semantics(
         label: 'Expand query: ${block.query}',
         button: true,
@@ -116,7 +116,7 @@ class QueryBlockView extends StatelessWidget {
           onTap: onExpand,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
             decoration: BoxDecoration(
               color: KalinkaColors.surfaceRaised,
               borderRadius: BorderRadius.circular(12),
