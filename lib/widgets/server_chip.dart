@@ -9,11 +9,16 @@ import '../utils/haptics.dart';
 ///
 /// Shows connection state (online, reconnecting, offline, no server)
 /// with a colored dot and server name label. Tappable to open the
-/// server sheet.
+/// server sheet. With [compact] set, only the status dot is shown (with a
+/// padded hit target); the label lives in semantics.
 class ServerChip extends ConsumerStatefulWidget {
   final VoidCallback? onTap;
 
-  const ServerChip({super.key, this.onTap});
+  /// Render just the status dot — for surfaces where the full chip would
+  /// crowd the row (the search header).
+  final bool compact;
+
+  const ServerChip({super.key, this.onTap, this.compact = false});
 
   @override
   ConsumerState<ServerChip> createState() => _ServerChipState();
@@ -60,6 +65,26 @@ class _ServerChipState extends ConsumerState<ServerChip>
     }
 
     final chipData = _getChipData(connectionState, settings.name);
+
+    if (widget.compact) {
+      return Semantics(
+        label: chipData.label,
+        button: widget.onTap != null,
+        child: GestureDetector(
+          onTap: widget.onTap != null
+              ? () {
+                  KalinkaHaptics.lightImpact();
+                  widget.onTap!();
+                }
+              : null,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: _buildDot(connectionState, chipData.dotColor),
+          ),
+        ),
+      );
+    }
 
     return GestureDetector(
       onTap: widget.onTap != null

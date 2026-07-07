@@ -5,9 +5,9 @@ import '../../theme/app_theme.dart';
 import 'search_loading_indicator.dart';
 import 'staging_result_sections.dart';
 
-/// Renders one [SearchQueryBlock]. When [expanded] it shows the user's query
-/// bubble followed by the loading state or its results; when folded it collapses
-/// to a single tappable summary line.
+/// Renders one [SearchQueryBlock]. When [expanded] it shows the query as a
+/// playlist-style title header followed by the loading state or its results;
+/// when folded it collapses to a single tappable summary line.
 class QueryBlockView extends StatelessWidget {
   final SearchQueryBlock block;
   final bool expanded;
@@ -38,7 +38,7 @@ class QueryBlockView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildBubble(context),
+        _buildQueryHeader(context),
         const SizedBox(height: 20),
         if (block.loading)
           const SearchLoadingIndicator()
@@ -55,35 +55,38 @@ class QueryBlockView extends StatelessWidget {
     );
   }
 
-  Widget _buildBubble(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Align(
-          alignment: Alignment.centerRight,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.85),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: KalinkaColors.accentFaded,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(4),
-                ),
-                border: Border.all(color: KalinkaColors.accentBorder, width: 1),
-              ),
-              child: Text(
-                block.query,
-                style: KalinkaTextStyles.trackRowTitle.copyWith(
-                  color: KalinkaColors.textPrimary,
-                ),
-              ),
+  /// The query set like a playlist title — a small album-art-style tile with
+  /// a note glyph, then the text in the display face — rather than a chat
+  /// bubble. Reads as "the record this search is about".
+  Widget _buildQueryHeader(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: KalinkaColors.accentFaded,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: KalinkaColors.accentBorder, width: 1),
+          ),
+          child: const Icon(
+            Icons.music_note_rounded,
+            size: 16,
+            color: KalinkaColors.accentTint,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              block.query,
+              style: KalinkaTextStyles.aiPlaylistName,
             ),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 

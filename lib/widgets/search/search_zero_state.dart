@@ -5,6 +5,7 @@ import '../../providers/search_session_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
 import '../search_cards/browse_item_rows.dart';
+import 'catalog_cards_section.dart';
 
 /// Zero state for the search session — shown above the composer before any
 /// query. Three sections: example AI prompts, historical queries, and recent
@@ -42,12 +43,16 @@ class SearchZeroState extends ConsumerWidget {
           (s) => Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: _SuggestionTile(
-              text: s,
-              onInsert: () => onInsert(s),
-              onRun: () => onSubmit(s),
+              text: s.query,
+              experimental: s.experimental,
+              onInsert: () => onInsert(s.query),
+              onRun: () => onSubmit(s.query),
             ),
           ),
         ),
+
+        // ── EXPLORE THE CATALOGS ────────────────────────────────────────────
+        CatalogCardsSection(onSubmit: onSubmit),
 
         // ── RECENT SEARCHES ─────────────────────────────────────────────────
         if (history.isNotEmpty) ...[
@@ -95,10 +100,14 @@ class SearchZeroState extends ConsumerWidget {
       Text(text, style: KalinkaTextStyles.sectionLabel);
 }
 
-/// AI prompt suggestion: tapping the body inserts the text into the composer;
-/// the run arrow submits it immediately.
+/// AI prompt suggestion. Tapping runs it straight away — the expected action;
+/// long-pressing drops it into the composer to edit before sending.
+/// [experimental] marks the server's serendipity pick (context-matched but
+/// not validated against the library) with a compass icon instead of the
+/// sparkle.
 class _SuggestionTile extends StatelessWidget {
   final String text;
+  final bool experimental;
   final VoidCallback onInsert;
   final VoidCallback onRun;
 
@@ -106,75 +115,62 @@ class _SuggestionTile extends StatelessWidget {
     required this.text,
     required this.onInsert,
     required this.onRun,
+    this.experimental = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [KalinkaColors.accentFaded, KalinkaColors.surfaceBase],
-        ),
-        border: Border.all(color: KalinkaColors.borderDefault, width: 1),
-      ),
-      child: Row(
-        children: [
-          // Body — inserts into the composer for editing.
-          Expanded(
-            child: Semantics(
-              label: 'Edit suggestion: $text',
-              button: true,
-              child: GestureDetector(
-                onTap: onInsert,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.auto_awesome,
-                        size: 14,
-                        color: KalinkaColors.gold,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          text,
-                          style: KalinkaTextStyles.aiPromptChipText,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+    return Semantics(
+      label: experimental
+          ? 'Run experimental suggestion: $text'
+          : 'Run suggestion: $text',
+      hint: 'Long press to edit before sending',
+      button: true,
+      child: GestureDetector(
+        onTap: () {
+          KalinkaHaptics.lightImpact();
+          onRun();
+        },
+        onLongPress: onInsert,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [KalinkaColors.accentFaded, KalinkaColors.surfaceBase],
+            ),
+            border: Border.all(color: KalinkaColors.borderDefault, width: 1),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            child: Row(
+              children: [
+                Icon(
+                  experimental ? Icons.explore_outlined : Icons.auto_awesome,
+                  size: 14,
+                  color: KalinkaColors.gold,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    text,
+                    style: KalinkaTextStyles.aiPromptChipText,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ),
-            ),
-          ),
-          // Run arrow — submits immediately.
-          Semantics(
-            label: 'Run suggestion: $text',
-            button: true,
-            child: GestureDetector(
-              onTap: () {
-                KalinkaHaptics.lightImpact();
-                onRun();
-              },
-              behavior: HitTestBehavior.opaque,
-              child: const Padding(
-                padding: EdgeInsets.fromLTRB(6, 8, 12, 8),
-                child: Icon(
+                const SizedBox(width: 8),
+                const Icon(
                   Icons.arrow_forward_rounded,
                   size: 18,
                   color: KalinkaColors.textSecondary,
                 ),
-              ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

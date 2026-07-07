@@ -13,10 +13,6 @@ const _historyKey = 'Kalinka.chatSearchHistory';
 const _maxHistoryItems = 12;
 const _minHistoryQueryLength = 2;
 
-/// Persisted AI-mode toggle (on by default). When on, submitting runs the
-/// natural-language aiSearch; when off, a direct keyword search grouped by type.
-const _aiEnabledKey = 'Kalinka.chatSearchAiEnabled';
-
 /// Visible query blocks kept in the session: one expanded + up to two folded.
 /// Older blocks scroll out of the session view (but their queries still land
 /// in history on exit).
@@ -27,13 +23,18 @@ const _maxVisibleBlocks = 3;
 /// rather than flickering a frame of loading.
 const _minLoadingDuration = Duration(milliseconds: 650);
 
-/// Example natural-language prompts offered in the zero state. Tapping the
-/// body inserts one into the composer; the run arrow submits it directly.
-const _aiSuggestions = <String>[
-  'something melancholic for a late night',
-  'upbeat indie for a morning run',
-  'deep focus, no vocals',
-  'nostalgic 90s throwbacks',
+/// How many suggestions the zero state asks the server for.
+const _suggestionCount = 4;
+
+/// Static fallback prompts for the zero state, shown until the server's
+/// context-aware suggestions arrive (or when the fetch fails). Phrased the
+/// way the retrieval stack handles well — concrete genre/instrument words,
+/// no negation ("no vocals" retrieves vocals).
+const _fallbackSuggestions = <SearchSuggestion>[
+  SearchSuggestion(query: 'something melancholic for a late night'),
+  SearchSuggestion(query: 'upbeat indie for a morning run'),
+  SearchSuggestion(query: 'calm piano for deep focus'),
+  SearchSuggestion(query: 'smooth jazz for a cozy evening'),
 ];
 
 /// One query and its results in the chat-style search session.
@@ -104,9 +105,10 @@ class SearchSessionState {
   final List<BrowseItem> recentFavourites;
   final bool zeroStateLoading;
 
-  /// AI mode toggle: on runs the natural-language aiSearch, off a direct
-  /// keyword search grouped by type.
-  final bool isAiEnabled;
+  /// Context-aware suggestions fetched from `/ai_search/suggestions` —
+  /// matched to the listener's time of day and validated against the
+  /// library. Empty until the first successful fetch.
+  final List<SearchSuggestion> aiSuggestions;
 
   const SearchSessionState({
     this.isOpen = false,
@@ -115,14 +117,16 @@ class SearchSessionState {
     this.history = const [],
     this.recentFavourites = const [],
     this.zeroStateLoading = false,
-    this.isAiEnabled = true,
+    this.aiSuggestions = const [],
   });
 
   /// True when the session has no query blocks — the zero state is shown.
   bool get isZeroState => blocks.isEmpty;
 
-  /// The static example prompts shown in the zero state.
-  List<String> get suggestions => _aiSuggestions;
+  /// Prompts shown in the zero state: the server's context-aware suggestions
+  /// once fetched, static examples until then.
+  List<SearchSuggestion> get suggestions =>
+      aiSuggestions.isEmpty ? _fallbackSuggestions : aiSuggestions;
 
   SearchSessionState copyWith({
     bool? isOpen,
@@ -131,7 +135,7 @@ class SearchSessionState {
     List<String>? history,
     List<BrowseItem>? recentFavourites,
     bool? zeroStateLoading,
-    bool? isAiEnabled,
+    List<SearchSuggestion>? aiSuggestions,
   }) {
     return SearchSessionState(
       isOpen: isOpen ?? this.isOpen,
@@ -140,7 +144,7 @@ class SearchSessionState {
       history: history ?? this.history,
       recentFavourites: recentFavourites ?? this.recentFavourites,
       zeroStateLoading: zeroStateLoading ?? this.zeroStateLoading,
-      isAiEnabled: isAiEnabled ?? this.isAiEnabled,
+      aiSuggestions: aiSuggestions ?? this.aiSuggestions,
     );
   }
 }
@@ -160,18 +164,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
   SearchSessionState build() {
     _prefs = ref.read(sharedPrefsProvider);
     ref.onDispose(() => _disposed = true);
-    return SearchSessionState(
-      history: _loadHistory(),
-      isAiEnabled: _prefs.getBool(_aiEnabledKey) ?? true,
-    );
-  }
-
-  /// Flip AI mode and persist it. The change applies to the next submitted
-  /// query; blocks already on screen keep their results.
-  void toggleAiMode() {
-    final next = !state.isAiEnabled;
-    _prefs.setBool(_aiEnabledKey, next);
-    state = state.copyWith(isAiEnabled: next);
+    return SearchSessionState(history: _loadHistory());
   }
 
   // ── Open / close ───────────────────────────────────────────────────────────
@@ -181,6 +174,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     if (state.isOpen) return;
     state = state.copyWith(isOpen: true, history: _loadHistory());
     _loadRecentFavourites();
+    _loadSuggestions();
   }
 
   /// Close the surface: fold every session query into persistent history,
@@ -232,13 +226,10 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
       return;
     }
 
-    final useAi = state.isAiEnabled;
     final start = DateTime.now();
     try {
       final api = ref.read(kalinkaProxyProvider);
-      final result = useAi
-          ? await api.aiSearch(query)
-          : await _keywordSearch(api, query);
+      final result = await api.aiSearch(query);
       await _holdMinimumLoading(start);
       if (_disposed) return;
       _updateBlock(
@@ -253,45 +244,6 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
         (b) => b.copyWith(loading: false, error: 'Search failed: $e'),
       );
     }
-  }
-
-  /// Direct keyword search (AI off): query each type and fold the results into
-  /// the same section shape aiSearch returns — one section per type — so the
-  /// feed renders them uniformly. Grouped by type here, not by source.
-  Future<BrowseItemsList> _keywordSearch(
-    KalinkaPlayerProxy api,
-    String query,
-  ) async {
-    final results = await Future.wait([
-      api.search(SearchType.artist, query),
-      api.search(SearchType.album, query),
-      api.search(SearchType.track, query),
-      api.search(SearchType.playlist, query),
-    ]);
-    final sections = <BrowseItem>[];
-    void addSection(String key, String title, BrowseItemsList list) {
-      if (list.items.isEmpty) return;
-      sections.add(
-        BrowseItem(
-          id: 'keyword:$key',
-          name: title,
-          canBrowse: false,
-          canAdd: false,
-          catalog: Catalog(id: 'keyword:$key', title: title, canGenreFilter: false),
-          sections: list.items,
-        ),
-      );
-    }
-
-    addSection('artists', 'Artists', results[0]);
-    addSection('albums', 'Albums', results[1]);
-    addSection('tracks', 'Tracks', results[2]);
-    addSection('playlists', 'Playlists', results[3]);
-    final total = sections.fold<int>(
-      0,
-      (n, s) => n + (s.sections?.length ?? 0),
-    );
-    return BrowseItemsList(0, 0, total, sections);
   }
 
   Future<void> _holdMinimumLoading(DateTime start) async {
@@ -333,6 +285,23 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
   }
 
   // ── Zero-state data ────────────────────────────────────────────────────────
+
+  /// Fetch context-aware suggestions for the zero state. The proxy sends the
+  /// device's real UTC offset so "morning" is the listener's morning. Any
+  /// failure keeps what is already shown (the static fallback or the last
+  /// successful fetch).
+  Future<void> _loadSuggestions() async {
+    final settings = ref.read(connectionSettingsProvider);
+    if (!settings.isSet) return;
+    try {
+      final api = ref.read(kalinkaProxyProvider);
+      final result = await api.searchSuggestions(count: _suggestionCount);
+      if (_disposed || result.suggestions.isEmpty) return;
+      state = state.copyWith(aiSuggestions: result.suggestions);
+    } catch (_) {
+      // Zero state must render regardless — the fallback stays.
+    }
+  }
 
   Future<void> _loadRecentFavourites() async {
     final settings = ref.read(connectionSettingsProvider);

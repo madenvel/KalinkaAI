@@ -1,5 +1,24 @@
 import 'package:flutter/material.dart';
 
+/// Fixed height of the top-bar / header strip. Shared by the queue, search,
+/// and settings screens so their bars — and the dividers under them — line up.
+const double kKalinkaTopBarHeight = 52;
+
+/// Wordmark height inside the top bar, shared by every screen that shows it.
+const double kKalinkaWordmarkHeight = 30;
+
+/// Decoration shared by the queue, search, and settings top bars so all three
+/// read identically — solid surface, a hairline bottom rule, and a soft drop
+/// shadow. Applied via [Container] (not DecoratedBox) so the border also insets
+/// the content by the same 1px on every screen.
+const BoxDecoration kKalinkaTopBarDecoration = BoxDecoration(
+  color: KalinkaColors.surfaceBase,
+  border: Border(bottom: BorderSide(color: KalinkaColors.borderDefault)),
+  boxShadow: [
+    BoxShadow(color: Color(0x80000000), offset: Offset(0, 4), blurRadius: 24),
+  ],
+);
+
 /// Kalinka color palette — high-contrast grayscale with berry & brass accents
 class KalinkaColors {
   KalinkaColors._();
@@ -210,13 +229,15 @@ class KalinkaFonts {
   }
 
   static TextTheme monoTextTheme([TextTheme? textTheme]) {
-    return (textTheme ?? ThemeData.dark().textTheme)
-        .apply(fontFamily: monoFamily);
+    return (textTheme ?? ThemeData.dark().textTheme).apply(
+      fontFamily: monoFamily,
+    );
   }
 
   static TextTheme sansTextTheme([TextTheme? textTheme]) {
-    return (textTheme ?? ThemeData.dark().textTheme)
-        .apply(fontFamily: sansFamily);
+    return (textTheme ?? ThemeData.dark().textTheme).apply(
+      fontFamily: sansFamily,
+    );
   }
 
   static TextStyle _style(

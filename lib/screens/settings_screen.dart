@@ -238,103 +238,91 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
   Widget _buildHeader() {
     return Container(
-      decoration: BoxDecoration(
-        color: KalinkaColors.surfaceBase,
-        border: const Border(
-          bottom: BorderSide(color: KalinkaColors.borderDefault),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            offset: const Offset(0, 4),
-            blurRadius: 24,
-          ),
-        ],
-      ),
-      // Match the queue/search top-bar height (52), content vertically centered.
+      decoration: kKalinkaTopBarDecoration,
+      // Shared top-bar height so this lines up with the queue and search bars.
       child: SizedBox(
-        height: 52,
+        height: kKalinkaTopBarHeight,
         child: Padding(
           padding: const EdgeInsets.only(left: 12, right: 20),
           child: Row(
-        children: [
-          // Back button
-          Material(
-            color: KalinkaColors.surfaceInput,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(9),
-              side: const BorderSide(color: KalinkaColors.borderDefault),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: _animateClose,
-              overlayColor: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.pressed)) {
-                  return Colors.white.withValues(alpha: 0.08);
-                }
-                return null;
-              }),
-              child: const SizedBox(
-                width: 36,
-                height: 36,
-                child: Icon(
-                  Icons.arrow_back,
-                  size: 14,
-                  color: KalinkaColors.textSecondary,
+            children: [
+              // Back button
+              Material(
+                color: KalinkaColors.surfaceInput,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(9),
+                  side: const BorderSide(color: KalinkaColors.borderDefault),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: _animateClose,
+                  overlayColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.pressed)) {
+                      return Colors.white.withValues(alpha: 0.08);
+                    }
+                    return null;
+                  }),
+                  child: const SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Icon(
+                      Icons.arrow_back,
+                      size: 14,
+                      color: KalinkaColors.textSecondary,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          // Kalinka logo
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: SvgPicture.asset(
-                'assets/images/kalinka_logo.svg',
-                height: 40,
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-          // Restart the server. Available even with no pending changes
-          // (the pending-changes banner only restarts when applying), so
-          // there's always a way to reboot — e.g. to fire an armed
-          // "Rebuild library on next restart" toggle.
-          Material(
-            color: KalinkaColors.surfaceInput,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(9),
-              side: const BorderSide(color: KalinkaColors.borderDefault),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: _onRestart,
-              overlayColor: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.pressed)) {
-                  return Colors.white.withValues(alpha: 0.08);
-                }
-                return null;
-              }),
-              child: const SizedBox(
-                width: 36,
-                height: 36,
-                child: Icon(
-                  Icons.restart_alt,
-                  size: 16,
-                  color: KalinkaColors.textSecondary,
+              const SizedBox(width: 14),
+              // Kalinka logo
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: SvgPicture.asset(
+                    'assets/images/kalinka_logo.svg',
+                    height: kKalinkaWordmarkHeight,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          // View-mode switch: simple ↔ expert (about:config-style).
-          // Sits where the connection status pill used to live —
-          // connection state surfaces clearly enough through the
-          // loading/error UI below, so the prime header slot is better
-          // spent on a control the user actually interacts with.
-          const _ExpertModeHeaderToggle(),
-        ],
+              // Restart the server. Available even with no pending changes
+              // (the pending-changes banner only restarts when applying), so
+              // there's always a way to reboot — e.g. to fire an armed
+              // "Rebuild library on next restart" toggle.
+              Material(
+                color: KalinkaColors.surfaceInput,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(9),
+                  side: const BorderSide(color: KalinkaColors.borderDefault),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: _onRestart,
+                  overlayColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.pressed)) {
+                      return Colors.white.withValues(alpha: 0.08);
+                    }
+                    return null;
+                  }),
+                  child: const SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Icon(
+                      Icons.restart_alt,
+                      size: 16,
+                      color: KalinkaColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // View-mode switch: simple ↔ expert (about:config-style).
+              // Sits where the connection status pill used to live —
+              // connection state surfaces clearly enough through the
+              // loading/error UI below, so the prime header slot is better
+              // spent on a control the user actually interacts with.
+              const _ExpertModeHeaderToggle(),
+            ],
           ),
         ),
       ),

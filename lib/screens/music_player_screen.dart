@@ -336,15 +336,15 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             maintainSize: true,
             child: Column(
               children: [
-                RepaintBoundary(
-                  child: KalinkaTopBar(
-                    showBack: searchOpen,
-                    onBack: () =>
-                        ref.read(searchSessionProvider.notifier).close(),
-                    onServerChipTap: _showServerSheet,
-                    connectionKey: _connectionDotKey,
+                // The search session carries its own header (roundel + search
+                // bar + connection dot), so the shared top bar leaves with it.
+                if (!searchOpen)
+                  RepaintBoundary(
+                    child: KalinkaTopBar(
+                      onServerChipTap: _showServerSheet,
+                      connectionKey: _connectionDotKey,
+                    ),
                   ),
-                ),
                 const ConnectionBanner(),
                 Expanded(
                   // The dock (and escalation card) float over the content, which
@@ -356,7 +356,10 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
                           child: searchOpen
-                              ? const SearchSessionView(key: ValueKey('search'))
+                              ? SearchSessionView(
+                                  key: const ValueKey('search'),
+                                  onServerTap: _showServerSheet,
+                                )
                               : KeyedSubtree(
                                   key: const ValueKey('queue'),
                                   child:
@@ -405,14 +408,14 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             ),
           ),
           // Toast overlay — floats above the bottom dock, ignoring pointer
-          // input. Clear the composer on the search screen, or the search pill
-          // + mini player on the main screen.
+          // input. The search screen has nothing docked at the bottom (its bar
+          // lives in the header), so toasts sit near the bottom edge there.
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: IgnorePointer(
-              child: KalinkaToastOverlay(bottomOffset: searchOpen ? 116 : 135),
+              child: KalinkaToastOverlay(bottomOffset: searchOpen ? 24 : 135),
             ),
           ),
           // Settings — full-screen overlay on phone (slides in from the right).
@@ -569,14 +572,14 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                             children: [
                               Column(
                                 children: [
-                                  KalinkaTopBar(
-                                    showBack: searchOpen,
-                                    onBack: () => ref
-                                        .read(searchSessionProvider.notifier)
-                                        .close(),
-                                    onServerChipTap: () =>
-                                        setState(() => _serverSheetOpen = true),
-                                  ),
+                                  // Search brings its own header row; the
+                                  // shared top bar yields to it.
+                                  if (!searchOpen)
+                                    KalinkaTopBar(
+                                      onServerChipTap: () => setState(
+                                        () => _serverSheetOpen = true,
+                                      ),
+                                    ),
                                   const ConnectionBanner(),
                                   Expanded(
                                     // Dock floats over the queue, which fades
@@ -590,8 +593,14 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                                               milliseconds: 200,
                                             ),
                                             child: searchOpen
-                                                ? const SearchSessionView(
-                                                    key: ValueKey('search'),
+                                                ? SearchSessionView(
+                                                    key: const ValueKey(
+                                                      'search',
+                                                    ),
+                                                    onServerTap: () => setState(
+                                                      () => _serverSheetOpen =
+                                                          true,
+                                                    ),
                                                   )
                                                 : KeyedSubtree(
                                                     key: const ValueKey(

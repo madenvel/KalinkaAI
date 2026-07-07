@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kalinka/data_model/data_model.dart';
+import 'package:kalinka/providers/catalog_cards_provider.dart';
 import 'package:kalinka/providers/connection_settings_provider.dart';
 import 'package:kalinka/providers/kalinka_player_api_provider.dart';
 import 'package:kalinka/providers/search_session_provider.dart';
@@ -139,6 +140,11 @@ void main() {
         sharedPrefsProvider.overrideWithValue(prefs),
         kalinkaProxyProvider.overrideWithValue(api),
         sourceModulesProvider.overrideWith((ref) => <ModuleInfo>[]),
+        // Keep the zero-state's catalog section inert (its real fetch arms a
+        // refresh timer that would outlive the test).
+        catalogCardGroupsProvider.overrideWith(
+          (ref) => Future.value(const <CatalogCardGroup>[]),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -181,26 +187,6 @@ void main() {
       expect(state.blocks.first.results, isNotNull);
       expect(state.blocks.first.resultCount, 2);
       expect(api.aiSearchCalls, 1);
-    });
-
-    test('AI off runs a keyword search grouped by type', () async {
-      final api = _FakeApi();
-      final container = makeContainer(api);
-      final notifier = container.read(searchSessionProvider.notifier);
-      notifier.open();
-
-      notifier.toggleAiMode();
-      expect(container.read(searchSessionProvider).isAiEnabled, isFalse);
-
-      notifier.submit('the beatles');
-      await Future.delayed(const Duration(milliseconds: 900));
-
-      final block = container.read(searchSessionProvider).blocks.first;
-      expect(block.loading, isFalse);
-      expect(api.aiSearchCalls, 0, reason: 'AI off must not call aiSearch');
-      expect(api.searchCalls, 4, reason: 'one keyword search per type');
-      final sectionNames = block.results!.items.map((s) => s.name).toList();
-      expect(sectionNames, ['Artists', 'Tracks']);
     });
 
     test('keeps at most three blocks; older ones drop from view', () async {
@@ -318,15 +304,12 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 50));
 
-      // No send button while empty.
-      expect(find.byIcon(Icons.arrow_upward_rounded), findsNothing);
+      // The send button is always present — inert while empty, active once
+      // the field holds text.
+      expect(find.byIcon(Icons.arrow_upward_rounded), findsOneWidget);
 
       await tester.enterText(find.byType(TextField), 'jazz please');
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200)); // send fades in
-
-      // Send button appears with text.
-      expect(find.byIcon(Icons.arrow_upward_rounded), findsOneWidget);
 
       await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
       await tester.pump();

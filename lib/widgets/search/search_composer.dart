@@ -1,28 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../providers/search_session_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
-import 'floating_search_bar.dart';
 
-/// Chat-style composer docked at the bottom of the search screen. Multiline,
-/// grows to a few lines then scrolls internally. The send button appears only
-/// when the field holds non-whitespace text. Submitting fires the query and
-/// clears the field while keeping focus. A switch line underneath carries the
-/// AI-mode toggle.
+/// The search bar pill at the top of the search screen. One line at rest —
+/// an AI sparkle, the text field, then the send button on the right — and
+/// grows to a few lines as the content wraps, the controls staying
+/// pinned to the first line. The send button is always present: grey and
+/// inert while the field is empty, accent once it holds non-whitespace text.
+/// Submitting fires the query and clears the field. The border is accent
+/// while the field holds focus, grey otherwise.
 ///
-/// The composer floats over the scrolling content (see [SearchSessionView]):
-/// rather than an opaque slab with a rule on top, a short gradient fades the
-/// content into the page as it scrolls behind the bar. That fade is a plain
-/// linear-gradient fill — no blur, no `saveLayer` — so it costs one extra
-/// gradient rect per frame, which is negligible.
+/// The parent owns the framing (top-bar strip, safe area); this widget is
+/// just the pill.
 ///
 /// There is deliberately no onChanged search hook: typing never triggers a
 /// query. The query fires only on explicit send (the button, or hardware Enter
 /// where a physical keyboard exists — Shift+Enter inserts a newline).
-class SearchComposer extends ConsumerStatefulWidget {
+class SearchComposer extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onSubmit;
@@ -35,10 +31,10 @@ class SearchComposer extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<SearchComposer> createState() => _SearchComposerState();
+  State<SearchComposer> createState() => _SearchComposerState();
 }
 
-class _SearchComposerState extends ConsumerState<SearchComposer> {
+class _SearchComposerState extends State<SearchComposer> {
   @override
   void initState() {
     super.initState();
@@ -80,187 +76,105 @@ class _SearchComposerState extends ConsumerState<SearchComposer> {
 
   @override
   Widget build(BuildContext context) {
-    final isAiEnabled = ref.watch(
-      searchSessionProvider.select((s) => s.isAiEnabled),
-    );
-
-    // The search bar floats over a gradient that fades the content scrolling
-    // behind it (see [FloatingSearchBar]). The pill has two halves — the text
-    // input on top (the only part that grows with content) and, below a
-    // divider, the AI switch with the send button (fixed height). Its border
-    // is accent while the field holds focus, grey otherwise.
+    // One row, everything anchored to the top: at one line it reads as a
+    // centred bar; as the field wraps taller, the mode icon and the AI toggle
+    // + send stay pinned to the first line and only the text grows downward.
+    // Plain top-anchoring avoids IntrinsicHeight, whose probe of a multiline
+    // TextField reports more than the live line count and inflates the pill.
     final focused = widget.focusNode.hasFocus;
-    return FloatingSearchBar(
-      bottomSafeArea: true,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOut,
-        decoration: BoxDecoration(
-          color: KalinkaColors.surfaceInput,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: focused ? KalinkaColors.accent : KalinkaColors.borderDefault,
-            width: 1.5,
-          ),
-          boxShadow: FloatingSearchBar.pillShadow,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        color: KalinkaColors.surfaceInput,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: focused ? KalinkaColors.accent : KalinkaColors.borderDefault,
+          width: 1.5,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 6, 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // TOP — text input; grows to a few lines then scrolls.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 11, 14, 9),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 1, right: 10),
-                    child: Icon(
-                      isAiEnabled ? Icons.auto_awesome : Icons.search_rounded,
-                      size: 16,
-                      color: isAiEnabled
-                          ? KalinkaColors.gold
-                          : KalinkaColors.textMuted,
-                    ),
-                  ),
-                  Expanded(
-                    child: Focus(
-                      onKeyEvent: _onKeyEvent,
-                      child: TextField(
-                        controller: widget.controller,
-                        focusNode: widget.focusNode,
-                        style: KalinkaTextStyles.searchBarInput,
-                        cursorColor: KalinkaColors.accent,
-                        minLines: 1,
-                        maxLines: 5,
-                        keyboardType: TextInputType.multiline,
-                        textInputAction: TextInputAction.newline,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: InputDecoration(
-                          hintText: isAiEnabled
-                              ? 'Ask for music…'
-                              : 'Search music…',
-                          hintStyle: KalinkaTextStyles.searchPlaceholder,
-                          border: InputBorder.none,
-                          isCollapsed: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+            // AI sparkle — centred against the first text line.
+            const Padding(
+              padding: EdgeInsets.only(top: 8, right: 10),
+              child: Icon(
+                Icons.auto_awesome,
+                size: 16,
+                color: KalinkaColors.gold,
               ),
             ),
-            // Divider between the two halves.
-            const Divider(
-              height: 1,
-              thickness: 1,
-              color: KalinkaColors.borderSubtle,
-            ),
-            // BOTTOM — AI switch (left) + send (right). Fixed height.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
-              child: Row(
-                children: [
-                  _buildAiToggle(isAiEnabled),
-                  const Spacer(),
-                  _buildSendButton(),
-                ],
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Focus(
+                  onKeyEvent: _onKeyEvent,
+                  child: TextField(
+                    controller: widget.controller,
+                    focusNode: widget.focusNode,
+                    style: KalinkaTextStyles.searchBarInput,
+                    cursorColor: KalinkaColors.accent,
+                    minLines: 1,
+                    maxLines: 5,
+                    keyboardType: TextInputType.multiline,
+                    textInputAction: TextInputAction.newline,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: InputDecoration(
+                      hintText: 'Ask for music…',
+                      hintStyle: KalinkaTextStyles.searchPlaceholder,
+                      border: InputBorder.none,
+                      isCollapsed: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
               ),
             ),
+            const SizedBox(width: 8),
+            // Send — pinned to the first line as the field grows.
+            _buildSendButton(),
           ],
         ),
       ),
     );
   }
 
-  /// AI-mode toggle pill in the bottom half of the search bar.
-  Widget _buildAiToggle(bool isAiEnabled) {
-    final color = isAiEnabled ? KalinkaColors.gold : KalinkaColors.textMuted;
-    return Semantics(
-      label: isAiEnabled
-          ? 'AI search on. Tap to switch to keyword search.'
-          : 'AI search off. Tap to enable AI search.',
-      button: true,
-      child: GestureDetector(
-        onTap: () {
-          KalinkaHaptics.lightImpact();
-          ref.read(searchSessionProvider.notifier).toggleAiMode();
-        },
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            color: const Color(0x0DFFFFFF),
-            border: Border.all(
-              color: isAiEnabled
-                  ? KalinkaColors.gold.withValues(alpha: 0.6)
-                  : KalinkaColors.borderDefault,
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.auto_awesome, size: 12, color: color),
-              const SizedBox(width: 5),
-              Text(
-                'AI',
-                style: KalinkaTextStyles.aiBadge.copyWith(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildSendButton() {
-    // Rebuilds on every keystroke so the button appears/disappears with the
-    // presence of non-whitespace text — without firing any search. When empty
-    // the button is absent from the tree entirely (not just faded), so there is
-    // no hidden send target.
+    // Rebuilds on every keystroke so the button recolours with the presence
+    // of non-whitespace text — without firing any search. Always present:
+    // grey and inert while empty (submitting nothing), accent once there is
+    // something to send.
     return AnimatedBuilder(
       animation: widget.controller,
       builder: (context, _) {
         final hasText = widget.controller.text.trim().isNotEmpty;
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 140),
-          transitionBuilder: (child, animation) => ScaleTransition(
-            scale: animation,
-            child: FadeTransition(opacity: animation, child: child),
+        return Semantics(
+          label: 'Send',
+          button: true,
+          enabled: hasText,
+          child: GestureDetector(
+            onTap: hasText ? _submit : null,
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: hasText
+                    ? KalinkaColors.accent
+                    : KalinkaColors.borderDefault,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.arrow_upward_rounded,
+                size: 18,
+                color: hasText ? Colors.white : KalinkaColors.textMuted,
+              ),
+            ),
           ),
-          // The empty slot keeps the bottom half a constant height whether or
-          // not the send button is present.
-          child: hasText
-              ? Semantics(
-                  key: const ValueKey('send'),
-                  label: 'Send',
-                  button: true,
-                  child: GestureDetector(
-                    onTap: _submit,
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: const BoxDecoration(
-                        color: KalinkaColors.accent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.arrow_upward_rounded,
-                        size: 20,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                )
-              : const SizedBox(key: ValueKey('empty'), width: 0, height: 38),
         );
       },
     );

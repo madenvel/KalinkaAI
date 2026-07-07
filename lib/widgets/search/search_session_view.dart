@@ -4,17 +4,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/search_session_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../theme/app_theme.dart';
-import '../measure_size.dart';
+import '../../utils/haptics.dart';
 import '../selection_overlay.dart';
+import '../server_chip.dart';
 import 'query_block_view.dart';
 import 'search_composer.dart';
 import 'search_zero_state.dart';
 
-/// Full-screen search session surface: a continuous scrollable list of query
-/// blocks (newest on top) with the chat composer docked at the bottom. Shows
-/// the zero state until the first query is submitted.
+/// Full-screen search session surface. The search bar sits in a header strip
+/// at the top — back button on its left, connection dot on its right — with
+/// the scrollable content (zero state, then query blocks, newest on top)
+/// below it.
+///
+/// The bar does not take focus when the session opens; it focuses only when
+/// tapped.
 class SearchSessionView extends ConsumerStatefulWidget {
-  const SearchSessionView({super.key});
+  /// Opens the server sheet — the connection dot's tap target.
+  final VoidCallback? onServerTap;
+
+  const SearchSessionView({super.key, this.onServerTap});
 
   @override
   ConsumerState<SearchSessionView> createState() => _SearchSessionViewState();
@@ -24,25 +32,11 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
   final _composerController = TextEditingController();
   final _composerFocus = FocusNode();
   final _scrollController = ScrollController();
-  String _lastBottomBlockId = '';
+  String _lastNewestBlockId = '';
 
-  /// Live height of the floating composer, used to pad the content so its tail
-  /// clears the bar as it grows (multi-line) or the keyboard toggles.
-  double _composerHeight = 0;
-
-  void _onComposerHeightChanged(double height) {
-    if (!mounted || _composerHeight == height) return;
-    setState(() => _composerHeight = height);
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    // Focus lands in the composer automatically; the keyboard slides up.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _composerFocus.requestFocus();
-    });
-  }
+  // Hit-box height for the back button and connection dot, centred in the bar
+  // (whose height is the shared kKalinkaTopBarHeight).
+  static const double _kBarMinHeight = 46;
 
   @override
   void dispose() {
@@ -76,15 +70,15 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
   Widget build(BuildContext context) {
     final session = ref.watch(searchSessionProvider);
 
-    // Newest block sits at the bottom (chat order); scroll down to it when one
-    // is appended.
-    final bottomId = session.blocks.isEmpty ? '' : session.blocks.last.id;
-    if (bottomId != _lastBottomBlockId) {
-      _lastBottomBlockId = bottomId;
+    // Newest block renders on top, right under the search bar; scroll back up
+    // to it when one is appended.
+    final newestId = session.blocks.isEmpty ? '' : session.blocks.last.id;
+    if (newestId != _lastNewestBlockId) {
+      _lastNewestBlockId = newestId;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
+            0,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOut,
           );
@@ -102,32 +96,18 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
       color: KalinkaColors.background,
       child: Stack(
         children: [
-          // Content fills the surface and scrolls behind the composer; its tail
-          // is padded clear of the bar by the composer's live height so nothing
-          // important stays hidden under it.
-          Positioned.fill(
-            child: session.isZeroState
-                ? SearchZeroState(
-                    onInsert: _insert,
-                    onSubmit: _submitFromTile,
-                    bottomInset: _composerHeight,
-                  )
-                : _buildBlockList(session, _composerHeight),
-          ),
-          // The composer floats over a gradient that fades the content into the
-          // page. Measured so the content padding above tracks its live height.
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: MeasureSize(
-              onChange: (size) => _onComposerHeightChanged(size.height),
-              child: SearchComposer(
-                controller: _composerController,
-                focusNode: _composerFocus,
-                onSubmit: _submit,
+          Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: session.isZeroState
+                    ? SearchZeroState(
+                        onInsert: _insert,
+                        onSubmit: _submitFromTile,
+                      )
+                    : _buildBlockList(session),
               ),
-            ),
+            ],
           ),
           if (selectionActive)
             const Positioned(
@@ -141,14 +121,78 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
     );
   }
 
-  Widget _buildBlockList(SearchSessionState session, double bottomInset) {
+  /// Top strip: back · search bar · connection dot. Solid, same framing as
+  /// the main screen's top bar; the bar growing multiline pushes the content
+  /// down rather than overlaying it.
+  Widget _buildHeader() {
+    return Container(
+      decoration: kKalinkaTopBarDecoration,
+      child: SafeArea(
+        bottom: false,
+        // Shared height so this bar lines up with the queue and settings bars.
+        // Content sits centred at rest (the 3px symmetric padding + row height
+        // fill the strip) and the back/dot stay pinned to the first line as the
+        // composer grows past it multiline.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: kKalinkaTopBarHeight),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 3, 6, 3),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Back — exits the search mode (system back works too).
+                Semantics(
+                  label: 'Close search',
+                  button: true,
+                  child: GestureDetector(
+                    onTap: () {
+                      KalinkaHaptics.lightImpact();
+                      ref.read(searchSessionProvider.notifier).close();
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: const SizedBox(
+                      width: 42,
+                      height: _kBarMinHeight,
+                      child: Icon(
+                        Icons.arrow_back,
+                        size: 22,
+                        color: KalinkaColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: SearchComposer(
+                    controller: _composerController,
+                    focusNode: _composerFocus,
+                    onSubmit: _submit,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                SizedBox(
+                  height: _kBarMinHeight,
+                  child: Center(
+                    child: ServerChip(compact: true, onTap: widget.onServerTap),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBlockList(SearchSessionState session) {
     final blocks = session.blocks;
     return ListView.builder(
       controller: _scrollController,
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomInset),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       itemCount: blocks.length,
       itemBuilder: (context, i) {
-        final block = blocks[i];
+        // The session appends newest last; the list shows newest first.
+        final block = blocks[blocks.length - 1 - i];
         return QueryBlockView(
           key: ValueKey(block.id),
           block: block,

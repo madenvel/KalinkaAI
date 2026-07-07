@@ -1431,3 +1431,54 @@ class IndexerStatus {
     return (done / total) * 100;
   }
 }
+
+/// One ready-to-run AI search query from `/ai_search/suggestions`, matched to
+/// the current moment (time of day, in-window holidays) and validated against
+/// the local library on the server side.
+class SearchSuggestion {
+  final String query;
+
+  /// Context that produced it: a daypart ("morning", "evening", …) or
+  /// `holiday:<name>`.
+  final String context;
+
+  /// True when the suggestion is NOT validated against the library — the
+  /// server's per-response serendipity slot.
+  final bool experimental;
+
+  const SearchSuggestion({
+    required this.query,
+    this.context = '',
+    this.experimental = false,
+  });
+
+  factory SearchSuggestion.fromJson(Map<String, dynamic> json) =>
+      SearchSuggestion(
+        query: (json['query'] ?? '') as String,
+        context: (json['context'] ?? '') as String,
+        experimental: (json['experimental'] ?? false) as bool,
+      );
+}
+
+/// Response of `/ai_search/suggestions`.
+class SearchSuggestionList {
+  final List<SearchSuggestion> suggestions;
+
+  /// True when the non-experimental entries reflect a completed validation
+  /// run against the library (false on a cold server or an unindexed one).
+  final bool attested;
+
+  const SearchSuggestionList({
+    required this.suggestions,
+    this.attested = false,
+  });
+
+  factory SearchSuggestionList.fromJson(Map<String, dynamic> json) =>
+      SearchSuggestionList(
+        suggestions: [
+          for (final s in (json['suggestions'] ?? const []) as List)
+            SearchSuggestion.fromJson(Map<String, dynamic>.from(s as Map)),
+        ],
+        attested: (json['attested'] ?? false) as bool,
+      );
+}
