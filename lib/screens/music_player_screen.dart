@@ -415,7 +415,14 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             right: 0,
             bottom: 0,
             child: IgnorePointer(
-              child: KalinkaToastOverlay(bottomOffset: searchOpen ? 24 : 135),
+              // Off search, clear the mini-player + the measured dock cluster
+              // (search button / escalation card); on search the bar is in the
+              // header, so only a small edge margin is needed.
+              child: KalinkaToastOverlay(
+                bottomOffset: searchOpen
+                    ? 24
+                    : kMiniPlayerHeight + _dockClusterHeight,
+              ),
             ),
           ),
           // Settings — full-screen overlay on phone (slides in from the right).

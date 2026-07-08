@@ -92,12 +92,15 @@ abstract class KalinkaPlayerProxy {
   Future<void> playlistDelete(String playlistId);
   Future<Playlist> playlistAddTracks(String playlistId, List<String> trackIds);
   Future<BrowseItemsList> playlistUserList(int offset, int limit);
+
   /// Values only: `{"schema_version": ..., "values": {<flat dotted path>: value}}`.
   Future<Map<String, dynamic>> getSettings();
   Future<PresentationSchema> getSettingsSchema();
+
   /// `{server_version, api_version, name}` from `/server/version`.
   Future<Map<String, dynamic>> getServerVersion();
   Future<ModulesAndDevices> listModules();
+
   /// PUT body: `{"schema_version": ..., "changes": {<flat dotted path>: value}}`.
   Future<void> saveSettings({
     required String schemaVersion,
@@ -310,7 +313,10 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
         )
         .then((response) {
           if (response.statusCode != 200) {
-            throw Exception('Failed to fetch search suggestions');
+            throw Exception(
+              'Failed to fetch search suggestions: '
+              'HTTP ${response.statusCode} — ${response.data}',
+            );
           }
           return SearchSuggestionList.fromJson(
             Map<String, dynamic>.from(response.data as Map),
@@ -600,9 +606,7 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
   Future<PresentationSchema> getSettingsSchema() async {
     final response = await client.get('/server/config/schema');
     if (response.statusCode != 200) {
-      throw Exception(
-        'Failed to get settings schema, url=${response.realUri}',
-      );
+      throw Exception('Failed to get settings schema, url=${response.realUri}');
     }
     return PresentationSchema.fromJson(
       (response.data as Map).cast<String, dynamic>(),
@@ -613,9 +617,7 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
   Future<Map<String, dynamic>> getServerVersion() async {
     final response = await client.get('/server/version');
     if (response.statusCode != 200) {
-      throw Exception(
-        'Failed to get server version, url=${response.realUri}',
-      );
+      throw Exception('Failed to get server version, url=${response.realUri}');
     }
     return (response.data as Map).cast<String, dynamic>();
   }

@@ -39,6 +39,10 @@ class _MeasureSizeRender extends RenderProxyBox {
     if (_last == newSize) return;
     _last = newSize;
     // Layout is in progress; defer the setState-driving callback to post-frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) => onChange(newSize));
+    // Skip it if this render object was detached in the meantime, so callers
+    // can't setState on a widget that has since been removed from the tree.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (attached) onChange(newSize);
+    });
   }
 }

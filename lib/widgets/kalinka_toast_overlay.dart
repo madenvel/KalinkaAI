@@ -5,7 +5,7 @@ import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 
 /// Height of the MiniPlayer (not including SafeArea bottom inset).
-const double _kMiniPlayerHeight = 72.0;
+const double kMiniPlayerHeight = 72.0;
 
 /// Overlay that renders themed toast notifications above the bottom dock.
 ///
@@ -24,7 +24,7 @@ class KalinkaToastOverlay extends ConsumerWidget {
   const KalinkaToastOverlay({
     super.key,
     this.isTablet = false,
-    this.bottomOffset = _kMiniPlayerHeight,
+    this.bottomOffset = kMiniPlayerHeight,
   });
 
   @override
