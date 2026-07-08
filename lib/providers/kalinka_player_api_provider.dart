@@ -16,6 +16,7 @@ import '../data_model/data_model.dart'
         IndexerStatus,
         ModulesAndDevices,
         Playlist,
+        SearchSuggestionList,
         SearchType,
         SearchTypeExtension,
         SeekStatusMessage,
@@ -50,6 +51,15 @@ abstract class KalinkaPlayerProxy {
     int limit = 10,
     List<String>? sources,
   });
+
+  /// Context-aware, library-validated AI search suggestions.
+  /// [tzOffsetMin] is the device's UTC offset in MINUTES (east positive) so
+  /// the server resolves "morning"/"evening" in the listener's local time;
+  /// when omitted the implementation sends the device's real offset.
+  Future<SearchSuggestionList> searchSuggestions({
+    int count = 4,
+    int? tzOffsetMin,
+  });
   Future<IndexerStatus> getIndexerStatus({List<String>? sources});
   Future<BrowseItemsList> browse(
     String id, {
@@ -82,12 +92,15 @@ abstract class KalinkaPlayerProxy {
   Future<void> playlistDelete(String playlistId);
   Future<Playlist> playlistAddTracks(String playlistId, List<String> trackIds);
   Future<BrowseItemsList> playlistUserList(int offset, int limit);
+
   /// Values only: `{"schema_version": ..., "values": {<flat dotted path>: value}}`.
   Future<Map<String, dynamic>> getSettings();
   Future<PresentationSchema> getSettingsSchema();
+
   /// `{server_version, api_version, name}` from `/server/version`.
   Future<Map<String, dynamic>> getServerVersion();
   Future<ModulesAndDevices> listModules();
+
   /// PUT body: `{"schema_version": ..., "changes": {<flat dotted path>: value}}`.
   Future<void> saveSettings({
     required String schemaVersion,
@@ -278,6 +291,36 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
             throw Exception('Failed ai_search for "$query"');
           }
           return BrowseItemsList.fromJson(response.data);
+        });
+  }
+
+  @override
+  Future<SearchSuggestionList> searchSuggestions({
+    int count = 4,
+    int? tzOffsetMin,
+  }) async {
+    // The server resolves daypart/holiday context from this offset — send
+    // the device's real UTC offset (in minutes, east positive) so "morning"
+    // means the listener's morning, not the server's.
+    final offset = tzOffsetMin ?? DateTime.now().timeZoneOffset.inMinutes;
+    return client
+        .get(
+          '/ai_search/suggestions',
+          queryParameters: {
+            'count': count.toString(),
+            'tz_offset_min': offset.toString(),
+          },
+        )
+        .then((response) {
+          if (response.statusCode != 200) {
+            throw Exception(
+              'Failed to fetch search suggestions: '
+              'HTTP ${response.statusCode} — ${response.data}',
+            );
+          }
+          return SearchSuggestionList.fromJson(
+            Map<String, dynamic>.from(response.data as Map),
+          );
         });
   }
 
@@ -563,9 +606,7 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
   Future<PresentationSchema> getSettingsSchema() async {
     final response = await client.get('/server/config/schema');
     if (response.statusCode != 200) {
-      throw Exception(
-        'Failed to get settings schema, url=${response.realUri}',
-      );
+      throw Exception('Failed to get settings schema, url=${response.realUri}');
     }
     return PresentationSchema.fromJson(
       (response.data as Map).cast<String, dynamic>(),
@@ -576,9 +617,7 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
   Future<Map<String, dynamic>> getServerVersion() async {
     final response = await client.get('/server/version');
     if (response.statusCode != 200) {
-      throw Exception(
-        'Failed to get server version, url=${response.realUri}',
-      );
+      throw Exception('Failed to get server version, url=${response.realUri}');
     }
     return (response.data as Map).cast<String, dynamic>();
   }

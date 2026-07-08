@@ -6,33 +6,31 @@ import '../providers/connection_settings_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/onboarding_provider.dart';
-import '../providers/search_state_provider.dart';
+import '../providers/search_session_provider.dart';
 import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/clear_all_confirm_dialog.dart';
 import '../widgets/coach_marks_overlay.dart';
-import '../widgets/completion_strip.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/discovery_screen.dart';
 import '../widgets/escalation_card.dart';
 import '../widgets/kalinka_button.dart';
-import '../widgets/header_zone.dart';
+import '../widgets/kalinka_top_bar.dart';
 import '../widgets/kalinka_bottom_sheet.dart';
-import '../widgets/kalinka_search_bar.dart';
+import '../widgets/measure_size.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/now_playing_content.dart';
 import '../widgets/playback_error_dialog.dart';
 import '../widgets/queue_management_tray.dart';
 import '../widgets/queue_zone.dart';
-import '../widgets/search_results_feed.dart';
+import '../widgets/search/search_dock.dart';
+import '../widgets/search/search_session_view.dart';
 import '../widgets/server_sheet.dart';
 import 'onboarding_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/kalinka_toast_overlay.dart';
 import '../widgets/sheet_anchor.dart';
-import '../widgets/side_panel.dart';
 import '../providers/media_notification_provider.dart';
-import '../providers/tablet_panel_provider.dart';
 
 class MusicPlayerScreen extends ConsumerStatefulWidget {
   const MusicPlayerScreen({super.key});
@@ -44,7 +42,7 @@ class MusicPlayerScreen extends ConsumerStatefulWidget {
 class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
   static const _tabletBreakpoint = 900.0;
 
-  final _searchBarKey = GlobalKey<KalinkaSearchBarState>();
+  final _searchDockKey = GlobalKey();
   final _connectionDotKey = GlobalKey();
 
   // In-screen overlays. Settings and discovery render in both layouts;
@@ -56,10 +54,18 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
   // hidden — but only after the animation, so the slide-in still shows it.
   bool _settingsCovering = false;
   bool _discoveryOpen = false;
+  // Tablet-only: the queue management tray, hosted here (not inside QueueZone)
+  // so its overlay covers the search dock like the connection sheet.
+  bool _queueTrayOpen = false;
 
-  // Tracks the last layout decision so we can sync search/queue state when
-  // the user rotates between portrait (phone) and landscape (album/tablet).
-  bool? _wasTabletLayout;
+  // Live height of the floating dock (plus escalation card, when shown) so the
+  // queue behind it can reserve matching bottom space and clear the bar.
+  double _dockClusterHeight = 0;
+
+  void _onDockClusterMeasured(double height) {
+    if (!mounted || _dockClusterHeight == height) return;
+    setState(() => _dockClusterHeight = height);
+  }
 
   @override
   void initState() {
@@ -132,6 +138,21 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
         );
       case null:
         break;
+    }
+  }
+
+  /// Tablet: act on the panel-level queue management tray's selection.
+  Future<void> _onTabletTrayAction(TrayAction action) async {
+    switch (action) {
+      case TrayAction.clearPlayed:
+        await _clearPlayed();
+      case TrayAction.clearAll:
+        await Future.delayed(const Duration(milliseconds: 160));
+        if (!mounted) return;
+        await showKalinkaConfirmDialog<bool>(
+          context: context,
+          builder: (_) => ClearAllConfirmDialog(onConfirmClearAll: _clearAll),
+        );
     }
   }
 
@@ -261,8 +282,6 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isTablet = constraints.maxWidth >= _tabletBreakpoint;
-          _maybeSyncOnLayoutChange(isTablet);
-          _wasTabletLayout = isTablet;
           return Stack(
             // Tight constraints keep the layout root a relayout boundary.
             fit: StackFit.expand,
@@ -280,39 +299,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
     );
   }
 
-  /// On portrait↔album rotations, mirror the active surface across layouts:
-  ///  - phone → tablet: route to the Search tab if the phone overlay was open,
-  ///    otherwise to the Queue tab.
-  ///  - tablet → phone: if the tablet was on the Queue tab, dismiss the search
-  ///    surface so the queue is the visible main view (the search bar's
-  ///    `alwaysExpanded` auto-activation would otherwise leave search active).
-  /// Snapshots are taken synchronously here — before the new tree mounts and
-  /// any auto-activation runs — and applied in a postFrameCallback.
-  void _maybeSyncOnLayoutChange(bool isTablet) {
-    final previous = _wasTabletLayout;
-    if (previous == null || previous == isTablet) return;
-    final wasSearchActive = ref.read(searchStateProvider).searchActive;
-    final wasTabletPanel = ref.read(tabletPanelProvider);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (isTablet) {
-        if (wasSearchActive) {
-          ref.read(tabletPanelProvider.notifier).showSearch();
-        } else {
-          ref.read(tabletPanelProvider.notifier).showQueue();
-        }
-      } else {
-        if (wasTabletPanel == TabletPanel.queue) {
-          _searchBarKey.currentState?.cancelSearch();
-          ref.read(searchStateProvider.notifier).deactivateSearch();
-        }
-      }
-    });
-  }
-
   Widget _buildPhoneLayout(BuildContext context) {
-    final searchState = ref.watch(searchStateProvider);
-    final searchActive = searchState.searchActive;
+    final searchOpen = ref.watch(searchSessionProvider.select((s) => s.isOpen));
     final connectionState = ref.watch(connectionStateProvider);
 
     // One-time UI tour: first time the queue is visible with a live
@@ -322,33 +310,25 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
         onboarding.oobeComplete &&
         !onboarding.coachMarksShown &&
         connectionState == ConnectionStatus.connected &&
-        !searchActive;
+        !searchOpen;
 
     return PopScope(
-      canPop: !searchActive && !_settingsOpen,
+      canPop: !searchOpen && !_settingsOpen,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         // Settings is a full-screen overlay here; it owns its own back via an
         // internal PopScope (animated close), so leave it alone.
         if (_settingsOpen) return;
-        final notifier = ref.read(searchStateProvider.notifier);
-        final state = ref.read(searchStateProvider);
-        final barState = _searchBarKey.currentState;
-        if (barState != null && barState.isEditingFromResults) {
-          // State 3→2 editing: cancel edit, restore committed query → State 3
-          barState.cancelSearch();
-        } else if (state.searchActive) {
-          // State 2 or State 3: always return to State 1 (Ambient)
-          barState?.cancelSearch();
-          notifier.deactivateSearch();
+        if (searchOpen) {
+          ref.read(searchSessionProvider.notifier).close();
         }
       },
       child: Stack(
         children: [
-          // Main content: Header + Banner + CompletionStrip + Content Zone +
-          // Escalation + MiniPlayer. Not painted once settings fully covers it;
-          // still rendered during the slide-in/out. maintainSize keeps it as
-          // the Stack's sizing child so Positioned.fill below stays full-size.
+          // Main content: TopBar + Banner + Content + Escalation + Dock +
+          // MiniPlayer. When search is open the dock/escalation give way and the
+          // content becomes the chat session (whose composer is the sole bottom
+          // element); the miniplayer slides itself away.
           Visibility(
             visible: !_settingsCovering,
             maintainState: true,
@@ -356,93 +336,94 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             maintainSize: true,
             child: Column(
               children: [
-                RepaintBoundary(
-                  child: HeaderZone(
-                    searchBarKey: _searchBarKey,
-                    onServerChipTap: _showServerSheet,
-                    connectionDotKey: _connectionDotKey,
+                // The search session carries its own header (roundel + search
+                // bar + connection dot), so the shared top bar leaves with it.
+                if (!searchOpen)
+                  RepaintBoundary(
+                    child: KalinkaTopBar(
+                      onServerChipTap: _showServerSheet,
+                      connectionKey: _connectionDotKey,
+                    ),
                   ),
-                ),
                 const ConnectionBanner(),
-                // Pinned completion strip — only visible during typing
-                const CompletionStrip(),
                 Expanded(
-                  child: connectionState == ConnectionStatus.none
-                      ? _buildDisconnectedState()
-                      : Stack(
-                          children: [
-                            // Queue is not rendered while search is active on phone.
-                            if (!searchActive)
-                              RepaintBoundary(
-                                child: QueueZone(
-                                  onOpenManagementTray:
-                                      _showQueueManagementTray,
+                  // The dock (and escalation card) float over the content, which
+                  // scrolls behind them and fades into the page; the mini-player
+                  // below stays solid.
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: searchOpen
+                              ? SearchSessionView(
+                                  key: const ValueKey('search'),
+                                  onServerTap: _showServerSheet,
+                                )
+                              : KeyedSubtree(
+                                  key: const ValueKey('queue'),
+                                  child:
+                                      connectionState == ConnectionStatus.none
+                                      ? _buildDisconnectedState()
+                                      : RepaintBoundary(
+                                          child: QueueZone(
+                                            bottomPadding: _dockClusterHeight,
+                                            onOpenManagementTray:
+                                                _showQueueManagementTray,
+                                          ),
+                                        ),
                                 ),
-                              ),
-                            // Scrim overlay — tappable to dismiss search
-                            if (searchActive)
-                              Positioned.fill(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    _searchBarKey.currentState?.cancelSearch();
-                                    ref
-                                        .read(searchStateProvider.notifier)
-                                        .deactivateSearch();
-                                  },
-                                  child: AnimatedOpacity(
-                                    opacity: searchActive ? 1.0 : 0.0,
-                                    duration: Duration(
-                                      milliseconds: searchActive ? 200 : 180,
-                                    ),
-                                    curve: Curves.easeOut,
-                                    child: const ColoredBox(
-                                      color: Color(0x66000000),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            // Search results (slide up + fade)
-                            if (searchActive)
-                              AnimatedSlide(
-                                offset: searchActive
-                                    ? Offset.zero
-                                    : const Offset(0, 0.03),
-                                duration: Duration(
-                                  milliseconds: searchActive ? 240 : 180,
-                                ),
-                                curve: searchActive
-                                    ? const Cubic(0.4, 0, 0.2, 1)
-                                    : Curves.easeIn,
-                                child: AnimatedOpacity(
-                                  opacity: searchActive ? 1.0 : 0.0,
-                                  duration: Duration(
-                                    milliseconds: searchActive ? 240 : 180,
-                                  ),
-                                  curve: searchActive
-                                      ? Curves.easeOut
-                                      : Curves.easeIn,
-                                  child: const ColoredBox(
-                                    color: KalinkaColors.background,
-                                    child: SearchResultsFeed(),
-                                  ),
-                                ),
-                              ),
-                          ],
                         ),
-                ),
-                EscalationCard(
-                  onScanForServers: () => setState(() => _discoveryOpen = true),
+                      ),
+                      if (!searchOpen)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: MeasureSize(
+                            onChange: (size) =>
+                                _onDockClusterMeasured(size.height),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                EscalationCard(
+                                  onScanForServers: () =>
+                                      setState(() => _discoveryOpen = true),
+                                ),
+                                SearchDock(
+                                  buttonKey: _searchDockKey,
+                                  onTap: () => ref
+                                      .read(searchSessionProvider.notifier)
+                                      .open(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
                 MiniPlayer(onTap: _showExpandedPlayer),
               ],
             ),
           ),
-          // Toast overlay — floats above MiniPlayer, ignores pointer input
-          const Positioned(
+          // Toast overlay — floats above the bottom dock, ignoring pointer
+          // input. The search screen has nothing docked at the bottom (its bar
+          // lives in the header), so toasts sit near the bottom edge there.
+          Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: IgnorePointer(child: KalinkaToastOverlay()),
+            child: IgnorePointer(
+              // Off search, clear the mini-player + the measured dock cluster
+              // (search button / escalation card); on search the bar is in the
+              // header, so only a small edge margin is needed.
+              child: KalinkaToastOverlay(
+                bottomOffset: searchOpen
+                    ? 24
+                    : kMiniPlayerHeight + _dockClusterHeight,
+              ),
+            ),
           ),
           // Settings — full-screen overlay on phone (slides in from the right).
           // The same flag renders it in the left panel on tablet, so resizing
@@ -464,12 +445,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
               child: CoachMarksOverlay(
                 stops: [
                   CoachMarkStop(
-                    targetKey: _searchBarKey,
-                    title: 'Search your library',
+                    targetKey: _searchDockKey,
+                    title: 'Ask for music',
                     body:
-                        'Type to find tracks, albums and artists — or '
-                        'flip on the AI pill to search by mood, like '
-                        '“mellow late-night jazz”.',
+                        'Tap here to open search and ask in plain language — '
+                        'like “mellow late-night jazz”. Results stage below; '
+                        'nothing plays until you add it.',
                   ),
                   CoachMarkStop(
                     targetKey: _connectionDotKey,
@@ -509,119 +490,229 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
   }
 
   Widget _buildTabletLayout(BuildContext context) {
-    return Stack(
-      children: [
-        Row(
-          children: [
-            // Left panel: Now Playing with local overlays.
-            // SizedBox.expand() clamps infinity to the available size on both
-            // axes, giving RepaintBoundary tight constraints so it becomes a
-            // Flutter relayout boundary. Without this, layout invalidations
-            // (e.g. progress slider ticks) propagate up to the Row and cause
-            // the right panel to relayout and repaint unnecessarily.
-            // SheetAnchor aligns modal bottom sheets launched from this
-            // panel (e.g. settings pickers) with its bounds.
-            Expanded(
-              child: SizedBox.expand(
-                child: RepaintBoundary(
-                  child: SheetAnchor(
-                    child: Stack(
-                      children: [
-                        // Not painted once settings fully covers the left panel.
-                        Visibility(
-                          visible: !_settingsCovering,
-                          maintainState: true,
-                          maintainAnimation: true,
-                          maintainSize: true,
-                          child: SafeArea(
-                            child: NowPlayingContent(
-                              isTablet: true,
-                              onServerChipTap: () {
-                                setState(() => _serverSheetOpen = true);
-                              },
+    final searchOpen = ref.watch(searchSessionProvider.select((s) => s.isOpen));
+    return PopScope(
+      canPop: !searchOpen && !_settingsOpen && !_serverSheetOpen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        // Settings owns its own back via an internal PopScope.
+        if (_settingsOpen) return;
+        if (_serverSheetOpen) {
+          setState(() => _serverSheetOpen = false);
+          return;
+        }
+        if (searchOpen) {
+          ref.read(searchSessionProvider.notifier).close();
+        }
+      },
+      child: Stack(
+        children: [
+          Row(
+            children: [
+              // Left panel: Now Playing with local overlays.
+              // SizedBox.expand() clamps infinity to the available size on both
+              // axes, giving RepaintBoundary tight constraints so it becomes a
+              // Flutter relayout boundary. Without this, layout invalidations
+              // (e.g. progress slider ticks) propagate up to the Row and cause
+              // the right panel to relayout and repaint unnecessarily.
+              // SheetAnchor aligns modal bottom sheets launched from this
+              // panel (e.g. settings pickers) with its bounds.
+              Expanded(
+                child: SizedBox.expand(
+                  child: RepaintBoundary(
+                    child: SheetAnchor(
+                      child: Stack(
+                        children: [
+                          // Not painted once settings fully covers the left panel.
+                          Visibility(
+                            visible: !_settingsCovering,
+                            maintainState: true,
+                            maintainAnimation: true,
+                            maintainSize: true,
+                            child: const SafeArea(
+                              child: NowPlayingContent(isTablet: true),
                             ),
                           ),
-                        ),
-                        // Server sheet overlay (left panel only)
-                        if (_serverSheetOpen)
-                          Positioned.fill(
-                            child: ServerSheet(
-                              onClose: () =>
-                                  setState(() => _serverSheetOpen = false),
-                              onOpenDiscovery: () {
-                                setState(() => _discoveryOpen = true);
-                              },
-                              onOpenSettings: () {
-                                setState(() => _settingsOpen = true);
-                              },
-                            ),
-                          ),
-                        // Settings screen overlay (left panel only). ClipRect
-                        // keeps the slide-in within the left half — the Stack
-                        // doesn't clip a paint-time transform, so without it the
-                        // animation bleeds over the queue on the right.
-                        if (_settingsOpen)
-                          Positioned.fill(
-                            child: ClipRect(
-                              child: SettingsScreen(
-                                onClose: () => setState(() {
-                                  _settingsOpen = false;
-                                  _settingsCovering = false;
-                                }),
-                                onCoverageChanged: (covering) => setState(
-                                  () => _settingsCovering = covering,
+                          // Settings screen overlay (left panel only). ClipRect
+                          // keeps the slide-in within the left half — the Stack
+                          // doesn't clip a paint-time transform, so without it the
+                          // animation bleeds over the queue on the right.
+                          if (_settingsOpen)
+                            Positioned.fill(
+                              child: ClipRect(
+                                child: SettingsScreen(
+                                  onClose: () => setState(() {
+                                    _settingsOpen = false;
+                                    _settingsCovering = false;
+                                  }),
+                                  onCoverageChanged: (covering) => setState(
+                                    () => _settingsCovering = covering,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            // Divider
-            Container(width: 1, color: KalinkaColors.borderSubtle),
-            // Right panel: connection banner + SidePanel (tabbed search/queue)
-            // + escalation card. The connection UI lives here on tablet so it
-            // appears alongside the queue/search, mirroring the phone layout
-            // (where the banner sits below the header and the card above the
-            // mini player).
-            // SizedBox.expand() here for the same reason as the left panel:
-            // tight constraints make RepaintBoundary a relayout boundary so
-            // layout invalidations within SidePanel don't cross into it.
-            Expanded(
-              child: SizedBox.expand(
-                child: RepaintBoundary(
-                  child: SafeArea(
+              // Divider
+              Container(width: 1, color: KalinkaColors.borderSubtle),
+              // Right panel — mirrors the phone main screen: a top bar carrying
+              // the connection dot, the queue (or the chat search session), and
+              // the bottom search dock. There is no miniplayer here — Now Playing
+              // lives in the left panel — so the dock/composer is the sole bottom
+              // element. SizedBox.expand() gives RepaintBoundary tight constraints
+              // so its layout invalidations don't cross into the left panel.
+              Expanded(
+                child: SizedBox.expand(
+                  child: RepaintBoundary(
                     child: Column(
                       children: [
-                        const ConnectionBanner(),
-                        Expanded(child: SidePanel()),
-                        EscalationCard(
-                          onScanForServers: () =>
-                              setState(() => _discoveryOpen = true),
+                        // The whole right panel — including the search dock — sits
+                        // in a Stack so the connection sheet overlays it as a
+                        // bottom card, covering the dock rather than stopping above
+                        // it.
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              Column(
+                                children: [
+                                  // Search brings its own header row; the
+                                  // shared top bar yields to it.
+                                  if (!searchOpen)
+                                    KalinkaTopBar(
+                                      onServerChipTap: () => setState(
+                                        () => _serverSheetOpen = true,
+                                      ),
+                                    ),
+                                  const ConnectionBanner(),
+                                  Expanded(
+                                    // Dock floats over the queue, which fades
+                                    // behind it (same as phone, minus the
+                                    // mini-player).
+                                    child: Stack(
+                                      children: [
+                                        Positioned.fill(
+                                          child: AnimatedSwitcher(
+                                            duration: const Duration(
+                                              milliseconds: 200,
+                                            ),
+                                            child: searchOpen
+                                                ? SearchSessionView(
+                                                    key: const ValueKey(
+                                                      'search',
+                                                    ),
+                                                    onServerTap: () => setState(
+                                                      () => _serverSheetOpen =
+                                                          true,
+                                                    ),
+                                                  )
+                                                : KeyedSubtree(
+                                                    key: const ValueKey(
+                                                      'queue',
+                                                    ),
+                                                    child: RepaintBoundary(
+                                                      child: QueueZone(
+                                                        bottomPadding:
+                                                            _dockClusterHeight,
+                                                        isTablet: true,
+                                                        onOpenManagementTray:
+                                                            () => setState(
+                                                              () =>
+                                                                  _queueTrayOpen =
+                                                                      true,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                          ),
+                                        ),
+                                        if (!searchOpen)
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 0,
+                                            child: MeasureSize(
+                                              onChange: (size) =>
+                                                  _onDockClusterMeasured(
+                                                    size.height,
+                                                  ),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  EscalationCard(
+                                                    onScanForServers: () =>
+                                                        setState(
+                                                          () => _discoveryOpen =
+                                                              true,
+                                                        ),
+                                                  ),
+                                                  SearchDock(
+                                                    bottomSafeArea: true,
+                                                    onTap: () => ref
+                                                        .read(
+                                                          searchSessionProvider
+                                                              .notifier,
+                                                        )
+                                                        .open(),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_serverSheetOpen)
+                                Positioned.fill(
+                                  child: ServerSheet(
+                                    onClose: () => setState(
+                                      () => _serverSheetOpen = false,
+                                    ),
+                                    onOpenDiscovery: () =>
+                                        setState(() => _discoveryOpen = true),
+                                    onOpenSettings: () =>
+                                        setState(() => _settingsOpen = true),
+                                  ),
+                                ),
+                              // Queue management tray — same panel-level overlay
+                              // so it covers the search dock too.
+                              if (_queueTrayOpen)
+                                Positioned.fill(
+                                  child: TabletQueueManagementTray(
+                                    onClose: () =>
+                                        setState(() => _queueTrayOpen = false),
+                                    onAction: _onTabletTrayAction,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-        // Toast overlay — bottom-right corner on tablet
-        const Positioned(
-          right: 20,
-          bottom: 20,
-          child: IgnorePointer(
-            child: SizedBox(
-              width: 300,
-              child: KalinkaToastOverlay(isTablet: true),
+            ],
+          ),
+          // Toast overlay — bottom-right of the right panel, lifted clear of the
+          // search dock (or composer, when search is open).
+          Positioned(
+            right: 20,
+            bottom: searchOpen ? 116 : 80,
+            child: const IgnorePointer(
+              child: SizedBox(
+                width: 300,
+                child: KalinkaToastOverlay(isTablet: true),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

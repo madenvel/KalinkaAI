@@ -37,6 +37,9 @@ class CoachMarksOverlay extends StatefulWidget {
 class _CoachMarksOverlayState extends State<CoachMarksOverlay> {
   int _index = 0;
   Rect? _targetRect;
+  // Overlay height captured post-frame (reading sizes during build is illegal),
+  // used to decide whether the tip card goes above or below the spotlight.
+  double? _overlayHeight;
 
   @override
   void initState() {
@@ -50,6 +53,10 @@ class _CoachMarksOverlayState extends State<CoachMarksOverlay> {
     final targetBox = targetContext?.findRenderObject() as RenderBox?;
     final overlayBox = context.findRenderObject() as RenderBox?;
     Rect? rect;
+    double? overlayHeight;
+    if (overlayBox != null && overlayBox.hasSize) {
+      overlayHeight = overlayBox.size.height;
+    }
     if (targetBox != null &&
         overlayBox != null &&
         targetBox.hasSize &&
@@ -60,7 +67,10 @@ class _CoachMarksOverlayState extends State<CoachMarksOverlay> {
       );
       rect = topLeft & targetBox.size;
     }
-    setState(() => _targetRect = rect);
+    setState(() {
+      _targetRect = rect;
+      _overlayHeight = overlayHeight;
+    });
   }
 
   void _next() {
@@ -86,9 +96,7 @@ class _CoachMarksOverlayState extends State<CoachMarksOverlay> {
       child: Stack(
         children: [
           Positioned.fill(
-            child: CustomPaint(
-              painter: _SpotlightPainter(cutout: _targetRect),
-            ),
+            child: CustomPaint(painter: _SpotlightPainter(cutout: _targetRect)),
           ),
           _buildTipCard(stop, isLast),
         ],
@@ -158,10 +166,21 @@ class _CoachMarksOverlayState extends State<CoachMarksOverlay> {
       ),
     );
 
-    // Below the spotlight when there is one, otherwise centered.
+    // Under the spotlight, or above it when the target sits low (e.g. the
+    // floating search button near the bottom), so the card stays on-screen.
+    // Centered when there is no target.
     final rect = _targetRect;
     if (rect == null) {
       return Center(child: card);
+    }
+    final overlayHeight = _overlayHeight ?? MediaQuery.of(context).size.height;
+    if (rect.center.dy > overlayHeight * 0.6) {
+      return Positioned(
+        bottom: overlayHeight - rect.top + 20,
+        left: 0,
+        right: 0,
+        child: Align(alignment: Alignment.bottomCenter, child: card),
+      );
     }
     return Positioned(
       top: rect.bottom + 20,

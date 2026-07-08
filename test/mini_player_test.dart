@@ -6,7 +6,7 @@ import 'package:kalinka/data_model/playqueue_events.dart';
 import 'package:kalinka/providers/app_state_provider.dart';
 import 'package:kalinka/providers/connection_state_provider.dart';
 import 'package:kalinka/providers/playback_time_provider.dart';
-import 'package:kalinka/providers/search_state_provider.dart';
+import 'package:kalinka/providers/search_session_provider.dart';
 import 'package:kalinka/providers/url_resolver.dart';
 import 'package:kalinka/widgets/gradient_progress_line.dart';
 import 'package:kalinka/widgets/mini_player.dart';
@@ -33,9 +33,9 @@ class _FakeConnectionNotifier extends ConnectionStateNotifier {
   ConnectionStatus build() => _status;
 }
 
-class _FakeSearchNotifier extends SearchStateNotifier {
+class _FakeSearchSessionNotifier extends SearchSessionNotifier {
   @override
-  SearchState build() => const SearchState();
+  SearchSessionState build() => const SearchSessionState();
 }
 
 class _FakePlaybackTimeNotifier extends PlaybackTimeMsNotifier {
@@ -56,7 +56,7 @@ _buildOverrides({
           .overrideWith(() => _SettableQueueNotifier(queueState)),
       connectionStateProvider
           .overrideWith(() => _FakeConnectionNotifier(connectionStatus)),
-      searchStateProvider.overrideWith(() => _FakeSearchNotifier()),
+      searchSessionProvider.overrideWith(() => _FakeSearchSessionNotifier()),
       playbackTimeMsProvider.overrideWith(() => _FakePlaybackTimeNotifier()),
       urlResolverProvider.overrideWithValue(UrlResolver('')),
     ];

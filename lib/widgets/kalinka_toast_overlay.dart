@@ -5,19 +5,27 @@ import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 
 /// Height of the MiniPlayer (not including SafeArea bottom inset).
-const double _kMiniPlayerHeight = 72.0;
+const double kMiniPlayerHeight = 72.0;
 
-/// Overlay that renders themed toast notifications above the MiniPlayer.
+/// Overlay that renders themed toast notifications above the bottom dock.
 ///
-/// On phone: toasts stack upward from just above the mini player.
-/// On tablet (isTablet: true): toasts appear at bottom-right, no mini player
-/// offset needed.
+/// On phone: toasts stack upward from just above the bottom bar, cleared by
+/// [bottomOffset] (the height of whatever docks at the bottom — the mini
+/// player + search pill on the main screen, or the composer on the search
+/// screen). On tablet (isTablet: true): toasts appear at bottom-right.
 ///
 /// Wrap in [IgnorePointer] at the call site so toasts never capture taps.
 class KalinkaToastOverlay extends ConsumerWidget {
   final bool isTablet;
 
-  const KalinkaToastOverlay({super.key, this.isTablet = false});
+  /// Space to leave below the toasts on phone so they clear the bottom dock.
+  final double bottomOffset;
+
+  const KalinkaToastOverlay({
+    super.key,
+    this.isTablet = false,
+    this.bottomOffset = kMiniPlayerHeight,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,9 +33,7 @@ class KalinkaToastOverlay extends ConsumerWidget {
     if (toasts.isEmpty) return const SizedBox.shrink();
 
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    final bottomPadding = isTablet
-        ? 0.0
-        : _kMiniPlayerHeight + bottomInset + 8.0;
+    final bottomPadding = isTablet ? 0.0 : bottomOffset + bottomInset + 8.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,

@@ -13,7 +13,6 @@ import 'play_pause_glyph.dart';
 import 'playback_progress_slider.dart';
 import 'transport_button.dart';
 import 'procedural_album_art.dart';
-import 'server_chip.dart';
 import 'source_badge.dart';
 import 'volume_control_slider.dart';
 
@@ -22,9 +21,6 @@ import 'volume_control_slider.dart';
 class NowPlayingContent extends ConsumerStatefulWidget {
   /// When true, renders tablet-specific embedded header layout.
   final bool isTablet;
-
-  /// Optional tap handler for the server chip in tablet header mode.
-  final VoidCallback? onServerChipTap;
 
   /// When true, shows drag handle and close button (phone overlay mode).
   final bool showOverlayHeader;
@@ -35,7 +31,6 @@ class NowPlayingContent extends ConsumerStatefulWidget {
   const NowPlayingContent({
     super.key,
     this.isTablet = false,
-    this.onServerChipTap,
     this.showOverlayHeader = false,
     this.onClose,
   });
@@ -340,14 +335,12 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
     }
 
     if (widget.isTablet) {
+      // Connection status lives in the right-panel top bar, not here.
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('NOW PLAYING', style: KalinkaTextStyles.nowPlayingLabel),
-            ServerChip(onTap: widget.onServerChipTap),
-          ],
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text('NOW PLAYING', style: KalinkaTextStyles.nowPlayingLabel),
         ),
       );
     }
