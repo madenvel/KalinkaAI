@@ -6,6 +6,22 @@ import '../theme/app_theme.dart';
 
 enum SourceBadgeSize { standard, small }
 
+/// Whether a [SourceBadge] for [entityId] will render anything — false when
+/// there's only one source, the id is unparseable, or the source is the local
+/// (unmarked) library. Callers gate the badge's trailing spacer on this so no
+/// gap is left where a hidden badge would have been.
+bool sourceBadgeVisible(WidgetRef ref, String entityId) {
+  if (ref.watch(sourceCountProvider) <= 1) return false;
+  final String source;
+  try {
+    source = EntityId.fromString(entityId).source;
+  } catch (_) {
+    return false;
+  }
+  if (isLocalSource(source)) return false;
+  return ref.watch(sourceDisplayInfoProvider)[source] != null;
+}
+
 /// Displays a source attribution badge: a pill containing the first letter
 /// of the source name, uppercase, in the source colour.
 ///
@@ -30,21 +46,10 @@ class SourceBadge extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sourceCount = ref.watch(sourceCountProvider);
-    if (sourceCount <= 1) return const SizedBox.shrink();
+    if (!sourceBadgeVisible(ref, entityId)) return const SizedBox.shrink();
 
-    final String source;
-    try {
-      source = EntityId.fromString(entityId).source;
-    } catch (_) {
-      return const SizedBox.shrink();
-    }
-
-    if (isLocalSource(source)) return const SizedBox.shrink();
-
-    final sourceMap = ref.watch(sourceDisplayInfoProvider);
-    final info = sourceMap[source];
-    if (info == null) return const SizedBox.shrink();
+    final source = EntityId.fromString(entityId).source;
+    final info = ref.watch(sourceDisplayInfoProvider)[source]!;
 
     final color = info.color;
     final letter = info.abbreviation; // already first letter, uppercased

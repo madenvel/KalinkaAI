@@ -5,7 +5,8 @@ import '../../utils/haptics.dart';
 import 'floating_search_bar.dart';
 
 /// Collapsed search entry point: a floating circular button in the bottom-right
-/// of the main screen, above the mini-player. A tap target only — no field, no
+/// of the main screen, sitting a little above the mini-player. A tap target
+/// only — no field, no
 /// keyboard — that opens the full-screen search session. It pops (scales down
 /// with a little spring) on press for tactile feedback.
 class SearchDock extends StatefulWidget {
@@ -44,7 +45,7 @@ class _SearchDockState extends State<SearchDock> {
       top: false,
       bottom: widget.bottomSafeArea,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(0, 0, 16, 12),
+        padding: const EdgeInsets.fromLTRB(0, 0, 16, 16),
         child: Align(
           alignment: Alignment.bottomRight,
           child: Semantics(

@@ -276,14 +276,15 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
       parts.add(fmtParts.join(' '));
     }
     final attributionText = parts.join(' · ');
+    final showBadge = sourceBadgeVisible(ref, currentTrack.id);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        SourceBadge(entityId: currentTrack.id),
+        if (showBadge) SourceBadge(entityId: currentTrack.id),
         if (attributionText.isNotEmpty) ...[
-          const SizedBox(width: 6),
+          if (showBadge) const SizedBox(width: 6),
           Text(
             attributionText,
             style: KalinkaTextStyles.expandedAttribution,

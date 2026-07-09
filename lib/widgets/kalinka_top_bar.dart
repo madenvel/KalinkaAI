@@ -25,7 +25,7 @@ class KalinkaTopBar extends StatelessWidget {
         child: SizedBox(
           height: kKalinkaTopBarHeight,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
                 Expanded(child: _buildLeading()),

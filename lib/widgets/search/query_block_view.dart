@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 
 import '../../providers/search_session_provider.dart';
@@ -55,38 +56,49 @@ class QueryBlockView extends StatelessWidget {
     );
   }
 
-  /// The query set like a playlist title — a small album-art-style tile with
-  /// a note glyph, then the text in the display face — rather than a chat
-  /// bubble. Reads as "the record this search is about".
+  /// The query captioned over its results: an accent double-note glyph and
+  /// "You asked for `query`", the query itself in the accent tint, all wrapped
+  /// in a soft rounded card. Reads as "the request this search is about".
   Widget _buildQueryHeader(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: KalinkaColors.accentFaded,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: KalinkaColors.accentBorder, width: 1),
-          ),
-          child: const Icon(
-            Icons.music_note_rounded,
-            size: 16,
-            color: KalinkaColors.accentTint,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              block.query,
-              style: KalinkaTextStyles.aiPlaylistName,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: KalinkaColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              CupertinoIcons.double_music_note,
+              size: 18,
+              color: KalinkaColors.accentTint,
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                text: 'You asked for ',
+                style: KalinkaTextStyles.trackRowTitle.copyWith(
+                  color: KalinkaColors.textSecondary,
+                ),
+                children: [
+                  TextSpan(
+                    text: block.query,
+                    style: KalinkaTextStyles.trackRowTitle.copyWith(
+                      color: KalinkaColors.accentTint,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

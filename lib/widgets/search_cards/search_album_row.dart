@@ -8,7 +8,6 @@ import '../../providers/search_state_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
-import '../../providers/source_modules_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/play_next.dart';
 import '../procedural_album_art.dart';
@@ -241,9 +240,10 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              SourceBadge(entityId: widget.item.id),
-                              if (ref.watch(sourceCountProvider) > 1)
+                              if (sourceBadgeVisible(ref, widget.item.id)) ...[
+                                SourceBadge(entityId: widget.item.id),
                                 const SizedBox(width: 6),
+                              ],
                               Expanded(
                                 child: Text(
                                   subtitle,

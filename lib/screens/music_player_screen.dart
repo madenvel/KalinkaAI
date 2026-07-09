@@ -58,6 +58,14 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
   // so its overlay covers the search dock like the connection sheet.
   bool _queueTrayOpen = false;
 
+  // The playback-error dialog currently on screen, if any. The error listener
+  // can re-fire with the player still in error state (the state store re-syncs
+  // whenever the app resumes / reconnects), so without this guard each resume
+  // stacked another copy of the same dialog.
+  ModalRoute<void>? _playbackErrorRoute;
+  String? _playbackErrorMessage;
+  int _playbackErrorGen = 0;
+
   // Live height of the floating dock (plus escalation card, when shown) so the
   // queue behind it can reserve matching bottom space and clear the bar.
   double _dockClusterHeight = 0;
@@ -247,13 +255,34 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
     // rebuilds the overlay against dirty providers (setState during build).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Only one playback-error dialog at a time. An identical error while one
+      // is up (state re-sync on resume) keeps the existing dialog; a different
+      // error replaces it.
+      if (_playbackErrorRoute != null) {
+        if (message == _playbackErrorMessage) return;
+        final navigator = Navigator.of(context);
+        final route = _playbackErrorRoute!;
+        if (route.isActive) navigator.removeRoute(route);
+      }
+      final gen = ++_playbackErrorGen;
+      _playbackErrorMessage = message;
       showKalinkaConfirmDialog<void>(
         context: context,
         // The dialog paints its own scrim and re-lays-out on resize, so keep
         // the global barrier clear.
         barrierColor: Colors.transparent,
-        builder: (_) => PlaybackErrorDialog(message: message),
-      );
+        builder: (dialogContext) {
+          _playbackErrorRoute = ModalRoute.of<void>(dialogContext);
+          return PlaybackErrorDialog(message: message);
+        },
+      ).whenComplete(() {
+        // Closed (dismissed, skipped, or replaced). A replacement has already
+        // bumped the generation and owns the fields — don't clear its state.
+        if (gen == _playbackErrorGen) {
+          _playbackErrorRoute = null;
+          _playbackErrorMessage = null;
+        }
+      });
     });
   }
 
@@ -298,6 +327,30 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       ),
     );
   }
+
+  // Swaps the queue and the search session without cross-fading them. Only the
+  // incoming child is laid out ([_topmostScreenLayout] drops the outgoing one
+  // immediately) so the now-playing queue never bleeds through the
+  // half-transparent search view as it fades in ("flashing underneath"). The
+  // incoming screen fades and lifts a touch over the near-black canvas.
+  static Widget _topmostScreenLayout(
+    Widget? currentChild,
+    List<Widget> previousChildren,
+  ) => currentChild ?? const SizedBox.shrink();
+
+  static Widget _screenSwitcherTransition(
+    Widget child,
+    Animation<double> animation,
+  ) => FadeTransition(
+    opacity: animation,
+    child: SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.02),
+        end: Offset.zero,
+      ).animate(animation),
+      child: child,
+    ),
+  );
 
   Widget _buildPhoneLayout(BuildContext context) {
     final searchOpen = ref.watch(searchSessionProvider.select((s) => s.isOpen));
@@ -355,6 +408,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                       Positioned.fill(
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
+                          layoutBuilder: _topmostScreenLayout,
+                          transitionBuilder: _screenSwitcherTransition,
                           child: searchOpen
                               ? SearchSessionView(
                                   key: const ValueKey('search'),
@@ -415,12 +470,13 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             right: 0,
             bottom: 0,
             child: IgnorePointer(
-              // Off search, clear the mini-player + the measured dock cluster
-              // (search button / escalation card); on search the bar is in the
-              // header, so only a small edge margin is needed.
+              // Clear the mini-player (visible on both screens now); off search
+              // also clear the measured dock cluster (search button / escalation
+              // card). On search the bar lives in the header, so nothing else
+              // docks at the bottom.
               child: KalinkaToastOverlay(
                 bottomOffset: searchOpen
-                    ? 24
+                    ? kMiniPlayerHeight
                     : kMiniPlayerHeight + _dockClusterHeight,
               ),
             ),
@@ -599,6 +655,9 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                                             duration: const Duration(
                                               milliseconds: 200,
                                             ),
+                                            layoutBuilder: _topmostScreenLayout,
+                                            transitionBuilder:
+                                                _screenSwitcherTransition,
                                             child: searchOpen
                                                 ? SearchSessionView(
                                                     key: const ValueKey(

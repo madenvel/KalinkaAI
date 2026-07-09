@@ -10,9 +10,17 @@ import 'kalinka_player_api_provider.dart';
 const _kRefreshInterval = Duration(hours: 12);
 
 // Bound the per-source card row and the preview fetch so a module with a
-// huge root catalog can't fan out into dozens of requests.
+// huge root catalog can't fan out into dozens of requests. Keep the preview
+// limit at one upstream page: remote modules (Jamendo) proxy the fetch under
+// a 3s per-call budget, and larger limits both multiply upstream calls and
+// fragment the server-side cache by limit value.
 const _kMaxCardsPerSource = 8;
 const _kPreviewFetchLimit = 8;
+
+// Cold remote catalogs 500 while the server warms its cache behind that
+// budget (observed: two failures, then a fast hit). Spaced retries let the
+// preview land on first display instead of waiting for the next reconnect.
+const _kPreviewRetryDelays = [Duration(seconds: 2), Duration(seconds: 4)];
 
 /// One planned advertisement card: a browsable category in a source's root
 /// catalog. Carries everything needed to render the card shell and shimmer —
@@ -70,10 +78,15 @@ class CatalogCardPreview {
   final List<String> artPaths;
   final List<String> names;
 
+  /// Total items in the catalog (textual fills only) — the server's reported
+  /// count, which may exceed the sampled [names]. Null when unknown.
+  final int? itemCount;
+
   const CatalogCardPreview({
     required this.fill,
     this.artPaths = const [],
     this.names = const [],
+    this.itemCount,
   });
 
   static const procedural = CatalogCardPreview(
@@ -156,7 +169,23 @@ final catalogCardPreviewProvider =
       if (plan == null) return CatalogCardPreview.procedural;
 
       final api = ref.read(kalinkaProxyProvider);
-      final list = await api.browse(cardId, limit: _kPreviewFetchLimit);
+      BrowseItemsList list;
+      var attempt = 0;
+      while (true) {
+        try {
+          list = await api.browse(cardId, limit: _kPreviewFetchLimit);
+          if (list.items.isNotEmpty) break;
+          // A warming cache also answers 200 with an empty page — retry that
+          // like a failure. Once out of retries, render whatever came back
+          // (a truly empty catalog stays procedural).
+          if (attempt >= _kPreviewRetryDelays.length) break;
+        } catch (_) {
+          // Out of retries — surface the error; the card falls back to its
+          // procedural fill as before.
+          if (attempt >= _kPreviewRetryDelays.length) rethrow;
+        }
+        await Future.delayed(_kPreviewRetryDelays[attempt++]);
+      }
 
       final names = <String>[
         for (final item in list.items)
@@ -166,10 +195,12 @@ final catalogCardPreviewProvider =
       // Distinct covers only: a single-album track list yields one path, not
       // three copies of it. Dedupe by path — local art URLs are keyed by
       // album, so same album ⇒ same path.
+      // Prefer a larger source — the card cover is now a prominent square, so
+      // the thumbnail (smallest) reads soft.
       final artPaths = <String>[];
       for (final item in list.items) {
         final image = item.image;
-        final path = image?.thumbnail ?? image?.small ?? image?.large;
+        final path = image?.large ?? image?.small ?? image?.thumbnail;
         if (path != null && path.isNotEmpty && !artPaths.contains(path)) {
           artPaths.add(path);
         }
@@ -182,12 +213,15 @@ final catalogCardPreviewProvider =
         return CatalogCardPreview(
           fill: CatalogCardFill.textual,
           names: names.take(3).toList(),
+          itemCount: list.total,
         );
       }
-      if (artPaths.length >= 3) {
+      if (artPaths.isNotEmpty) {
+        // Up to four covers: the card renders a 2×2 mosaic when it has all
+        // four, else a single cover.
         return CatalogCardPreview(
           fill: CatalogCardFill.arts,
-          artPaths: artPaths.take(3).toList(),
+          artPaths: artPaths.take(4).toList(),
         );
       }
       return CatalogCardPreview.procedural;

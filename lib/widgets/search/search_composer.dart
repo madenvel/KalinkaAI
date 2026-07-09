@@ -7,10 +7,10 @@ import '../../utils/haptics.dart';
 /// The search bar pill at the top of the search screen. One line at rest —
 /// an AI sparkle, the text field, then the send button on the right — and
 /// grows to a few lines as the content wraps, the controls staying
-/// pinned to the first line. The send button is always present: grey and
-/// inert while the field is empty, accent once it holds non-whitespace text.
-/// Submitting fires the query and clears the field. The border is accent
-/// while the field holds focus, grey otherwise.
+/// pinned to the first line. The send button (an accent down-arrow) surfaces
+/// only once the field holds non-whitespace text. Submitting fires the query
+/// and clears the field. The border is accent while the field holds focus,
+/// grey otherwise.
 ///
 /// The parent owns the framing (top-bar strip, safe area); this widget is
 /// just the pill.
@@ -94,7 +94,7 @@ class _SearchComposerState extends State<SearchComposer> {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 6, 4),
+        padding: const EdgeInsets.fromLTRB(12, 0, 6, 0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -133,8 +133,8 @@ class _SearchComposerState extends State<SearchComposer> {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            // Send — pinned to the first line as the field grows.
+            // Send — appears only when there's text to submit; pinned to the
+            // first line as the field grows.
             _buildSendButton(),
           ],
         ),
@@ -143,35 +143,30 @@ class _SearchComposerState extends State<SearchComposer> {
   }
 
   Widget _buildSendButton() {
-    // Rebuilds on every keystroke so the button recolours with the presence
-    // of non-whitespace text — without firing any search. Always present:
-    // grey and inert while empty (submitting nothing), accent once there is
-    // something to send.
+    // Rebuilds on every keystroke (without firing any search) so the button
+    // shows up only once there's non-whitespace text to submit. Results appear
+    // below the bar, so a downward accent arrow reads as "send it down".
     return AnimatedBuilder(
       animation: widget.controller,
       builder: (context, _) {
         final hasText = widget.controller.text.trim().isNotEmpty;
-        return Semantics(
-          label: 'Send',
-          button: true,
-          enabled: hasText,
-          child: GestureDetector(
-            onTap: hasText ? _submit : null,
-            behavior: HitTestBehavior.opaque,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 140),
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: hasText
-                    ? KalinkaColors.accent
-                    : KalinkaColors.borderDefault,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.arrow_upward_rounded,
-                size: 18,
-                color: hasText ? Colors.white : KalinkaColors.textMuted,
+        if (!hasText) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Semantics(
+            label: 'Send',
+            button: true,
+            child: GestureDetector(
+              onTap: _submit,
+              behavior: HitTestBehavior.opaque,
+              child: const SizedBox(
+                width: 32,
+                height: 32,
+                child: Icon(
+                  Icons.arrow_downward_rounded,
+                  size: 22,
+                  color: KalinkaColors.accent,
+                ),
               ),
             ),
           ),

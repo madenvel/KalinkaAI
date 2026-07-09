@@ -10,7 +10,7 @@ import 'kalinka_player_api_provider.dart';
 
 /// Persistent history of submitted search prompts (most-recent first).
 const _historyKey = 'Kalinka.chatSearchHistory';
-const _maxHistoryItems = 12;
+const _maxHistoryItems = 10;
 const _minHistoryQueryLength = 2;
 
 /// Visible query blocks kept in the session: one expanded + up to two folded.
@@ -100,6 +100,11 @@ class SearchSessionState {
   /// time; the rest render as folded single-line summaries.
   final String expandedBlockId;
 
+  /// When true, the Discover (zero-state) surface is shown even though query
+  /// blocks exist — the session stays alive behind it, reachable again via
+  /// the zero state's "Back to results" pill.
+  final bool showZeroState;
+
   // ── Zero-state data (persisted history + fetched favourites) ───────────────
   final List<String> history;
   final List<BrowseItem> recentFavourites;
@@ -114,14 +119,17 @@ class SearchSessionState {
     this.isOpen = false,
     this.blocks = const [],
     this.expandedBlockId = '',
+    this.showZeroState = false,
     this.history = const [],
     this.recentFavourites = const [],
     this.zeroStateLoading = false,
     this.aiSuggestions = const [],
   });
 
-  /// True when the session has no query blocks — the zero state is shown.
-  bool get isZeroState => blocks.isEmpty;
+  /// True when the zero state (Discover) is shown — either the session has no
+  /// query blocks yet, or the user navigated back to Discover over a live
+  /// session ([showZeroState]).
+  bool get isZeroState => blocks.isEmpty || showZeroState;
 
   /// Prompts shown in the zero state: the server's context-aware suggestions
   /// once fetched, static examples until then.
@@ -132,6 +140,7 @@ class SearchSessionState {
     bool? isOpen,
     List<SearchQueryBlock>? blocks,
     String? expandedBlockId,
+    bool? showZeroState,
     List<String>? history,
     List<BrowseItem>? recentFavourites,
     bool? zeroStateLoading,
@@ -141,6 +150,7 @@ class SearchSessionState {
       isOpen: isOpen ?? this.isOpen,
       blocks: blocks ?? this.blocks,
       expandedBlockId: expandedBlockId ?? this.expandedBlockId,
+      showZeroState: showZeroState ?? this.showZeroState,
       history: history ?? this.history,
       recentFavourites: recentFavourites ?? this.recentFavourites,
       zeroStateLoading: zeroStateLoading ?? this.zeroStateLoading,
@@ -190,8 +200,23 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
       isOpen: false,
       blocks: const [],
       expandedBlockId: '',
+      showZeroState: false,
       history: _loadHistory(),
     );
+  }
+
+  /// Show the Discover (zero-state) surface, keeping the session blocks alive
+  /// behind it — [showResults] (the zero state's "Back to results" pill)
+  /// returns to them intact.
+  void showDiscover() {
+    if (state.isZeroState) return;
+    state = state.copyWith(showZeroState: true);
+  }
+
+  /// Return from Discover to the live session blocks.
+  void showResults() {
+    if (!state.showZeroState || state.blocks.isEmpty) return;
+    state = state.copyWith(showZeroState: false);
   }
 
   // ── Submitting queries ─────────────────────────────────────────────────────
@@ -212,7 +237,12 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     if (blocks.length > _maxVisibleBlocks) {
       blocks.removeRange(0, blocks.length - _maxVisibleBlocks);
     }
-    state = state.copyWith(blocks: blocks, expandedBlockId: id);
+    // Submitting always lands on the session view, including from Discover.
+    state = state.copyWith(
+      blocks: blocks,
+      expandedBlockId: id,
+      showZeroState: false,
+    );
     _runQuery(id, query);
   }
 
@@ -346,8 +376,14 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     final json = _prefs.getString(_historyKey);
     if (json == null) return <String>[];
     try {
-      // A fresh modifiable list — callers append/remove in place.
-      return List<String>.from((jsonDecode(json) as List).cast<String>());
+      // A fresh modifiable list — callers append/remove in place. Clamp on
+      // load too, so a store written under an older (larger) cap shrinks
+      // immediately rather than on the next append.
+      final items = List<String>.from((jsonDecode(json) as List).cast<String>());
+      if (items.length > _maxHistoryItems) {
+        items.removeRange(_maxHistoryItems, items.length);
+      }
+      return items;
     } catch (_) {
       return <String>[];
     }

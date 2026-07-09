@@ -11,6 +11,15 @@ import 'query_block_view.dart';
 import 'search_composer.dart';
 import 'search_zero_state.dart';
 
+/// The search header uses the shared top-bar surface + shadow but drops the
+/// hairline bottom rule: the bar and the content below it read as one surface.
+const BoxDecoration _kSearchHeaderDecoration = BoxDecoration(
+  color: KalinkaColors.surfaceBase,
+  boxShadow: [
+    BoxShadow(color: Color(0x80000000), offset: Offset(0, 4), blurRadius: 24),
+  ],
+);
+
 /// Full-screen search session surface. The search bar sits in a header strip
 /// at the top — back button on its left, connection dot on its right — with
 /// the scrollable content (zero state, then query blocks, newest on top)
@@ -126,7 +135,7 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
   /// down rather than overlaying it.
   Widget _buildHeader() {
     return Container(
-      decoration: kKalinkaTopBarDecoration,
+      decoration: _kSearchHeaderDecoration,
       child: SafeArea(
         bottom: false,
         // Shared height so this bar lines up with the queue and settings bars.
@@ -136,7 +145,7 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: kKalinkaTopBarHeight),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 3, 6, 3),
+            padding: const EdgeInsets.fromLTRB(6, 3, 6, 3),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -163,15 +172,19 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
                 ),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: SearchComposer(
-                    controller: _composerController,
-                    focusNode: _composerFocus,
-                    onSubmit: _submit,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: SearchComposer(
+                      controller: _composerController,
+                      focusNode: _composerFocus,
+                      onSubmit: _submit,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 2),
                 SizedBox(
                   height: _kBarMinHeight,
+                  width: 42,
                   child: Center(
                     child: ServerChip(compact: true, onTap: widget.onServerTap),
                   ),
@@ -189,8 +202,15 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      itemCount: blocks.length,
+      // +1: the Discover escape hatch under the last block.
+      itemCount: blocks.length + 1,
       itemBuilder: (context, i) {
+        if (i == blocks.length) {
+          return _DiscoverPrompt(
+            onTap: () =>
+                ref.read(searchSessionProvider.notifier).showDiscover(),
+          );
+        }
         // The session appends newest last; the list shows newest first.
         final block = blocks[blocks.length - 1 - i];
         return QueryBlockView(
@@ -204,6 +224,61 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
               .toggleSection(block.id, sectionId),
         );
       },
+    );
+  }
+}
+
+/// Quiet footer under the result blocks — the escape hatch to Discover when
+/// the results didn't deliver. The session stays alive behind Discover and
+/// remains reachable via its "Back to results" pill.
+class _DiscoverPrompt extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _DiscoverPrompt({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 6),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(
+            'Can’t find what you’re looking for? ',
+            style: KalinkaTextStyles.trackRowSubtitle,
+          ),
+          Semantics(
+            label: 'Open Discover',
+            button: true,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  KalinkaHaptics.lightImpact();
+                  onTap();
+                },
+                behavior: HitTestBehavior.opaque,
+                // Generous padding keeps the text link comfortably tappable.
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 6,
+                  ),
+                  child: Text(
+                    'Try Discover',
+                    style: KalinkaFonts.sans(
+                      fontSize: KalinkaTypography.baseSize + 1,
+                      fontWeight: FontWeight.w600,
+                      color: KalinkaColors.accentTint,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
