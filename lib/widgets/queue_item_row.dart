@@ -4,7 +4,6 @@ import '../data_model/data_model.dart';
 import '../data_model/kalinka_ws_api.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/playback_time_provider.dart';
-import '../providers/source_modules_provider.dart';
 import '../providers/toast_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/url_resolver.dart';
@@ -236,12 +235,13 @@ class QueueItemRow extends ConsumerWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      SourceBadge(
-                        entityId: track.id,
-                        size: SourceBadgeSize.small,
-                      ),
-                      if (ref.watch(sourceCountProvider) > 1)
+                      if (sourceBadgeVisible(ref, track.id)) ...[
+                        SourceBadge(
+                          entityId: track.id,
+                          size: SourceBadgeSize.small,
+                        ),
                         const SizedBox(width: 4),
+                      ],
                       Expanded(
                         child: Text(
                           track.performer?.name ?? 'Unknown Artist',

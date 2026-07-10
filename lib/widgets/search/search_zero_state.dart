@@ -36,6 +36,17 @@ class SearchZeroState extends ConsumerWidget {
     return ListView(
       padding: EdgeInsets.fromLTRB(16, 8, 16, 24 + bottomInset),
       children: [
+        // ── BACK TO RESULTS ─────────────────────────────────────────────────
+        // One tap returns to the live session parked behind Discover.
+        if (session.blocks.isNotEmpty) ...[
+          _BackToResultsPill(
+            query: session.blocks.last.query,
+            onTap: () =>
+                ref.read(searchSessionProvider.notifier).showResults(),
+          ),
+          const SizedBox(height: 20),
+        ],
+
         // ── ASK THE AI ──────────────────────────────────────────────────────
         _label('ASK THE AI'),
         const SizedBox(height: 12),
@@ -100,12 +111,70 @@ class SearchZeroState extends ConsumerWidget {
       Text(text, style: KalinkaTextStyles.sectionLabel);
 }
 
+/// Slim accent pill returning to the live session, captioned with its query.
+class _BackToResultsPill extends StatelessWidget {
+  final String query;
+  final VoidCallback onTap;
+
+  const _BackToResultsPill({required this.query, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Back to results for $query',
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () {
+            KalinkaHaptics.lightImpact();
+            onTap();
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 11, 10, 11),
+            decoration: BoxDecoration(
+              color: KalinkaColors.accentSubtle,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: KalinkaColors.accentBorder, width: 1),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.manage_search_rounded,
+                  size: 16,
+                  color: KalinkaColors.accentTint,
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Text(
+                    'Back to results · “$query”',
+                    style: KalinkaTextStyles.aiPromptChipText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: KalinkaColors.accentTint,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// AI prompt suggestion. Tapping runs it straight away — the expected action;
 /// long-pressing drops it into the composer to edit before sending.
 /// [experimental] marks the server's serendipity pick (context-matched but
 /// not validated against the library) with a compass icon instead of the
 /// sparkle.
-class _SuggestionTile extends StatelessWidget {
+class _SuggestionTile extends StatefulWidget {
   final String text;
   final bool experimental;
   final VoidCallback onInsert;
@@ -119,55 +188,96 @@ class _SuggestionTile extends StatelessWidget {
   });
 
   @override
+  State<_SuggestionTile> createState() => _SuggestionTileState();
+}
+
+class _SuggestionTileState extends State<_SuggestionTile> {
+  bool _hovering = false;
+  bool _pressed = false;
+
+  void _setHover(bool value) {
+    if (value == _hovering) return;
+    setState(() => _hovering = value);
+  }
+
+  void _setPressed(bool value) {
+    if (value == _pressed) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Rest → hover → pressed lifts the pill a step on the depth scale so the
+    // suggestion reads as interactive under a cursor (desktop) and on tap.
+    final background = _pressed
+        ? KalinkaColors.surfaceOverlay
+        : _hovering
+        ? KalinkaColors.surfaceElevated
+        : KalinkaColors.surfaceRaised;
+    final border = (_hovering || _pressed)
+        ? KalinkaColors.borderDefault
+        : KalinkaColors.borderSubtle;
+
     return Semantics(
-      label: experimental
-          ? 'Run experimental suggestion: $text'
-          : 'Run suggestion: $text',
+      label: widget.experimental
+          ? 'Run experimental suggestion: ${widget.text}'
+          : 'Run suggestion: ${widget.text}',
       hint: 'Long press to edit before sending',
       button: true,
-      child: GestureDetector(
-        onTap: () {
-          KalinkaHaptics.lightImpact();
-          onRun();
-        },
-        onLongPress: onInsert,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [KalinkaColors.accentFaded, KalinkaColors.surfaceBase],
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => _setHover(true),
+        onExit: (_) => _setHover(false),
+        child: GestureDetector(
+          onTap: () {
+            KalinkaHaptics.lightImpact();
+            widget.onRun();
+          },
+          onLongPress: widget.onInsert,
+          onTapDown: (_) => _setPressed(true),
+          onTapUp: (_) => _setPressed(false),
+          onTapCancel: () => _setPressed(false),
+          behavior: HitTestBehavior.opaque,
+          // A quiet, neutral pill rather than an accent-red gradient card: these
+          // are lightweight prompts, not primary actions, so they sit low in the
+          // hierarchy (below the catalog cards) and don't crowd the screen.
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: border, width: 1),
             ),
-            border: Border.all(color: KalinkaColors.borderDefault, width: 1),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-            child: Row(
-              children: [
-                Icon(
-                  experimental ? Icons.explore_outlined : Icons.auto_awesome,
-                  size: 14,
-                  color: KalinkaColors.gold,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    text,
-                    style: KalinkaTextStyles.aiPromptChipText,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 11, 12, 11),
+              child: Row(
+                children: [
+                  Icon(
+                    widget.experimental
+                        ? Icons.explore_outlined
+                        : Icons.auto_awesome,
+                    size: 14,
+                    color: widget.experimental
+                        ? KalinkaColors.accentTint
+                        : KalinkaColors.gold,
                   ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.arrow_forward_rounded,
-                  size: 18,
-                  color: KalinkaColors.textSecondary,
-                ),
-              ],
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Text(
+                      widget.text,
+                      style: KalinkaTextStyles.aiPromptChipText,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 15,
+                    color: KalinkaColors.textMuted,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

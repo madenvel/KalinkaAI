@@ -8,7 +8,6 @@ import '../providers/app_state_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/playback_time_provider.dart';
-import '../providers/search_session_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
@@ -19,8 +18,8 @@ import 'procedural_album_art.dart';
 import 'source_badge.dart';
 import 'transport_button.dart';
 
-/// Fixed bottom mini player — 72px tall plus safe area inset.
-/// Fades out when keyboard is visible during search.
+/// Fixed bottom mini player — 72px tall plus safe area inset. Stays put on the
+/// search screen too; playback controls remain reachable while browsing.
 ///
 /// Swipe gestures:
 /// - Swipe left  = next track (with resistance; haptic + auto-complete at 1/3)
@@ -294,12 +293,6 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
         : _incomingTrackSnapshot ??
               (_swipeIsNext == true ? nextTrack : prevTrack);
 
-    // The miniplayer slides away while the search session is open (playback
-    // itself keeps running — only the UI hides).
-    final shouldHide = ref.watch(
-      searchSessionProvider.select((s) => s.isOpen),
-    );
-
     final connectionState = ref.watch(connectionStateProvider);
     final isOffline =
         connectionState == ConnectionStatus.reconnecting ||
@@ -319,41 +312,28 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
 
     final carouselOffset = _carouselController.value; // -1..1
 
-    return AnimatedSize(
-      duration: Duration(milliseconds: shouldHide ? 120 : 200),
-      curve: Curves.easeOut,
-      clipBehavior: Clip.hardEdge,
-      child: SizedBox(
-        height: shouldHide ? 0.0 : null,
-        child: AnimatedOpacity(
-          opacity: shouldHide ? 0.0 : 1.0,
-          duration: Duration(milliseconds: shouldHide ? 120 : 200),
-          curve: Curves.easeOut,
-          child: Container(
-            decoration: const BoxDecoration(
-              color: KalinkaColors.surfaceRaised,
-              border: Border(
-                top: BorderSide(color: KalinkaColors.borderDefault, width: 1),
-              ),
+    return Container(
+      decoration: const BoxDecoration(
+        color: KalinkaColors.surfaceRaised,
+        border: Border(
+          top: BorderSide(color: KalinkaColors.borderDefault, width: 1),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildProgressLine(progressLineMode, durationMs),
+            _buildMainContent(
+              resolvedImageUrl: resolvedImageUrl,
+              currentTrack: effectiveCurrentTrack,
+              incomingTrack: incomingTrack,
+              carouselOffset: carouselOffset,
+              isOffline: isOffline,
+              playerState: playerState,
             ),
-            child: SafeArea(
-              top: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildProgressLine(progressLineMode, durationMs),
-                  _buildMainContent(
-                    resolvedImageUrl: resolvedImageUrl,
-                    currentTrack: effectiveCurrentTrack,
-                    incomingTrack: incomingTrack,
-                    carouselOffset: carouselOffset,
-                    isOffline: isOffline,
-                    playerState: playerState,
-                  ),
-                ],
-              ),
-            ),
-          ),
+          ],
         ),
       ),
     );
@@ -563,7 +543,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
 
 /// Single text block for the carousel: title + subtitle + optional source badge.
 /// Uses [SizedBox.expand] so it fills the slot and clips correctly inside [ClipRect].
-class _TrackLabel extends StatelessWidget {
+class _TrackLabel extends ConsumerWidget {
   final String? title;
   final String? subtitle;
   final CrossAxisAlignment crossAxisAlignment;
@@ -579,7 +559,7 @@ class _TrackLabel extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final titleStyle = KalinkaTextStyles.miniPlayerTitle;
     final subtitleStyle = KalinkaTextStyles.miniPlayerArtist;
 
@@ -599,7 +579,7 @@ class _TrackLabel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              if (entityId != null) ...[
+              if (entityId != null && sourceBadgeVisible(ref, entityId!)) ...[
                 SourceBadge(
                   entityId: entityId!,
                   size: SourceBadgeSize.standard,

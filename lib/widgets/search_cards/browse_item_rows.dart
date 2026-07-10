@@ -5,12 +5,14 @@ import '../../data_model/data_model.dart';
 import '../../theme/app_theme.dart';
 import 'search_album_row.dart';
 import 'search_artist_row.dart';
+import 'search_catalog_row.dart';
 import 'search_playlist_row.dart';
 import 'search_track_row.dart';
 import 'show_more_row.dart';
 
-/// Renders a list of [BrowseItem]s as stacked rows interleaved with dividers,
-/// dispatching to the correct Search*Row widget by [BrowseItem.browseType].
+/// Renders a list of [BrowseItem]s as stacked rows, dispatching to the correct
+/// Search*Row widget by [BrowseItem.browseType]. Rows are separated by hairline
+/// dividers unless [dividers] is false, in which case they simply stack.
 ///
 /// When [visibleLimit] is set and [items.length] exceeds it, the list is
 /// truncated and a [ShowMoreRow] is appended that toggles [isExpanded] via
@@ -25,12 +27,17 @@ class BrowseItemRows extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback? onToggleExpand;
 
+  /// Draw a hairline divider between adjacent rows. Off for the search-result
+  /// sections, where the only divider is between sections, not their rows.
+  final bool dividers;
+
   const BrowseItemRows({
     super.key,
     required this.items,
     this.visibleLimit,
     this.isExpanded = false,
     this.onToggleExpand,
+    this.dividers = true,
   });
 
   @override
@@ -50,7 +57,7 @@ class BrowseItemRows extends StatelessWidget {
       // section. Matters most for sections that pack many rows into a single
       // outer ListView child (BASED ON NOW PLAYING, RECENTLY FAVOURITED).
       children.add(RepaintBoundary(child: _rowFor(displayed[i])));
-      if (i < displayed.length - 1) {
+      if (dividers && i < displayed.length - 1) {
         children.add(const Divider(
           color: KalinkaColors.borderSubtle,
           thickness: 1,
@@ -90,6 +97,7 @@ class BrowseItemRows extends StatelessWidget {
       case BrowseType.playlist:
         return SearchPlaylistRow(item: item);
       case BrowseType.catalog:
+        return SearchCatalogRow(item: item);
       case BrowseType.unknown:
         return const SizedBox.shrink();
     }

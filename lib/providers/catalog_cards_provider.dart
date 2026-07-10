@@ -9,10 +9,15 @@ import 'kalinka_player_api_provider.dart';
 /// start (first watch) and on reconnect (the section widget invalidates).
 const _kRefreshInterval = Duration(hours: 12);
 
-// Bound the per-source card row and the preview fetch so a module with a
-// huge root catalog can't fan out into dozens of requests.
+// Bound the card row and preview fetch so a huge root catalog can't fan out
+// into dozens of requests. One upstream page keeps the server cache (keyed by
+// limit) from fragmenting.
 const _kMaxCardsPerSource = 8;
 const _kPreviewFetchLimit = 8;
+
+// Remote catalogs 500 / return an empty page while the server warms its cache;
+// spaced retries land the preview on first display, not the next reconnect.
+const _kPreviewRetryDelays = [Duration(seconds: 2), Duration(seconds: 4)];
 
 /// One planned advertisement card: a browsable category in a source's root
 /// catalog. Carries everything needed to render the card shell and shimmer —
@@ -50,15 +55,13 @@ class CatalogCardGroup {
 
 /// How a card's preview strip is filled once its items are known.
 enum CatalogCardFill {
-  /// Three distinct cover images.
+  /// Cover artwork (hero backdrop + preview thumbnails).
   arts,
 
-  /// Item names over a seeded gradient — textual catalogs (sub-category
-  /// indexes, TEXT_ONLY previews) that have no imagery by nature.
+  /// Item names — textual catalogs (sub-category indexes) with no imagery.
   textual,
 
-  /// One abstract procedural rectangle — the category has fewer than three
-  /// distinct covers (or none at all).
+  /// Abstract procedural art — the catalog has no usable covers.
   procedural,
 }
 
@@ -70,10 +73,15 @@ class CatalogCardPreview {
   final List<String> artPaths;
   final List<String> names;
 
+  /// Total items in the catalog (textual fills only) — the server's reported
+  /// count, which may exceed the sampled [names]. Null when unknown.
+  final int? itemCount;
+
   const CatalogCardPreview({
     required this.fill,
     this.artPaths = const [],
     this.names = const [],
+    this.itemCount,
   });
 
   static const procedural = CatalogCardPreview(
@@ -156,20 +164,31 @@ final catalogCardPreviewProvider =
       if (plan == null) return CatalogCardPreview.procedural;
 
       final api = ref.read(kalinkaProxyProvider);
-      final list = await api.browse(cardId, limit: _kPreviewFetchLimit);
+      BrowseItemsList list;
+      var attempt = 0;
+      while (true) {
+        try {
+          list = await api.browse(cardId, limit: _kPreviewFetchLimit);
+          // An empty page can be a warming cache — retry like a failure.
+          if (list.items.isNotEmpty) break;
+          if (attempt >= _kPreviewRetryDelays.length) break;
+        } catch (_) {
+          if (attempt >= _kPreviewRetryDelays.length) rethrow;
+        }
+        await Future.delayed(_kPreviewRetryDelays[attempt++]);
+      }
 
       final names = <String>[
         for (final item in list.items)
           if ((item.name ?? '').isNotEmpty) item.name!,
       ];
 
-      // Distinct covers only: a single-album track list yields one path, not
-      // three copies of it. Dedupe by path — local art URLs are keyed by
-      // album, so same album ⇒ same path.
+      // Distinct covers only (dedupe by path); prefer the larger variant —
+      // the cover is a prominent square now, so the thumbnail reads soft.
       final artPaths = <String>[];
       for (final item in list.items) {
         final image = item.image;
-        final path = image?.thumbnail ?? image?.small ?? image?.large;
+        final path = image?.large ?? image?.small ?? image?.thumbnail;
         if (path != null && path.isNotEmpty && !artPaths.contains(path)) {
           artPaths.add(path);
         }
@@ -182,12 +201,14 @@ final catalogCardPreviewProvider =
         return CatalogCardPreview(
           fill: CatalogCardFill.textual,
           names: names.take(3).toList(),
+          itemCount: list.total,
         );
       }
-      if (artPaths.length >= 3) {
+      if (artPaths.isNotEmpty) {
+        // Hero backdrop + three preview thumbnails.
         return CatalogCardPreview(
           fill: CatalogCardFill.arts,
-          artPaths: artPaths.take(3).toList(),
+          artPaths: artPaths.take(4).toList(),
         );
       }
       return CatalogCardPreview.procedural;

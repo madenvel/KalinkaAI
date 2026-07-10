@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,12 +12,12 @@ import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
 import '../search_cards/browse_item_rows.dart';
 
-/// Renders one query block's results as per-source section cards. Results are
+/// Renders one query block's results as per-source sections. Results are
 /// never merged into a single ranked list — each backend section (a per-source
-/// catalog) becomes its own bordered card, tinted to its source colour. The
-/// rows are the shared search tiles ([BrowseItemRows]): per-type sizes,
-/// hierarchical unrolling (album → tracks, artist → albums), and swipe to add
-/// to queue / play next.
+/// catalog) becomes its own flat section (no card chrome), its heading tinted
+/// to its source colour. The rows are the shared search tiles ([BrowseItemRows]):
+/// per-type sizes, hierarchical unrolling (album → tracks, artist → albums),
+/// and swipe to add to queue / play next.
 class StagingResultSections extends StatelessWidget {
   final BrowseItemsList results;
   final Set<String> expandedSections;
@@ -58,10 +60,20 @@ class StagingResultSections extends StatelessWidget {
 
     final children = <Widget>[];
     for (int i = 0; i < sections.length; i++) {
-      if (i > 0) children.add(const SizedBox(height: 20));
+      // The only divider on the results is between sections — rows within a
+      // section stack cleanly, no rules between them.
+      if (i > 0) {
+        children.add(
+          const Divider(
+            color: KalinkaColors.borderSubtle,
+            thickness: 1,
+            height: 32,
+          ),
+        );
+      }
       final section = sections[i];
       children.add(
-        _SourceSectionCard(
+        _SourceSection(
           section: section,
           isExpanded: expandedSections.contains(section.id),
           onToggleExpand: () => onToggleSection(section.id),
@@ -75,14 +87,14 @@ class StagingResultSections extends StatelessWidget {
   }
 }
 
-class _SourceSectionCard extends ConsumerWidget {
+class _SourceSection extends ConsumerWidget {
   final BrowseItem section;
   final bool isExpanded;
   final VoidCallback onToggleExpand;
 
   static const _defaultVisible = 5;
 
-  const _SourceSectionCard({
+  const _SourceSection({
     required this.section,
     required this.isExpanded,
     required this.onToggleExpand,
@@ -91,158 +103,197 @@ class _SourceSectionCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final items = section.sections ?? const <BrowseItem>[];
-    final title = section.name ?? '';
     final tint = _sectionAccent(section);
     final icon = _sectionIcon(section.catalog?.previewConfig?.icon);
     final sourceLabel = _sourceLabel(ref, section);
+    // The source shows on its own line below, so strip a trailing "· Qobuz"
+    // the backend appended to the section name rather than repeat it.
+    final title = _displayTitle(section, sourceLabel);
 
-    // Every track in the card, including any hidden behind "show more" — the
+    // Every track in the section, including any hidden behind "show more" — the
     // batch actions cover the whole set, not just the visible rows.
     final trackIds = <String>[
       for (final item in items)
         if (item.browseType == BrowseType.track) item.id,
     ];
+    final selectionMode = ref.watch(
+      selectionStateProvider.select((s) => s.isActive),
+    );
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-      decoration: BoxDecoration(
-        color: tint == null ? KalinkaColors.surfaceRaised : null,
-        gradient: tint == null
-            ? null
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                stops: const [0.0, 0.55],
-                colors: [
-                  Color.alphaBlend(
-                    tint.withValues(alpha: 0.10),
-                    KalinkaColors.surfaceRaised,
+    // No card chrome: a flat section is a tinted heading, a hairline rule, then
+    // the rows — the source colour still signals grouping via the title.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 24, color: tint ?? KalinkaColors.textPrimary),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title.toUpperCase(),
+                    // Source badge colour; bright neutral (never accent) when
+                    // cross-source.
+                    style: KalinkaTextStyles.sectionLabel.copyWith(
+                      color: tint ?? KalinkaColors.textPrimary,
+                    ),
                   ),
-                  KalinkaColors.surfaceRaised,
-                ],
-              ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: tint == null
-              ? KalinkaColors.borderSubtle
-              : tint.withValues(alpha: 0.22),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 16, color: tint ?? KalinkaColors.accentTint),
-                const SizedBox(width: 8),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  if (sourceLabel != null) ...[
+                    const SizedBox(height: 2),
                     Text(
-                      title.toUpperCase(),
-                      style: KalinkaTextStyles.sectionLabel.copyWith(
-                        color: tint ?? KalinkaColors.accentTint,
+                      sourceLabel,
+                      style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+                        color: KalinkaColors.textMuted,
                       ),
                     ),
-                    if (sourceLabel != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        sourceLabel,
-                        style: KalinkaTextStyles.trackRowSubtitle,
-                      ),
-                    ],
                   ],
-                ),
+                ],
               ),
-              // One-tap enqueue for the whole card; Select all routes the rest
-              // (play now / play next) through the multi-select toolbar.
-              if (trackIds.isNotEmpty) ...[
+            ),
+            // Track sections get a quick add-to-queue button; in multi-select
+            // mode it gives way to Select all. Album/artist sections have no
+            // trackIds, so nothing shows here.
+            if (trackIds.isNotEmpty)
+              if (selectionMode)
+                _SelectAllButton(trackIds: trackIds)
+              else
                 _EnqueueAllButton(trackIds: trackIds),
-                const SizedBox(width: 6),
-                _SelectAllButton(trackIds: trackIds),
-              ],
-            ],
-          ),
-          const Divider(
-            color: KalinkaColors.borderSubtle,
-            thickness: 1,
-            height: 16,
-          ),
-          // The shared search tiles: per-type sizes + hierarchical unrolling.
-          BrowseItemRows(
-            items: items,
-            visibleLimit: _defaultVisible,
-            isExpanded: isExpanded,
-            onToggleExpand: onToggleExpand,
-          ),
-        ],
-      ),
+            const SizedBox(width: 18),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // The shared search tiles: per-type sizes + hierarchical unrolling. No
+        // dividers between rows — the section divider is the only rule.
+        BrowseItemRows(
+          items: items,
+          visibleLimit: _defaultVisible,
+          isExpanded: isExpanded,
+          onToggleExpand: onToggleExpand,
+          dividers: false,
+        ),
+      ],
     );
   }
 }
 
-/// One-tap enqueue for every track in a card. Silent and non-destructive:
-/// appends to the queue and reports via the shared activity toast, which is
-/// captured up front so it survives the card scrolling away mid-request.
-class _EnqueueAllButton extends ConsumerWidget {
+/// Enqueue every track in a section, reporting via the shared activity toast.
+/// Idle → busy (request in flight) → added (3s confirmation) → idle.
+enum _AddStatus { idle, busy, added }
+
+class _EnqueueAllButton extends ConsumerStatefulWidget {
   final List<String> trackIds;
 
   const _EnqueueAllButton({required this.trackIds});
 
-  Future<void> _enqueue(WidgetRef ref) async {
+  @override
+  ConsumerState<_EnqueueAllButton> createState() => _EnqueueAllButtonState();
+}
+
+class _EnqueueAllButtonState extends ConsumerState<_EnqueueAllButton> {
+  _AddStatus _status = _AddStatus.idle;
+  Timer? _resetTimer;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _enqueue() async {
+    if (_status != _AddStatus.idle) return;
+    // Busy (disabled) while the request is in flight — the "Added ✓"
+    // confirmation only appears once the add actually succeeds.
+    setState(() => _status = _AddStatus.busy);
     KalinkaHaptics.mediumImpact();
     final api = ref.read(kalinkaProxyProvider);
     final toast = ref.read(toastProvider.notifier);
-    final n = trackIds.length;
+    final n = widget.trackIds.length;
     toast.beginQueueActivity('Adding $n track${n == 1 ? '' : 's'}…');
     try {
-      await api.add(trackIds);
+      await api.add(widget.trackIds);
       toast.endQueueActivity('$n track${n == 1 ? '' : 's'} added to queue');
+      if (!mounted) return;
+      setState(() => _status = _AddStatus.added);
+      _resetTimer?.cancel();
+      _resetTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _status = _AddStatus.idle);
+      });
     } catch (e) {
+      // Failed — back to idle so they can retry immediately.
+      if (mounted) setState(() => _status = _AddStatus.idle);
       toast.endQueueActivity('Failed to add: $e', isError: true);
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Semantics(
-      label: 'Add all to queue',
-      button: true,
-      child: GestureDetector(
-        onTap: () => _enqueue(ref),
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: KalinkaColors.surfaceElevated,
-            border: Border.all(color: KalinkaColors.borderDefault, width: 1),
-          ),
+  Widget build(BuildContext context) {
+    final added = _status == _AddStatus.added;
+    final busy = _status == _AddStatus.busy;
+    final label = added
+        ? 'Added'
+        : busy
+        ? 'Adding…'
+        : 'Add All';
+    final Color fg = added ? KalinkaColors.gold : KalinkaColors.textPrimary;
+    final Color border = added
+        ? KalinkaColors.gold.withValues(alpha: 0.4)
+        : KalinkaColors.borderDefault;
+
+    Widget button = Material(
+      color: KalinkaColors.surfaceElevated,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: border, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        // Enabled only when idle — no re-add while adding or confirming.
+        onTap: _status == _AddStatus.idle ? _enqueue : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.playlist_add_rounded,
-                size: 15,
-                color: KalinkaColors.textPrimary,
-              ),
-              const SizedBox(width: 5),
               Text(
-                'Add All',
+                label,
                 style: KalinkaFonts.sans(
                   fontSize: KalinkaTypography.baseSize + 1,
                   fontWeight: FontWeight.w600,
-                  color: KalinkaColors.textPrimary,
+                  color: fg,
                 ),
               ),
+              if (added) ...[
+                const SizedBox(width: 5),
+                const Icon(
+                  Icons.check_rounded,
+                  size: 15,
+                  color: KalinkaColors.gold,
+                ),
+              ],
             ],
           ),
         ),
       ),
+    );
+    // Dim while busy/confirming so it reads as disabled.
+    if (_status != _AddStatus.idle) {
+      button = Opacity(opacity: 0.6, child: button);
+    }
+
+    return Semantics(
+      label: added
+          ? 'Added to queue'
+          : busy
+          ? 'Adding to queue'
+          : 'Add all to queue',
+      button: true,
+      enabled: _status == _AddStatus.idle,
+      child: button,
     );
   }
 }
@@ -336,6 +387,25 @@ String? _sourceLabel(WidgetRef ref, BrowseItem section) {
   if (isLocalSource(source)) return 'Local library';
   final info = ref.watch(sourceDisplayInfoProvider)[source];
   return info?.title ?? source;
+}
+
+/// The section's display title with a trailing source suffix stripped. The
+/// backend names sections like "Best match · Qobuz", but the source is already
+/// shown on its own line ([_sourceLabel]), so repeating it in the title reads
+/// as noise. Drops a trailing separator (· • | / – — -) followed by the source
+/// label or its raw id (case-insensitive); a no-op when nothing matches.
+String _displayTitle(BrowseItem section, String? sourceLabel) {
+  var title = section.name ?? '';
+  for (final token in <String?>[sourceLabel, _singleSource(section)]) {
+    if (token == null || token.isEmpty) continue;
+    final pattern = RegExp(
+      r'\s*[·•|/–—-]+\s*' + RegExp.escape(token) + r'\s*$',
+      caseSensitive: false,
+    );
+    final stripped = title.replaceFirst(pattern, '').trim();
+    if (stripped.isNotEmpty) title = stripped;
+  }
+  return title;
 }
 
 /// The single source a section belongs to, or null when cross-source /

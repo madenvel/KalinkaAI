@@ -304,18 +304,19 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 50));
 
-      // The send button is always present — inert while empty, active once
-      // the field holds text.
-      expect(find.byIcon(Icons.arrow_upward_rounded), findsOneWidget);
+      // The send button (accent down-arrow) surfaces only once the field
+      // holds non-whitespace text.
+      expect(find.byIcon(Icons.arrow_downward_rounded), findsNothing);
 
       await tester.enterText(find.byType(TextField), 'jazz please');
       await tester.pump();
+      expect(find.byIcon(Icons.arrow_downward_rounded), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+      await tester.tap(find.byIcon(Icons.arrow_downward_rounded));
       await tester.pump();
 
-      // Query bubble on screen; composer cleared.
-      expect(find.text('jazz please'), findsOneWidget);
+      // Query captioned over the results ("You asked for …"); composer cleared.
+      expect(find.textContaining('jazz please'), findsOneWidget);
 
       // Resolve past the minimum loading window.
       await tester.pump(const Duration(milliseconds: 900));

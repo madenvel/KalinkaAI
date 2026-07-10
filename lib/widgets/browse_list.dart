@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../providers/browse_navigation_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
-import '../providers/source_modules_provider.dart';
 import '../providers/toast_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
@@ -316,9 +315,10 @@ class _BrowseListState extends ConsumerState<BrowseList> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        SourceBadge(entityId: item.id),
-                        if (ref.watch(sourceCountProvider) > 1)
+                        if (sourceBadgeVisible(ref, item.id)) ...[
+                          SourceBadge(entityId: item.id),
                           const SizedBox(width: 6),
+                        ],
                         Expanded(
                           child: Text(
                             item.subname!,
