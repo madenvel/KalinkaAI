@@ -52,7 +52,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
@@ -112,7 +112,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
@@ -142,6 +142,7 @@ jobs:
     env:
       V: ${{ needs.verify-version.outputs.version }}
     steps:
+      - uses: actions/checkout@v4 # for CHANGELOG.md + release-notes-footer.md
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -152,11 +153,28 @@ jobs:
           cd dist
           md5sum kalinka-* > md5.txt
           cat md5.txt
+      - name: Assemble release notes
+        run: |
+          set -euo pipefail
+          notes=release-notes.md
+          # Curated section for this version from CHANGELOG.md (## <version>).
+          awk -v ver="$V" '
+            /^## / { if (want) exit; want = ($2 == ver); next }
+            want { print }
+          ' CHANGELOG.md > section.md
+          if [ ! -s section.md ]; then
+            echo "::warning::no CHANGELOG.md section for $V — body will be footer + auto notes only"
+          fi
+          cat section.md > "$notes"
+          printf '\n' >> "$notes"
+          sed "s/__VERSION__/$V/g" .github/release-notes-footer.md >> "$notes"
+          echo "----- assembled notes -----"; cat "$notes"
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           name: Kalinka ${{ env.V }}
           tag_name: ${{ github.ref_name }}
+          body_path: release-notes.md
           fail_on_unmatched_files: true
           generate_release_notes: true
           files: |
