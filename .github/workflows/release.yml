@@ -1,0 +1,167 @@
+name: Release
+
+# Cut a release by pushing a semver tag that matches pubspec.yaml:
+#   1. bump `version:` in pubspec.yaml, commit, push to main
+#   2. git tag -a vX.Y.Z -m "Kalinka X.Y.Z" && git push origin vX.Y.Z
+# The tag push runs this pipeline: it checks the tag matches pubspec's version
+# (ignoring the +build suffix), builds the signed APKs + Linux desktop tarball,
+# and publishes them to a GitHub Release.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # required to create the GitHub Release
+
+env:
+  FLUTTER_VERSION: "3.35.4"
+
+jobs:
+  # Fail fast if the tag and pubspec version disagree, before any build runs.
+  verify-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          set -euo pipefail
+          pubspec="$(sed -n 's/^version: *\([^+ ]*\).*/\1/p' pubspec.yaml)"
+          tag="${GITHUB_REF_NAME#v}"
+          echo "pubspec=$pubspec tag=$tag"
+          if [ "$pubspec" != "$tag" ]; then
+            echo "::error::pubspec.yaml version ($pubspec) does not match tag ($tag)"
+            exit 1
+          fi
+          echo "version=$pubspec" >> "$GITHUB_OUTPUT"
+
+  build-android:
+    needs: verify-version
+    runs-on: ubuntu-latest
+    env:
+      V: ${{ needs.verify-version.outputs.version }}
+    steps:
+      # fetch-depth: 0 pulls full history + tags so build_release.sh's
+      # `git describe --tags` resolves to the clean "vX.Y.Z".
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # Recreate the release keystore + key.properties from secrets.
+      # The base64 is piped straight to a file — never echoed.
+      - name: Restore signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          keystore="$GITHUB_WORKSPACE/android/app/release.jks"
+          echo "$KEYSTORE_B64" | base64 -d > "$keystore"
+          cat > android/key.properties <<EOF
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=$keystore
+          EOF
+
+      - run: flutter pub get
+
+      - name: Build APKs
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # per-ABI: arm64-v8a, armeabi-v7a, x86_64 (we ship the first two)
+          scripts/build_release.sh apk --split-per-abi
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk   "dist/kalinka-$V-arm64-v8a.apk"
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "dist/kalinka-$V-armeabi-v7a.apk"
+          # universal
+          scripts/build_release.sh apk
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/kalinka-$V.apk"
+
+      - name: Print signing cert
+        run: |
+          set -euo pipefail
+          apksigner="$(ls "$ANDROID_SDK_ROOT"/build-tools/*/apksigner | sort -V | tail -1)"
+          "$apksigner" verify --print-certs "dist/kalinka-$V-arm64-v8a.apk" | grep -i SHA-256 || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/*.apk
+          if-no-files-found: error
+
+  build-linux:
+    needs: verify-version
+    runs-on: ubuntu-latest
+    env:
+      V: ${{ needs.verify-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Install Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      - run: flutter pub get
+      - name: Build Linux desktop
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          scripts/build_release.sh linux
+          tar -czf "dist/kalinka-$V-linux-x64.tar.gz" \
+            --transform "s,^bundle,kalinka-$V-linux-x64," \
+            -C build/linux/x64/release bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs: [verify-version, build-android, build-linux]
+    runs-on: ubuntu-latest
+    env:
+      V: ${{ needs.verify-version.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          md5sum kalinka-* > md5.txt
+          cat md5.txt
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Kalinka ${{ env.V }}
+          tag_name: ${{ github.ref_name }}
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          files: |
+            dist/kalinka-${{ env.V }}-arm64-v8a.apk
+            dist/kalinka-${{ env.V }}-armeabi-v7a.apk
+            dist/kalinka-${{ env.V }}.apk
+            dist/kalinka-${{ env.V }}-linux-x64.tar.gz
+            dist/md5.txt
