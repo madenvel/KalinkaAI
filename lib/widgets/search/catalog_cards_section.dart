@@ -421,8 +421,10 @@ class _CardBackground extends ConsumerWidget {
     if (arts.isNotEmpty) {
       final resolver = ref.watch(urlResolverProvider);
       final heroPath = arts.length > 3 ? arts[3] : arts.first;
-      // Blur then tone, composed into one ImageFilter (one save-layer). Clamp
-      // keeps the blurred edges opaque; the blur lets a 400px decode suffice.
+      // Blur then tone. ColorFilter implements ImageFilter, so composing them
+      // is one ImageFilter / one save-layer — cheaper than a ColorFiltered
+      // wrapper on this save-layer-sensitive surface. Clamp keeps the blurred
+      // edges opaque; the blur lets a 400px decode suffice.
       base = ImageFiltered(
         imageFilter: ImageFilter.compose(
           outer: _kArtworkTone,

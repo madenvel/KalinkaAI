@@ -186,6 +186,9 @@ class _SourceSection extends ConsumerWidget {
 /// via the shared activity toast, captured up front so it survives the section
 /// scrolling away mid-request) and flips to a disabled "Added ✓" for three
 /// seconds before returning to "Add All" — a confirmation, not a permanent lock.
+/// Idle → busy (request in flight) → added (3s confirmation) → idle.
+enum _AddStatus { idle, busy, added }
+
 class _EnqueueAllButton extends ConsumerStatefulWidget {
   final List<String> trackIds;
 
@@ -196,7 +199,7 @@ class _EnqueueAllButton extends ConsumerStatefulWidget {
 }
 
 class _EnqueueAllButtonState extends ConsumerState<_EnqueueAllButton> {
-  bool _added = false;
+  _AddStatus _status = _AddStatus.idle;
   Timer? _resetTimer;
 
   @override
@@ -206,11 +209,10 @@ class _EnqueueAllButtonState extends ConsumerState<_EnqueueAllButton> {
   }
 
   Future<void> _enqueue() async {
-    setState(() => _added = true);
-    _resetTimer?.cancel();
-    _resetTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _added = false);
-    });
+    if (_status != _AddStatus.idle) return;
+    // Busy (disabled) while the request is in flight — the "Added ✓"
+    // confirmation only appears once the add actually succeeds.
+    setState(() => _status = _AddStatus.busy);
     KalinkaHaptics.mediumImpact();
     final api = ref.read(kalinkaProxyProvider);
     final toast = ref.read(toastProvider.notifier);
@@ -219,18 +221,30 @@ class _EnqueueAllButtonState extends ConsumerState<_EnqueueAllButton> {
     try {
       await api.add(widget.trackIds);
       toast.endQueueActivity('$n track${n == 1 ? '' : 's'} added to queue');
-    } catch (e) {
-      // Failed — drop the confirmation so they can retry immediately.
+      if (!mounted) return;
+      setState(() => _status = _AddStatus.added);
       _resetTimer?.cancel();
-      if (mounted) setState(() => _added = false);
+      _resetTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _status = _AddStatus.idle);
+      });
+    } catch (e) {
+      // Failed — back to idle so they can retry immediately.
+      if (mounted) setState(() => _status = _AddStatus.idle);
       toast.endQueueActivity('Failed to add: $e', isError: true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final Color fg = _added ? KalinkaColors.gold : KalinkaColors.textPrimary;
-    final Color border = _added
+    final added = _status == _AddStatus.added;
+    final busy = _status == _AddStatus.busy;
+    final label = added
+        ? 'Added'
+        : busy
+        ? 'Adding…'
+        : 'Add All';
+    final Color fg = added ? KalinkaColors.gold : KalinkaColors.textPrimary;
+    final Color border = added
         ? KalinkaColors.gold.withValues(alpha: 0.4)
         : KalinkaColors.borderDefault;
 
@@ -242,22 +256,22 @@ class _EnqueueAllButtonState extends ConsumerState<_EnqueueAllButton> {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        // Null while showing the confirmation — no ripple/hover, no re-add.
-        onTap: _added ? null : _enqueue,
+        // Enabled only when idle — no re-add while adding or confirming.
+        onTap: _status == _AddStatus.idle ? _enqueue : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                _added ? 'Added' : 'Add All',
+                label,
                 style: KalinkaFonts.sans(
                   fontSize: KalinkaTypography.baseSize + 1,
                   fontWeight: FontWeight.w600,
                   color: fg,
                 ),
               ),
-              if (_added) ...[
+              if (added) ...[
                 const SizedBox(width: 5),
                 const Icon(
                   Icons.check_rounded,
@@ -270,13 +284,19 @@ class _EnqueueAllButtonState extends ConsumerState<_EnqueueAllButton> {
         ),
       ),
     );
-    // Dim during the confirmation window so it reads as disabled.
-    if (_added) button = Opacity(opacity: 0.6, child: button);
+    // Dim while busy/confirming so it reads as disabled.
+    if (_status != _AddStatus.idle) {
+      button = Opacity(opacity: 0.6, child: button);
+    }
 
     return Semantics(
-      label: _added ? 'Added to queue' : 'Add all to queue',
+      label: added
+          ? 'Added to queue'
+          : busy
+          ? 'Adding to queue'
+          : 'Add all to queue',
       button: true,
-      enabled: !_added,
+      enabled: _status == _AddStatus.idle,
       child: button,
     );
   }
