@@ -2,9 +2,10 @@ Kalinka turns your phone into the remote for a Kalinka Music Server running on a
 
 <b>Features</b>
 
+• AI search and suggestions — describe what you want in plain language and the server curates matches from your library, powered by hybrid CLAP + full-text search
+• Discover and browse — AI prompt suggestions, catalog cards for your sources, recent searches and favourites
 • Playback and queue control — play/pause, seek, drag-to-reorder, swipe actions and batch selection
-• Library browsing and search — albums, artists and playlists with scope and genre filters, recent searches and favourites
-• AI search and suggestions — natural-language search over your local library and AI-curated track suggestions, powered by the server's hybrid CLAP + full-text search
+• Guided setup — a first-run wizard configures the server connection, audio output and music folders
 • Server discovery — finds Kalinka servers on your network automatically via mDNS; switch between servers in the app
 • Device volume — control supported output devices (e.g. Yamaha MusicCast)
 • Schema-driven settings — the server settings UI is generated from the server's own schema, with simple and expert tiers

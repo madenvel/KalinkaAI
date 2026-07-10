@@ -6,9 +6,9 @@ Website: [kalinkaplayer.com](https://kalinkaplayer.com)
 ## Getting started
 - **[Initial setup guide](docs/initial-setup.md)** — server installation,
   pointing it at your music collection, and connecting the app.
-- **[App manual](docs/app-manual.md)** — illustrated tour: connecting,
-  finding the server settings (the green dot!), adding music folders,
-  search and queueing.
+- **[App manual](docs/app-manual.md)** — illustrated tour: the setup
+  wizard, the server chip and settings, music folders, AI search and
+  queueing.
 
 Releases (Android APKs and a Linux desktop build) are on the
 [releases page](https://github.com/madenvel/KalinkaAI/releases).

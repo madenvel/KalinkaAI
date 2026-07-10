@@ -9,8 +9,12 @@ On the machine that will play the music (Raspberry Pi or any Debian-based
 Linux box connected to your audio gear), run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/madenvel/KalinkaPlayer/main/scripts/install-release.sh | sudo bash
+curl -fsSL https://kalinkaplayer.com/install.sh | sudo bash
 ```
+
+(The URL redirects to
+[`scripts/install-release.sh`](https://github.com/madenvel/KalinkaPlayer/blob/main/scripts/install-release.sh)
+in the server repo — read it there first if you prefer.)
 
 The script detects your architecture, downloads the matching packages from
 the [latest server release](https://github.com/madenvel/KalinkaPlayer/releases/latest),
@@ -72,37 +76,37 @@ by other users (`ls -l`), and fix with `chmod -R o+rX <mount>/music` if not.
 1. Install the Kalinka app
    ([releases](https://github.com/madenvel/KalinkaAI/releases)) on a phone
    on the same network.
-2. On first launch the app scans the network and lists every Kalinka server
-   it finds — pick yours and tap **Connect**. (No server found? See
-   [Troubleshooting](#troubleshooting).)
-3. Tap the **green status dot** (top-right of the search bar) →
-   **Server settings**.
-4. In the **Input Modules** tab, open **Local files** and check
-   **Music folders**: the default `/srv/kalinka/music` is already set —
-   add (or replace it with) your own path if your collection lives
-   elsewhere, e.g. a USB/NAS mount.
-5. In the **General** tab you can adjust the basics visible in the
-   simple tier:
+2. On first launch the setup wizard scans the network and lists every
+   Kalinka server it finds — pick yours and tap **Connect**. (No server
+   found? See [Troubleshooting](#troubleshooting).)
+3. The wizard walks you through the rest of the first-run configuration:
    - **Service name** — how the server appears in network discovery
      (useful when you run more than one).
    - **Audio output** — pick the ALSA device connected to your amplifier.
-   - **Device automation** — auto power on/off for supported external
-     devices (e.g. Yamaha MusicCast) and the pause timeout.
-   Advanced options live behind the **EXPERT** toggle (top-right).
+   - **Music folders** — the default `/srv/kalinka/music` is already
+     set; add (or replace it with) your own path if your collection
+     lives elsewhere, e.g. a USB/NAS mount.
+   - **Amplifier control** — auto power on/off for supported external
+     devices (e.g. Yamaha MusicCast).
+4. To change any of this later: tap the **server chip** (top-right, with
+   the green status dot) → **Server settings**. Music folders live in
+   the **Input Modules** tab under **Local files**; advanced options are
+   behind the **EXPERT** toggle (top-right).
 
 The indexer picks up the folder within the scan interval (15 minutes by
 default) and additionally watches for file changes; a freshly added
 collection starts appearing in search within moments of the first scan
 pass.
 
-### Optional: AI search
+### AI search
 
-AI natural-language search runs entirely on the server. On first use the
-server downloads its audio-embedding model (~285 MB, one-time) and then
-indexes your collection in the background — on a Raspberry Pi the initial
-embedding pass can take a while for large libraries. Search works
-normally (text matching) while that runs; AI results blend in as tracks
-get embedded.
+AI natural-language search — the app's built-in search mode — runs
+entirely on the server. On first use the server downloads its
+audio-embedding model (~285 MB, one-time) and then indexes your
+collection in the background — on a Raspberry Pi the initial embedding
+pass can take a while for large libraries. Search falls back to plain
+text matching while that runs; AI results blend in as tracks get
+embedded.
 
 ## Troubleshooting
 
