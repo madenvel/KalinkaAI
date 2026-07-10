@@ -228,9 +228,8 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
   }
 }
 
-/// Quiet footer under the result blocks — the escape hatch to Discover when
-/// the results didn't deliver. The session stays alive behind Discover and
-/// remains reachable via its "Back to results" pill.
+/// Quiet footer link to Discover when the results didn't deliver; the session
+/// stays alive behind it (reachable via the "Back to results" pill).
 class _DiscoverPrompt extends StatelessWidget {
   final VoidCallback onTap;
 
@@ -259,7 +258,6 @@ class _DiscoverPrompt extends StatelessWidget {
                   onTap();
                 },
                 behavior: HitTestBehavior.opaque,
-                // Generous padding keeps the text link comfortably tappable.
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 4,

@@ -6,10 +6,9 @@ import '../theme/app_theme.dart';
 
 enum SourceBadgeSize { standard, small }
 
-/// Whether a [SourceBadge] for [entityId] will render anything — false when
-/// there's only one source, the id is unparseable, or the source is the local
-/// (unmarked) library. Callers gate the badge's trailing spacer on this so no
-/// gap is left where a hidden badge would have been.
+/// Whether a [SourceBadge] for [entityId] renders anything — false for a
+/// single source, an unparseable id, or the local library. Callers gate the
+/// badge's trailing spacer on this so no gap is left when it's hidden.
 bool sourceBadgeVisible(WidgetRef ref, String entityId) {
   if (ref.watch(sourceCountProvider) <= 1) return false;
   final String source;

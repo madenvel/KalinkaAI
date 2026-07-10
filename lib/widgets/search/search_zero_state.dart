@@ -37,8 +37,7 @@ class SearchZeroState extends ConsumerWidget {
       padding: EdgeInsets.fromLTRB(16, 8, 16, 24 + bottomInset),
       children: [
         // ── BACK TO RESULTS ─────────────────────────────────────────────────
-        // A live session is parked behind Discover — one tap returns to its
-        // blocks intact (folded results, expansions and all).
+        // One tap returns to the live session parked behind Discover.
         if (session.blocks.isNotEmpty) ...[
           _BackToResultsPill(
             query: session.blocks.last.query,
@@ -112,8 +111,7 @@ class SearchZeroState extends ConsumerWidget {
       Text(text, style: KalinkaTextStyles.sectionLabel);
 }
 
-/// Slim accent pill returning to the live session parked behind Discover.
-/// Shows the latest query so it reads as "your search is still here".
+/// Slim accent pill returning to the live session, captioned with its query.
 class _BackToResultsPill extends StatelessWidget {
   final String query;
   final VoidCallback onTap;

@@ -9,11 +9,9 @@ import '../procedural_album_art.dart';
 import 'browse_item_rows.dart';
 import 'expand_chevron_button.dart';
 
-/// Catalog row for search results: a browsable sub-catalog (e.g. a "text"
-/// preview category that carries no cover art of its own). Presented like a
-/// playlist — a playlist glyph over generated art — and expands to its
-/// children, each dispatched back through [BrowseItemRows] so nested albums,
-/// tracks, artists and further catalogs all render with their own rows.
+/// Catalog row for search results: a browsable sub-catalog with no cover of
+/// its own. Presented like a playlist — a glyph over generated art — expanding
+/// to its children, each dispatched back through [BrowseItemRows].
 class SearchCatalogRow extends ConsumerWidget {
   final BrowseItem item;
 
@@ -60,7 +58,6 @@ class SearchCatalogRow extends ConsumerWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Generated art with a playlist glyph — the catalog has no cover.
                 SizedBox(
                   width: 60,
                   height: 60,

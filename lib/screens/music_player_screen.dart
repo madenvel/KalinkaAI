@@ -58,10 +58,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
   // so its overlay covers the search dock like the connection sheet.
   bool _queueTrayOpen = false;
 
-  // The playback-error dialog currently on screen, if any. The error listener
-  // can re-fire with the player still in error state (the state store re-syncs
-  // whenever the app resumes / reconnects), so without this guard each resume
-  // stacked another copy of the same dialog.
+  // Tracks the on-screen playback-error dialog so a re-fired error (the state
+  // store re-syncs on resume/reconnect) doesn't stack another copy.
   ModalRoute<void>? _playbackErrorRoute;
   String? _playbackErrorMessage;
   int _playbackErrorGen = 0;

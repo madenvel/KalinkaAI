@@ -257,9 +257,6 @@ class _CardBodyState extends State<_CardBody> {
     final tint = widget.tint;
     final description = plan.description?.trim() ?? '';
 
-    // A composed hero card: artwork/gradient background under a dark scrim,
-    // with the icon, title, description and preview row laid over it. Press
-    // dips the scale, hover brightens the border.
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => _setHover(true),
@@ -284,9 +281,8 @@ class _CardBodyState extends State<_CardBody> {
                 width: 1,
               ),
             ),
-            // Clip the artwork one radius step inside the frame — clipping at
-            // the outer radius would run the image under the 1px border and
-            // visually erase the rounded corners.
+            // Clip one step inside the frame, else the image runs under the
+            // border and swallows the rounded corners.
             child: ClipRRect(
               borderRadius: BorderRadius.circular(_kCardRadius - 1),
               child: Stack(
@@ -333,9 +329,6 @@ class _CardBodyState extends State<_CardBody> {
                           ),
                         ],
                         const SizedBox(height: 14),
-                        // Textual catalogs (a "text" preview, e.g. sub-category
-                        // indexes) have no covers — show their item names as
-                        // colour-coded chips instead of artwork thumbnails.
                         if (widget.preview.fill == CatalogCardFill.textual)
                           _TextualPreview(
                             names: widget.preview.names,
@@ -421,10 +414,8 @@ class _CardBackground extends ConsumerWidget {
     if (arts.isNotEmpty) {
       final resolver = ref.watch(urlResolverProvider);
       final heroPath = arts.length > 3 ? arts[3] : arts.first;
-      // Blur then tone. ColorFilter implements ImageFilter, so composing them
-      // is one ImageFilter / one save-layer — cheaper than a ColorFiltered
-      // wrapper on this save-layer-sensitive surface. Clamp keeps the blurred
-      // edges opaque; the blur lets a 400px decode suffice.
+      // ColorFilter is an ImageFilter, so compose keeps blur+tone to one
+      // save-layer. Clamp keeps blurred edges opaque; 400px decode suffices.
       base = ImageFiltered(
         imageFilter: ImageFilter.compose(
           outer: _kArtworkTone,
@@ -448,9 +439,9 @@ class _CardBackground extends ConsumerWidget {
       fit: StackFit.expand,
       children: [
         base,
-        // Flat floor keeps pale art from greying the card.
+        // Flat floor, then a top-left-deep directional gradient, a bottom
+        // scrim, and an edge vignette.
         const ColoredBox(color: Color(0x61000000)),
-        // Directional: darkest top-left (behind the text), clear at the right.
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -461,7 +452,6 @@ class _CardBackground extends ConsumerWidget {
             ),
           ),
         ),
-        // Bottom scrim behind the preview thumbnails.
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -472,7 +462,6 @@ class _CardBackground extends ConsumerWidget {
             ),
           ),
         ),
-        // Edge vignette.
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: RadialGradient(
@@ -505,8 +494,6 @@ class _PreviewRow extends ConsumerWidget {
         : const <String>[];
     final resolver = arts.isNotEmpty ? ref.watch(urlResolverProvider) : null;
 
-    // Expanded squares rather than a fixed size: the thumbnails absorb
-    // whatever width the card offers and scale with the grid.
     return Row(
       children: [
         for (int i = 0; i < 3; i++) ...[
@@ -524,17 +511,14 @@ class _PreviewRow extends ConsumerWidget {
   }
 }
 
-/// A distinct, stable colour for a category name — its "identity" tint on the
-/// textual catalog cards.
+/// A stable colour per category name.
 Color _categoryColor(String name) {
   final hue = (name.toLowerCase().hashCode % 360).toDouble().abs();
   return HSLColor.fromAHSL(1, hue, 0.55, 0.66).toColor();
 }
 
-/// Textual catalogs have no covers: list their category names (colour-coded by
-/// [_categoryColor]) in the same footprint as the three-thumbnail preview row,
-/// so textual and artwork cards keep the same height. A corner badge shows the
-/// catalog's total when known.
+/// Category names for a coverless (textual) catalog, in the same footprint as
+/// the three-thumbnail row so card heights match. Corner badge shows the total.
 class _TextualPreview extends StatelessWidget {
   final List<String> names;
   final int? itemCount;

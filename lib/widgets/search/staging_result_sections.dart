@@ -137,9 +137,8 @@ class _SourceSection extends ConsumerWidget {
                 children: [
                   Text(
                     title.toUpperCase(),
-                    // Title + icon take the source badge colour; a cross-source
-                    // section (no single source) falls back to bright neutral,
-                    // never the accent. The source name below stays quieter.
+                    // Source badge colour; bright neutral (never accent) when
+                    // cross-source.
                     style: KalinkaTextStyles.sectionLabel.copyWith(
                       color: tint ?? KalinkaColors.textPrimary,
                     ),
@@ -182,10 +181,7 @@ class _SourceSection extends ConsumerWidget {
   }
 }
 
-/// Enqueue every track in a section. On tap it appends to the queue (reporting
-/// via the shared activity toast, captured up front so it survives the section
-/// scrolling away mid-request) and flips to a disabled "Added ✓" for three
-/// seconds before returning to "Add All" — a confirmation, not a permanent lock.
+/// Enqueue every track in a section, reporting via the shared activity toast.
 /// Idle → busy (request in flight) → added (3s confirmation) → idle.
 enum _AddStatus { idle, busy, added }
 
