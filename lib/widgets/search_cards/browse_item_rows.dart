@@ -31,6 +31,10 @@ class BrowseItemRows extends StatelessWidget {
   /// sections, where the only divider is between sections, not their rows.
   final bool dividers;
 
+  /// When set, tapping a track row plays this whole list as the queue,
+  /// starting from the tapped track, instead of playing the track alone.
+  final List<String>? queueContextIds;
+
   const BrowseItemRows({
     super.key,
     required this.items,
@@ -38,6 +42,7 @@ class BrowseItemRows extends StatelessWidget {
     this.isExpanded = false,
     this.onToggleExpand,
     this.dividers = true,
+    this.queueContextIds,
   });
 
   @override
@@ -89,7 +94,7 @@ class BrowseItemRows extends StatelessWidget {
   Widget _rowFor(BrowseItem item) {
     switch (item.browseType) {
       case BrowseType.track:
-        return SearchTrackRow(item: item);
+        return SearchTrackRow(item: item, queueContextIds: queueContextIds);
       case BrowseType.album:
         return SearchAlbumRow(item: item);
       case BrowseType.artist:

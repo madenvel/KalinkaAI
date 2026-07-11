@@ -13,6 +13,7 @@ import '../../utils/play_next.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
 import '../swipe_to_act_row.dart';
+import 'container_action_header.dart';
 import 'expand_chevron_button.dart';
 import 'long_press_ring_painter.dart';
 import 'track_row_support.dart';
@@ -290,7 +291,7 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow>
                       ),
                     ),
                   ),
-                  child: _ExpandedPlaylistTracks(playlistId: widget.item.id),
+                  child: _ExpandedPlaylistTracks(item: widget.item),
                 )
               : const SizedBox.shrink(),
           crossFadeState: isExpanded
@@ -307,16 +308,43 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow>
 }
 
 class _ExpandedPlaylistTracks extends ConsumerWidget {
-  final String playlistId;
+  final BrowseItem item;
 
-  const _ExpandedPlaylistTracks({required this.playlistId});
+  const _ExpandedPlaylistTracks({required this.item});
+
+  String get playlistId => item.id;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tracksAsync = ref.watch(browseDetailProvider(playlistId));
 
     return tracksAsync.when(
-      data: (browseList) => _buildTrackList(browseList.items, ref),
+      data: (browseList) {
+        final items = browseList.items;
+        if (items.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              'No tracks in this playlist',
+              style: KalinkaTextStyles.trackRowSubtitle,
+            ),
+          );
+        }
+        final totalSeconds = items.fold<int>(
+          0,
+          (sum, it) => sum + (it.track?.duration ?? 0),
+        );
+        return Column(
+          children: [
+            ContainerActionHeader(
+              item: item,
+              trackCount: items.length,
+              totalDurationSeconds: totalSeconds > 0 ? totalSeconds : null,
+            ),
+            _buildTrackList(items, ref),
+          ],
+        );
+      },
       loading: () => const Padding(
         padding: EdgeInsets.all(16),
         child: Center(
@@ -546,7 +574,8 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack>
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              // Right 8 lands the duration on the chevrons' right edge.
+              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
               decoration: BoxDecoration(
                 color: rowBg,
                 border: selectionMode && inSelectionHighlight
@@ -666,16 +695,11 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack>
                       ],
                     ),
                   ),
-                  if (!selectionMode) ...[
-                    if (duration != null)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Text(
-                          duration,
-                          style: KalinkaTextStyles.trackRowSubtitle,
-                        ),
-                      ),
-                  ],
+                  if (!selectionMode && duration != null)
+                    Text(
+                      duration,
+                      style: KalinkaTextStyles.trackRowSubtitle,
+                    ),
                 ],
               ),
             ),

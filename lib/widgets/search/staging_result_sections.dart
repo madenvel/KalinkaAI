@@ -10,6 +10,7 @@ import '../../providers/source_modules_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
+import '../search_cards/action_icon_chip.dart';
 import '../search_cards/browse_item_rows.dart';
 
 /// Renders one query block's results as per-source sections. Results are
@@ -155,15 +156,21 @@ class _SourceSection extends ConsumerWidget {
                 ],
               ),
             ),
-            // Track sections get a quick add-to-queue button; in multi-select
-            // mode it gives way to Select all. Album/artist sections have no
-            // trackIds, so nothing shows here.
-            if (trackIds.isNotEmpty)
-              if (selectionMode)
-                _SelectAllButton(trackIds: trackIds)
-              else
-                _EnqueueAllButton(trackIds: trackIds),
-            const SizedBox(width: 18),
+            // Section-wide actions as icon chips: play-all replaces the queue
+            // with this section's tracks, add-all appends without touching
+            // playback. In multi-select mode they give way to Select all.
+            // Album/artist sections have no trackIds, so nothing shows here.
+            if (trackIds.isNotEmpty && selectionMode) ...[
+              _SelectAllButton(trackIds: trackIds),
+            ],
+            if (trackIds.isNotEmpty && !selectionMode) ...[
+              _PlayAllChip(trackIds: trackIds),
+              const SizedBox(width: 8),
+              _AddAllChip(trackIds: trackIds),
+
+              // Lands the 32px chip on the chevrons' 8px right-edge inset.
+            ],
+            const SizedBox(width: 2),
           ],
         ),
         const SizedBox(height: 10),
@@ -175,8 +182,57 @@ class _SourceSection extends ConsumerWidget {
           isExpanded: isExpanded,
           onToggleExpand: onToggleExpand,
           dividers: false,
+          // Tapping a loose track plays the whole section from that track —
+          // the section becomes the queue, giving it a coherent identity.
+          queueContextIds: trackIds,
         ),
       ],
+    );
+  }
+}
+
+/// Play a whole section now: its tracks become the queue, starting from the
+/// first. The berry tint marks it as the default action; the additive
+/// add-all chip beside it stays neutral.
+class _PlayAllChip extends ConsumerStatefulWidget {
+  final List<String> trackIds;
+
+  const _PlayAllChip({required this.trackIds});
+
+  @override
+  ConsumerState<_PlayAllChip> createState() => _PlayAllChipState();
+}
+
+class _PlayAllChipState extends ConsumerState<_PlayAllChip> {
+  bool _busy = false;
+
+  Future<void> _playAll() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    KalinkaHaptics.mediumImpact();
+    final api = ref.read(kalinkaProxyProvider);
+    final n = widget.trackIds.length;
+    await runQueueActivity(
+      pending: 'Starting playback…',
+      action: () async {
+        await api.clear();
+        await api.add(widget.trackIds);
+        await api.play(0);
+      },
+      done: (_) => 'Playing $n track${n == 1 ? '' : 's'}',
+      failed: (e) => 'Failed to play: $e',
+    );
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionIconChip(
+      icon: Icons.play_arrow_rounded,
+      accent: true,
+      enabled: !_busy,
+      onTap: _playAll,
+      semanticsLabel: 'Play all tracks in this section',
     );
   }
 }
@@ -185,16 +241,16 @@ class _SourceSection extends ConsumerWidget {
 /// Idle → busy (request in flight) → added (3s confirmation) → idle.
 enum _AddStatus { idle, busy, added }
 
-class _EnqueueAllButton extends ConsumerStatefulWidget {
+class _AddAllChip extends ConsumerStatefulWidget {
   final List<String> trackIds;
 
-  const _EnqueueAllButton({required this.trackIds});
+  const _AddAllChip({required this.trackIds});
 
   @override
-  ConsumerState<_EnqueueAllButton> createState() => _EnqueueAllButtonState();
+  ConsumerState<_AddAllChip> createState() => _AddAllChipState();
 }
 
-class _EnqueueAllButtonState extends ConsumerState<_EnqueueAllButton> {
+class _AddAllChipState extends ConsumerState<_AddAllChip> {
   _AddStatus _status = _AddStatus.idle;
   Timer? _resetTimer;
 
@@ -233,67 +289,18 @@ class _EnqueueAllButtonState extends ConsumerState<_EnqueueAllButton> {
   @override
   Widget build(BuildContext context) {
     final added = _status == _AddStatus.added;
-    final busy = _status == _AddStatus.busy;
-    final label = added
-        ? 'Added'
-        : busy
-        ? 'Adding…'
-        : 'Add All';
-    final Color fg = added ? KalinkaColors.gold : KalinkaColors.textPrimary;
-    final Color border = added
-        ? KalinkaColors.gold.withValues(alpha: 0.4)
-        : KalinkaColors.borderDefault;
-
-    Widget button = Material(
-      color: KalinkaColors.surfaceElevated,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: border, width: 1),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        // Enabled only when idle — no re-add while adding or confirming.
-        onTap: _status == _AddStatus.idle ? _enqueue : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: KalinkaFonts.sans(
-                  fontSize: KalinkaTypography.baseSize + 1,
-                  fontWeight: FontWeight.w600,
-                  color: fg,
-                ),
-              ),
-              if (added) ...[
-                const SizedBox(width: 5),
-                const Icon(
-                  Icons.check_rounded,
-                  size: 15,
-                  color: KalinkaColors.gold,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-    // Dim while busy/confirming so it reads as disabled.
-    if (_status != _AddStatus.idle) {
-      button = Opacity(opacity: 0.6, child: button);
-    }
-
-    return Semantics(
-      label: added
+    return ActionIconChip(
+      icon: added ? Icons.check_rounded : Icons.playlist_add_rounded,
+      // Enabled only when idle — no re-add while adding or confirming.
+      enabled: _status == _AddStatus.idle,
+      onTap: _enqueue,
+      iconOverride: added ? KalinkaColors.gold : null,
+      borderOverride: added ? KalinkaColors.gold.withValues(alpha: 0.4) : null,
+      semanticsLabel: added
           ? 'Added to queue'
-          : busy
+          : _status == _AddStatus.busy
           ? 'Adding to queue'
           : 'Add all to queue',
-      button: true,
-      enabled: _status == _AddStatus.idle,
-      child: button,
     );
   }
 }
@@ -326,28 +333,35 @@ class _SelectAllButton extends ConsumerWidget {
           }
         },
         behavior: HitTestBehavior.opaque,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: allSelected
-                ? KalinkaColors.accentSubtle
-                : KalinkaColors.surfaceElevated,
-            border: Border.all(
-              color: allSelected
-                  ? KalinkaColors.accentBorder
-                  : KalinkaColors.borderDefault,
-              width: 1,
-            ),
-          ),
-          child: Text(
-            allSelected ? 'Clear' : 'Select all',
-            style: KalinkaFonts.sans(
-              fontSize: KalinkaTypography.baseSize + 1,
-              fontWeight: FontWeight.w600,
-              color: allSelected
-                  ? KalinkaColors.accentTint
-                  : KalinkaColors.textPrimary,
+        // Same 44px slot as the Play all / Add all chips it replaces, so the
+        // header height doesn't jump when selection mode toggles.
+        child: SizedBox(
+          height: 44,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: allSelected
+                    ? KalinkaColors.accentSubtle
+                    : KalinkaColors.surfaceElevated,
+                border: Border.all(
+                  color: allSelected
+                      ? KalinkaColors.accentBorder
+                      : KalinkaColors.borderDefault,
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                allSelected ? 'Clear' : 'Select all',
+                style: KalinkaFonts.sans(
+                  fontSize: KalinkaTypography.baseSize + 1,
+                  fontWeight: FontWeight.w600,
+                  color: allSelected
+                      ? KalinkaColors.accentTint
+                      : KalinkaColors.textPrimary,
+                ),
+              ),
             ),
           ),
         ),

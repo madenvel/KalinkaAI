@@ -5,19 +5,20 @@ import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
 
 /// The search bar pill at the top of the search screen. One line at rest —
-/// an AI sparkle, the text field, then the send button on the right — and
-/// grows to a few lines as the content wraps, the controls staying
-/// pinned to the first line. The send button (an accent down-arrow) surfaces
-/// only once the field holds non-whitespace text. Submitting fires the query
-/// and clears the field. The border is accent while the field holds focus,
-/// grey otherwise.
+/// an AI sparkle, the text field, then a neutral ✕ (clear) and the accent
+/// send arrow on the right — and grows to a few lines as pasted content
+/// wraps, the controls staying pinned to the first line. Both buttons surface
+/// only once the field holds non-whitespace text. Submitting fires the query,
+/// clears the field and dismisses the keyboard. The border is accent while
+/// the field holds focus, grey otherwise.
 ///
 /// The parent owns the framing (top-bar strip, safe area); this widget is
 /// just the pill.
 ///
 /// There is deliberately no onChanged search hook: typing never triggers a
-/// query. The query fires only on explicit send (the button, or hardware Enter
-/// where a physical keyboard exists — Shift+Enter inserts a newline).
+/// query. The query fires on the soft keyboard's search action, hardware
+/// Enter (Shift+Enter inserts a newline), or the send button — kept for
+/// mouse-only paste on desktop, where no Enter press is available.
 class SearchComposer extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -120,7 +121,11 @@ class _SearchComposerState extends State<SearchComposer> {
                     minLines: 1,
                     maxLines: 5,
                     keyboardType: TextInputType.multiline,
-                    textInputAction: TextInputAction.newline,
+                    // Enter on the soft keyboard finishes the entry: submits
+                    // and closes the keyboard (newlines only via Shift+Enter
+                    // on hardware keyboards; pasted ones still wrap).
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => _submit(),
                     textCapitalization: TextCapitalization.sentences,
                     decoration: InputDecoration(
                       hintText: 'Ask for music…',
@@ -133,42 +138,72 @@ class _SearchComposerState extends State<SearchComposer> {
                 ),
               ),
             ),
-            // Send — appears only when there's text to submit; pinned to the
-            // first line as the field grows.
-            _buildSendButton(),
+            // Clear (✕) + send — appear only when there's text; pinned to
+            // the first line as the field grows.
+            _buildTrailingButtons(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSendButton() {
-    // Rebuilds on every keystroke (without firing any search) so the button
-    // shows up only once there's non-whitespace text to submit. Results appear
-    // below the bar, so a downward accent arrow reads as "send it down".
+  void _clear() {
+    KalinkaHaptics.lightImpact();
+    widget.controller.clear();
+    // Keep focus so a corrected query can be typed straight away.
+    widget.focusNode.requestFocus();
+  }
+
+  Widget _buildTrailingButtons() {
+    // Rebuilds on every keystroke (without firing any search) so the buttons
+    // show up only once there's non-whitespace text. Results appear below the
+    // bar, so a downward accent arrow reads as "send it down".
     return AnimatedBuilder(
       animation: widget.controller,
       builder: (context, _) {
         final hasText = widget.controller.text.trim().isNotEmpty;
         if (!hasText) return const SizedBox.shrink();
         return Padding(
-          padding: const EdgeInsets.only(left: 8),
-          child: Semantics(
-            label: 'Send',
-            button: true,
-            child: GestureDetector(
-              onTap: _submit,
-              behavior: HitTestBehavior.opaque,
-              child: const SizedBox(
-                width: 32,
-                height: 32,
-                child: Icon(
-                  Icons.arrow_downward_rounded,
-                  size: 22,
-                  color: KalinkaColors.accent,
+          padding: const EdgeInsets.only(left: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Semantics(
+                label: 'Clear search text',
+                button: true,
+                child: GestureDetector(
+                  onTap: _clear,
+                  behavior: HitTestBehavior.opaque,
+                  child: const SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 20,
+                      color: KalinkaColors.textSecondary,
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 2),
+              Semantics(
+                label: 'Send',
+                button: true,
+                child: GestureDetector(
+                  onTap: _submit,
+                  behavior: HitTestBehavior.opaque,
+                  child: const SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: Icon(
+                      Icons.arrow_downward_rounded,
+                      size: 22,
+                      color: KalinkaColors.accent,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },

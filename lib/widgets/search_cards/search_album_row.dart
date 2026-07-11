@@ -13,6 +13,7 @@ import '../../utils/play_next.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
 import '../swipe_to_act_row.dart';
+import 'container_action_header.dart';
 import 'expand_chevron_button.dart';
 import 'long_press_ring_painter.dart';
 import 'track_row_support.dart';
@@ -91,6 +92,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
 
     final subtitleParts = <String>[
       if (artist.isNotEmpty) artist,
+      if (album?.year != null) '${album!.year}',
       if (trackCount != null)
         '$trackCount ${trackCount == 1 ? 'track' : 'tracks'}',
     ];
@@ -236,24 +238,22 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (subtitle.isNotEmpty)
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              if (sourceBadgeVisible(ref, widget.item.id)) ...[
-                                SourceBadge(entityId: widget.item.id),
-                                const SizedBox(width: 6),
-                              ],
-                              Expanded(
-                                child: Text(
-                                  subtitle,
-                                  style: KalinkaTextStyles.trackRowSubtitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (sourceBadgeVisible(ref, widget.item.id)) ...[
+                              SourceBadge(entityId: widget.item.id),
+                              const SizedBox(width: 6),
                             ],
-                          ),
+                            Expanded(
+                              child: Text.rich(
+                                entityTypeSubtitle('Album', subtitle),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                         if (genre != null) ...[
                           const SizedBox(height: 4),
                           Container(
@@ -298,7 +298,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
                       ),
                     ),
                   ),
-                  child: _ExpandedAlbumTracks(albumId: widget.item.id),
+                  child: _ExpandedAlbumTracks(item: widget.item),
                 )
               : const SizedBox.shrink(),
           crossFadeState: isExpanded
@@ -315,9 +315,11 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
 }
 
 class _ExpandedAlbumTracks extends ConsumerWidget {
-  final String albumId;
+  final BrowseItem item;
 
-  const _ExpandedAlbumTracks({required this.albumId});
+  const _ExpandedAlbumTracks({required this.item});
+
+  String get albumId => item.id;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -339,7 +341,20 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
             ),
           );
         }
-        return _buildTrackList(display, ref);
+        final totalSeconds = display.fold<int>(
+          0,
+          (sum, it) => sum + (it.track?.duration ?? 0),
+        );
+        return Column(
+          children: [
+            ContainerActionHeader(
+              item: item,
+              trackCount: display.length,
+              totalDurationSeconds: totalSeconds > 0 ? totalSeconds : null,
+            ),
+            _buildTrackList(display, ref),
+          ],
+        );
       },
       loading: () => const Padding(
         padding: EdgeInsets.all(16),
@@ -568,7 +583,8 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow>
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              // Right 8 lands the duration on the chevrons' right edge.
+              padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
               decoration: BoxDecoration(color: rowBg),
               child: AnimatedOpacity(
                 opacity: dimmed ? 0.7 : 1.0,
@@ -626,16 +642,11 @@ class _InlineTrackRowState extends ConsumerState<_InlineTrackRow>
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (!selectionMode) ...[
-                      if (duration != null)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Text(
-                            duration,
-                            style: KalinkaTextStyles.trackRowSubtitle,
-                          ),
-                        ),
-                    ],
+                    if (!selectionMode && duration != null)
+                      Text(
+                        duration,
+                        style: KalinkaTextStyles.trackRowSubtitle,
+                      ),
                   ],
                 ),
               ),

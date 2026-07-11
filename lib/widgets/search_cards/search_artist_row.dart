@@ -7,6 +7,7 @@ import '../../providers/search_state_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/haptics.dart';
 import '../../utils/play_next.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
@@ -18,6 +19,15 @@ import 'search_album_row.dart';
 import 'track_row_support.dart';
 
 const _dimmedColor = Color(0xFF48485A);
+
+/// Luma-weighted grayscale for the artist avatar while multi-select is
+/// active — artists aren't selectable, so they drop to black & white.
+const ColorFilter _grayscaleFilter = ColorFilter.matrix(<double>[
+  0.2126, 0.7152, 0.0722, 0, 0, //
+  0.2126, 0.7152, 0.0722, 0, 0, //
+  0.2126, 0.7152, 0.0722, 0, 0, //
+  0, 0, 0, 1, 0,
+]);
 
 /// Artist row for search results.
 /// Collapsed: 52x52 circular avatar, name, stats, Top Tracks + Browse buttons.
@@ -43,6 +53,11 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
         (s) => s.expandedArtistIds.contains(widget.item.id),
       ),
     );
+    // Artists aren't a playable unit, so they sit out multi-select: the row
+    // greys out (B&W avatar, dimmed) and ignores taps while it's active.
+    final selectionMode = ref.watch(
+      selectionStateProvider.select((s) => s.isActive),
+    );
 
     final artist = widget.item.artist;
     final name = artist?.name ?? widget.item.name ?? 'Unknown';
@@ -62,15 +77,20 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
       children: [
         // Artist header row
         GestureDetector(
-          onTap: _toggleExpand,
+          onTap: selectionMode ? null : _toggleExpand,
+          onLongPress: () {
+            KalinkaHaptics.lightImpact();
+            showSafeToast('Artists can’t be multi-selected');
+          },
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
+            // Right 0 keeps the chevron on the shared right-edge line.
             padding: EdgeInsets.only(
               top: 10,
               bottom: 10,
               left: isExpanded ? 0 : 3,
-              right: 4,
+              right: 0,
             ),
             decoration: BoxDecoration(
               color: isExpanded
@@ -85,93 +105,101 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
                     )
                   : null,
             ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 52),
-              child: Row(
-                children: [
-                  // Circular avatar 52x52
-                  // Note: previously wrapped in a Container with
-                  // BoxShadow(blurRadius: 14). The 14px blur is GPU-
-                  // expensive (~5x cost of a 6px blur) and forces a
-                  // saveLayer per artist row. Removed to keep scroll smooth
-                  // when the BASED ON NOW PLAYING section surfaces several
-                  // artist rows in the first viewport.
-                  SizedBox(
-                    width: 52,
-                    height: 52,
-                    child: ClipOval(
-                      child: resolvedImageUrl != null
-                          ? Image(
-                              // ResizeImage.fit preserves aspect ratio at decode
-                              // time. The Image.network shortcut wraps with the
-                              // default ResizeImagePolicy.exact, which squashes
-                              // non-square artist photos into 156x156 — visible
-                              // as stretching even after BoxFit.cover.
-                              image: ResizeImage(
-                                NetworkImage(resolvedImageUrl),
-                                width: 156,
-                                height: 156,
-                                policy: ResizeImagePolicy.fit,
-                              ),
-                              width: 52,
-                              height: 52,
-                              fit: BoxFit.cover,
-                              gaplessPlayback: true,
-                              filterQuality: FilterQuality.low,
-                              errorBuilder: (_, __, ___) => ProceduralAlbumArt(
-                                trackId: widget.item.id,
-                                size: 52,
-                              ),
-                            )
-                          : ProceduralAlbumArt(
-                              trackId: widget.item.id,
-                              size: 52,
-                            ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Name (with source badge) + stats
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            if (sourceBadgeVisible(ref, widget.item.id)) ...[
-                              SourceBadge(entityId: widget.item.id),
-                              const SizedBox(width: 6),
-                            ],
-                            Flexible(
-                              child: Text(
-                                name,
-                                style: KalinkaTextStyles.trackRowTitle.copyWith(
-                                  fontWeight: FontWeight.w600,
+            child: AnimatedOpacity(
+              opacity: selectionMode ? 0.45 : 1.0,
+              duration: const Duration(milliseconds: 180),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 52),
+                child: Row(
+                  children: [
+                    // Circular avatar 52x52
+                    // Note: previously wrapped in a Container with
+                    // BoxShadow(blurRadius: 14). The 14px blur is GPU-
+                    // expensive (~5x cost of a 6px blur) and forces a
+                    // saveLayer per artist row. Removed to keep scroll smooth
+                    // when the BASED ON NOW PLAYING section surfaces several
+                    // artist rows in the first viewport.
+                    _GrayscaleWhen(
+                      active: selectionMode,
+                      child: SizedBox(
+                        width: 52,
+                        height: 52,
+                        child: ClipOval(
+                          child: resolvedImageUrl != null
+                              ? Image(
+                                  // ResizeImage.fit preserves aspect ratio at decode
+                                  // time. The Image.network shortcut wraps with the
+                                  // default ResizeImagePolicy.exact, which squashes
+                                  // non-square artist photos into 156x156 — visible
+                                  // as stretching even after BoxFit.cover.
+                                  image: ResizeImage(
+                                    NetworkImage(resolvedImageUrl),
+                                    width: 156,
+                                    height: 156,
+                                    policy: ResizeImagePolicy.fit,
+                                  ),
+                                  width: 52,
+                                  height: 52,
+                                  fit: BoxFit.cover,
+                                  gaplessPlayback: true,
+                                  filterQuality: FilterQuality.low,
+                                  errorBuilder: (_, __, ___) =>
+                                      ProceduralAlbumArt(
+                                        trackId: widget.item.id,
+                                        size: 52,
+                                      ),
+                                )
+                              : ProceduralAlbumArt(
+                                  trackId: widget.item.id,
+                                  size: 52,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
                         ),
-                        if (stats.isNotEmpty)
-                          Text(
-                            stats,
-                            style: KalinkaTextStyles.trackRowSubtitle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Name (with source badge) + stats
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (sourceBadgeVisible(ref, widget.item.id)) ...[
+                                SourceBadge(entityId: widget.item.id),
+                                const SizedBox(width: 6),
+                              ],
+                              Flexible(
+                                child: Text(
+                                  name,
+                                  style: KalinkaTextStyles.trackRowTitle
+                                      .copyWith(fontWeight: FontWeight.w600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text.rich(
+                            entityTypeSubtitle('Artist', stats),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Chevron button
-                  ExpandChevronButton(
-                    isExpanded: isExpanded,
-                    onTap: _toggleExpand,
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    // Chevron button
+                    IgnorePointer(
+                      ignoring: selectionMode,
+                      child: ExpandChevronButton(
+                        isExpanded: isExpanded,
+                        onTap: _toggleExpand,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -195,6 +223,21 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
         ),
       ],
     );
+  }
+}
+
+/// Applies the grayscale filter only when [active] — skips the ColorFiltered
+/// saveLayer cost in the common (non-selection) case.
+class _GrayscaleWhen extends StatelessWidget {
+  final bool active;
+  final Widget child;
+
+  const _GrayscaleWhen({required this.active, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!active) return child;
+    return ColorFiltered(colorFilter: _grayscaleFilter, child: child);
   }
 }
 
@@ -388,7 +431,8 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow>
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          // Right 8 lands the duration on the chevrons' right edge.
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
           decoration: BoxDecoration(
             color: selectionMode && inSelectionHighlight
                 ? KalinkaColors.accent.withValues(alpha: 0.05)
@@ -441,15 +485,8 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow>
                 ),
               ),
               // Duration
-              if (!selectionMode)
-                if (duration != null)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(
-                      duration,
-                      style: KalinkaTextStyles.trackRowSubtitle,
-                    ),
-                  ),
+              if (!selectionMode && duration != null)
+                Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
             ],
           ),
         ),
@@ -704,10 +741,7 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection>
       margin: const EdgeInsets.only(left: 16),
       decoration: const BoxDecoration(
         border: Border(
-          left: BorderSide(
-            color: KalinkaColors.borderSubtle,
-            width: 1,
-          ),
+          left: BorderSide(color: KalinkaColors.borderSubtle, width: 1),
         ),
       ),
       child: Column(

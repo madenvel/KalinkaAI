@@ -16,13 +16,18 @@ import 'track_row_support.dart';
 
 /// Track row for search results.
 /// ~60px height, 44x44 thumbnail, title/artist/duration.
-/// Tap row = play now (replaces queue).
+/// Tap row = play now (replaces queue). With [queueContextIds] the list the
+/// row belongs to becomes the queue, playhead on the tapped track.
 /// Swipe right = add to queue / play next.
 /// Long-press row = enter multi-select.
 class SearchTrackRow extends ConsumerStatefulWidget {
   final BrowseItem item;
 
-  const SearchTrackRow({super.key, required this.item});
+  /// The sibling track ids of the list this row was tapped from (e.g. its
+  /// search section). Null → tapping plays just this track.
+  final List<String>? queueContextIds;
+
+  const SearchTrackRow({super.key, required this.item, this.queueContextIds});
 
   @override
   ConsumerState<SearchTrackRow> createState() => _SearchTrackRowState();
@@ -73,19 +78,34 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
     if (!reduceMotion) _flashController.forward(from: 0.0);
 
     final api = ref.read(kalinkaProxyProvider);
+    final ctx = widget.queueContextIds ?? const <String>[];
+    final ctxIndex = ctx.indexOf(widget.item.id);
+    final useContext = ctx.length > 1 && ctxIndex >= 0;
+    final toast = ref.read(toastProvider.notifier);
+    if (useContext) toast.beginQueueActivity('Starting playback…');
     try {
       await api.clear();
-      await api.add([widget.item.id]);
-      // Explicit index 0 avoids a backend race where a stale FINISHED event
-      // from the just-cleared stream advances current_track_id before play().
-      await api.play(0);
+      if (useContext) {
+        await api.add(ctx);
+        await api.play(ctxIndex);
+        toast.endQueueActivity('Playing ${ctx.length} tracks');
+      } else {
+        await api.add([widget.item.id]);
+        // Explicit index 0 avoids a backend race where a stale FINISHED event
+        // from the just-cleared stream advances current_track_id before play().
+        await api.play(0);
+      }
     } catch (e) {
       // API failed — revert optimistic flash.
       if (mounted) {
         _flashController.reset();
         setState(() => _tappedToPlay = false);
       }
-      showSafeToast('Failed to play: $e', isError: true);
+      if (useContext) {
+        toast.endQueueActivity('Failed to play: $e', isError: true);
+      } else {
+        showSafeToast('Failed to play: $e', isError: true);
+      }
     }
   }
 
@@ -157,10 +177,11 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
     final tileChild = TrackTileLayout(
       // Match the album/artist rows' 3px artwork inset — the default
       // TrackTileLayout left padding (12) pushed track artwork out of line.
+      // Right 8 lands the duration on the chevrons'/chips' right edge.
       padding: const EdgeInsets.fromLTRB(
         3,
         kTrackTileVerticalPadding,
-        12,
+        8,
         kTrackTileVerticalPadding,
       ),
       leadingStartSpacing: 0,
@@ -219,34 +240,29 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
-          if (subtitle.isNotEmpty)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (sourceBadgeVisible(ref, widget.item.id)) ...[
-                  SourceBadge(
-                    entityId: widget.item.id,
-                    size: SourceBadgeSize.standard,
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                Expanded(
-                  child: Text(
-                    subtitle,
-                    style: KalinkaTextStyles.trackRowSubtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (sourceBadgeVisible(ref, widget.item.id)) ...[
+                SourceBadge(
+                  entityId: widget.item.id,
+                  size: SourceBadgeSize.standard,
                 ),
+                const SizedBox(width: 6),
               ],
-            ),
+              Expanded(
+                child: Text.rich(
+                  entityTypeSubtitle('Track', subtitle),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       trailing: duration != null
-          ? Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
-            )
+          ? Text(duration, style: KalinkaTextStyles.trackRowSubtitle)
           : null,
     );
 

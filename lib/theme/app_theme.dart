@@ -488,12 +488,6 @@ class KalinkaTextStyles {
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle batchBarLabel = KalinkaFonts.mono(
-    fontSize: KalinkaTypography.baseSize + 1,
-    fontWeight: FontWeight.w500,
-    letterSpacing: 1.5,
-    color: KalinkaColors.textSecondary,
-  );
 
   // Time
   static TextStyle timeLabel = KalinkaFonts.mono(

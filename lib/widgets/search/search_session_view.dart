@@ -114,7 +114,19 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
                         onInsert: _insert,
                         onSubmit: _submitFromTile,
                       )
-                    : _buildBlockList(session),
+                    // The hint floats over the list on a top-anchored scrim:
+                    // content scrolls underneath and shows through the fade.
+                    : Stack(
+                        children: [
+                          _buildBlockList(session),
+                          const Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            child: IgnorePointer(child: _GestureHintLine()),
+                          ),
+                        ],
+                      ),
               ),
             ],
           ),
@@ -201,7 +213,9 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
     final blocks = session.blocks;
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      // Top padding clears the hint overlay so content starts below it at
+      // rest and only slides under the scrim once scrolled.
+      padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
       // +1: the Discover escape hatch under the last block.
       itemCount: blocks.length + 1,
       itemBuilder: (context, i) {
@@ -224,6 +238,64 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
               .toggleSection(block.id, sectionId),
         );
       },
+    );
+  }
+}
+
+/// Quiet one-line "verb map" floating over the results on a top-anchored
+/// scrim: solid background at the top fading to transparent at the bottom, so
+/// scrolled content stays partially visible underneath. Action keywords pop
+/// in bright ink so the eye catches tap / swipe / hold first and reads the
+/// consequence attached to each. Persistent guidance, not a dismissible tip.
+class _GestureHintLine extends StatelessWidget {
+  const _GestureHintLine();
+
+  @override
+  Widget build(BuildContext context) {
+    final plain = KalinkaFonts.sans(
+      fontSize: KalinkaTypography.baseSize - 1,
+      fontWeight: FontWeight.w500,
+      color: KalinkaColors.textMuted,
+    );
+    final verb = plain.copyWith(
+      fontWeight: FontWeight.w700,
+      color: KalinkaColors.textPrimary.withValues(alpha: 0.82),
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          // Translucent veil, never solid: content ghosts through the whole
+          // band, just dampened enough to keep the hint legible.
+          colors: [
+            KalinkaColors.background.withValues(alpha: 0.88),
+            KalinkaColors.background.withValues(alpha: 0.55),
+            KalinkaColors.background.withValues(alpha: 0.0),
+          ],
+          stops: const [0.0, 0.55, 1.0],
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 9, 16, 14),
+      child: Text.rich(
+        TextSpan(
+          style: plain,
+          children: [
+            TextSpan(text: 'Tap', style: verb),
+            const TextSpan(text: ' a song to play  ·  '),
+            TextSpan(text: 'swipe →', style: verb),
+            const TextSpan(text: ' queue it, '),
+            TextSpan(text: '← swipe', style: verb),
+            const TextSpan(text: ' play next  ·  '),
+            TextSpan(text: 'hold', style: verb),
+            const TextSpan(text: ' to select'),
+          ],
+        ),
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }
