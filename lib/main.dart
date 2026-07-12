@@ -11,14 +11,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   LicenseRegistry.addLicense(() async* {
-    yield LicenseEntryWithLineBreaks(
-      ['IBM Plex Sans', 'IBM Plex Mono'],
-      await rootBundle.loadString('assets/fonts/OFL-IBMPlex.txt'),
-    );
-    yield LicenseEntryWithLineBreaks(
-      ['Playfair Display'],
-      await rootBundle.loadString('assets/fonts/OFL-PlayfairDisplay.txt'),
-    );
+    yield LicenseEntryWithLineBreaks([
+      'IBM Plex Sans',
+      'IBM Plex Mono',
+    ], await rootBundle.loadString('assets/fonts/OFL-IBMPlex.txt'));
+    yield LicenseEntryWithLineBreaks([
+      'Playfair Display',
+    ], await rootBundle.loadString('assets/fonts/OFL-PlayfairDisplay.txt'));
   });
 
   final prefs = await SharedPreferences.getInstance();
@@ -37,7 +36,7 @@ class KalinkaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Kalinka Player',
+      title: 'Kalinka',
       theme: AppTheme.dark(),
       debugShowCheckedModeBanner: false,
       home: const MusicPlayerScreen(),
