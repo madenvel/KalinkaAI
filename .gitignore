@@ -30,3 +30,6 @@ doc/api/
 android/.idea
 .vscode
 screenshots/
+
+# Internal, local-only planning doc — not for the public repo
+docs/publishing/launch-plan.md
