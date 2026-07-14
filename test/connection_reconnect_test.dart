@@ -1,0 +1,110 @@
+import 'package:flutter/widgets.dart' show AppLifecycleState;
+import 'package:dio/dio.dart' show DioException, RequestOptions;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:kalinka/data_model/data_model.dart' show ModulesAndDevices;
+import 'package:kalinka/providers/connection_settings_provider.dart';
+import 'package:kalinka/providers/connection_state_provider.dart';
+import 'package:kalinka/providers/kalinka_player_api_provider.dart';
+import 'package:kalinka/providers/playback_time_provider.dart';
+
+/// Regression coverage for issue #21: after a background→resume where the event
+/// socket silently died, a successful HTTP reachability probe must NOT by
+/// itself report the app as `connected`. Only the play-queue WebSocket actually
+/// opening (and being replayed) may do that — otherwise the UI shows a green
+/// "connected" indicator over an empty, never-repopulated queue.
+
+/// Fake proxy exposing only [listModules]; its result is controlled per-test.
+class _FakeApi implements KalinkaPlayerProxy {
+  _FakeApi({this.shouldSucceed = true});
+
+  bool shouldSucceed;
+  int listModulesCalls = 0;
+
+  @override
+  Future<ModulesAndDevices> listModules() async {
+    listModulesCalls++;
+    if (!shouldSucceed) {
+      throw DioException(requestOptions: RequestOptions(path: '/server/modules'));
+    }
+    return ModulesAndDevices(inputModules: const [], devices: const []);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
+
+/// Lifecycle stuck at `resumed` so the reconnect path runs without a real
+/// AppLifecycleListener (which would need a full widget binding).
+class _ResumedLifecycle extends AppLifecycleNotifier {
+  @override
+  AppLifecycleState build() => AppLifecycleState.resumed;
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  Future<ProviderContainer> makeContainer(_FakeApi api) async {
+    SharedPreferences.setMockInitialValues({
+      'Kalinka.host': 'localhost',
+      'Kalinka.port': 8080,
+      'Kalinka.name': 'Test',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        kalinkaProxyProvider.overrideWithValue(api),
+        appLifecycleProvider.overrideWith(_ResumedLifecycle.new),
+      ],
+    );
+    addTearDown(container.dispose);
+    return container;
+  }
+
+  test(
+    'a successful HTTP probe alone does not report connected (issue #21)',
+    () async {
+      final api = _FakeApi(shouldSucceed: true);
+      final container = await makeContainer(api);
+
+      final notifier = container.read(connectionStateProvider.notifier);
+      final epochBefore = container.read(retryEpochProvider);
+
+      notifier.startReconnecting();
+      expect(container.read(connectionStateProvider), ConnectionStatus.reconnecting);
+
+      notifier.retryNow();
+      await pumpEventQueue();
+
+      // The probe reached the server (so the socket rebuild is triggered)...
+      expect(api.listModulesCalls, greaterThan(0));
+      expect(container.read(retryEpochProvider), greaterThan(epochBefore));
+
+      // ...but connectivity is still owned by the (absent) event socket, so we
+      // stay reconnecting rather than falsely flipping to connected.
+      expect(
+        container.read(connectionStateProvider),
+        ConnectionStatus.reconnecting,
+      );
+    },
+  );
+
+  test('a failed HTTP probe does not report connected', () async {
+    final api = _FakeApi(shouldSucceed: false);
+    final container = await makeContainer(api);
+
+    final notifier = container.read(connectionStateProvider.notifier);
+    notifier.startReconnecting();
+    notifier.retryNow();
+    await pumpEventQueue();
+
+    expect(
+      container.read(connectionStateProvider),
+      isNot(ConnectionStatus.connected),
+    );
+  });
+}

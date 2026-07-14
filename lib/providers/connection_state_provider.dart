@@ -76,6 +76,15 @@ class ConnectionStateNotifier extends Notifier<ConnectionStatus> {
       // Foregrounded: restart reconnection immediately if it was paused.
       if (state == ConnectionStatus.reconnecting ||
           state == ConnectionStatus.offline) {
+        // If we'd escalated to `offline`, drop back into the active reconnect
+        // cycle with a fresh escalation window before retrying. The event
+        // socket hangs while `offline` (see websocket_provider), so it must see
+        // a non-offline status to actually rebuild and connect — mirrors
+        // retryNow().
+        if (state == ConnectionStatus.offline) {
+          _reconnectStartedAt = DateTime.now();
+          state = ConnectionStatus.reconnecting;
+        }
         _startRetryTimer();
         _attemptReconnect();
       } else if (state == ConnectionStatus.connected &&
@@ -153,18 +162,28 @@ class ConnectionStateNotifier extends Notifier<ConnectionStatus> {
     if (ref.read(appLifecycleProvider) != AppLifecycleState.resumed) return;
     _retryCount++;
     _logger.d('Reconnect attempt #$_retryCount');
-    ref.read(retryEpochProvider.notifier).increment();
 
+    // Cheap, timeout-bounded reachability probe over HTTP first (a bare
+    // WebSocket.connect can hang on a dead network). Only when the server
+    // answers do we rebuild the event socket.
     try {
       final proxy = ref.read(kalinkaProxyProvider);
       await proxy.listModules();
-      // Success — server is reachable
-      connected();
     } on DioException {
       _checkEscalation();
+      return;
     } on Exception {
       _checkEscalation();
+      return;
     }
+
+    // Server reachable — rebuild the event socket. Reaching `connected` is
+    // deliberately left to the socket itself (see websocket_provider): only
+    // once the queue socket is actually open — and the server has replayed the
+    // current play queue onto it — do we report connected. Declaring connected
+    // here on the HTTP probe alone would leave the UI "connected" while the
+    // event stream is still dead, showing an empty queue (issue #21).
+    ref.read(retryEpochProvider.notifier).increment();
   }
 
   void _checkEscalation() {

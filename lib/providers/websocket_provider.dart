@@ -16,6 +16,13 @@ final logger = Logger();
 /// idle NAT mappings alive, preventing some drops outright.
 const _heartbeatInterval = Duration(seconds: 15);
 
+/// Cap how long a single connect attempt may hang. `WebSocket.connect` has no
+/// timeout of its own, so on a dead/blackholed route (e.g. a fresh socket built
+/// on resume after the old one silently died) it can stall indefinitely,
+/// leaving the app reporting "connected" over an empty, never-replayed queue.
+/// On timeout the connect fails and the normal reconnect cycle takes over.
+const _connectTimeout = Duration(seconds: 5);
+
 /// Provides a configured WebSocket connection for the given path.
 ///
 /// This keeps all connection semantics (host/port, ws vs wss) in one place,
@@ -66,8 +73,10 @@ final webSocketProvider = FutureProvider.family<WebSocket, String>((
     path: path.startsWith('/') ? path.substring(1) : path,
   );
 
+  Future<WebSocket>? pending;
   try {
-    final socket = await WebSocket.connect(uri.toString());
+    pending = WebSocket.connect(uri.toString());
+    final socket = await pending.timeout(_connectTimeout);
     // Enable the heartbeat. When the peer stops answering pings the socket
     // closes, ending the stream so wire_event_provider's reconnect path runs.
     socket.pingInterval = _heartbeatInterval;
@@ -79,6 +88,10 @@ final webSocketProvider = FutureProvider.family<WebSocket, String>((
 
     return socket;
   } on Object catch (e) {
+    // On timeout the connect may still complete later; close the orphaned
+    // socket if it does. (`ignore()` also swallows the connect's own error in
+    // the ordinary failure case.)
+    pending?.then((s) => s.close()).ignore();
     logger.e('WebSocket connection error to $uri', error: e);
     Future.microtask(connection.startReconnecting);
     rethrow;
