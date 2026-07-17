@@ -706,7 +706,18 @@ final httpClientProvider = Provider<Dio>((ref) {
   final baseUrl = settings.isSet
       ? settings.baseUrl.toString()
       : 'http://127.0.0.1:0';
-  final dio = Dio(BaseOptions(baseUrl: baseUrl));
+  // Bound every request so a dead/blackholed route (e.g. Wi-Fi dropped while
+  // backgrounded) fails fast instead of hanging forever. Without this the
+  // reconnect reachability probe (listModules) could stall indefinitely,
+  // stacking overlapping retry ticks and blocking escalation to `offline`.
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: baseUrl,
+      connectTimeout: const Duration(seconds: 5),
+      receiveTimeout: const Duration(seconds: 15),
+      sendTimeout: const Duration(seconds: 15),
+    ),
+  );
   return dio;
 });
 

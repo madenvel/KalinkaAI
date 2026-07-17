@@ -75,10 +75,6 @@ flutter:
   assets:
     - assets/images/kalinka_icon.svg
     - assets/images/kalinka_logo.svg
-    - assets/images/dancing_kalinka.svg
-    - assets/images/dancing_kalinka.png
-    - assets/images/2.0x/dancing_kalinka.png
-    - assets/images/3.0x/dancing_kalinka.png
     - assets/fonts/OFL-IBMPlex.txt
     - assets/fonts/OFL-PlayfairDisplay.txt
 
