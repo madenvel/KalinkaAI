@@ -1,3 +1,5 @@
+import 'dart:io' show HttpRequest, HttpServer, WebSocket, WebSocketTransformer;
+
 import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:dio/dio.dart' show DioException, RequestOptions;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +11,7 @@ import 'package:kalinka/providers/connection_settings_provider.dart';
 import 'package:kalinka/providers/connection_state_provider.dart';
 import 'package:kalinka/providers/kalinka_player_api_provider.dart';
 import 'package:kalinka/providers/playback_time_provider.dart';
+import 'package:kalinka/providers/websocket_provider.dart';
 
 /// Regression coverage for issue #21: after a background→resume where the event
 /// socket silently died, a successful HTTP reachability probe must NOT by
@@ -106,5 +109,75 @@ void main() {
       container.read(connectionStateProvider),
       isNot(ConnectionStatus.connected),
     );
+  });
+
+  // Issue #21, second failure mode (Copilot review): the play-queue socket is
+  // the single source of truth for `connected`. An auxiliary socket (e.g.
+  // /device/ws, opened lazily on first now-playing) accepting a connection must
+  // NOT flip the global state to `connected`, or the app shows a green
+  // indicator over a queue the device socket never carries.
+  group('only the queue socket owns the connected state', () {
+    late HttpServer server;
+    final open = <WebSocket>[];
+
+    setUp(() async {
+      server = await HttpServer.bind('127.0.0.1', 0);
+      server.listen((HttpRequest req) async {
+        if (WebSocketTransformer.isUpgradeRequest(req)) {
+          open.add(await WebSocketTransformer.upgrade(req)); // accept, stay open
+        } else {
+          req.response.statusCode = 404;
+          await req.response.close();
+        }
+      });
+    });
+
+    tearDown(() async {
+      for (final ws in open) {
+        await ws.close();
+      }
+      await server.close(force: true);
+    });
+
+    Future<ProviderContainer> connectedContainer() async {
+      SharedPreferences.setMockInitialValues({
+        'Kalinka.host': '127.0.0.1',
+        'Kalinka.port': server.port,
+        'Kalinka.name': 'Test',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          appLifecycleProvider.overrideWith(_ResumedLifecycle.new),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test('device socket connecting does not report connected', () async {
+      final container = await connectedContainer();
+
+      await container.read(deviceWebSocketProvider.future);
+      await pumpEventQueue();
+
+      expect(
+        container.read(connectionStateProvider),
+        isNot(ConnectionStatus.connected),
+      );
+    });
+
+    test('queue socket connecting does report connected', () async {
+      final container = await connectedContainer();
+
+      await container.read(queueWebSocketProvider.future);
+      await pumpEventQueue();
+
+      expect(
+        container.read(connectionStateProvider),
+        ConnectionStatus.connected,
+      );
+    });
   });
 }
