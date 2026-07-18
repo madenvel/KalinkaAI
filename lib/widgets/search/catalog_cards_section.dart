@@ -8,9 +8,9 @@ import '../../providers/source_modules_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 
-// Minimum card width before the grid adds a column. Wide enough that the title
-// fits the left text zone; below ~290px it clipped to "Popula…".
-const double _kMinCardWidth = 320;
+// Minimum card width before the grid adds a column. Low enough for two per row
+// on a typical panel; the text scales down with the card so it still fits.
+const double _kMinCardWidth = 280;
 const double _kCardGap = 14;
 const double _kCardRunGap = 16;
 const int _kMaxColumns = 4;
