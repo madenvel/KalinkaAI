@@ -1,11 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 import '../providers/connection_settings_provider.dart';
 import '../providers/connection_state_provider.dart'
     show ConnectionStatus, connectionStateProvider, retryEpochProvider;
-import 'ws_connect.dart' show connectWs;
 import 'package:logger/logger.dart';
 
 final logger = Logger();
@@ -34,11 +33,12 @@ const _connectTimeout = Duration(seconds: 5);
 /// flip the UI to a green "connected" indicator over an empty queue (issue #21).
 const _connectionStatePath = '/queue/ws';
 
-/// Provides a configured [WebSocketChannel] for the given path.
+/// Provides a configured WebSocket connection for the given path.
 ///
-/// Centralises connection semantics (host/port, heartbeat, connect timeout)
-/// and closes the channel when the provider is torn down.
-final webSocketProvider = FutureProvider.family<WebSocketChannel, String>((
+/// This keeps all connection semantics (host/port, ws vs wss) in one place,
+/// and disposes the socket when the provider is torn down. Callers can
+/// transform the returned socket into a `Stream<String>` similar to
+final webSocketProvider = FutureProvider.family<WebSocket, String>((
   ref,
   path,
 ) async {
@@ -89,10 +89,13 @@ final webSocketProvider = FutureProvider.family<WebSocketChannel, String>((
     path: path.startsWith('/') ? path.substring(1) : path,
   );
 
-  final channel = connectWs(uri, pingInterval: _heartbeatInterval);
+  Future<WebSocket>? pending;
   try {
-    // The explicit timeout also bounds web, where connectWs applies none.
-    await channel.ready.timeout(_connectTimeout);
+    pending = WebSocket.connect(uri.toString());
+    final socket = await pending.timeout(_connectTimeout);
+    // Enable the heartbeat. When the peer stops answering pings the socket
+    // closes, ending the stream so wire_event_provider's reconnect path runs.
+    socket.pingInterval = _heartbeatInterval;
     // Report `connected` only for the queue socket, whose open triggers the
     // queue replay — a device socket opening over a still-dead queue must not.
     if (ownsConnectionState) {
@@ -100,13 +103,15 @@ final webSocketProvider = FutureProvider.family<WebSocketChannel, String>((
     }
 
     ref.onDispose(() {
-      channel.sink.close();
+      socket.close();
     });
 
-    return channel;
+    return socket;
   } on Object catch (e) {
-    // Close the half-open channel so a late connect doesn't leak.
-    channel.sink.close();
+    // On timeout the connect may still complete later; close the orphaned
+    // socket if it does. (`ignore()` also swallows the connect's own error in
+    // the ordinary failure case.)
+    pending?.then((s) => s.close()).ignore();
     logger.e('WebSocket connection error to $uri', error: e);
     // Only the queue socket drives global reconnection; an auxiliary socket
     // failing rebuilds on the next retry epoch without churning the (possibly

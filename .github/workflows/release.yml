@@ -136,39 +136,8 @@ jobs:
           path: dist/*.tar.gz
           if-no-files-found: error
 
-  # Architecture-independent browser UI package: the Flutter web bundle,
-  # installed where kalinka-server serves it (/usr/share/kalinka-web). The
-  # server repo's release workflow re-attaches this deb to server releases so
-  # its install script delivers it with the server bundle.
-  build-web-deb:
-    needs: verify-version
-    runs-on: ubuntu-latest
-    env:
-      V: ${{ needs.verify-version.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - name: Build web .deb
-        run: |
-          set -euo pipefail
-          mkdir -p dist
-          scripts/build_web_deb.sh
-          cp "build/deb/kalinka-web_${V}_all.deb" dist/
-      - uses: actions/upload-artifact@v4
-        with:
-          name: web-deb
-          path: dist/*.deb
-          if-no-files-found: error
-
   publish:
-    needs: [verify-version, build-android, build-linux, build-web-deb]
+    needs: [verify-version, build-android, build-linux]
     runs-on: ubuntu-latest
     env:
       V: ${{ needs.verify-version.outputs.version }}
@@ -213,5 +182,4 @@ jobs:
             dist/kalinka-${{ env.V }}-armeabi-v7a.apk
             dist/kalinka-${{ env.V }}.apk
             dist/kalinka-${{ env.V }}-linux-x64.tar.gz
-            dist/kalinka-web_${{ env.V }}_all.deb
             dist/md5.txt

@@ -108,33 +108,6 @@ pass can take a while for large libraries. Search falls back to plain
 text matching while that runs; AI results blend in as tracks get
 embedded.
 
-## Control from a browser (optional)
-
-Want to control playback from a laptop or any device without installing the
-app? The **web remote** (`kalinka-web` package) ships with the server: the
-install script in step 1 delivers it automatically alongside the server
-packages.
-
-To install or upgrade it separately, download `kalinka-web_<version>_all.deb`
-from the [app releases page](https://github.com/madenvel/KalinkaAI/releases) —
-one architecture-independent package for every platform the server runs on —
-then `sudo apt install ./kalinka-web_<version>_all.deb` on the server machine.
-
-The server itself serves the player UI, so just open the server's own
-address — the same one the app connects to:
-
-```
-http://<server-ip>:8000
-```
-
-in any browser on your network (no restart needed; adjust the port if you
-changed it in the server settings). The page opens straight into the connected
-player (no setup wizard) and drives the same server-side playback the app does
-— audio still comes out of the server's audio output, not the browser.
-
-Requires a server version with the web UI endpoint; older servers ignore the
-package until upgraded.
-
 ## Troubleshooting
 
 - **Library stays empty** — check the journal for path errors:

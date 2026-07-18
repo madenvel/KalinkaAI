@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
@@ -79,9 +78,6 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Web seeds its connection from the serving origin (main.dart) and has
-      // no working wizard or mDNS discovery — never open either.
-      if (kIsWeb) return;
       // First launch: run the setup wizard. The provider marks pre-wizard
       // installs (server already stored) as complete on its own, so they
       // fall through to the regular flow below.
@@ -228,27 +224,22 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              kIsWeb
-                  ? 'Reload the page to reconnect to the server.'
-                  : 'Scan your network to find a Kalinka server and start listening.',
+              'Scan your network to find a Kalinka server and start listening.',
               style: KalinkaTextStyles.emptyQueueSubtitle,
               textAlign: TextAlign.center,
             ),
-            // No mDNS in the browser — reloading re-seeds the connection.
-            if (!kIsWeb) ...[
-              const SizedBox(height: 32),
-              KalinkaButton(
-                label: 'Scan for servers',
-                variant: KalinkaButtonVariant.accent,
-                size: KalinkaButtonSize.normal,
-                leading: const Icon(
-                  Icons.wifi_tethering_rounded,
-                  size: 16,
-                  color: KalinkaColors.accentTint,
-                ),
-                onTap: () => setState(() => _discoveryOpen = true),
+            const SizedBox(height: 32),
+            KalinkaButton(
+              label: 'Scan for servers',
+              variant: KalinkaButtonVariant.accent,
+              size: KalinkaButtonSize.normal,
+              leading: const Icon(
+                Icons.wifi_tethering_rounded,
+                size: 16,
+                color: KalinkaColors.accentTint,
               ),
-            ],
+              onTap: () => setState(() => _discoveryOpen = true),
+            ),
           ],
         ),
       ),
