@@ -8,7 +8,11 @@ import '../../providers/source_modules_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 
-const double _kMinCardWidth = 200;
+// Minimum card width before the grid adds another column. Sized so the title
+// and description have room in the left text zone: at ~290px the title clipped
+// to "Popula…" / "My Alb…", so a narrow panel now uses fewer, wider columns
+// (dropping to one) instead of cramming the text.
+const double _kMinCardWidth = 320;
 const double _kCardGap = 14;
 const double _kCardRunGap = 16;
 const int _kMaxColumns = 4;
