@@ -106,7 +106,8 @@ server {
         if (\$request_method = OPTIONS) {
             add_header Access-Control-Allow-Origin * always;
             add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
-            add_header Access-Control-Allow-Headers * always;
+            # Echo the requested headers — some browsers reject a literal '*'.
+            add_header Access-Control-Allow-Headers "\$http_access_control_request_headers" always;
             return 204;
         }
         add_header Access-Control-Allow-Origin * always;

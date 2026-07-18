@@ -191,7 +191,8 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
     try {
       final dio = Dio(
         BaseOptions(
-          baseUrl: 'http://$host:$port',
+          // Uri() brackets IPv6 hosts (the SRV lookup can resolve one).
+          baseUrl: Uri(scheme: 'http', host: host, port: port).toString(),
           connectTimeout: const Duration(seconds: 2),
           receiveTimeout: const Duration(seconds: 2),
         ),
