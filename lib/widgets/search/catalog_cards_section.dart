@@ -8,28 +8,23 @@ import '../../providers/source_modules_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 
-// Minimum card width before the grid adds another column. Sized so the title
-// and description have room in the left text zone: at ~290px the title clipped
-// to "Popula…" / "My Alb…", so a narrow panel now uses fewer, wider columns
-// (dropping to one) instead of cramming the text.
+// Minimum card width before the grid adds a column. Wide enough that the title
+// fits the left text zone; below ~290px it clipped to "Popula…".
 const double _kMinCardWidth = 320;
 const double _kCardGap = 14;
 const double _kCardRunGap = 16;
 const int _kMaxColumns = 4;
 
-// The server renders card backgrounds at 16:9; the card frame matches so the
-// art fills it without letterboxing.
+// The server renders backgrounds at 16:9; the frame matches to avoid letterbox.
 const double _kCardAspect = 16 / 9;
 
-// Left fraction of the card the server keeps dark for text (its TEXT_ZONE_W).
-// The client bounds its title/description column to the same fraction so the
-// two agree on where text lives and where the artwork is free to show.
+// Left fraction the server keeps dark; the text column is bounded to match its
+// TEXT_ZONE_W.
 const double _kTextZoneWidth = 0.62;
 
 /// Advertisement cards for the browsable catalogs, grouped by source, on the
-/// search zero state. The plans (source → categories) resolve first and lay
-/// out the grid; each card's background is a single server-rendered image
-/// referenced by the plan (or a black backdrop until the server produces it).
+/// search zero state. Each card's background is a server-rendered image (or
+/// black until the server produces it).
 class CatalogCardsSection extends ConsumerWidget {
   /// Fires an AI search when a card is tapped — its title scoped to the card's
   /// source, e.g. "Popular Tracks on Jamendo".
@@ -106,9 +101,8 @@ class CatalogCardsSection extends ConsumerWidget {
 
 Color _tintFor(String sourceName) => colorForSourceName(sourceName);
 
-/// Source attribution header: letter badge + tinted uppercase title. The
-/// local-files source is the unmarked default — no badge, generic title —
-/// mirroring the result-card conventions.
+/// Source attribution header: letter badge + tinted title; local-files is the
+/// unmarked default (no badge, generic title).
 class _SourceGroupHeader extends StatelessWidget {
   final CatalogCardGroup group;
 
@@ -266,9 +260,8 @@ class _CatalogCardState extends State<_CatalogCard> {
                     Positioned.fill(child: _CardBackground(plan: plan)),
                     Padding(
                       padding: _kCardPadding,
-                      // Bound the text to the left column the server keeps dark
-                      // (its TEXT_ZONE_W), so the title/description never sprawl
-                      // across the artwork on the right.
+                      // Bound text to the dark left zone so it never sprawls
+                      // across the artwork.
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           final cardWidth =
@@ -375,9 +368,8 @@ class _CatalogCardState extends State<_CatalogCard> {
   }
 }
 
-/// Card backdrop: the server-rendered background image, or a plain black
-/// rectangle until the server has produced it (and while it loads / on error).
-/// A key on the resolved URL forces a re-decode when the link changes.
+/// Card backdrop: the server background, or black until it exists / on error.
+/// The URL key forces a re-decode when the link changes.
 class _CardBackground extends ConsumerWidget {
   final CatalogCardPlan plan;
 

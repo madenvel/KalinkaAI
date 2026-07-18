@@ -5,30 +5,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import 'kalinka_player_api_provider.dart';
 
-/// How often the zero-state catalog cards re-fetch. They also refresh on app
-/// start (first watch) and on reconnect (the section widget invalidates).
 const _kRefreshInterval = Duration(hours: 12);
 
-/// The card backgrounds are rendered server-side and generated lazily, so the
-/// first browse after a cold cache returns cards with no art yet. Re-fetch a
-/// few times at this cadence to pick the images up, then fall back to the slow
-/// refresh. Bounded so a card the server can't illustrate doesn't poll forever.
+// Server art is generated lazily, so the first browse after a cold cache has no
+// art yet. Re-fetch a bounded number of times to pick it up, then fall back to
+// the slow refresh.
 const _kArtPollInterval = Duration(seconds: 4);
 const _kMaxArtPolls = 8;
 
-// Bound the number of cards per source so a huge root catalog can't fan out.
 const _kMaxCardsPerSource = 8;
 
-// Poll bookkeeping (module-level: the provider is a singleton). `_pollDriven`
-// distinguishes a self-scheduled art poll from a fresh/external invalidation
-// (app start, reconnect, 12-hour refresh), so the attempt counter resets when
-// it should.
+// `_pollDriven` tells a self-scheduled poll apart from a fresh invalidation
+// (start/reconnect/refresh) so the attempt counter resets on the latter.
 int _artPolls = 0;
 bool _pollDriven = false;
 
 /// One advertisement card: a browsable category in a source's root catalog.
-/// Carries the card shell content plus the unresolved path of its server-
-/// rendered background ([artPath], null until the backend has generated it).
 class CatalogCardPlan {
   final String id;
   final String title;
@@ -36,9 +28,8 @@ class CatalogCardPlan {
   final String sourceName;
   final PreviewContentType? contentType;
 
-  /// Unresolved background image path (resolve against the server base URL at
-  /// render time so a base change doesn't invalidate it). Null when the server
-  /// hasn't produced the art yet — the card shows a black backdrop until then.
+  /// Unresolved background path (resolved against the base URL at render time).
+  /// Null until the server has generated the art; the card is black until then.
   final String? artPath;
 
   const CatalogCardPlan({
@@ -71,15 +62,11 @@ String? _artPathOf(BrowseItem item) {
   return (path != null && path.isNotEmpty) ? path : null;
 }
 
-/// The card plans, grouped by source. Root browse lists the input sources;
-/// each source's root catalog lists its categories, each already carrying the
-/// URL of its backend-rendered background (or nothing, until generated). This
-/// is the whole payload the cards need — there is no second per-card fetch.
+/// The card plans, grouped by source, each carrying its background URL from the
+/// browse response — the whole payload the cards need, no second per-card fetch.
 final catalogCardGroupsProvider = FutureProvider<List<CatalogCardGroup>>((
   ref,
 ) async {
-  // A fresh start / reconnect / slow refresh resets the art-poll budget; only
-  // our own poll timer carries it forward.
   if (!_pollDriven) _artPolls = 0;
   _pollDriven = false;
 
