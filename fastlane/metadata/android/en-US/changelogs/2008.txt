@@ -1,0 +1,4 @@
+- Browser Web UI: control Kalinka from any browser (kalinka-web package)
+- Catalog cards: server-rendered backgrounds with readable text overlay
+- Library pipeline progress shown in search and on the empty queue screen
+- Fixed empty queue after reconnecting from background
