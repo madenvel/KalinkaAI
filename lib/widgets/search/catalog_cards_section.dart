@@ -194,6 +194,10 @@ const double _kBadgeSize = 30;
 const double _kContentScaleRef = 340;
 const double _kMaxContentScale = 1.9;
 
+// Text outline width as a fraction of font size — a crisp dark edge so white
+// text holds up over a light cover.
+const double _kStrokeRatio = 0.12;
+
 double _contentScale(double cardWidth) =>
     (cardWidth / _kContentScaleRef).clamp(1.0, _kMaxContentScale);
 
@@ -272,20 +276,10 @@ class _CatalogCardState extends State<_CatalogCard> {
                           final textMax =
                               (cardWidth * _kTextZoneWidth - pad)
                                   .clamp(0.0, cardWidth - 2 * pad);
-                          // Legibility halo: a tight dark core for crisp edges
-                          // plus a soft wide glow that holds white text over a
-                          // light cover. Invisible on dark backdrops.
-                          final shadow = [
-                            Shadow(
-                              color: const Color(0xB3000000),
-                              blurRadius: 2 * scale,
-                              offset: Offset(0, scale),
-                            ),
-                            Shadow(
-                              color: const Color(0x8C000000),
-                              blurRadius: 13 * scale,
-                            ),
-                          ];
+                          final titleSize =
+                              (KalinkaTypography.baseSize + 4) * scale;
+                          final descSize =
+                              (KalinkaTypography.baseSize + 1) * scale;
                           return Padding(
                             padding: EdgeInsets.all(pad),
                             child: Align(
@@ -301,38 +295,32 @@ class _CatalogCardState extends State<_CatalogCard> {
                                         _iconBadge(tint, scale),
                                         SizedBox(width: 10 * scale),
                                         Expanded(
-                                          child: Text(
+                                          child: _OutlinedText(
                                             plan.title,
                                             style: KalinkaFonts.sans(
-                                              fontSize:
-                                                  (KalinkaTypography.baseSize +
-                                                      4) *
-                                                  scale,
+                                              fontSize: titleSize,
                                               fontWeight: FontWeight.w700,
-                                              color: Colors.white,
                                               height: 1.15,
-                                            ).copyWith(shadows: shadow),
+                                            ),
+                                            strokeWidth: titleSize * _kStrokeRatio,
                                             maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
                                       ],
                                     ),
                                     if (description.isNotEmpty) ...[
                                       SizedBox(height: 8 * scale),
-                                      Text(
+                                      _OutlinedText(
                                         description,
                                         style: KalinkaFonts.sans(
-                                          fontSize:
-                                              (KalinkaTypography.baseSize + 1) *
-                                              scale,
-                                          color: Colors.white.withValues(
-                                            alpha: 0.72,
-                                          ),
+                                          fontSize: descSize,
                                           height: 1.25,
-                                        ).copyWith(shadows: shadow),
+                                        ),
+                                        fillColor: Colors.white.withValues(
+                                          alpha: 0.88,
+                                        ),
+                                        strokeWidth: descSize * _kStrokeRatio,
                                         maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ],
                                   ],
@@ -504,6 +492,50 @@ class _ShimmerCatalogCardState extends State<_ShimmerCatalogCard>
           },
         ),
       ),
+    );
+  }
+}
+
+/// White text with a crisp dark outline (a stroke drawn under the fill), so it
+/// stays legible on any background. [style] must not set a color.
+class _OutlinedText extends StatelessWidget {
+  final String text;
+  final TextStyle style;
+  final double strokeWidth;
+  final Color fillColor;
+  final int maxLines;
+
+  const _OutlinedText(
+    this.text, {
+    required this.style,
+    required this.strokeWidth,
+    this.fillColor = Colors.white,
+    this.maxLines = 1,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Text(
+          text,
+          maxLines: maxLines,
+          overflow: TextOverflow.ellipsis,
+          style: style.copyWith(
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = strokeWidth
+              ..strokeJoin = StrokeJoin.round
+              ..color = const Color(0xE6000000),
+          ),
+        ),
+        Text(
+          text,
+          maxLines: maxLines,
+          overflow: TextOverflow.ellipsis,
+          style: style.copyWith(color: fillColor),
+        ),
+      ],
     );
   }
 }
