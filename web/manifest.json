@@ -1,11 +1,11 @@
 {
-    "name": "kalinka",
-    "short_name": "kalinka",
+    "name": "Kalinka",
+    "short_name": "Kalinka",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#C2394B",
     "theme_color": "#C2394B",
-    "description": "A new Flutter project.",
+    "description": "Control Kalinka playback from your browser.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/connection_settings_provider.dart';
@@ -279,6 +280,26 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
   }
 
   Widget _buildEmptyState() {
+    // No mDNS in the browser — explain instead of offering a futile rescan.
+    // Normally unreachable: the web UI hides every path into discovery.
+    if (kIsWeb) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            'Server discovery isn\'t available in the browser.\n'
+            'This player controls the server that serves this page —\n'
+            'reload the page to reconnect.',
+            textAlign: TextAlign.center,
+            style: KalinkaTextStyles.trayRowSublabel.copyWith(
+              fontSize: KalinkaTypography.baseSize + 2,
+              color: KalinkaColors.textSecondary,
+              height: 1.6,
+            ),
+          ),
+        ),
+      );
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
