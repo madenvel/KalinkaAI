@@ -272,11 +272,18 @@ class _CatalogCardState extends State<_CatalogCard> {
                           final textMax =
                               (cardWidth * _kTextZoneWidth - pad)
                                   .clamp(0.0, cardWidth - 2 * pad);
+                          // Legibility halo: a tight dark core for crisp edges
+                          // plus a soft wide glow that holds white text over a
+                          // light cover. Invisible on dark backdrops.
                           final shadow = [
                             Shadow(
-                              color: const Color(0xCC000000),
-                              blurRadius: 8 * scale,
+                              color: const Color(0xB3000000),
+                              blurRadius: 2 * scale,
                               offset: Offset(0, scale),
+                            ),
+                            Shadow(
+                              color: const Color(0x8C000000),
+                              blurRadius: 13 * scale,
                             ),
                           ];
                           return Padding(
