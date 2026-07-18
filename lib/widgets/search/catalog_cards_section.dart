@@ -1,6 +1,3 @@
-import 'dart:math' show Random, min;
-import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,10 +13,14 @@ const double _kCardGap = 14;
 const double _kCardRunGap = 16;
 const int _kMaxColumns = 4;
 
+// The server renders card backgrounds at 16:9; the card frame matches so the
+// art fills it without letterboxing.
+const double _kCardAspect = 16 / 9;
+
 /// Advertisement cards for the browsable catalogs, grouped by source, on the
-/// search zero state. Two-stage load: the plans (source → categories) resolve
-/// first and lay out the final grid as shimmer cards; each card swaps to real
-/// content as its preview items arrive.
+/// search zero state. The plans (source → categories) resolve first and lay
+/// out the grid; each card's background is a single server-rendered image
+/// referenced by the plan (or a black backdrop until the server produces it).
 class CatalogCardsSection extends ConsumerWidget {
   /// Fires an AI search when a card is tapped — its title scoped to the card's
   /// source, e.g. "Popular Tracks on Jamendo".
@@ -29,14 +30,12 @@ class CatalogCardsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Plans and previews cache indefinitely between the 12-hour refreshes;
-    // after a reconnect drop them so the section re-fetches instead of
-    // keeping pre-outage data or a stuck error.
+    // Plans cache between refreshes; after a reconnect drop them so the section
+    // re-fetches instead of keeping pre-outage data or a stuck error.
     ref.listen(connectionStateProvider, (prev, next) {
       if (next == ConnectionStatus.connected &&
           prev != ConnectionStatus.connected) {
         ref.invalidate(catalogCardGroupsProvider);
-        ref.invalidate(catalogCardPreviewProvider); // family → all cards
       }
     });
 
@@ -181,10 +180,20 @@ class _CardGrid extends StatelessWidget {
   }
 }
 
-/// One category card: shimmer until its preview resolves, then the tinted
-/// advertisement card. A failed preview fetch still shows the card — the
-/// title and description are already known — with a procedural strip.
-class _CatalogCard extends ConsumerWidget {
+// Shared geometry between the real card and its shimmer twin, so the swap
+// doesn't shift the grid.
+const double _kCardRadius = 16;
+const EdgeInsets _kCardPadding = EdgeInsets.all(14);
+const double _kBadgeSize = 30;
+// White text sits over the server artwork; a soft drop shadow keeps it legible
+// even where the baked-in scrim is lightest.
+const List<Shadow> _kTextShadow = [
+  Shadow(color: Color(0xCC000000), blurRadius: 8, offset: Offset(0, 1)),
+];
+
+/// One category card: the server-rendered background (or black until it
+/// exists) with the icon, title and description drawn on top.
+class _CatalogCard extends StatefulWidget {
   final CatalogCardPlan plan;
   final Color tint;
   final VoidCallback? onTap;
@@ -192,54 +201,10 @@ class _CatalogCard extends ConsumerWidget {
   const _CatalogCard({required this.plan, required this.tint, this.onTap});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final previewAsync = ref.watch(catalogCardPreviewProvider(plan.id));
-    return previewAsync.when(
-      loading: () => const _ShimmerCatalogCard(),
-      error: (_, __) => _CardBody(
-        plan: plan,
-        tint: tint,
-        preview: CatalogCardPreview.procedural,
-        onTap: onTap,
-      ),
-      data: (preview) =>
-          _CardBody(plan: plan, tint: tint, preview: preview, onTap: onTap),
-    );
-  }
+  State<_CatalogCard> createState() => _CatalogCardState();
 }
 
-// Shared geometry between the real card and its shimmer twin, so the swap
-// doesn't shift the grid. A composed hero card: background + icon + title +
-// description, with a row of small previews pinned near the bottom.
-const double _kCardRadius = 16;
-const EdgeInsets _kCardPadding = EdgeInsets.all(14);
-const double _kBadgeSize = 30;
-const double _kPreviewGap = 8;
-const double _kPreviewRadius = 8;
-// White text sits over artwork, so a soft drop shadow keeps it legible on
-// bright backgrounds.
-const List<Shadow> _kTextShadow = [
-  Shadow(color: Color(0xCC000000), blurRadius: 8, offset: Offset(0, 1)),
-];
-
-class _CardBody extends StatefulWidget {
-  final CatalogCardPlan plan;
-  final Color tint;
-  final CatalogCardPreview preview;
-  final VoidCallback? onTap;
-
-  const _CardBody({
-    required this.plan,
-    required this.tint,
-    required this.preview,
-    this.onTap,
-  });
-
-  @override
-  State<_CardBody> createState() => _CardBodyState();
-}
-
-class _CardBodyState extends State<_CardBody> {
+class _CatalogCardState extends State<_CatalogCard> {
   bool _hovered = false;
   bool _pressed = false;
 
@@ -271,75 +236,68 @@ class _CardBodyState extends State<_CardBody> {
           scale: _pressed ? 0.98 : 1.0,
           duration: const Duration(milliseconds: 110),
           curve: Curves.easeOut,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            decoration: BoxDecoration(
-              color: KalinkaColors.surfaceRaised,
-              borderRadius: BorderRadius.circular(_kCardRadius),
-              border: Border.all(
-                color: tint.withValues(alpha: _hovered ? 0.55 : 0.22),
-                width: 1,
+          child: AspectRatio(
+            aspectRatio: _kCardAspect,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              decoration: BoxDecoration(
+                color: KalinkaColors.surfaceRaised,
+                borderRadius: BorderRadius.circular(_kCardRadius),
+                border: Border.all(
+                  color: tint.withValues(alpha: _hovered ? 0.55 : 0.22),
+                  width: 1,
+                ),
               ),
-            ),
-            // Clip one step inside the frame, else the image runs under the
-            // border and swallows the rounded corners.
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(_kCardRadius - 1),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: _CardBackground(plan: plan, preview: widget.preview),
-                  ),
-                  Padding(
-                    padding: _kCardPadding,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            _iconBadge(tint),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                plan.title,
-                                style: KalinkaFonts.sans(
-                                  fontSize: KalinkaTypography.baseSize + 4,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  height: 1.15,
-                                ).copyWith(shadows: _kTextShadow),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+              // Clip one step inside the frame, else the image runs under the
+              // border and swallows the rounded corners.
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(_kCardRadius - 1),
+                child: Stack(
+                  children: [
+                    Positioned.fill(child: _CardBackground(plan: plan)),
+                    Padding(
+                      padding: _kCardPadding,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              _iconBadge(tint),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  plan.title,
+                                  style: KalinkaFonts.sans(
+                                    fontSize: KalinkaTypography.baseSize + 4,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    height: 1.15,
+                                  ).copyWith(shadows: _kTextShadow),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
+                            ],
+                          ),
+                          if (description.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              description,
+                              style: KalinkaFonts.sans(
+                                fontSize: KalinkaTypography.baseSize - 1,
+                                color: Colors.white.withValues(alpha: 0.68),
+                                height: 1.25,
+                              ).copyWith(shadows: _kTextShadow),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
-                        ),
-                        if (description.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            description,
-                            style: KalinkaFonts.sans(
-                              fontSize: KalinkaTypography.baseSize - 1,
-                              color: Colors.white.withValues(alpha: 0.68),
-                              height: 1.25,
-                            ).copyWith(shadows: _kTextShadow),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
                         ],
-                        const SizedBox(height: 14),
-                        if (widget.preview.fill == CatalogCardFill.textual)
-                          _TextualPreview(
-                            names: widget.preview.names,
-                            itemCount: widget.preview.itemCount,
-                          )
-                        else
-                          _PreviewRow(plan: plan, preview: widget.preview),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -387,331 +345,44 @@ class _CardBodyState extends State<_CardBody> {
   }
 }
 
-/// Post-blur tone for the backdrop: ~-12% brightness, ~0.85 saturation,
-/// luminance-preserving so the cover's dominant colour survives.
-const ColorFilter _kArtworkTone = ColorFilter.matrix(<double>[
-  0.7761, 0.0944, 0.0095, 0, 0,
-  0.0281, 0.8424, 0.0095, 0, 0,
-  0.0281, 0.0944, 0.7575, 0, 0,
-  0, 0, 0, 1, 0,
-]);
-
-/// Card backdrop: the hero cover, blurred and toned, under near-black overlays
-/// so cards read dark and vary mainly by the artwork's colour.
+/// Card backdrop: the server-rendered background image, or a plain black
+/// rectangle until the server has produced it (and while it loads / on error).
+/// A key on the resolved URL forces a re-decode when the link changes.
 class _CardBackground extends ConsumerWidget {
   final CatalogCardPlan plan;
-  final CatalogCardPreview preview;
 
-  const _CardBackground({required this.plan, required this.preview});
+  const _CardBackground({required this.plan});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final arts = preview.fill == CatalogCardFill.arts
-        ? preview.artPaths
-        : const <String>[];
-
-    final Widget base;
-    if (arts.isNotEmpty) {
-      final resolver = ref.watch(urlResolverProvider);
-      final heroPath = arts.length > 3 ? arts[3] : arts.first;
-      // ColorFilter is an ImageFilter, so compose keeps blur+tone to one
-      // save-layer. Clamp keeps blurred edges opaque; 400px decode suffices.
-      base = ImageFiltered(
-        imageFilter: ImageFilter.compose(
-          outer: _kArtworkTone,
-          inner: ImageFilter.blur(
-            sigmaX: 10,
-            sigmaY: 10,
-            tileMode: TileMode.clamp,
-          ),
-        ),
-        child: _tileImage(
-          resolver.abs(heroPath),
-          '${plan.id}/hero',
-          cacheWidth: 400,
-        ),
-      );
-    } else {
-      base = CustomPaint(painter: _ProceduralStripPainter(plan.id));
+    final path = plan.artPath;
+    if (path == null || path.isEmpty) {
+      return const ColoredBox(color: Colors.black);
     }
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        base,
-        // Flat floor, then a top-left-deep directional gradient, a bottom
-        // scrim, and an edge vignette.
-        const ColoredBox(color: Color(0x61000000)),
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.centerRight,
-              colors: [Color(0xB3000000), Color(0x47000000), Color(0x00000000)],
-              stops: [0.0, 0.5, 1.0],
-            ),
-          ),
-        ),
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0x00000000), Color(0x00000000), Color(0x61000000)],
-              stops: [0.0, 0.55, 1.0],
-            ),
-          ),
-        ),
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment.center,
-              radius: 1.0,
-              colors: [Color(0x00000000), Color(0x3D000000)],
-              stops: [0.7, 1.0],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// The row of up to three small preview thumbnails at the foot of the card —
-/// circular for artists, rounded squares otherwise, procedural where a cover
-/// is missing.
-class _PreviewRow extends ConsumerWidget {
-  final CatalogCardPlan plan;
-  final CatalogCardPreview preview;
-
-  const _PreviewRow({required this.plan, required this.preview});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final circle = plan.contentType == PreviewContentType.artist;
-    final arts = preview.fill == CatalogCardFill.arts
-        ? preview.artPaths.take(3).toList()
-        : const <String>[];
-    final resolver = arts.isNotEmpty ? ref.watch(urlResolverProvider) : null;
-
-    return Row(
-      children: [
-        for (int i = 0; i < 3; i++) ...[
-          if (i > 0) const SizedBox(width: _kPreviewGap),
-          Expanded(
-            child: _previewThumb(
-              url: i < arts.length ? resolver!.abs(arts[i]) : null,
-              seed: '${plan.id}/p$i',
-              circle: circle,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-/// A stable colour per category name.
-Color _categoryColor(String name) {
-  final hue = (name.toLowerCase().hashCode % 360).toDouble().abs();
-  return HSLColor.fromAHSL(1, hue, 0.55, 0.66).toColor();
-}
-
-/// Category names for a coverless (textual) catalog, in the same footprint as
-/// the three-thumbnail row so card heights match. Corner badge shows the total.
-class _TextualPreview extends StatelessWidget {
-  final List<String> names;
-  final int? itemCount;
-
-  const _TextualPreview({required this.names, this.itemCount});
-
-  @override
-  Widget build(BuildContext context) {
-    final showCount = itemCount != null && itemCount! > 0;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Height of the three square thumbnails the artwork cards show here.
-        final h = (constraints.maxWidth - 2 * _kPreviewGap) / 3;
-        return SizedBox(
-          height: h,
-          child: Stack(
-            children: [
-              Padding(
-                padding: EdgeInsets.only(right: showCount ? 34 : 0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final name in names.take(3))
-                      Row(
-                        children: [
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _categoryColor(name),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              name,
-                              style: KalinkaFonts.sans(
-                                fontSize: KalinkaTypography.baseSize,
-                                fontWeight: FontWeight.w600,
-                                color: _categoryColor(name),
-                              ).copyWith(shadows: _kTextShadow),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-              if (showCount)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: Text(
-                      '$itemCount',
-                      style: KalinkaFonts.sans(
-                        fontSize: KalinkaTypography.baseSize - 1,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white.withValues(alpha: 0.75),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+    final url = ref.watch(urlResolverProvider).abs(path);
+    return Image.network(
+      url,
+      key: ValueKey(url),
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      filterQuality: FilterQuality.medium,
+      // Fade in once decoded so the swap from black isn't a hard cut.
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded) return child;
+        return AnimatedOpacity(
+          opacity: frame == null ? 0 : 1,
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOut,
+          child: child,
         );
       },
+      errorBuilder: (_, __, ___) => const ColoredBox(color: Colors.black),
     );
   }
 }
 
-/// One square preview thumbnail — a cover, or procedural abstract art when
-/// absent. Sized by its parent (see [_PreviewRow]).
-Widget _previewThumb({
-  required String? url,
-  required String seed,
-  required bool circle,
-}) {
-  return AspectRatio(
-    aspectRatio: 1,
-    child: Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        shape: circle ? BoxShape.circle : BoxShape.rectangle,
-        borderRadius: circle ? null : BorderRadius.circular(_kPreviewRadius),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.15),
-          width: 1,
-        ),
-      ),
-      child: url != null
-          ? _tileImage(url, seed, cacheWidth: 200)
-          : CustomPaint(painter: _ProceduralStripPainter(seed)),
-    ),
-  );
-}
-
-/// One cover image, falling back to procedural art if it fails to load.
-Widget _tileImage(String url, String seed, {int cacheWidth = 300}) {
-  return Image.network(
-    url,
-    fit: BoxFit.cover,
-    cacheWidth: cacheWidth,
-    gaplessPlayback: true,
-    filterQuality: FilterQuality.medium,
-    errorBuilder: (_, __, ___) =>
-        CustomPaint(painter: _ProceduralStripPainter(seed)),
-  );
-}
-
-/// Abstract one-piece art for categories without usable covers: layered
-/// radial blobs in the berry/brass hue family, faint rings and accent dots —
-/// the wide-rectangle sibling of [ProceduralAlbumArt].
-class _ProceduralStripPainter extends CustomPainter {
-  final String seed;
-
-  _ProceduralStripPainter(this.seed);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rng = Random(seed.hashCode);
-    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
-
-    canvas.drawRect(rect, Paint()..color = KalinkaColors.background);
-
-    // Three soft blobs in the berry/brass range (340–400°), like the album
-    // art painter but scattered across the wide rectangle.
-    for (int i = 0; i < 3; i++) {
-      final hue = (340.0 + rng.nextDouble() * 60.0) % 360.0;
-      final color = HSLColor.fromAHSL(1, hue, 0.55, 0.24).toColor();
-      final center = Offset(
-        size.width * rng.nextDouble(),
-        size.height * rng.nextDouble(),
-      );
-      final radius = size.height * (0.7 + rng.nextDouble() * 0.9);
-      final paint = Paint()
-        ..shader = RadialGradient(
-          colors: [color.withValues(alpha: 0.85), color.withValues(alpha: 0)],
-        ).createShader(Rect.fromCircle(center: center, radius: radius));
-      canvas.drawCircle(center, radius, paint);
-    }
-
-    // Faint concentric rings echoing the album art motif.
-    final ringPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    final ringCenter = Offset(
-      size.width * (0.2 + rng.nextDouble() * 0.6),
-      size.height * rng.nextDouble(),
-    );
-    ringPaint.color = Colors.white.withValues(alpha: 0.05);
-    canvas.drawCircle(ringCenter, size.height * 0.75, ringPaint);
-    ringPaint.color = Colors.white.withValues(alpha: 0.04);
-    canvas.drawCircle(ringCenter, size.height * 0.45, ringPaint);
-
-    // Berry and brass accent dots.
-    canvas.drawCircle(
-      Offset(
-        size.width * (0.1 + rng.nextDouble() * 0.8),
-        size.height * (0.2 + rng.nextDouble() * 0.6),
-      ),
-      min(size.height * 0.05, 2.5),
-      Paint()..color = KalinkaColors.accent,
-    );
-    canvas.drawCircle(
-      Offset(
-        size.width * (0.1 + rng.nextDouble() * 0.8),
-        size.height * (0.2 + rng.nextDouble() * 0.6),
-      ),
-      min(size.height * 0.04, 1.8),
-      Paint()..color = KalinkaColors.gold,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_ProceduralStripPainter oldDelegate) =>
-      oldDelegate.seed != seed;
-}
-
-/// Shimmer twin of a catalog card: same paddings and slot heights, neutral
-/// surfaces, pulsing opacity like [ZeroStateShimmer].
+/// Shimmer twin of a catalog card: same frame and aspect, neutral surfaces,
+/// pulsing opacity like [ZeroStateShimmer].
 class _ShimmerCatalogCard extends StatefulWidget {
   const _ShimmerCatalogCard();
 
@@ -749,49 +420,37 @@ class _ShimmerCatalogCardState extends State<_ShimmerCatalogCard>
       animation: _opacity,
       builder: (context, child) =>
           Opacity(opacity: _opacity.value, child: child),
-      child: Container(
-        padding: _kCardPadding,
-        decoration: BoxDecoration(
-          color: KalinkaColors.surfaceRaised,
-          borderRadius: BorderRadius.circular(_kCardRadius),
-          border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: _kBadgeSize,
-              height: _kBadgeSize,
-              decoration: BoxDecoration(
-                color: KalinkaColors.surfaceInput,
-                borderRadius: BorderRadius.circular(9),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _ShimmerBar(width: 120, height: 14),
-            const SizedBox(height: 8),
-            _ShimmerBar(width: 150, height: 10),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                for (int i = 0; i < 3; i++) ...[
-                  if (i > 0) const SizedBox(width: _kPreviewGap),
-                  Expanded(
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: KalinkaColors.surfaceInput,
-                          borderRadius: BorderRadius.circular(_kPreviewRadius),
-                        ),
-                      ),
+      child: AspectRatio(
+        aspectRatio: _kCardAspect,
+        child: Container(
+          padding: _kCardPadding,
+          decoration: BoxDecoration(
+            color: KalinkaColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(_kCardRadius),
+            border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: _kBadgeSize,
+                    height: _kBadgeSize,
+                    decoration: BoxDecoration(
+                      color: KalinkaColors.surfaceInput,
+                      borderRadius: BorderRadius.circular(9),
                     ),
                   ),
+                  const SizedBox(width: 10),
+                  Expanded(child: _ShimmerBar(width: 120, height: 14)),
                 ],
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 12),
+              _ShimmerBar(width: 150, height: 10),
+            ],
+          ),
         ),
       ),
     );

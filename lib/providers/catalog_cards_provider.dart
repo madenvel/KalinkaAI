@@ -9,26 +9,37 @@ import 'kalinka_player_api_provider.dart';
 /// start (first watch) and on reconnect (the section widget invalidates).
 const _kRefreshInterval = Duration(hours: 12);
 
-// Bound the card row and preview fetch so a huge root catalog can't fan out
-// into dozens of requests. One upstream page keeps the server cache (keyed by
-// limit) from fragmenting.
+/// The card backgrounds are rendered server-side and generated lazily, so the
+/// first browse after a cold cache returns cards with no art yet. Re-fetch a
+/// few times at this cadence to pick the images up, then fall back to the slow
+/// refresh. Bounded so a card the server can't illustrate doesn't poll forever.
+const _kArtPollInterval = Duration(seconds: 4);
+const _kMaxArtPolls = 8;
+
+// Bound the number of cards per source so a huge root catalog can't fan out.
 const _kMaxCardsPerSource = 8;
-const _kPreviewFetchLimit = 8;
 
-// Remote catalogs 500 / return an empty page while the server warms its cache;
-// spaced retries land the preview on first display, not the next reconnect.
-const _kPreviewRetryDelays = [Duration(seconds: 2), Duration(seconds: 4)];
+// Poll bookkeeping (module-level: the provider is a singleton). `_pollDriven`
+// distinguishes a self-scheduled art poll from a fresh/external invalidation
+// (app start, reconnect, 12-hour refresh), so the attempt counter resets when
+// it should.
+int _artPolls = 0;
+bool _pollDriven = false;
 
-/// One planned advertisement card: a browsable category in a source's root
-/// catalog. Carries everything needed to render the card shell and shimmer —
-/// the preview strip content loads separately per card.
+/// One advertisement card: a browsable category in a source's root catalog.
+/// Carries the card shell content plus the unresolved path of its server-
+/// rendered background ([artPath], null until the backend has generated it).
 class CatalogCardPlan {
   final String id;
   final String title;
   final String? description;
   final String sourceName;
   final PreviewContentType? contentType;
-  final PreviewType? previewType;
+
+  /// Unresolved background image path (resolve against the server base URL at
+  /// render time so a base change doesn't invalidate it). Null when the server
+  /// hasn't produced the art yet — the card shows a black backdrop until then.
+  final String? artPath;
 
   const CatalogCardPlan({
     required this.id,
@@ -36,7 +47,7 @@ class CatalogCardPlan {
     required this.sourceName,
     this.description,
     this.contentType,
-    this.previewType,
+    this.artPath,
   });
 }
 
@@ -53,51 +64,24 @@ class CatalogCardGroup {
   });
 }
 
-/// How a card's preview strip is filled once its items are known.
-enum CatalogCardFill {
-  /// Cover artwork (hero backdrop + preview thumbnails).
-  arts,
-
-  /// Item names — textual catalogs (sub-category indexes) with no imagery.
-  textual,
-
-  /// Abstract procedural art — the catalog has no usable covers.
-  procedural,
+String? _artPathOf(BrowseItem item) {
+  final image = item.catalog?.image;
+  if (image == null) return null;
+  final path = image.large ?? image.small ?? image.thumbnail;
+  return (path != null && path.isNotEmpty) ? path : null;
 }
 
-class CatalogCardPreview {
-  final CatalogCardFill fill;
-
-  /// Unresolved image paths (resolve against the server base URL at render
-  /// time so a base change doesn't invalidate cached previews).
-  final List<String> artPaths;
-  final List<String> names;
-
-  /// Total items in the catalog (textual fills only) — the server's reported
-  /// count, which may exceed the sampled [names]. Null when unknown.
-  final int? itemCount;
-
-  const CatalogCardPreview({
-    required this.fill,
-    this.artPaths = const [],
-    this.names = const [],
-    this.itemCount,
-  });
-
-  static const procedural = CatalogCardPreview(
-    fill: CatalogCardFill.procedural,
-  );
-}
-
-/// Stage 1: the card plans, grouped by source. Root browse lists the input
-/// sources; each source's root catalog lists its categories. Resolving this
-/// tells the UI exactly how many cards each source gets, so the shimmer can
-/// lay out the final grid before any preview data exists.
+/// The card plans, grouped by source. Root browse lists the input sources;
+/// each source's root catalog lists its categories, each already carrying the
+/// URL of its backend-rendered background (or nothing, until generated). This
+/// is the whole payload the cards need — there is no second per-card fetch.
 final catalogCardGroupsProvider = FutureProvider<List<CatalogCardGroup>>((
   ref,
 ) async {
-  final timer = Timer(_kRefreshInterval, ref.invalidateSelf);
-  ref.onDispose(timer.cancel);
+  // A fresh start / reconnect / slow refresh resets the art-poll budget; only
+  // our own poll timer carries it forward.
+  if (!_pollDriven) _artPolls = 0;
+  _pollDriven = false;
 
   final api = ref.read(kalinkaProxyProvider);
   final root = await api.browse('', limit: 20);
@@ -128,7 +112,7 @@ final catalogCardGroupsProvider = FutureProvider<List<CatalogCardGroup>>((
           description: catalog.description ?? item.subname,
           sourceName: sourceName,
           contentType: catalog.previewConfig?.contentType,
-          previewType: catalog.previewConfig?.type,
+          artPath: _artPathOf(item),
         ),
       );
       if (cards.length >= _kMaxCardsPerSource) break;
@@ -144,72 +128,20 @@ final catalogCardGroupsProvider = FutureProvider<List<CatalogCardGroup>>((
       );
     }
   }
+
+  final missingArt = groups.any(
+    (group) => group.cards.any((card) => card.artPath == null),
+  );
+  final Duration delay;
+  if (missingArt && _artPolls < _kMaxArtPolls) {
+    _artPolls++;
+    _pollDriven = true;
+    delay = _kArtPollInterval;
+  } else {
+    delay = _kRefreshInterval;
+  }
+  final timer = Timer(delay, ref.invalidateSelf);
+  ref.onDispose(timer.cancel);
+
   return groups;
 });
-
-/// Stage 2: one category's preview strip, keyed by card id. Watches the
-/// groups future, so the 12-hour refresh of the plans re-runs every preview
-/// too; `when()` keeps showing the previous card during the refresh instead
-/// of dropping back to shimmer.
-final catalogCardPreviewProvider =
-    FutureProvider.family<CatalogCardPreview, String>((ref, cardId) async {
-      final groups = await ref.watch(catalogCardGroupsProvider.future);
-      CatalogCardPlan? plan;
-      for (final group in groups) {
-        for (final card in group.cards) {
-          if (card.id == cardId) plan = card;
-        }
-      }
-      // Plan disappeared in a refresh — the card widget is about to go away.
-      if (plan == null) return CatalogCardPreview.procedural;
-
-      final api = ref.read(kalinkaProxyProvider);
-      BrowseItemsList list;
-      var attempt = 0;
-      while (true) {
-        try {
-          list = await api.browse(cardId, limit: _kPreviewFetchLimit);
-          // An empty page can be a warming cache — retry like a failure.
-          if (list.items.isNotEmpty) break;
-          if (attempt >= _kPreviewRetryDelays.length) break;
-        } catch (_) {
-          if (attempt >= _kPreviewRetryDelays.length) rethrow;
-        }
-        await Future.delayed(_kPreviewRetryDelays[attempt++]);
-      }
-
-      final names = <String>[
-        for (final item in list.items)
-          if ((item.name ?? '').isNotEmpty) item.name!,
-      ];
-
-      // Distinct covers only (dedupe by path); prefer the larger variant —
-      // the cover is a prominent square now, so the thumbnail reads soft.
-      final artPaths = <String>[];
-      for (final item in list.items) {
-        final image = item.image;
-        final path = image?.large ?? image?.small ?? image?.thumbnail;
-        if (path != null && path.isNotEmpty && !artPaths.contains(path)) {
-          artPaths.add(path);
-        }
-      }
-
-      final isTextual =
-          plan.previewType == PreviewType.textOnly ||
-          plan.contentType == PreviewContentType.catalog;
-      if (isTextual && names.isNotEmpty) {
-        return CatalogCardPreview(
-          fill: CatalogCardFill.textual,
-          names: names.take(3).toList(),
-          itemCount: list.total,
-        );
-      }
-      if (artPaths.isNotEmpty) {
-        // Hero backdrop + three preview thumbnails.
-        return CatalogCardPreview(
-          fill: CatalogCardFill.arts,
-          artPaths: artPaths.take(4).toList(),
-        );
-      }
-      return CatalogCardPreview.procedural;
-    });
