@@ -186,13 +186,16 @@ class _CardGrid extends StatelessWidget {
 // Shared geometry between the real card and its shimmer twin, so the swap
 // doesn't shift the grid.
 const double _kCardRadius = 16;
-const EdgeInsets _kCardPadding = EdgeInsets.all(14);
+const double _kCardBasePad = 14;
 const double _kBadgeSize = 30;
-// White text sits over the server artwork; a soft drop shadow keeps it legible
-// even where the baked-in scrim is lightest.
-const List<Shadow> _kTextShadow = [
-  Shadow(color: Color(0xCC000000), blurRadius: 8, offset: Offset(0, 1)),
-];
+
+// Text, icon and padding scale with card width (1.0 at the min card, capped)
+// so they stay proportionate from a narrow tile up to a wide single-column one.
+const double _kContentScaleRef = 340;
+const double _kMaxContentScale = 1.9;
+
+double _contentScale(double cardWidth) =>
+    (cardWidth / _kContentScaleRef).clamp(1.0, _kMaxContentScale);
 
 /// One category card: the server-rendered background (or black until it
 /// exists) with the icon, title and description drawn on top.
@@ -258,61 +261,75 @@ class _CatalogCardState extends State<_CatalogCard> {
                 child: Stack(
                   children: [
                     Positioned.fill(child: _CardBackground(plan: plan)),
-                    Padding(
-                      padding: _kCardPadding,
-                      // Bound text to the dark left zone so it never sprawls
-                      // across the artwork.
+                    // Bound text to the dark left zone so it never sprawls
+                    // across the artwork; scale it with the card width.
+                    Positioned.fill(
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          final cardWidth =
-                              constraints.maxWidth + _kCardPadding.horizontal;
+                          final cardWidth = constraints.maxWidth;
+                          final scale = _contentScale(cardWidth);
+                          final pad = _kCardBasePad * scale;
                           final textMax =
-                              (cardWidth * _kTextZoneWidth - _kCardPadding.left)
-                                  .clamp(0.0, constraints.maxWidth);
-                          return Align(
-                            alignment: Alignment.topLeft,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(maxWidth: textMax),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Row(
-                                    children: [
-                                      _iconBadge(tint),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          plan.title,
-                                          style: KalinkaFonts.sans(
-                                            fontSize:
-                                                KalinkaTypography.baseSize + 4,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.white,
-                                            height: 1.15,
-                                          ).copyWith(shadows: _kTextShadow),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                              (cardWidth * _kTextZoneWidth - pad)
+                                  .clamp(0.0, cardWidth - 2 * pad);
+                          final shadow = [
+                            Shadow(
+                              color: const Color(0xCC000000),
+                              blurRadius: 8 * scale,
+                              offset: Offset(0, scale),
+                            ),
+                          ];
+                          return Padding(
+                            padding: EdgeInsets.all(pad),
+                            child: Align(
+                              alignment: Alignment.topLeft,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(maxWidth: textMax),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        _iconBadge(tint, scale),
+                                        SizedBox(width: 10 * scale),
+                                        Expanded(
+                                          child: Text(
+                                            plan.title,
+                                            style: KalinkaFonts.sans(
+                                              fontSize:
+                                                  (KalinkaTypography.baseSize +
+                                                      4) *
+                                                  scale,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                              height: 1.15,
+                                            ).copyWith(shadows: shadow),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
+                                      ],
+                                    ),
+                                    if (description.isNotEmpty) ...[
+                                      SizedBox(height: 8 * scale),
+                                      Text(
+                                        description,
+                                        style: KalinkaFonts.sans(
+                                          fontSize:
+                                              (KalinkaTypography.baseSize + 1) *
+                                              scale,
+                                          color: Colors.white.withValues(
+                                            alpha: 0.72,
+                                          ),
+                                          height: 1.25,
+                                        ).copyWith(shadows: shadow),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ],
-                                  ),
-                                  if (description.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      description,
-                                      style: KalinkaFonts.sans(
-                                        fontSize: KalinkaTypography.baseSize - 1,
-                                        color: Colors.white.withValues(
-                                          alpha: 0.68,
-                                        ),
-                                        height: 1.25,
-                                      ).copyWith(shadows: _kTextShadow),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
                                   ],
-                                ],
+                                ),
                               ),
                             ),
                           );
@@ -329,22 +346,22 @@ class _CatalogCardState extends State<_CatalogCard> {
     );
   }
 
-  Widget _iconBadge(Color tint) {
+  Widget _iconBadge(Color tint, double scale) {
     return Container(
-      width: _kBadgeSize,
-      height: _kBadgeSize,
+      width: _kBadgeSize * scale,
+      height: _kBadgeSize * scale,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           tint.withValues(alpha: 0.30),
           Colors.black.withValues(alpha: 0.38),
         ),
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(9 * scale),
         border: Border.all(color: tint.withValues(alpha: 0.60), width: 1),
       ),
       child: Icon(
         _contentIcon(widget.plan.contentType),
-        size: 17,
+        size: 17 * scale,
         color: Colors.white,
       ),
     );
@@ -444,35 +461,40 @@ class _ShimmerCatalogCardState extends State<_ShimmerCatalogCard>
           Opacity(opacity: _opacity.value, child: child),
       child: AspectRatio(
         aspectRatio: _kCardAspect,
-        child: Container(
-          padding: _kCardPadding,
-          decoration: BoxDecoration(
-            color: KalinkaColors.surfaceRaised,
-            borderRadius: BorderRadius.circular(_kCardRadius),
-            border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final scale = _contentScale(constraints.maxWidth);
+            return Container(
+              padding: EdgeInsets.all(_kCardBasePad * scale),
+              decoration: BoxDecoration(
+                color: KalinkaColors.surfaceRaised,
+                borderRadius: BorderRadius.circular(_kCardRadius),
+                border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: _kBadgeSize,
-                    height: _kBadgeSize,
-                    decoration: BoxDecoration(
-                      color: KalinkaColors.surfaceInput,
-                      borderRadius: BorderRadius.circular(9),
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        width: _kBadgeSize * scale,
+                        height: _kBadgeSize * scale,
+                        decoration: BoxDecoration(
+                          color: KalinkaColors.surfaceInput,
+                          borderRadius: BorderRadius.circular(9 * scale),
+                        ),
+                      ),
+                      SizedBox(width: 10 * scale),
+                      Expanded(child: _ShimmerBar(width: 120, height: 14 * scale)),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(child: _ShimmerBar(width: 120, height: 14)),
+                  SizedBox(height: 12 * scale),
+                  _ShimmerBar(width: 150, height: 10 * scale),
                 ],
               ),
-              const SizedBox(height: 12),
-              _ShimmerBar(width: 150, height: 10),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
