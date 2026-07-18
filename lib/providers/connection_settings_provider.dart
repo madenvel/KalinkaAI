@@ -19,7 +19,9 @@ class ConnectionSettings {
 
   /// Check if connection settings are properly configured
   bool get isSet => host.isNotEmpty && port > 0;
-  Uri get baseUrl => Uri.parse('http://$host:$port');
+  // Uri() (not Uri.parse of an interpolated string) so IPv6 hosts like `::1`
+  // are bracketed correctly instead of throwing a FormatException.
+  Uri get baseUrl => Uri(scheme: 'http', host: host, port: port);
 
   ConnectionSettings copyWith({
     String? name,

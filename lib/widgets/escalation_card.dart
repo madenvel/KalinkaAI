@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/connection_settings_provider.dart';
@@ -117,21 +118,25 @@ class _EscalationCardState extends ConsumerState<EscalationCard>
                 ),
               ),
               const SizedBox(height: 14),
-              // Action buttons
+              // Action buttons — web has no mDNS, so Retry only.
               Row(
                 children: [
-                  // Scan for servers
-                  KalinkaButton(
-                    label: 'Scan for servers',
-                    variant: KalinkaButtonVariant.accent,
-                    size: KalinkaButtonSize.compact,
-                    onTap: widget.onScanForServers,
-                  ),
-                  const Spacer(),
+                  if (!kIsWeb) ...[
+                    // Scan for servers
+                    KalinkaButton(
+                      label: 'Scan for servers',
+                      variant: KalinkaButtonVariant.accent,
+                      size: KalinkaButtonSize.compact,
+                      onTap: widget.onScanForServers,
+                    ),
+                    const Spacer(),
+                  ],
                   // Retry
                   KalinkaButton(
                     label: 'Retry',
-                    variant: KalinkaButtonVariant.neutral,
+                    variant: kIsWeb
+                        ? KalinkaButtonVariant.accent
+                        : KalinkaButtonVariant.neutral,
                     size: KalinkaButtonSize.compact,
                     onTap: () =>
                         ref.read(connectionStateProvider.notifier).retryNow(),

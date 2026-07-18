@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_version_provider.dart';
@@ -54,43 +55,47 @@ class ServerSheetContent extends ConsumerWidget {
           sublabel: 'Modules, audio, enrichment',
           onTap: () => Navigator.pop(context, ServerSheetAction.openSettings),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Divider(
-            color: Colors.white.withValues(alpha: 0.07),
-            height: 1,
+        // Web is bound to its serving origin — no discovery, no disconnect.
+        if (!kIsWeb) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Divider(
+              color: Colors.white.withValues(alpha: 0.07),
+              height: 1,
+            ),
           ),
-        ),
-        // Connect to different server
-        _SheetRow(
-          icon: Icons.language,
-          iconBgColor: KalinkaColors.surfaceOverlay,
-          iconColor: KalinkaColors.textSecondary,
-          label: 'Connect to different server',
-          sublabel: 'Scan network for other instances',
-          onTap: () => Navigator.pop(context, ServerSheetAction.openDiscovery),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Divider(
-            color: Colors.white.withValues(alpha: 0.07),
-            height: 1,
+          // Connect to different server
+          _SheetRow(
+            icon: Icons.language,
+            iconBgColor: KalinkaColors.surfaceOverlay,
+            iconColor: KalinkaColors.textSecondary,
+            label: 'Connect to different server',
+            sublabel: 'Scan network for other instances',
+            onTap: () =>
+                Navigator.pop(context, ServerSheetAction.openDiscovery),
           ),
-        ),
-        // Disconnect
-        _SheetRow(
-          icon: Icons.logout,
-          iconBgColor: KalinkaColors.accent.withValues(alpha: 0.14),
-          iconColor: KalinkaColors.accent,
-          label: 'Disconnect',
-          sublabel: '',
-          isDanger: true,
-          onTap: () async {
-            await ref.read(connectionSettingsProvider.notifier).clearDevice();
-            ref.read(connectionStateProvider.notifier).disconnected();
-            if (context.mounted) Navigator.pop(context);
-          },
-        ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Divider(
+              color: Colors.white.withValues(alpha: 0.07),
+              height: 1,
+            ),
+          ),
+          // Disconnect
+          _SheetRow(
+            icon: Icons.logout,
+            iconBgColor: KalinkaColors.accent.withValues(alpha: 0.14),
+            iconColor: KalinkaColors.accent,
+            label: 'Disconnect',
+            sublabel: '',
+            isDanger: true,
+            onTap: () async {
+              await ref.read(connectionSettingsProvider.notifier).clearDevice();
+              ref.read(connectionStateProvider.notifier).disconnected();
+              if (context.mounted) Navigator.pop(context);
+            },
+          ),
+        ],
         const _AppVersionFooter(),
       ],
     );
@@ -440,41 +445,44 @@ class _TabletServerSheetContent extends ConsumerWidget {
           sublabel: 'Modules, audio, enrichment',
           onTap: onOpenSettings,
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Divider(
-            color: Colors.white.withValues(alpha: 0.07),
-            height: 1,
+        // Web is bound to its serving origin — no discovery, no disconnect.
+        if (!kIsWeb) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Divider(
+              color: Colors.white.withValues(alpha: 0.07),
+              height: 1,
+            ),
           ),
-        ),
-        _SheetRow(
-          icon: Icons.language,
-          iconBgColor: KalinkaColors.surfaceOverlay,
-          iconColor: KalinkaColors.textSecondary,
-          label: 'Connect to different server',
-          sublabel: 'Scan network for other instances',
-          onTap: onOpenDiscovery,
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Divider(
-            color: Colors.white.withValues(alpha: 0.07),
-            height: 1,
+          _SheetRow(
+            icon: Icons.language,
+            iconBgColor: KalinkaColors.surfaceOverlay,
+            iconColor: KalinkaColors.textSecondary,
+            label: 'Connect to different server',
+            sublabel: 'Scan network for other instances',
+            onTap: onOpenDiscovery,
           ),
-        ),
-        _SheetRow(
-          icon: Icons.logout,
-          iconBgColor: KalinkaColors.accent.withValues(alpha: 0.14),
-          iconColor: KalinkaColors.accent,
-          label: 'Disconnect',
-          sublabel: '',
-          isDanger: true,
-          onTap: () async {
-            await ref.read(connectionSettingsProvider.notifier).clearDevice();
-            ref.read(connectionStateProvider.notifier).disconnected();
-            await onClose();
-          },
-        ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Divider(
+              color: Colors.white.withValues(alpha: 0.07),
+              height: 1,
+            ),
+          ),
+          _SheetRow(
+            icon: Icons.logout,
+            iconBgColor: KalinkaColors.accent.withValues(alpha: 0.14),
+            iconColor: KalinkaColors.accent,
+            label: 'Disconnect',
+            sublabel: '',
+            isDanger: true,
+            onTap: () async {
+              await ref.read(connectionSettingsProvider.notifier).clearDevice();
+              ref.read(connectionStateProvider.notifier).disconnected();
+              await onClose();
+            },
+          ),
+        ],
         const _AppVersionFooter(),
       ],
     );

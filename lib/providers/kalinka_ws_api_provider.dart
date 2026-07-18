@@ -16,13 +16,13 @@ class KalinkaWsApi {
 
   /// Send a device command over the /device/ws socket.
   Future<void> sendDeviceCommand(DeviceCommand command) async {
-    final socket = await _ref.read(deviceWebSocketProvider.future);
-    socket.add(jsonEncode(command.toJson()));
+    final channel = await _ref.read(deviceWebSocketProvider.future);
+    channel.sink.add(jsonEncode(command.toJson()));
   }
 
   /// Send a play queue command over the /queue/ws socket.
   Future<void> sendQueueCommand(QueueCommand command) async {
-    final socket = await _ref.read(queueWebSocketProvider.future);
-    socket.add(jsonEncode(command.toJson()));
+    final channel = await _ref.read(queueWebSocketProvider.future);
+    channel.sink.add(jsonEncode(command.toJson()));
   }
 }

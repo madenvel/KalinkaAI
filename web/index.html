@@ -19,23 +19,35 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Kalinka player — control playback from your browser.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="kalinka">
+  <meta name="apple-mobile-web-app-title" content="Kalinka">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png" />
 
-  <title>kalinka</title>
+  <title>Kalinka</title>
   <link rel="manifest" href="manifest.json">
 </head>
 
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <!-- {{...}} tokens are substituted by `flutter build web`. -->
+  <script>
+    {{flutter_js}}
+    {{flutter_build_config}}
+    _flutter.loader.load({
+      config: {
+        // Bundled CanvasKit (no CDN — works on LANs without internet), pinned
+        // so browsers don't try skwasm, which needs COOP/COEP headers.
+        canvasKitBaseUrl: "canvaskit/",
+        renderer: "canvaskit",
+      },
+    });
+  </script>
 </body>
 
 </html>
