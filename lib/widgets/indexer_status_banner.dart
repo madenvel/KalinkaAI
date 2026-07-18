@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 /// Subtle pipeline progress strip pinned below the search header. Shows a
-/// small muted caption ("Indexing · 45%") and a 2px progress line in the
-/// accent colour. [label] names the stage; the caller supplies a monotonic
-/// [progressPct] (0-100), or null for an indeterminate animation.
+/// small muted caption ("Indexing · 45%", from [IndexerStatusState.caption])
+/// and a 2px progress line in the accent colour. The caller supplies a
+/// monotonic [progressPct] (0-100), or null for an indeterminate animation.
 class IndexerStatusBanner extends StatelessWidget {
-  final String label;
+  final String caption;
   final double? progressPct;
 
   const IndexerStatusBanner({
     super.key,
-    required this.label,
+    required this.caption,
     required this.progressPct,
   });
 
@@ -19,9 +19,6 @@ class IndexerStatusBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final pct = progressPct;
     final progress = pct != null ? (pct / 100).clamp(0.0, 1.0) : null;
-    final caption = pct != null
-        ? '$label · ${pct.toStringAsFixed(0)}%'
-        : '$label…';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -31,11 +28,9 @@ class IndexerStatusBanner extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
           child: Text(
             caption,
-            style: KalinkaTextStyles.trackRowSubtitle.copyWith(
-              color: KalinkaColors.textMuted,
-              fontSize: KalinkaTypography.baseSize - 2,
-              letterSpacing: 0.4,
-            ),
+            // Screen readers skip or literalize '·'.
+            semanticsLabel: caption.replaceAll(' · ', ', '),
+            style: KalinkaTextStyles.pipelineCaption,
           ),
         ),
         SizedBox(

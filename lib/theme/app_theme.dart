@@ -402,6 +402,14 @@ class KalinkaTextStyles {
     color: KalinkaColors.textSecondary,
   );
 
+  /// Library-pipeline progress caption (search banner, empty-queue state).
+  static TextStyle pipelineCaption = KalinkaFonts.sans(
+    fontSize: KalinkaTypography.baseSize - 2,
+    fontWeight: FontWeight.w500,
+    color: KalinkaColors.textMuted,
+    letterSpacing: 0.4,
+  );
+
   static TextStyle cardTitle = KalinkaFonts.sans(
     fontSize: KalinkaTypography.baseSize + 5,
     fontWeight: FontWeight.w500,

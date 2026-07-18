@@ -1,18 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../providers/connection_state_provider.dart';
+import '../providers/indexer_status_provider.dart';
 import '../theme/app_theme.dart';
 
 /// Empty queue state — shown when the queue contains no tracks.
 /// Displays procedural art, title, and subtitle.
 ///
+/// While the library pipeline works, a small muted caption below the subtitle
+/// shows the stage and percentage ("Indexing · 45%") so a fresh install
+/// explains itself without hiding the search call to action.
+///
 /// When [isOffline] is true (no server connection), the content is dimmed and
 /// the subtitle prompts the user to connect rather than search.
-class EmptyQueueState extends StatelessWidget {
+class EmptyQueueState extends ConsumerStatefulWidget {
   final bool isOffline;
 
   const EmptyQueueState({super.key, this.isOffline = false});
 
   @override
+  ConsumerState<EmptyQueueState> createState() => _EmptyQueueStateState();
+}
+
+class _EmptyQueueStateState extends ConsumerState<EmptyQueueState>
+    with IndexerPollHolder {
+  @override
   Widget build(BuildContext context) {
+    // Caption only while actually connected: during offline/reconnecting the
+    // retained progress is stale and would read as live.
+    final connected = ref.watch(
+      connectionStateProvider.select((s) => s == ConnectionStatus.connected),
+    );
+    final pipelineCaption = connected
+        ? ref.watch(indexerStatusProvider.select((s) => s.caption))
+        : null;
+
+    final subtitle = widget.isOffline
+        ? 'Connect to Server to See Music'
+        : 'Search to Add Music';
+
     final content = LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -39,11 +66,28 @@ class EmptyQueueState extends StatelessWidget {
                   const SizedBox(height: 8),
                   // Subtitle
                   Text(
-                    isOffline
-                        ? 'Connect to Server to See Music'
-                        : 'Search to Add Music',
+                    subtitle,
                     style: KalinkaTextStyles.emptyQueueSubtitle,
                     textAlign: TextAlign.center,
+                  ),
+                  // Animated slot so the centered block doesn't jump when
+                  // the pipeline caption appears or finishes mid-view.
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    child: pipelineCaption == null
+                        ? const SizedBox.shrink()
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: Text(
+                              pipelineCaption,
+                              // Screen readers skip or literalize '·'.
+                              semanticsLabel:
+                                  pipelineCaption.replaceAll(' · ', ', '),
+                              style: KalinkaTextStyles.pipelineCaption,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                   ),
                 ],
               ),
@@ -53,7 +97,7 @@ class EmptyQueueState extends StatelessWidget {
       },
     );
 
-    if (isOffline) {
+    if (widget.isOffline) {
       return Opacity(opacity: 0.45, child: content);
     }
     return content;

@@ -35,13 +35,28 @@ class IndexerStatusState {
   final double? progressPct;
 
   const IndexerStatusState({this.stage, this.progressPct});
+
+  /// Shared caption for progress surfaces: "Indexing · 45%", or "Indexing…"
+  /// while the percentage is unknown. Null when the pipeline is idle.
+  String? get caption {
+    final stage = this.stage;
+    if (stage == null) return null;
+    final pct = progressPct;
+    if (pct == null) return '${stage.label}…';
+    return '${stage.label} · ${pct.toStringAsFixed(0)}%';
+  }
 }
 
 class IndexerStatusNotifier extends Notifier<IndexerStatusState> {
   Timer? _pollTimer;
 
-  /// Bumped by [stop] so a refresh whose request is in flight when the
-  /// search surface closes cannot re-arm the timer afterwards.
+  /// Surfaces that want the poll running (search banner, empty-queue status)
+  /// pair [acquire] with [release]. A count, not a flag: screen transitions
+  /// briefly mount both surfaces.
+  int _holders = 0;
+
+  /// Bumped by [release] so a refresh whose request is in flight when the
+  /// last surface closes cannot re-arm the timer afterwards.
   int _generation = 0;
   static const _activePollInterval = Duration(seconds: 5);
 
@@ -56,35 +71,52 @@ class IndexerStatusNotifier extends Notifier<IndexerStatusState> {
     return const IndexerStatusState();
   }
 
-  /// Kick off (or refresh) the polling loop. Safe to call repeatedly.
-  /// Runs until [stop]: every 5s while the pipeline works, every 30s while
-  /// it is idle. A failed poll keeps the last state — the pipeline is
-  /// likely still running, and the retry self-heals.
-  Future<void> refresh() async {
+  void acquire() {
+    _holders++;
+    if (_holders > 1) return; // poll already running
+    // Fresh session: don't flash the previous session's stale progress.
+    state = const IndexerStatusState();
+    _refresh();
+  }
+
+  void release() {
+    if (_holders > 0) _holders--;
+    if (_holders > 0) return;
+    _generation++;
+    _pollTimer?.cancel();
+    _pollTimer = null;
+  }
+
+  /// One poll cycle; re-arms itself until the last [release]: every 5s while
+  /// the pipeline works, every 30s while it is idle, unreachable, or awaiting
+  /// connection settings. A failed poll keeps the last state — the pipeline
+  /// is likely still running, and the retry self-heals.
+  Future<void> _refresh() async {
     _pollTimer?.cancel();
     final generation = ++_generation;
     final settings = ref.read(connectionSettingsProvider);
-    if (!settings.isSet) return;
+    if (!settings.isSet) {
+      // No server yet (fresh install mid-OOBE): keep the chain alive so the
+      // poll starts once settings appear, without touching the network.
+      _pollTimer = Timer(_idlePollInterval, _refresh);
+      return;
+    }
+    var polled = false;
     try {
       final api = ref.read(kalinkaProxyProvider);
       final status = await api.getIndexerStatus();
       if (generation != _generation) return; // stopped while in flight
       _apply(status);
+      polled = true;
     } catch (_) {
       if (generation != _generation) return;
       // Non-critical (server briefly unreachable) — keep the last state
       // rather than flashing "done", and let the next poll correct it.
     }
     _pollTimer = Timer(
-      state.stage != null ? _activePollInterval : _idlePollInterval,
-      refresh,
+      polled && state.stage != null ? _activePollInterval : _idlePollInterval,
+      _refresh,
     );
-  }
-
-  void stop() {
-    _generation++;
-    _pollTimer?.cancel();
-    _pollTimer = null;
   }
 
   void _apply(IndexerStatus status) {
@@ -100,7 +132,11 @@ class IndexerStatusNotifier extends Notifier<IndexerStatusState> {
       }
       if (outstanding == 0) continue;
 
-      final raw = 100.0 * (total - outstanding) / total;
+      // Clamp: a malformed payload (total 0 or < outstanding) must not render
+      // "-Infinity%", and 99.5+ must not round up to a false "100%".
+      final raw = total == 0
+          ? 0.0
+          : (100.0 * (total - outstanding) / total).clamp(0.0, 99.0).toDouble();
       // Monotonic within a stage; a stage change starts fresh.
       final prev = state.stage == stage ? state.progressPct : null;
       state = IndexerStatusState(
@@ -128,3 +164,28 @@ final indexerStatusProvider =
     NotifierProvider<IndexerStatusNotifier, IndexerStatusState>(
   IndexerStatusNotifier.new,
 );
+
+/// Holds the indexer poll for this State's lifetime. The microtask defers
+/// past the mounting build; the flag keeps dispose from releasing a hold the
+/// microtask never took.
+mixin IndexerPollHolder<T extends ConsumerStatefulWidget> on ConsumerState<T> {
+  late final IndexerStatusNotifier _pollNotifier;
+  bool _pollAcquired = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollNotifier = ref.read(indexerStatusProvider.notifier);
+    Future.microtask(() {
+      if (!mounted) return;
+      _pollAcquired = true;
+      _pollNotifier.acquire();
+    });
+  }
+
+  @override
+  void dispose() {
+    if (_pollAcquired) _pollNotifier.release();
+    super.dispose();
+  }
+}

@@ -39,7 +39,8 @@ class SearchSessionView extends ConsumerStatefulWidget {
   ConsumerState<SearchSessionView> createState() => _SearchSessionViewState();
 }
 
-class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
+class _SearchSessionViewState extends ConsumerState<SearchSessionView>
+    with IndexerPollHolder {
   final _composerController = TextEditingController();
   final _composerFocus = FocusNode();
   final _scrollController = ScrollController();
@@ -49,21 +50,8 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
   // (whose height is the shared kKalinkaTopBarHeight).
   static const double _kBarMinHeight = 46;
 
-  // Captured in initState so dispose() can stop the poll without touching ref.
-  late final IndexerStatusNotifier _indexerStatus;
-
-  @override
-  void initState() {
-    super.initState();
-    // Poll pipeline progress while the search surface is up — drives the
-    // banner under the header. Runs until dispose() stops it.
-    _indexerStatus = ref.read(indexerStatusProvider.notifier);
-    Future.microtask(_indexerStatus.refresh);
-  }
-
   @override
   void dispose() {
-    _indexerStatus.stop();
     _composerController.dispose();
     _composerFocus.dispose();
     _scrollController.dispose();
@@ -268,10 +256,10 @@ class _IndexerBannerSlot extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final status = ref.watch(indexerStatusProvider);
-    final stage = status.stage;
-    if (stage == null) return const SizedBox.shrink();
+    final caption = status.caption;
+    if (caption == null) return const SizedBox.shrink();
     return IndexerStatusBanner(
-      label: stage.label,
+      caption: caption,
       progressPct: status.progressPct,
     );
   }
