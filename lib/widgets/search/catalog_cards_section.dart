@@ -17,6 +17,11 @@ const int _kMaxColumns = 4;
 // art fills it without letterboxing.
 const double _kCardAspect = 16 / 9;
 
+// Left fraction of the card the server keeps dark for text (its TEXT_ZONE_W).
+// The client bounds its title/description column to the same fraction so the
+// two agree on where text lives and where the artwork is free to show.
+const double _kTextZoneWidth = 0.62;
+
 /// Advertisement cards for the browsable catalogs, grouped by source, on the
 /// search zero state. The plans (source → categories) resolve first and lay
 /// out the grid; each card's background is a single server-rendered image
@@ -257,43 +262,64 @@ class _CatalogCardState extends State<_CatalogCard> {
                     Positioned.fill(child: _CardBackground(plan: plan)),
                     Padding(
                       padding: _kCardPadding,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            children: [
-                              _iconBadge(tint),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  plan.title,
-                                  style: KalinkaFonts.sans(
-                                    fontSize: KalinkaTypography.baseSize + 4,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    height: 1.15,
-                                  ).copyWith(shadows: _kTextShadow),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                      // Bound the text to the left column the server keeps dark
+                      // (its TEXT_ZONE_W), so the title/description never sprawl
+                      // across the artwork on the right.
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cardWidth =
+                              constraints.maxWidth + _kCardPadding.horizontal;
+                          final textMax =
+                              (cardWidth * _kTextZoneWidth - _kCardPadding.left)
+                                  .clamp(0.0, constraints.maxWidth);
+                          return Align(
+                            alignment: Alignment.topLeft,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(maxWidth: textMax),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      _iconBadge(tint),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          plan.title,
+                                          style: KalinkaFonts.sans(
+                                            fontSize:
+                                                KalinkaTypography.baseSize + 4,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                            height: 1.15,
+                                          ).copyWith(shadows: _kTextShadow),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (description.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      description,
+                                      style: KalinkaFonts.sans(
+                                        fontSize: KalinkaTypography.baseSize - 1,
+                                        color: Colors.white.withValues(
+                                          alpha: 0.68,
+                                        ),
+                                        height: 1.25,
+                                      ).copyWith(shadows: _kTextShadow),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ],
                               ),
-                            ],
-                          ),
-                          if (description.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              description,
-                              style: KalinkaFonts.sans(
-                                fontSize: KalinkaTypography.baseSize - 1,
-                                color: Colors.white.withValues(alpha: 0.68),
-                                height: 1.25,
-                              ).copyWith(shadows: _kTextShadow),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
-                        ],
+                          );
+                        },
                       ),
                     ),
                   ],
