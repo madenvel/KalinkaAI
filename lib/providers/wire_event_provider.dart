@@ -74,20 +74,20 @@ Stream<String> openPlayQueueStream(Ref ref, CancelToken cancel) async* {
 
 // WebSocket-based queue stream (expects text frames with JSON)
 Stream<String> openPlayQueueWsStream(Ref ref, CancelToken cancel) async* {
-  final socket = await ref.watch(queueWebSocketProvider.future);
+  final channel = await ref.watch(queueWebSocketProvider.future);
   final conn = ref.read(connectionStateProvider.notifier);
 
   // Close the socket if the caller cancels via CancelToken
-  cancel.whenCancel.then((_) => socket.close());
+  cancel.whenCancel.then((_) => channel.sink.close());
 
   try {
-    yield* socket.map((event) {
+    yield* channel.stream.map((event) {
       if (event is String) return event;
       if (event is List<int>) return utf8.decode(event);
       return event.toString();
     });
   } finally {
-    socket.close();
+    channel.sink.close();
     // Stream ended — if not intentionally cancelled AND the user hasn't
     // deliberately disconnected (settings cleared), the server dropped the
     // connection. Trigger reconnection so the UI reflects the lost connection.
@@ -99,20 +99,20 @@ Stream<String> openPlayQueueWsStream(Ref ref, CancelToken cancel) async* {
 
 // Web-Socket-based external device stream (expects text frames with JSON)
 Stream<String> openExtDeviceWsStream(Ref ref, CancelToken cancel) async* {
-  final socket = await ref.watch(deviceWebSocketProvider.future);
+  final channel = await ref.watch(deviceWebSocketProvider.future);
   final conn = ref.read(connectionStateProvider.notifier);
 
   // Close the socket if the caller cancels via CancelToken
-  cancel.whenCancel.then((_) => socket.close());
+  cancel.whenCancel.then((_) => channel.sink.close());
 
   try {
-    yield* socket.map((event) {
+    yield* channel.stream.map((event) {
       if (event is String) return event;
       if (event is List<int>) return utf8.decode(event);
       return event.toString();
     });
   } finally {
-    socket.close();
+    channel.sink.close();
     // Stream ended — if not intentionally cancelled AND the user hasn't
     // deliberately disconnected (settings cleared), the server dropped the
     // connection. Trigger reconnection so the UI reflects the lost connection.

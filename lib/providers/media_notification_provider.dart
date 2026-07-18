@@ -1,5 +1,5 @@
-import 'dart:io' show Platform;
-
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,7 +13,7 @@ class MediaNotificationNotifier extends Notifier<void> {
 
   @override
   void build() {
-    if (!Platform.isAndroid) return;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
 
     // Enable immediately if already connected.
     final currentStatus = ref.read(connectionStateProvider);

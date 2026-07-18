@@ -1,7 +1,10 @@
-import 'dart:io' show Platform;
-
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:vibration/vibration.dart';
+
+bool get _isAndroid =>
+    !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
 /// Platform-aware haptic utility.
 ///
@@ -19,7 +22,7 @@ class KalinkaHaptics {
   // ── Single-shot impacts ────────────────────────────────────────────────────
 
   static void selectionClick() {
-    if (Platform.isAndroid) {
+    if (_isAndroid) {
       _nativeChannel.invokeMethod('hapticTick').catchError((_) {
         Vibration.vibrate(duration: 15, amplitude: 80);
       });
@@ -29,7 +32,7 @@ class KalinkaHaptics {
   }
 
   static void lightImpact() {
-    if (Platform.isAndroid) {
+    if (_isAndroid) {
       Vibration.vibrate(duration: 20, amplitude: 110);
     } else {
       HapticFeedback.lightImpact();
@@ -37,7 +40,7 @@ class KalinkaHaptics {
   }
 
   static void mediumImpact() {
-    if (Platform.isAndroid) {
+    if (_isAndroid) {
       Vibration.vibrate(duration: 35, amplitude: 160);
     } else {
       HapticFeedback.mediumImpact();
@@ -45,7 +48,7 @@ class KalinkaHaptics {
   }
 
   static void heavyImpact() {
-    if (Platform.isAndroid) {
+    if (_isAndroid) {
       Vibration.vibrate(duration: 50, amplitude: 230);
     } else {
       HapticFeedback.heavyImpact();
@@ -59,7 +62,7 @@ class KalinkaHaptics {
   /// On Android, a single vibrate(pattern:) call handles timing precisely.
   /// On iOS, two sequential HapticFeedback calls with a delay.
   static Future<void> doublePulse() async {
-    if (Platform.isAndroid) {
+    if (_isAndroid) {
       Vibration.vibrate(
         pattern: [0, 40, 100, 25],
         intensities: [0, 180, 0, 110],
@@ -76,7 +79,7 @@ class KalinkaHaptics {
   /// On Android, a single pattern call with rising amplitude.
   /// On iOS, two sequential calls with a gap.
   static Future<void> successCrescendo() async {
-    if (Platform.isAndroid) {
+    if (_isAndroid) {
       Vibration.vibrate(
         pattern: [0, 30, 80, 70],
         intensities: [0, 100, 0, 230],
@@ -102,7 +105,7 @@ class KalinkaHaptics {
   /// On iOS, heavyImpact() alone produces a very good чпок via the Taptic
   /// Engine — no custom waveform needed.
   static Future<void> corkPop() async {
-    if (Platform.isAndroid) {
+    if (_isAndroid) {
       try {
         await _nativeChannel.invokeMethod('hapticCorkPop');
       } catch (_) {
@@ -128,7 +131,7 @@ class KalinkaHaptics {
   ///
   /// On iOS: lightImpact → heavyImpact with a short gap mirrors the same feel.
   static Future<void> hapticDelete() async {
-    if (Platform.isAndroid) {
+    if (_isAndroid) {
       try {
         await _nativeChannel.invokeMethod('hapticDelete');
       } catch (_) {
