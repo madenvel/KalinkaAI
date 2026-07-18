@@ -1393,43 +1393,6 @@ class IndexerStatus {
           },
       });
 
-  bool get isEmpty => modules.isEmpty;
-
-  bool get isComplete {
-    if (modules.isEmpty) return true;
-    for (final stages in modules.values) {
-      for (final s in stages.values) {
-        if (s.pending > 0 || s.inProgress > 0) return false;
-      }
-    }
-    return true;
-  }
-
-  double? get minCoveragePct {
-    double? m;
-    for (final stages in modules.values) {
-      for (final s in stages.values) {
-        if (m == null || s.coveragePct < m) m = s.coveragePct;
-      }
-    }
-    return m;
-  }
-
-  /// Aggregate completion across every stage: sum(done) / sum(total).
-  /// Unlike [minCoveragePct] this doesn't stick at 0% when a downstream
-  /// stage hasn't started yet — it reflects overall pipeline progress.
-  double? get overallCoveragePct {
-    int done = 0;
-    int total = 0;
-    for (final stages in modules.values) {
-      for (final s in stages.values) {
-        done += s.done;
-        total += s.total;
-      }
-    }
-    if (total == 0) return null;
-    return (done / total) * 100;
-  }
 }
 
 /// One ready-to-run AI search query from `/ai_search/suggestions`, matched to

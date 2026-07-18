@@ -6,7 +6,6 @@ import '../data_model/data_model.dart';
 import 'kalinka_player_api_provider.dart';
 import 'connection_settings_provider.dart';
 import 'connection_state_provider.dart';
-import 'indexer_status_provider.dart';
 import 'app_state_provider.dart';
 import 'selection_state_provider.dart';
 
@@ -420,7 +419,6 @@ class SearchStateNotifier extends Notifier<SearchState> {
         // Genre pills + recently-favourited back the always-visible filter
         // row and the All/genre teaser, so refresh them in every zero-state.
         _loadZeroStateData();
-        ref.read(indexerStatusProvider.notifier).refresh();
     }
   }
 
@@ -452,7 +450,6 @@ class SearchStateNotifier extends Notifier<SearchState> {
       _loadBrowseRecommendations();
     }
     _loadZeroStateData();
-    ref.read(indexerStatusProvider.notifier).refresh();
   }
 
   /// Deactivate search — exit to inactive (State 7), preserve histories
@@ -460,7 +457,6 @@ class SearchStateNotifier extends Notifier<SearchState> {
     _debounceTimer?.cancel();
     _completionHideTimer?.cancel();
     _aiHistoryTimer?.cancel();
-    ref.read(indexerStatusProvider.notifier).stop();
     ref.read(selectionStateProvider.notifier).exitSelectionMode();
     // Save any session history queries into all-time history
     for (final q in state.sessionHistory) {
@@ -507,12 +503,6 @@ class SearchStateNotifier extends Notifier<SearchState> {
       clearSearchResults: newAi,
       clearAiSearchResults: !newAi,
     );
-    // Refresh indexer coverage whenever the user opts into AI mode so the
-    // banner under the search bar reflects current progress, not a snapshot
-    // taken when the search surface was first opened.
-    if (newAi) {
-      ref.read(indexerStatusProvider.notifier).refresh();
-    }
     final hasQuery = state.query.trim().isNotEmpty;
     if (hasQuery &&
         (state.searchPhase == SearchPhase.results ||

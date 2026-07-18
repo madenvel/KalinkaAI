@@ -1,22 +1,27 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
-/// Subtle indexing progress strip pinned below the chip panel. Shows a
+/// Subtle pipeline progress strip pinned below the search header. Shows a
 /// small muted caption ("Indexing · 45%") and a 2px progress line in the
-/// accent colour. The caller supplies a monotonic [progressPct] (0-100);
-/// pass null for an indeterminate animation when coverage is unknown.
+/// accent colour. [label] names the stage; the caller supplies a monotonic
+/// [progressPct] (0-100), or null for an indeterminate animation.
 class IndexerStatusBanner extends StatelessWidget {
+  final String label;
   final double? progressPct;
 
-  const IndexerStatusBanner({super.key, required this.progressPct});
+  const IndexerStatusBanner({
+    super.key,
+    required this.label,
+    required this.progressPct,
+  });
 
   @override
   Widget build(BuildContext context) {
     final pct = progressPct;
     final progress = pct != null ? (pct / 100).clamp(0.0, 1.0) : null;
     final caption = pct != null
-        ? 'Indexing · ${pct.toStringAsFixed(0)}%'
-        : 'Indexing…';
+        ? '$label · ${pct.toStringAsFixed(0)}%'
+        : '$label…';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

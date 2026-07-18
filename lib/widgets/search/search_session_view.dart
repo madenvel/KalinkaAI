@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../providers/indexer_status_provider.dart';
 import '../../providers/search_session_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
+import '../indexer_status_banner.dart';
 import '../selection_overlay.dart';
 import '../server_chip.dart';
 import 'query_block_view.dart';
@@ -47,8 +49,21 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
   // (whose height is the shared kKalinkaTopBarHeight).
   static const double _kBarMinHeight = 46;
 
+  // Captured in initState so dispose() can stop the poll without touching ref.
+  late final IndexerStatusNotifier _indexerStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    // Poll pipeline progress while the search surface is up — drives the
+    // banner under the header. Runs until dispose() stops it.
+    _indexerStatus = ref.read(indexerStatusProvider.notifier);
+    Future.microtask(_indexerStatus.refresh);
+  }
+
   @override
   void dispose() {
+    _indexerStatus.stop();
     _composerController.dispose();
     _composerFocus.dispose();
     _scrollController.dispose();
@@ -108,6 +123,7 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
           Column(
             children: [
               _buildHeader(),
+              const _IndexerBannerSlot(),
               Expanded(
                 child: session.isZeroState
                     ? SearchZeroState(
@@ -238,6 +254,25 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView> {
               .toggleSection(block.id, sectionId),
         );
       },
+    );
+  }
+}
+
+/// Subtle pipeline progress strip under the header: stage name + crimson
+/// 2px line while the library is indexing / enriching / embedding; gone when
+/// the pipeline is idle. Its own consumer so the 5s poll ticks rebuild only
+/// this strip, not the whole search surface.
+class _IndexerBannerSlot extends ConsumerWidget {
+  const _IndexerBannerSlot();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(indexerStatusProvider);
+    final stage = status.stage;
+    if (stage == null) return const SizedBox.shrink();
+    return IndexerStatusBanner(
+      label: stage.label,
+      progressPct: status.progressPct,
     );
   }
 }
