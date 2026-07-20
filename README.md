@@ -3,6 +3,11 @@ Kalinka Player client with AI search and recommendations
 
 Website: [kalinkaplayer.com](https://kalinkaplayer.com)
 
+Ask for a mood, get a queue. Semantic search turns a phrase like
+_"something melancholic for tonight"_ into matching tracks:
+
+<img src="docs/images/demo.gif" alt="Semantic search demo: searching for 'something melancholic for tonight'" width="280">
+
 ## Getting started
 - **[Initial setup guide](docs/initial-setup.md)** — server installation,
   pointing it at your music collection, and connecting the app.
