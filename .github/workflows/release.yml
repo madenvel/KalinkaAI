@@ -178,6 +178,14 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      - name: Alias stable "latest" download names
+        # Version-less copies so kalinkaplayer.com can link
+        # /releases/latest/download/<name> without going stale each release.
+        run: |
+          set -euo pipefail
+          cd dist
+          cp "kalinka-$V.apk" kalinka-android-universal.apk
+          cp "kalinka-$V-linux-x64.tar.gz" kalinka-linux-x64.tar.gz
       - name: Checksums
         run: |
           set -euo pipefail
@@ -214,4 +222,6 @@ jobs:
             dist/kalinka-${{ env.V }}.apk
             dist/kalinka-${{ env.V }}-linux-x64.tar.gz
             dist/kalinka-web_${{ env.V }}_all.deb
+            dist/kalinka-android-universal.apk
+            dist/kalinka-linux-x64.tar.gz
             dist/md5.txt
