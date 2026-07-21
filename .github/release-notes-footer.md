@@ -8,6 +8,11 @@ Download an APK below and install it:
 - `kalinka-__VERSION__-armeabi-v7a.apk` — older 32-bit devices
 - `kalinka-__VERSION__.apk` — universal (larger; runs on any ABI)
 
+Prefer a link that never changes? This **permanent URL** always serves the
+newest release's universal APK — safe to bookmark or script, no per-version edits:
+
+<https://github.com/madenvel/KalinkaAI/releases/latest/download/kalinka-android-universal.apk>
+
 Verify your download against `md5.txt`:
 
 ```
@@ -26,3 +31,6 @@ Download and extract `kalinka-__VERSION__-linux-x64.tar.gz`, then run
 `./install.sh` to register the app (launcher icon + "Kalinka" name).
 `./install.sh --uninstall` reverses it. You can also run the `kalinka`
 binary directly without installing.
+
+Permanent latest-release link (never changes between versions):
+<https://github.com/madenvel/KalinkaAI/releases/latest/download/kalinka-linux-x64.tar.gz>
