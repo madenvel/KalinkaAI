@@ -28,6 +28,10 @@ class CatalogCardPlan {
   final String sourceName;
   final PreviewContentType? contentType;
 
+  /// Semantic icon id from the catalog's preview_config (e.g. "popular",
+  /// "new_releases"); the card maps it to a glyph, falling back to contentType.
+  final String? icon;
+
   /// Unresolved background path (resolved against the base URL at render time).
   /// Null until the server has generated the art; the card is black until then.
   final String? artPath;
@@ -38,6 +42,7 @@ class CatalogCardPlan {
     required this.sourceName,
     this.description,
     this.contentType,
+    this.icon,
     this.artPath,
   });
 }
@@ -99,6 +104,7 @@ final catalogCardGroupsProvider = FutureProvider<List<CatalogCardGroup>>((
           description: catalog.description ?? item.subname,
           sourceName: sourceName,
           contentType: catalog.previewConfig?.contentType,
+          icon: catalog.previewConfig?.icon,
           artPath: _artPathOf(item),
         ),
       );

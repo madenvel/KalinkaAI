@@ -8,19 +8,20 @@ import '../../providers/source_modules_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 
-// Minimum card width before the grid adds a column. Low enough for two per row
-// on a typical panel; the text scales down with the card so it still fits.
-const double _kMinCardWidth = 280;
+// Minimum card width before the grid adds a column. Kept small so it doubles to
+// two-up early, rather than letting a single 3:1 banner grow huge first.
+const double _kMinCardWidth = 300;
 const double _kCardGap = 14;
 const double _kCardRunGap = 16;
-const int _kMaxColumns = 4;
+const int _kMaxColumns = 2;
 
-// The server renders backgrounds at 16:9; the frame matches to avoid letterbox.
-const double _kCardAspect = 16 / 9;
+// Wide, compact banners: the app paints the source-coloured gradient + frame and
+// the album cascade (a transparent tile) sits on the right.
+const double _kCardAspect = 3 / 1;
 
-// Left fraction the server keeps dark; the text column is bounded to match its
-// TEXT_ZONE_W.
-const double _kTextZoneWidth = 0.62;
+// Left fraction reserved for the icon/title/description column, clear of the
+// cascade on the right.
+const double _kTextZoneWidth = 0.48;
 
 /// Advertisement cards for the browsable catalogs, grouped by source, on the
 /// search zero state. Each card's background is a server-rendered image (or
@@ -100,6 +101,33 @@ class CatalogCardsSection extends ConsumerWidget {
 }
 
 Color _tintFor(String sourceName) => colorForSourceName(sourceName);
+
+/// Maps a backend preview_config icon id to a glyph; null falls back to the
+/// content-type icon. Superset of _sectionIcon in staging_result_sections.dart.
+IconData? _iconForId(String? id) {
+  switch (id) {
+    case 'best_match':
+      return Icons.star_rounded;
+    case 'ai_suggestions':
+      return Icons.auto_awesome;
+    case 'popular':
+      return Icons.trending_up_rounded;
+    case 'new_releases':
+      return Icons.new_releases_outlined;
+    case 'recent':
+      return Icons.history_rounded;
+    case 'album':
+      return Icons.album_outlined;
+    case 'artist':
+      return Icons.person_outline;
+    case 'track':
+      return Icons.music_note_rounded;
+    case 'playlist':
+      return Icons.queue_music_rounded;
+    default:
+      return null;
+  }
+}
 
 /// Source attribution header: letter badge + tinted title; local-files is the
 /// unmarked default (no badge, generic title).
@@ -254,76 +282,115 @@ class _CatalogCardState extends State<_CatalogCard> {
                 color: KalinkaColors.surfaceRaised,
                 borderRadius: BorderRadius.circular(_kCardRadius),
                 border: Border.all(
-                  color: tint.withValues(alpha: _hovered ? 0.55 : 0.22),
-                  width: 1,
+                  color: tint.withValues(alpha: _hovered ? 0.85 : 0.5),
+                  width: 1.5,
                 ),
               ),
-              // Clip one step inside the frame, else the image runs under the
+              // Clip one step inside the frame, else the art runs under the
               // border and swallows the rounded corners.
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(_kCardRadius - 1),
                 child: Stack(
                   children: [
+                    // Full-bleed generated artwork (background + album cascade).
                     Positioned.fill(child: _CardBackground(plan: plan)),
                     // Bound text to the dark left zone so it never sprawls
                     // across the artwork; scale it with the card width.
                     Positioned.fill(
                       child: LayoutBuilder(
                         builder: (context, constraints) {
+                          // Size off the card HEIGHT: these banners are 3:1 and
+                          // short, so width-scaled text overflows the height.
                           final cardWidth = constraints.maxWidth;
-                          final scale = _contentScale(cardWidth);
-                          final pad = _kCardBasePad * scale;
-                          final textMax =
-                              (cardWidth * _kTextZoneWidth - pad)
-                                  .clamp(0.0, cardWidth - 2 * pad);
-                          final titleSize =
-                              (KalinkaTypography.baseSize + 4) * scale;
-                          final descSize =
-                              (KalinkaTypography.baseSize + 1) * scale;
+                          final cardHeight = constraints.maxHeight;
+                          final padX = cardWidth * 0.045;
+                          final padY = cardHeight * 0.1;
+                          final textMax = (cardWidth * _kTextZoneWidth - padX)
+                              .clamp(0.0, cardWidth);
+                          final iconSize = cardHeight * 0.22;
+                          final titleSize = cardHeight * 0.125;
+                          final descSize = cardHeight * 0.075;
                           return Padding(
-                            padding: EdgeInsets.all(pad),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: padX,
+                              vertical: padY,
+                            ),
                             child: Align(
-                              alignment: Alignment.topLeft,
+                              alignment: Alignment.centerLeft,
                               child: ConstrainedBox(
                                 constraints: BoxConstraints(maxWidth: textMax),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Row(
-                                      children: [
-                                        _iconBadge(tint, scale),
-                                        SizedBox(width: 10 * scale),
-                                        Expanded(
-                                          child: _OutlinedText(
-                                            plan.title,
-                                            style: KalinkaFonts.sans(
-                                              fontSize: titleSize,
-                                              fontWeight: FontWeight.w700,
-                                              height: 1.15,
-                                            ),
-                                            strokeWidth: titleSize * _kStrokeRatio,
-                                            maxLines: 1,
-                                          ),
-                                        ),
-                                      ],
+                                    _iconBadge(tint, iconSize),
+                                    SizedBox(height: cardHeight * 0.05),
+                                    _OutlinedText(
+                                      plan.title,
+                                      style: KalinkaFonts.sans(
+                                        fontSize: titleSize,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.1,
+                                      ),
+                                      strokeWidth: titleSize * _kStrokeRatio,
+                                      maxLines: 1,
                                     ),
                                     if (description.isNotEmpty) ...[
-                                      SizedBox(height: 8 * scale),
+                                      SizedBox(height: cardHeight * 0.03),
                                       _OutlinedText(
                                         description,
                                         style: KalinkaFonts.sans(
                                           fontSize: descSize,
-                                          height: 1.25,
+                                          height: 1.2,
                                         ),
                                         fillColor: Colors.white.withValues(
-                                          alpha: 0.88,
+                                          alpha: 0.85,
                                         ),
                                         strokeWidth: descSize * _kStrokeRatio,
                                         maxLines: 2,
                                       ),
                                     ],
                                   ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    // Right-center chevron affordance; fills with the source
+                    // tint (selected) when the card is hovered.
+                    Positioned.fill(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final d = constraints.maxHeight * 0.26;
+                          return Align(
+                            alignment: Alignment.centerRight,
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                right: constraints.maxWidth * 0.03,
+                              ),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 120),
+                                width: d,
+                                height: d,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _hovered
+                                      ? tint.withValues(alpha: 0.95)
+                                      : Colors.black.withValues(alpha: 0.28),
+                                  border: Border.all(
+                                    color: _hovered
+                                        ? tint
+                                        : Colors.white.withValues(alpha: 0.45),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: d * 0.7,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
@@ -341,22 +408,22 @@ class _CatalogCardState extends State<_CatalogCard> {
     );
   }
 
-  Widget _iconBadge(Color tint, double scale) {
+  Widget _iconBadge(Color tint, double size) {
     return Container(
-      width: _kBadgeSize * scale,
-      height: _kBadgeSize * scale,
+      width: size,
+      height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           tint.withValues(alpha: 0.30),
           Colors.black.withValues(alpha: 0.38),
         ),
-        borderRadius: BorderRadius.circular(9 * scale),
+        borderRadius: BorderRadius.circular(size * 0.3),
         border: Border.all(color: tint.withValues(alpha: 0.60), width: 1),
       ),
       child: Icon(
-        _contentIcon(widget.plan.contentType),
-        size: 17 * scale,
+        _iconForId(widget.plan.icon) ?? _contentIcon(widget.plan.contentType),
+        size: size * 0.56,
         color: Colors.white,
       ),
     );
@@ -380,8 +447,8 @@ class _CatalogCardState extends State<_CatalogCard> {
   }
 }
 
-/// Card backdrop: the server background, or black until it exists / on error.
-/// The URL key forces a re-decode when the link changes.
+/// Full-bleed generated artwork behind the card, or black until it exists / on
+/// error. The URL key forces a re-decode when the link changes.
 class _CardBackground extends ConsumerWidget {
   final CatalogCardPlan plan;
 
