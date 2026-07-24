@@ -110,26 +110,26 @@ class QueryBlockView extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          // Refine the prompt or step out to the catalogs, without leaving the
-          // result on screen.
-          Padding(
-            padding: const EdgeInsets.only(left: 28),
-            child: Row(
-              children: [
-                _QueryAction(
-                  icon: Icons.search_rounded,
-                  label: 'Refine',
-                  onTap: onRefine,
-                ),
-                const SizedBox(width: 8),
-                _QueryAction(
-                  icon: Icons.home_rounded,
-                  label: 'Explore catalogs',
-                  onTap: onExploreCatalogs,
-                ),
-              ],
-            ),
+          const SizedBox(height: 12),
+          // Reword the prompt or step out to the catalogs, without dropping the
+          // result. Assist chips (tonal fill + ink state layer) so each reads
+          // as a button and answers hover/press; Wrap lets the second drop to a
+          // new line on a narrow card.
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _QueryAction(
+                icon: Icons.search_rounded,
+                label: 'Refine',
+                onTap: onRefine,
+              ),
+              _QueryAction(
+                icon: Icons.home_rounded,
+                label: 'Explore catalogs',
+                onTap: onExploreCatalogs,
+              ),
+            ],
           ),
         ],
       ),
@@ -204,7 +204,9 @@ class QueryBlockView extends StatelessWidget {
   }
 }
 
-/// A quiet icon + label link under the query card (Refine / Explore catalogs).
+/// An assist chip under the query card (Refine / Explore catalogs): a tonal
+/// pill raised one step off the card, with an ink state layer so it lights up
+/// on hover and ripples on press. Sized for a comfortable tap target.
 class _QueryAction extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -221,22 +223,33 @@ class _QueryAction extends StatelessWidget {
     return Semantics(
       label: label,
       button: true,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
+      child: Material(
+        color: KalinkaColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
           onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          borderRadius: BorderRadius.circular(10),
+          hoverColor: KalinkaColors.surfaceOverlay,
+          highlightColor: KalinkaColors.surfaceOverlay,
+          splashColor: KalinkaColors.accentSubtle,
+          child: Container(
+            // A hairline outline keeps the chip legible against the card even
+            // before the hover fill lands (M3 assist-chip outline).
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: KalinkaColors.borderDefault, width: 1),
+            ),
+            padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 15, color: KalinkaColors.accentTint),
-                const SizedBox(width: 5),
+                Icon(icon, size: 17, color: KalinkaColors.accentTint),
+                const SizedBox(width: 8),
                 Text(
                   label,
                   style: KalinkaTextStyles.trackRowSubtitle.copyWith(
-                    color: KalinkaColors.textSecondary,
+                    color: KalinkaColors.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
