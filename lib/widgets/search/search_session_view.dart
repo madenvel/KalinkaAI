@@ -492,8 +492,7 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                             color: KalinkaColors.borderDefault,
                             width: 1,
                           ),
-                          // Lifts the card off the surface while the scrim is
-                          // still fading in (M3 docked search view elevation).
+                          // Elevation so the card lifts off the fading scrim.
                           boxShadow: const [
                             BoxShadow(
                               color: Color(0xB3000000),
@@ -614,19 +613,19 @@ class _SearchEntryButton extends StatelessWidget {
       label: 'Search',
       hint: 'Ask for music in plain language',
       button: true,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
+      child: Material(
+        color: KalinkaColors.surfaceInput,
+        borderRadius: BorderRadius.circular(22),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
           onTap: () {
             KalinkaHaptics.lightImpact();
             onTap();
           },
-          behavior: HitTestBehavior.opaque,
           child: Container(
             height: 52,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: KalinkaColors.surfaceInput,
               borderRadius: BorderRadius.circular(22),
               border: Border.all(color: KalinkaColors.borderDefault, width: 1),
             ),

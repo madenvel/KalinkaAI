@@ -201,8 +201,7 @@ class SearchSuggestionsList extends ConsumerWidget {
     ),
   );
 
-  /// AI SUGGESTIONS label — a gold sparkle anchors the section; the muted
-  /// mono label recedes so the bright rows below carry the eye.
+  /// AI SUGGESTIONS section label with a leading sparkle.
   Widget _aiHeader() => Padding(
     padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
     child: Row(
@@ -242,7 +241,23 @@ class SearchSuggestionsList extends ConsumerWidget {
                     style: KalinkaTextStyles.searchOverlayLabel,
                   ),
                 ),
-                _ClearLink(onTap: onClear),
+                TextButton(
+                  onPressed: () {
+                    KalinkaHaptics.lightImpact();
+                    onClear();
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: KalinkaColors.textMuted,
+                    textStyle: KalinkaTextStyles.clearAllChips,
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Clear'),
+                ),
               ],
             ),
           ),
@@ -461,10 +476,17 @@ class _HistoryTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            _HoverIcon(
-              icon: Icons.close_rounded,
-              semanticsLabel: 'Remove $query from history',
-              onTap: onDelete,
+            IconButton(
+              onPressed: () {
+                KalinkaHaptics.lightImpact();
+                onDelete();
+              },
+              icon: const Icon(Icons.close_rounded, size: 18),
+              color: KalinkaColors.textMuted,
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              tooltip: 'Remove from history',
             ),
           ],
         ),
@@ -473,10 +495,10 @@ class _HistoryTile extends StatelessWidget {
   }
 }
 
-/// Shared interaction shell for overlay rows: pointer cursor, hover lift
-/// (surfaceElevated), pressed lift (surfaceOverlay), rounded 14 — so every row
-/// in the card answers the pointer the same way.
-class _HoverRow extends StatefulWidget {
+/// Shared shell for the overlay rows: an [InkWell] on a transparent [Material]
+/// so hover, press ripple, and pointer cursor are the standard ones. Rounded 14
+/// to match the card.
+class _HoverRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final Widget child;
@@ -484,151 +506,22 @@ class _HoverRow extends StatefulWidget {
   const _HoverRow({required this.onTap, this.onLongPress, required this.child});
 
   @override
-  State<_HoverRow> createState() => _HoverRowState();
-}
-
-class _HoverRowState extends State<_HoverRow> {
-  bool _hovering = false;
-  bool _pressed = false;
-
-  void _setHover(bool value) {
-    if (value == _hovering) return;
-    setState(() => _hovering = value);
-  }
-
-  void _setPressed(bool value) {
-    if (value == _pressed) return;
-    setState(() => _pressed = value);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final background = _pressed
-        ? KalinkaColors.surfaceOverlay
-        : _hovering
-        ? KalinkaColors.surfaceElevated
-        : Colors.transparent;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => _setHover(true),
-      onExit: (_) => _setHover(false),
-      child: GestureDetector(
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
         onTap: () {
           KalinkaHaptics.lightImpact();
-          widget.onTap();
+          onTap();
         },
-        onLongPress: widget.onLongPress,
-        onTapDown: (_) => _setPressed(true),
-        onTapUp: (_) => _setPressed(false),
-        onTapCancel: () => _setPressed(false),
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(14),
-          ),
+        onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(14),
+        hoverColor: KalinkaColors.surfaceElevated,
+        highlightColor: KalinkaColors.surfaceOverlay,
+        splashColor: KalinkaColors.surfaceOverlay,
+        child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 11, 10, 11),
-          child: widget.child,
-        ),
-      ),
-    );
-  }
-}
-
-/// Small icon button inside a row (the history ✕): muted at rest, brightening
-/// under the pointer, with its own tap target so it doesn't fire the row.
-class _HoverIcon extends StatefulWidget {
-  final IconData icon;
-  final String semanticsLabel;
-  final VoidCallback onTap;
-
-  const _HoverIcon({
-    required this.icon,
-    required this.semanticsLabel,
-    required this.onTap,
-  });
-
-  @override
-  State<_HoverIcon> createState() => _HoverIconState();
-}
-
-class _HoverIconState extends State<_HoverIcon> {
-  bool _hovering = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: widget.semanticsLabel,
-      button: true,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovering = true),
-        onExit: (_) => setState(() => _hovering = false),
-        child: GestureDetector(
-          onTap: () {
-            KalinkaHaptics.lightImpact();
-            widget.onTap();
-          },
-          behavior: HitTestBehavior.opaque,
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Icon(
-              widget.icon,
-              size: 15,
-              color: _hovering
-                  ? KalinkaColors.textPrimary
-                  : KalinkaColors.textMuted,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The "Clear" link on the RECENT SEARCHES header — muted at rest, bright
-/// under the pointer.
-class _ClearLink extends StatefulWidget {
-  final VoidCallback onTap;
-
-  const _ClearLink({required this.onTap});
-
-  @override
-  State<_ClearLink> createState() => _ClearLinkState();
-}
-
-class _ClearLinkState extends State<_ClearLink> {
-  bool _hovering = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Clear search history',
-      button: true,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovering = true),
-        onExit: (_) => setState(() => _hovering = false),
-        child: GestureDetector(
-          onTap: () {
-            KalinkaHaptics.lightImpact();
-            widget.onTap();
-          },
-          behavior: HitTestBehavior.opaque,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-            child: AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 120),
-              style: KalinkaTextStyles.clearAllChips.copyWith(
-                color: _hovering
-                    ? KalinkaColors.textPrimary
-                    : KalinkaColors.textMuted,
-              ),
-              child: const Text('Clear'),
-            ),
-          ),
+          child: child,
         ),
       ),
     );
