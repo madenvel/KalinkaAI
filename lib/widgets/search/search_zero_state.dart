@@ -425,8 +425,8 @@ class _SuggestionTile extends StatelessWidget {
   }
 }
 
-/// A historical query tile. Tapping submits it immediately; the ✕ deletes just
-/// this entry, and the chevron marks the row as a "runs again" action.
+/// A historical query tile. Tapping the row runs the query again (the hover
+/// lift carries the affordance); the single trailing ✕ deletes just this entry.
 class _HistoryTile extends StatelessWidget {
   final String query;
   final VoidCallback onTap;
@@ -465,12 +465,6 @@ class _HistoryTile extends StatelessWidget {
               icon: Icons.close_rounded,
               semanticsLabel: 'Remove $query from history',
               onTap: onDelete,
-            ),
-            const SizedBox(width: 2),
-            const Icon(
-              Icons.chevron_right_rounded,
-              size: 18,
-              color: KalinkaColors.textMuted,
             ),
           ],
         ),
