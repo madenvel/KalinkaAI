@@ -243,37 +243,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       child: SizedBox(
         height: kKalinkaTopBarHeight,
         child: Padding(
-          padding: const EdgeInsets.only(left: 12, right: 20),
+          padding: const EdgeInsets.only(left: 6, right: 20),
           child: Row(
             children: [
-              // Back button
-              Material(
-                color: KalinkaColors.surfaceInput,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9),
-                  side: const BorderSide(color: KalinkaColors.borderDefault),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
+              // Back — same plain, borderless style as the Find Music close.
+              Semantics(
+                label: 'Back',
+                button: true,
+                child: GestureDetector(
                   onTap: _animateClose,
-                  overlayColor: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.pressed)) {
-                      return Colors.white.withValues(alpha: 0.08);
-                    }
-                    return null;
-                  }),
+                  behavior: HitTestBehavior.opaque,
                   child: const SizedBox(
-                    width: 36,
-                    height: 36,
+                    width: 42,
+                    height: 42,
                     child: Icon(
                       Icons.arrow_back,
-                      size: 14,
-                      color: KalinkaColors.textSecondary,
+                      size: 22,
+                      color: KalinkaColors.textPrimary,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 8),
               // Kalinka logo
               Expanded(
                 child: Align(
@@ -393,14 +384,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
                         letterSpacing: 1.0,
                         color: isActive
-                            ? KalinkaColors.accent
+                            ? KalinkaColors.textPrimary
                             : KalinkaColors.textSecondary,
                       ),
                     ),
                   ),
+                  // Neutral underline, matching the Find Music tabs.
                   Container(
                     height: 2,
-                    color: isActive ? KalinkaColors.accent : Colors.transparent,
+                    color: isActive
+                        ? KalinkaColors.textPrimary
+                        : Colors.transparent,
                   ),
                 ],
               ),

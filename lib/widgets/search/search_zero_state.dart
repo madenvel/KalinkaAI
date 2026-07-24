@@ -40,7 +40,7 @@ class SearchZeroState extends ConsumerWidget {
 
         // ── OR EXPLORE CATALOGS ─────────────────────────────────────────────
         const _DividerLabel('OR EXPLORE CATALOGS'),
-        const SizedBox(height: 16),
+        const SizedBox(height: 26),
         CatalogCardsSection(onOpenCatalog: onOpenCatalog),
 
         // ── RECENTLY FAVOURITED ─────────────────────────────────────────────

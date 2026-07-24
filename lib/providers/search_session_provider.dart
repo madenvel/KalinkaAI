@@ -52,17 +52,22 @@ class CatalogPage {
   /// Category description, e.g. "Most played this month" — the page subtitle.
   final String? description;
 
+  /// Server-rendered card art path — reused as the page's header backdrop.
+  final String? artPath;
+
   const CatalogPage.root()
     : id = null,
       title = null,
       provider = null,
-      description = null;
+      description = null,
+      artPath = null;
 
   const CatalogPage.category({
     required this.id,
     required this.title,
     this.provider,
     this.description,
+    this.artPath,
   });
 
   bool get isRoot => id == null;
@@ -234,6 +239,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     required String title,
     String? provider,
     String? description,
+    String? artPath,
   }) {
     state = state.copyWith(
       activeTab: FindMusicTab.catalogs,
@@ -242,6 +248,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
         title: title,
         provider: provider,
         description: description,
+        artPath: artPath,
       ),
     );
   }

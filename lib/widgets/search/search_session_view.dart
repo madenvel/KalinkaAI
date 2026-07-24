@@ -9,7 +9,6 @@ import '../../providers/search_session_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
-import '../indexer_status_banner.dart';
 import '../mini_player.dart';
 import '../selection_overlay.dart';
 import '../server_chip.dart';
@@ -230,6 +229,7 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
           title: plan.title,
           provider: provider,
           description: plan.description,
+          artPath: plan.artPath,
         );
   }
 
@@ -288,7 +288,6 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
             Column(
               children: [
                 _buildHeader(session),
-                const _IndexerBannerSlot(),
                 // Both tabs stay mounted (IndexedStack) so scroll and inline
                 // expansion survive tab switches without a refetch.
                 Expanded(
@@ -345,16 +344,22 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Title row: back · "Find Music" · connection dot. Same height and
-            // framing as the queue / settings top bars.
-            SizedBox(
+            // Title row: close · "DISCOVER" · connection dot · filter. Same
+            // height and framing as the queue / settings top bars, including
+            // the hairline divider (borderDefault) below it before the tabs.
+            Container(
               height: kKalinkaTopBarHeight,
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: KalinkaColors.borderDefault),
+                ),
+              ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(6, 3, 6, 3),
                 child: Row(
                   children: [
-                    // Back — unwinds one layer per tap, same as the system back
-                    // gesture (_handleBack).
+                    // Close — always dismisses Find Music to playback
+                    // (_closeSurface); stepping back is the ‹ Back link's job.
                     Semantics(
                       label: 'Close',
                       button: true,
@@ -375,17 +380,15 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: _FindMusicTabs(
-                        activeTab: session.activeTab,
-                        resultsEnabled: session.resultsAvailable,
-                        onSelect: (tab) => ref
-                            .read(searchSessionProvider.notifier)
-                            .selectTab(tab),
+                      child: Text(
+                        'DISCOVER',
+                        style: KalinkaTextStyles.trayTitle.copyWith(
+                          color: KalinkaColors.textPrimary,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 2),
                     SizedBox(
                       height: _kBarMinHeight,
                       width: 42,
@@ -396,9 +399,36 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                         ),
                       ),
                     ),
+                    // Placeholder filter affordance — greyed and inert for now.
+                    SizedBox(
+                      height: _kBarMinHeight,
+                      width: 42,
+                      child: IconButton(
+                        onPressed: null,
+                        padding: EdgeInsets.zero,
+                        iconSize: 22,
+                        constraints: const BoxConstraints.expand(),
+                        disabledColor: KalinkaColors.textMuted.withValues(
+                          alpha: 0.5,
+                        ),
+                        icon: const Icon(Icons.filter_list_rounded),
+                      ),
+                    ),
                   ],
                 ),
               ),
+            ),
+            const Divider(
+              height: 1,
+              thickness: 1,
+              color: KalinkaColors.borderSubtle,
+            ),
+            // Tabs below the title, mirroring the settings tab bar.
+            _FindMusicTabs(
+              activeTab: session.activeTab,
+              resultsEnabled: session.resultsAvailable,
+              onSelect: (tab) =>
+                  ref.read(searchSessionProvider.notifier).selectTab(tab),
             ),
           ],
         ),
@@ -413,31 +443,14 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     return SearchZeroState(
       onOpenCatalog: _openCatalog,
       leading: [
-        Padding(
-          padding: const EdgeInsets.only(top: 6, bottom: 10),
-          child: Text(
-            'What shall we play?',
-            style: KalinkaFonts.display(
-              fontSize: KalinkaTypography.baseSize + 11,
-              fontWeight: FontWeight.w600,
-              color: KalinkaColors.textPrimary,
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 18),
-          child: Text(
-            'Describe a mood, activity, genre, or anything else you would '
-            'like to hear.',
-            style: KalinkaTextStyles.trackRowSubtitle,
-          ),
-        ),
-        _SearchEntryButton(
-          key: _entryKey,
+        // Only present while the library pipeline is still running.
+        const _IndexerProgressCard(),
+        _DiscoverHero(
+          entryKey: _entryKey,
           hint: _hintText(session),
-          onTap: _openSearch,
+          onOpenSearch: _openSearch,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 30),
       ],
     );
   }
@@ -592,8 +605,10 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   }
 }
 
-/// The Catalogs / Results tab pair in the header. Results is inert (dimmed, no
-/// tap) until a search has run. The active tab carries an accent underline.
+/// The Catalogs / Results tab pair below the title. Mirrors the settings tab
+/// bar exactly (full-width cells, `sectionHeaderMuted` font, 10px vertical
+/// padding, 2px neutral underline over a hairline baseline) so the two screens
+/// read the same. Results is inert (dimmed, no tap) until a search has run.
 class _FindMusicTabs extends StatelessWidget {
   final FindMusicTab activeTab;
   final bool resultsEnabled;
@@ -607,27 +622,26 @@ class _FindMusicTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.max,
-      children: [
-        Expanded(
-          child: _Tab(
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: KalinkaColors.borderSubtle)),
+      ),
+      child: Row(
+        children: [
+          _Tab(
             label: 'CATALOGS',
             active: activeTab == FindMusicTab.catalogs,
             enabled: true,
             onTap: () => onSelect(FindMusicTab.catalogs),
           ),
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: _Tab(
+          _Tab(
             label: 'RESULTS',
             active: activeTab == FindMusicTab.results,
             enabled: resultsEnabled,
             onTap: () => onSelect(FindMusicTab.results),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -653,41 +667,171 @@ class _Tab extends StatelessWidget {
         ? KalinkaColors.textPrimary
         : KalinkaColors.textSecondary;
 
-    return Semantics(
-      button: true,
-      selected: active,
-      enabled: enabled,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: active,
+        enabled: enabled,
+        child: GestureDetector(
           onTap: enabled
               ? () {
                   KalinkaHaptics.lightImpact();
                   onTap();
                 }
               : null,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.fromLTRB(12, 9, 12, 8),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: active ? KalinkaColors.accent : Colors.transparent,
-                  width: 2,
+          behavior: HitTestBehavior.opaque,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
+                    letterSpacing: 1.0,
+                    color: color,
+                  ),
                 ),
               ),
-            ),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: KalinkaTextStyles.sectionLabel.copyWith(color: color),
-            ),
+              // Neutral underline — the accent stays reserved for playback
+              // state, not chrome.
+              Container(
+                height: 2,
+                color: active ? KalinkaColors.textPrimary : Colors.transparent,
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+/// The Discover hero: the Playfair question and its description over a
+/// procedural concentric-ring backdrop, with the resting search entry at the
+/// bottom. The text keeps to the left half (wrapping as needed) so the rings'
+/// glow corner at the top right stays clear.
+class _DiscoverHero extends StatelessWidget {
+  final Key entryKey;
+  final String hint;
+  final VoidCallback onOpenSearch;
+
+  const _DiscoverHero({
+    required this.entryKey,
+    required this.hint,
+    required this.onOpenSearch,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: Stack(
+        children: [
+          const Positioned.fill(
+            child: CustomPaint(painter: _HeroRingsPainter()),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 30, 0, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FractionallySizedBox(
+                  widthFactor: 0.55,
+                  child: Text(
+                    'What shall we play?',
+                    style: KalinkaFonts.display(
+                      fontSize: KalinkaTypography.baseSize + 17,
+                      fontWeight: FontWeight.w600,
+                      color: KalinkaColors.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FractionallySizedBox(
+                  widthFactor: 0.55,
+                  child: Text(
+                    'Describe a mood, activity, genre, or anything else you '
+                    'would like to hear.',
+                    style: KalinkaTextStyles.trackRowSubtitle,
+                  ),
+                ),
+                const SizedBox(height: 34),
+                _SearchEntryButton(
+                  key: entryKey,
+                  hint: hint,
+                  onTap: onOpenSearch,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Static concentric rings radiating from the top-right corner, stroked in a
+/// darkened berry and faded along the bottom-left → top-right diagonal (0 →
+/// ~0.68), with a slight accent glow pooled at their origin. Drawn once —
+/// plain strokes, no animation — so it costs nothing on scroll.
+class _HeroRingsPainter extends CustomPainter {
+  const _HeroRingsPainter();
+
+  // The theme accent pulled ~35% toward black — the hero's darker berry.
+  static final Color _ring = Color.alphaBlend(
+    Colors.black.withValues(alpha: 0.35),
+    KalinkaColors.accent,
+  );
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    final rect = Offset.zero & size;
+    final fade = LinearGradient(
+      begin: Alignment.bottomLeft,
+      end: Alignment.topRight,
+      colors: [_ring.withValues(alpha: 0), _ring.withValues(alpha: 0.68)],
+    ).createShader(rect);
+
+    final center = Offset(size.width * 0.96, size.height * 0.10);
+    final maxRadius = (center - Offset(0, size.height)).distance;
+    final ringPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5)
+      ..shader = fade;
+    for (var r = 14.0; r < maxRadius; r += 26) {
+      canvas.drawCircle(center, r, ringPaint);
+    }
+
+    final glow = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          KalinkaColors.accent.withValues(alpha: 0.10),
+          KalinkaColors.accent.withValues(alpha: 0),
+        ],
+      ).createShader(
+        Rect.fromCircle(center: center, radius: size.width * 0.55),
+      );
+    canvas.drawRect(rect, glow);
+
+    // Sink everything into the page canvas along the bottom edge so the art
+    // ends inside the hero instead of cutting off at its boundary.
+    final bottomFade = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        stops: const [0.55, 1.0],
+        colors: [
+          KalinkaColors.background.withValues(alpha: 0),
+          KalinkaColors.background,
+        ],
+      ).createShader(rect);
+    canvas.drawRect(rect, bottomFade);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeroRingsPainter oldDelegate) => false;
 }
 
 /// The resting search entry in the Discover scroll: looks like the field
@@ -752,21 +896,81 @@ class _SearchEntryButton extends StatelessWidget {
   }
 }
 
-/// Subtle pipeline progress strip under the header: stage name + crimson
-/// 2px line while the library is indexing / enriching / embedding; gone when
-/// the pipeline is idle. Its own consumer so the 5s poll ticks rebuild only
-/// this strip, not the whole search surface.
-class _IndexerBannerSlot extends ConsumerWidget {
-  const _IndexerBannerSlot();
+/// Pipeline progress as a card at the top of the Catalogs scroll: a spinner +
+/// stage caption ("Indexing · 45%") over a crimson progress line, shown while
+/// the library is indexing / enriching / embedding and gone when the pipeline
+/// is idle. Placed in-scroll (above "What shall we play?") so it's actually
+/// visible rather than a hairline strip under the header. Its own consumer so
+/// the 5s poll ticks rebuild only this card, not the whole search surface.
+class _IndexerProgressCard extends ConsumerWidget {
+  const _IndexerProgressCard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final status = ref.watch(indexerStatusProvider);
-    final caption = status.caption;
-    if (caption == null) return const SizedBox.shrink();
-    return IndexerStatusBanner(
-      caption: caption,
-      progressPct: status.progressPct,
+    final stage = status.stage;
+    if (stage == null) return const SizedBox.shrink();
+    final pct = status.progressPct;
+    final progress = pct != null ? (pct / 100).clamp(0.0, 1.0) : null;
+
+    // Name the stage but always make clear it's the local library being built.
+    final String action = switch (stage) {
+      IndexerDisplayStage.indexing => 'Indexing local library',
+      IndexerDisplayStage.enrichment => 'Enriching local library',
+      IndexerDisplayStage.preparingAi => 'Preparing local library for AI',
+    };
+    final label = pct != null ? '$action · ${pct.toStringAsFixed(0)}%' : '$action…';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 16),
+      padding: const EdgeInsets.fromLTRB(14, 9, 14, 10),
+      decoration: BoxDecoration(
+        color: KalinkaColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KalinkaColors.borderDefault),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.travel_explore_rounded,
+                size: 17,
+                color: KalinkaColors.accent,
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Text(
+                  label,
+                  // Screen readers skip or literalize '·'.
+                  semanticsLabel: label.replaceAll(' · ', ', '),
+                  style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+                    color: KalinkaColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          // Bar aligns under the text, not the icon (icon 17 + 11 gap = 28).
+          Padding(
+            padding: const EdgeInsets.only(left: 28),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 3,
+                backgroundColor: KalinkaColors.borderSubtle,
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  KalinkaColors.accent,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
