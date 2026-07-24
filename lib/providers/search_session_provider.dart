@@ -10,7 +10,7 @@ import 'kalinka_player_api_provider.dart';
 
 /// Persistent history of submitted search prompts (most-recent first).
 const _historyKey = 'Kalinka.chatSearchHistory';
-const _maxHistoryItems = 10;
+const _maxHistoryItems = 5;
 const _minHistoryQueryLength = 2;
 
 /// Visible query blocks kept in the session: one expanded + up to two folded.
@@ -163,11 +163,6 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
   late SharedPreferences _prefs;
   int _blockCounter = 0;
 
-  /// Every query submitted this session, oldest first. Kept separate from the
-  /// visible [SearchSessionState.blocks] (capped at [_maxVisibleBlocks]) so
-  /// queries that scroll out of view are still folded into history on exit.
-  final List<String> _sessionQueries = [];
-
   bool _disposed = false;
 
   @override
@@ -187,15 +182,10 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     _loadSuggestions();
   }
 
-  /// Close the surface: fold every session query into persistent history,
-  /// then discard the ephemeral session (blocks + results).
+  /// Close the surface: discard the ephemeral session (blocks + results).
+  /// History is written live on each [submit], so nothing to fold here.
   void close() {
     if (!state.isOpen && state.blocks.isEmpty) return;
-    // Oldest first, so the newest lands at the front of history.
-    for (final query in _sessionQueries) {
-      _appendHistory(query);
-    }
-    _sessionQueries.clear();
     state = state.copyWith(
       isOpen: false,
       blocks: const [],
@@ -229,7 +219,6 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
 
     final id = 'q${_blockCounter++}';
     final block = SearchQueryBlock(id: id, query: query);
-    _sessionQueries.add(query);
 
     // Newest block appends at the bottom (chat order); keep only the most
     // recent few, dropping the oldest off the top.
@@ -237,11 +226,15 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     if (blocks.length > _maxVisibleBlocks) {
       blocks.removeRange(0, blocks.length - _maxVisibleBlocks);
     }
+    // Fold the query into persistent history now (dedup + move-to-front), so a
+    // repeated or re-run query jumps straight to the top of Recent searches.
+    _appendHistory(query);
     // Submitting always lands on the session view, including from Discover.
     state = state.copyWith(
       blocks: blocks,
       expandedBlockId: id,
       showZeroState: false,
+      history: _loadHistory(),
     );
     _runQuery(id, query);
   }
@@ -417,4 +410,21 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
 final searchSessionProvider =
     NotifierProvider<SearchSessionNotifier, SearchSessionState>(
       SearchSessionNotifier.new,
+    );
+
+/// True while the animated search overlay (the focused entry + keyboard) is up.
+/// The main screen watches it to drop the mini-player out of the way so the
+/// keyboard and suggestions own the bottom of the screen.
+class SearchEntryModeNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) {
+    if (state != value) state = value;
+  }
+}
+
+final searchEntryModeProvider =
+    NotifierProvider<SearchEntryModeNotifier, bool>(
+      SearchEntryModeNotifier.new,
     );

@@ -1,3 +1,5 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +9,7 @@ import '../../providers/selection_state_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
 import '../indexer_status_banner.dart';
+import '../mini_player.dart';
 import '../selection_overlay.dart';
 import '../server_chip.dart';
 import 'query_block_view.dart';
@@ -40,33 +43,160 @@ class SearchSessionView extends ConsumerStatefulWidget {
 }
 
 class _SearchSessionViewState extends ConsumerState<SearchSessionView>
-    with IndexerPollHolder {
+    with
+        IndexerPollHolder,
+        SingleTickerProviderStateMixin,
+        WidgetsBindingObserver {
   final _composerController = TextEditingController();
   final _composerFocus = FocusNode();
   final _scrollController = ScrollController();
   String _lastNewestBlockId = '';
+
+  // Whether the animated search overlay is up. Driven by _openSearch /
+  // _closeSearch (not by raw focus), so dismissing the keyboard alone keeps
+  // the overlay open, like Material's search view.
+  bool _focused = false;
+
+  // Live composer text, mirrored here to filter the suggestion list. This
+  // never fires a query — search still runs only on submit.
+  String _typed = '';
+
+  // Drives the open/close transition: scrim dim, the card rising from the
+  // resting entry and stretching, and the staggered suggestions.
+  late final AnimationController _overlayCtrl;
+
+  // The resting search entry's screen rect, measured on open so the overlay
+  // card can rise out of exactly where the entry sat.
+  final _entryKey = GlobalKey();
+  Rect? _originRect;
+
+  // Tracks the keyboard so its dismissal (e.g. the hardware back that hides it)
+  // also closes the overlay — one back drops both.
+  bool _keyboardUp = false;
+
+  // Rotates the example hint: each mount of the search surface advances one
+  // step through the suggestion list.
+  static int _hintRotation = 0;
+  final int _hintIndex = _hintRotation++;
 
   // Hit-box height for the back button and connection dot, centred in the bar
   // (whose height is the shared kKalinkaTopBarHeight).
   static const double _kBarMinHeight = 46;
 
   @override
+  void initState() {
+    super.initState();
+    _overlayCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+      reverseDuration: const Duration(milliseconds: 230),
+    );
+    _composerController.addListener(_onTextChange);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _composerController.removeListener(_onTextChange);
+    _overlayCtrl.dispose();
     _composerController.dispose();
     _composerFocus.dispose();
     _scrollController.dispose();
+    // Torn down with the overlay still up (session closed externally) would
+    // otherwise leave the shared flag stuck true and the mini-player hidden.
+    // Clear it after this frame — a synchronous write could land mid-build of
+    // whatever removed this surface.
+    if (_focused) {
+      final notifier = ref.read(searchEntryModeProvider.notifier);
+      WidgetsBinding.instance.addPostFrameCallback((_) => notifier.set(false));
+    }
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    // While the overlay is up, the hardware back first dismisses the keyboard
+    // (Android consumes it before our PopScope). Treat that dismissal as the
+    // close gesture so a single back drops both the keyboard and the overlay.
+    if (!_focused) {
+      _keyboardUp = false;
+      return;
+    }
+    final view = View.maybeOf(context);
+    if (view == null) return;
+    final up = view.viewInsets.bottom > 100;
+    if (_keyboardUp && !up) _closeSearch();
+    _keyboardUp = up;
+  }
+
+  void _onTextChange() {
+    final text = _composerController.text;
+    if (text != _typed && mounted) setState(() => _typed = text);
+  }
+
+  /// Lift the search overlay out of the resting entry: measure where the entry
+  /// sits, fade the scrim in, and forward the transition while the field takes
+  /// focus.
+  void _openSearch() {
+    if (_focused) return;
+    // Measure the entry in THIS surface's local space (not global): on tablet
+    // the search surface is only the right panel, and the overlay positions
+    // itself within it, so the origin must be panel-relative.
+    final selfBox = context.findRenderObject() as RenderBox?;
+    final entryBox = _entryKey.currentContext?.findRenderObject() as RenderBox?;
+    _originRect =
+        (selfBox != null &&
+            selfBox.attached &&
+            entryBox != null &&
+            entryBox.hasSize)
+        ? selfBox.globalToLocal(entryBox.localToGlobal(Offset.zero)) &
+              entryBox.size
+        : null;
+    _keyboardUp = false;
+    // Flips searchEntryModeProvider → the mini-player starts sliding down.
+    ref.read(searchEntryModeProvider.notifier).set(true);
+    setState(() => _focused = true);
+    _overlayCtrl.forward(from: 0);
+    // Hold the keyboard until the mini-player has cleared: raising focus is
+    // what triggers the IME, so defer it by the bar's slide-down duration.
+    Future.delayed(kMiniPlayerHideDuration, () {
+      if (mounted && _focused) _composerFocus.requestFocus();
+    });
+  }
+
+  /// Reverse the overlay away. [animate] false when a query is being submitted
+  /// (the screen swaps to results, so there is nothing to animate back to).
+  void _closeSearch({bool animate = true}) {
+    // Re-entrant: the back arrow / scrim tap unfocuses, which fires
+    // didChangeMetrics → here again. Ignore once a close is already running.
+    if (!_focused || _overlayCtrl.status == AnimationStatus.reverse) return;
+    _composerFocus.unfocus();
+    _composerController.clear();
+    if (!animate) {
+      _overlayCtrl.value = 0;
+      ref.read(searchEntryModeProvider.notifier).set(false);
+      if (mounted) setState(() => _focused = false);
+      return;
+    }
+    _overlayCtrl.reverse().whenComplete(() {
+      if (!mounted) return;
+      ref.read(searchEntryModeProvider.notifier).set(false);
+      setState(() => _focused = false);
+    });
   }
 
   void _submit(String text) {
     ref.read(searchSessionProvider.notifier).submit(text);
+    // Submitting swaps to the results screen, so drop the overlay without a
+    // reverse animation.
+    if (_focused) _closeSearch(animate: false);
   }
 
   /// Submit from a zero-state tile (history / suggestion run arrow).
   void _submitFromTile(String text) {
     ref.read(searchSessionProvider.notifier).submit(text);
-    // Sending clears focus and dismisses the keyboard, like the send button.
-    _composerFocus.unfocus();
+    if (_focused) _closeSearch(animate: false);
   }
 
   /// Insert a suggestion into the composer for editing (does not send).
@@ -76,6 +206,41 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
       offset: text.length,
     );
     _composerFocus.requestFocus();
+  }
+
+  /// "Refine" from a results card: drop to Discover and re-open the search
+  /// overlay pre-filled with the query. The entry only mounts once Discover is
+  /// showing, so the overlay open (which measures it) waits for that frame.
+  void _refine(String query) {
+    ref.read(searchSessionProvider.notifier).showDiscover();
+    _composerController.text = query;
+    _composerController.selection = TextSelection.collapsed(
+      offset: query.length,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _openSearch();
+    });
+  }
+
+  /// "Explore catalogs" from a results card: drop to the calm Discover surface
+  /// (catalogs visible), keeping the live session reachable behind it.
+  void _exploreCatalogs() {
+    ref.read(searchSessionProvider.notifier).showDiscover();
+  }
+
+  /// One back press unwinds one state (Material back guidance): the open
+  /// overlay closes to Discover; Discover over a live session returns to its
+  /// results; only then does back leave the search surface. Shared by the
+  /// header arrow and the system back gesture.
+  void _handleBack() {
+    final session = ref.read(searchSessionProvider);
+    if (_focused) {
+      _closeSearch();
+    } else if (session.showZeroState && session.blocks.isNotEmpty) {
+      ref.read(searchSessionProvider.notifier).showResults();
+    } else {
+      ref.read(searchSessionProvider.notifier).close();
+    }
   }
 
   @override
@@ -104,75 +269,84 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
       selectionStateProvider.select((s) => s.isActive),
     );
 
-    return ColoredBox(
-      color: KalinkaColors.background,
-      child: Stack(
-        children: [
-          Column(
-            children: [
-              _buildHeader(),
-              const _IndexerBannerSlot(),
-              Expanded(
-                child: session.isZeroState
-                    ? SearchZeroState(
-                        onInsert: _insert,
-                        onSubmit: _submitFromTile,
-                      )
-                    // The hint floats over the list on a top-anchored scrim:
-                    // content scrolls underneath and shows through the fade.
-                    : Stack(
-                        children: [
-                          _buildBlockList(session),
-                          const Positioned(
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            child: IgnorePointer(child: _GestureHintLine()),
-                          ),
-                        ],
-                      ),
-              ),
-            ],
-          ),
-          if (selectionActive)
-            const Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: MultiSelectBottomBar(),
+    // The session owns its back handling: the route must not pop while any
+    // in-screen state can still unwind (the parent screen's PopScope leaves
+    // search alone).
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack();
+      },
+      child: ColoredBox(
+        color: KalinkaColors.background,
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                _buildHeader(session),
+                const _IndexerBannerSlot(),
+                Expanded(
+                  child: session.isZeroState
+                      ? _buildZeroStateBody(session)
+                      // The hint floats over the list on a top-anchored scrim:
+                      // content scrolls underneath and shows through the fade.
+                      : Stack(
+                          children: [
+                            _buildBlockList(session),
+                            const Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: IgnorePointer(child: _GestureHintLine()),
+                            ),
+                          ],
+                        ),
+                ),
+              ],
             ),
-        ],
+            // The animated search overlay floats above the header too, so its
+            // dim scrim covers the top bar's back button — the in-field arrow
+            // is the only back affordance while it is up.
+            if (_focused) _buildSearchOverlay(session),
+            if (selectionActive)
+              const Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: MultiSelectBottomBar(),
+              ),
+          ],
+        ),
       ),
     );
   }
 
-  /// Top strip: back · search bar · connection dot. Solid, same framing as
-  /// the main screen's top bar; the bar growing multiline pushes the content
-  /// down rather than overlaying it.
-  Widget _buildHeader() {
+  /// Top strip: back · title · connection dot. Solid, same framing as the main
+  /// screen's top bar. The search field no longer lives here — on Discover the
+  /// field sits in the body under its heading; on results the strip just names
+  /// the screen.
+  Widget _buildHeader(SearchSessionState session) {
+    final title = session.isZeroState ? 'EXPLORE' : 'SEARCH RESULTS';
     return Container(
       decoration: _kSearchHeaderDecoration,
       child: SafeArea(
         bottom: false,
         // Shared height so this bar lines up with the queue and settings bars.
-        // Content sits centred at rest (the 3px symmetric padding + row height
-        // fill the strip) and the back/dot stay pinned to the first line as the
-        // composer grows past it multiline.
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: kKalinkaTopBarHeight),
+        child: SizedBox(
+          height: kKalinkaTopBarHeight,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(6, 3, 6, 3),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Back — exits the search mode (system back works too).
+                // Back — unwinds one search state per tap, same as the
+                // system back gesture (_handleBack).
                 Semantics(
-                  label: 'Close search',
+                  label: 'Back',
                   button: true,
                   child: GestureDetector(
                     onTap: () {
                       KalinkaHaptics.lightImpact();
-                      ref.read(searchSessionProvider.notifier).close();
+                      _handleBack();
                     },
                     behavior: HitTestBehavior.opaque,
                     child: const SizedBox(
@@ -188,13 +362,11 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                 ),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    child: SearchComposer(
-                      controller: _composerController,
-                      focusNode: _composerFocus,
-                      onSubmit: _submit,
-                    ),
+                  child: Text(
+                    title,
+                    style: KalinkaTextStyles.trayTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 2),
@@ -210,6 +382,180 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
           ),
         ),
       ),
+    );
+  }
+
+  /// Discover surface: one scroll holding the Playfair question, the resting
+  /// search entry, then the catalogs / history / favourites — all scrolling
+  /// together (nothing pinned). Tapping the entry lifts the animated overlay.
+  Widget _buildZeroStateBody(SearchSessionState session) {
+    return SearchZeroState(
+      onSubmit: _submitFromTile,
+      leading: [
+        Padding(
+          padding: const EdgeInsets.only(top: 6, bottom: 20),
+          child: Text(
+            'What shall we play?',
+            style: KalinkaFonts.display(
+              fontSize: KalinkaTypography.baseSize + 11,
+              fontWeight: FontWeight.w600,
+              color: KalinkaColors.textPrimary,
+            ),
+          ),
+        ),
+        _SearchEntryButton(
+          key: _entryKey,
+          hint: _hintText(session),
+          onTap: _openSearch,
+        ),
+        const SizedBox(height: 14),
+      ],
+    );
+  }
+
+  /// Rotating example hint — a different real suggestion each time the surface
+  /// mounts, teaching the query language.
+  String _hintText(SearchSessionState session) {
+    final suggestions = session.suggestions;
+    if (suggestions.isEmpty) return 'Ask for music…';
+    return 'Try “${suggestions[_hintIndex % suggestions.length].query}”';
+  }
+
+  /// The focused search view: a dim scrim over the search surface (top bar
+  /// included) and a card that rises out of the resting entry, stretches, and
+  /// reveals the staggered suggestions. Back arrow / hardware back reverse it.
+  ///
+  /// All geometry is in this surface's own coordinate space (see the local
+  /// origin measured in [_openSearch]) — on tablet the surface is only the
+  /// right half, so the overlay stays inside it and unrolls exactly as on
+  /// phone rather than sweeping across the whole screen.
+  Widget _buildSearchOverlay(SearchSessionState session) {
+    final topInset = MediaQuery.paddingOf(context).top;
+    final targetTop = topInset + 6;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final surfaceWidth = constraints.maxWidth;
+        final origin =
+            _originRect ??
+            Rect.fromLTWH(16, targetTop + 120, surfaceWidth - 32, 56);
+        return AnimatedBuilder(
+          animation: _overlayCtrl,
+          builder: (context, _) {
+            final t = Curves.easeOutCubic.transform(_overlayCtrl.value);
+            // The card slides up from the entry and its left/right ease to the
+            // surface margins (they already sit at 16, so mostly vertical).
+            final top = lerpDouble(origin.top, targetTop, t)!;
+            final left = lerpDouble(origin.left, 16, t)!;
+            final right = lerpDouble(surfaceWidth - origin.right, 16, t)!;
+            // The panel unfurls (height grows) so the card stretches as it
+            // opens.
+            final panelReveal = Curves.easeOutCubic.transform(
+              ((_overlayCtrl.value - 0.15) / 0.85).clamp(0.0, 1.0),
+            );
+            // Cap the suggestion list to the room left between the card top and
+            // the keyboard (the surface itself is not resized by the IME), so
+            // it scrolls internally instead of running off-screen. ~96 leaves
+            // the composer row + divider + card margins above it.
+            final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+            final listMaxHeight =
+                (constraints.maxHeight - targetTop - keyboardInset - 96).clamp(
+                  80.0,
+                  double.infinity,
+                );
+
+            return Stack(
+              children: [
+                // Dim scrim — almost opaque at rest — over the whole screen. Tap to
+                // dismiss.
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: _closeSearch,
+                    behavior: HitTestBehavior.opaque,
+                    child: ColoredBox(
+                      color: Colors.black.withValues(alpha: 0.92 * t),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: top,
+                  left: left,
+                  right: right,
+                  child: TextFieldTapRegion(
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: KalinkaColors.surfaceInput,
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: KalinkaColors.borderDefault,
+                            width: 1,
+                          ),
+                          // Elevation so the card lifts off the fading scrim.
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0xB3000000),
+                              offset: Offset(0, 12),
+                              blurRadius: 40,
+                            ),
+                          ],
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SearchComposer(
+                              controller: _composerController,
+                              focusNode: _composerFocus,
+                              onSubmit: _submit,
+                              // No placeholder once activated — the resting
+                              // entry already showed the example prompt.
+                              hint: '',
+                              onBack: _closeSearch,
+                            ),
+                            // The suggestion panel grows top-down; rows fade/slide
+                            // in staggered inside it.
+                            ClipRect(
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                heightFactor: panelReveal,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      height: 1,
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                      ),
+                                      color: KalinkaColors.borderSubtle,
+                                    ),
+                                    ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxHeight: listMaxHeight,
+                                      ),
+                                      child: SearchSuggestionsList(
+                                        query: _typed,
+                                        onInsert: _insert,
+                                        onSubmit: _submitFromTile,
+                                        reveal: _overlayCtrl,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -240,8 +586,72 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
           onToggleSection: (sectionId) => ref
               .read(searchSessionProvider.notifier)
               .toggleSection(block.id, sectionId),
+          onRefine: () => _refine(block.query),
+          onExploreCatalogs: _exploreCatalogs,
         );
       },
+    );
+  }
+}
+
+/// The resting search entry in the Discover scroll: looks like the field
+/// (sparkle + hint) but is a button — tapping it lifts the animated overlay.
+/// Its screen rect is measured on open so the overlay card rises from here.
+class _SearchEntryButton extends StatelessWidget {
+  final String hint;
+  final VoidCallback onTap;
+
+  const _SearchEntryButton({
+    super.key,
+    required this.hint,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Search',
+      hint: 'Ask for music in plain language',
+      button: true,
+      child: Material(
+        color: KalinkaColors.surfaceInput,
+        borderRadius: BorderRadius.circular(22),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            KalinkaHaptics.lightImpact();
+            onTap();
+          },
+          child: Container(
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: KalinkaColors.borderDefault, width: 1),
+            ),
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 26,
+                  child: Icon(
+                    Icons.auto_awesome,
+                    size: 16,
+                    color: KalinkaColors.gold,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    hint,
+                    style: KalinkaTextStyles.searchPlaceholder,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

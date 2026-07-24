@@ -40,11 +40,19 @@ class MusicPlayerScreen extends ConsumerStatefulWidget {
   ConsumerState<MusicPlayerScreen> createState() => _MusicPlayerScreenState();
 }
 
-class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
+class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
+    with SingleTickerProviderStateMixin {
   static const _tabletBreakpoint = 900.0;
 
   final _searchDockKey = GlobalKey();
   final _connectionDotKey = GlobalKey();
+
+  // Drives the mini-player sliding down out of view while the search entry
+  // overlay is up (0 = shown, 1 = hidden). The keyboard is held back until
+  // this completes, so the bar clears before the IME rises.
+  late final AnimationController _miniPlayerHide;
+  late final Animation<double> _miniPlayerReveal;
+  late final Animation<Offset> _miniPlayerSlide;
 
   // In-screen overlays. Settings and discovery render in both layouts;
   // the server sheet overlay is tablet-only (phone uses a modal sheet).
@@ -78,6 +86,20 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
   void initState() {
     super.initState();
 
+    _miniPlayerHide = AnimationController(
+      vsync: this,
+      duration: kMiniPlayerHideDuration,
+    );
+    final curved = CurvedAnimation(
+      parent: _miniPlayerHide,
+      curve: Curves.easeInOutCubic,
+    );
+    _miniPlayerReveal = Tween<double>(begin: 1, end: 0).animate(curved);
+    _miniPlayerSlide = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(0, 1),
+    ).animate(curved);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Web seeds its connection from the serving origin (main.dart) and has
       // no working wizard or mDNS discovery — never open either.
@@ -94,6 +116,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
         setState(() => _discoveryOpen = true);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _miniPlayerHide.dispose();
+    super.dispose();
   }
 
   Route<void> _onboardingRoute() {
@@ -313,6 +341,17 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       },
     );
 
+    // Slide the mini-player down when the search entry overlay opens, back up
+    // when it closes. Driven here (not in the phone layout) so the animation
+    // survives a tablet⇄phone rebuild.
+    ref.listen(searchEntryModeProvider, (_, hidden) {
+      if (hidden) {
+        _miniPlayerHide.forward();
+      } else {
+        _miniPlayerHide.reverse();
+      }
+    });
+
     return Scaffold(
       backgroundColor: KalinkaColors.background,
       body: LayoutBuilder(
@@ -377,11 +416,9 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         // Settings is a full-screen overlay here; it owns its own back via an
-        // internal PopScope (animated close), so leave it alone.
+        // internal PopScope (animated close), so leave it alone. Search owns
+        // its own layered back too (SearchSessionView's PopScope).
         if (_settingsOpen) return;
-        if (searchOpen) {
-          ref.read(searchSessionProvider.notifier).close();
-        }
       },
       child: Stack(
         children: [
@@ -465,7 +502,17 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                     ],
                   ),
                 ),
-                MiniPlayer(onTap: _showExpandedPlayer),
+                // Always mounted so it can slide (not just vanish); the
+                // SizeTransition collapses its slot as it goes so the content
+                // above settles down with it.
+                SizeTransition(
+                  sizeFactor: _miniPlayerReveal,
+                  axisAlignment: 1.0,
+                  child: SlideTransition(
+                    position: _miniPlayerSlide,
+                    child: MiniPlayer(onTap: _showExpandedPlayer),
+                  ),
+                ),
               ],
             ),
           ),
@@ -558,14 +605,11 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       canPop: !searchOpen && !_settingsOpen && !_serverSheetOpen,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        // Settings owns its own back via an internal PopScope.
+        // Settings and search own their back via internal PopScopes.
         if (_settingsOpen) return;
         if (_serverSheetOpen) {
           setState(() => _serverSheetOpen = false);
           return;
-        }
-        if (searchOpen) {
-          ref.read(searchSessionProvider.notifier).close();
         }
       },
       child: Stack(

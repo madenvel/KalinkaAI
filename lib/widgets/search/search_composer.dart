@@ -4,16 +4,12 @@ import 'package:flutter/services.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
 
-/// The search bar pill at the top of the search screen. One line at rest —
-/// an AI sparkle, the text field, then a neutral ✕ (clear) and the accent
-/// send arrow on the right — and grows to a few lines as pasted content
-/// wraps, the controls staying pinned to the first line. Both buttons surface
-/// only once the field holds non-whitespace text. Submitting fires the query,
-/// clears the field and dismisses the keyboard. The border is accent while
-/// the field holds focus, grey otherwise.
+/// The input row of the docked search surface. Chromeless — the parent
+/// container paints the surface and border — so the field and the suggestion
+/// list below read as one surface (Material 3 docked search bar).
 ///
-/// The parent owns the framing (top-bar strip, safe area); this widget is
-/// just the pill.
+/// An AI sparkle leads; a neutral ✕ (clear) and the accent send arrow surface
+/// on the right once the field holds non-whitespace text.
 ///
 /// There is deliberately no onChanged search hook: typing never triggers a
 /// query. The query fires on the soft keyboard's search action, hardware
@@ -24,11 +20,20 @@ class SearchComposer extends StatefulWidget {
   final FocusNode focusNode;
   final ValueChanged<String> onSubmit;
 
+  /// Placeholder shown while the field is empty.
+  final String hint;
+
+  /// When set, the leading mark is a back arrow that dismisses the search
+  /// overlay instead of the AI sparkle. Null at rest (sparkle).
+  final VoidCallback? onBack;
+
   const SearchComposer({
     super.key,
     required this.controller,
     required this.focusNode,
     required this.onSubmit,
+    this.hint = 'Ask for music…',
+    this.onBack,
   });
 
   @override
@@ -36,25 +41,6 @@ class SearchComposer extends StatefulWidget {
 }
 
 class _SearchComposerState extends State<SearchComposer> {
-  @override
-  void initState() {
-    super.initState();
-    widget.focusNode.addListener(_handleFocusChange);
-  }
-
-  @override
-  void dispose() {
-    // The node is owned by the parent; only drop our listener.
-    widget.focusNode.removeListener(_handleFocusChange);
-    super.dispose();
-  }
-
-  // Recolour the pill border (accent when focused, grey otherwise) on focus
-  // changes.
-  void _handleFocusChange() {
-    if (mounted) setState(() {});
-  }
-
   void _submit() {
     final text = widget.controller.text.trim();
     if (text.isEmpty) return;
@@ -78,71 +64,78 @@ class _SearchComposerState extends State<SearchComposer> {
   @override
   Widget build(BuildContext context) {
     // One row, everything anchored to the top: at one line it reads as a
-    // centred bar; as the field wraps taller, the mode icon and the AI toggle
-    // + send stay pinned to the first line and only the text grows downward.
-    // Plain top-anchoring avoids IntrinsicHeight, whose probe of a multiline
-    // TextField reports more than the live line count and inflates the pill.
-    final focused = widget.focusNode.hasFocus;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      curve: Curves.easeOut,
-      decoration: BoxDecoration(
-        color: KalinkaColors.surfaceInput,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: focused ? KalinkaColors.accent : KalinkaColors.borderDefault,
-          width: 1.5,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 6, 0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // AI sparkle — centred against the first text line.
-            const Padding(
-              padding: EdgeInsets.only(top: 8, right: 10),
+    // centred bar; as the field wraps taller, the leading icon and the
+    // clear + send stay pinned to the first line and only the text grows
+    // downward.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Back arrow inside the overlay (the dimmed top bar's arrow is
+          // covered), AI sparkle at rest.
+          if (widget.onBack != null)
+            Semantics(
+              label: 'Close search',
+              button: true,
+              child: GestureDetector(
+                onTap: widget.onBack,
+                behavior: HitTestBehavior.opaque,
+                child: const SizedBox(
+                  width: 38,
+                  height: 32,
+                  child: Icon(
+                    Icons.arrow_back,
+                    size: 20,
+                    color: KalinkaColors.textSecondary,
+                  ),
+                ),
+              ),
+            )
+          else
+            const SizedBox(
+              width: 38,
+              height: 32,
               child: Icon(
                 Icons.auto_awesome,
                 size: 16,
                 color: KalinkaColors.gold,
               ),
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Focus(
-                  onKeyEvent: _onKeyEvent,
-                  child: TextField(
-                    controller: widget.controller,
-                    focusNode: widget.focusNode,
-                    style: KalinkaTextStyles.searchBarInput,
-                    cursorColor: KalinkaColors.accent,
-                    minLines: 1,
-                    maxLines: 5,
-                    keyboardType: TextInputType.multiline,
-                    // Enter on the soft keyboard finishes the entry: submits
-                    // and closes the keyboard (newlines only via Shift+Enter
-                    // on hardware keyboards; pasted ones still wrap).
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (_) => _submit(),
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: InputDecoration(
-                      hintText: 'Ask for music…',
-                      hintStyle: KalinkaTextStyles.searchPlaceholder,
-                      border: InputBorder.none,
-                      isCollapsed: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Focus(
+                onKeyEvent: _onKeyEvent,
+                child: TextField(
+                  controller: widget.controller,
+                  focusNode: widget.focusNode,
+                  style: KalinkaTextStyles.searchBarInput,
+                  cursorColor: KalinkaColors.accent,
+                  minLines: 1,
+                  maxLines: 5,
+                  keyboardType: TextInputType.multiline,
+                  // Enter on the soft keyboard finishes the entry: submits
+                  // and closes the keyboard (newlines only via Shift+Enter
+                  // on hardware keyboards; pasted ones still wrap).
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _submit(),
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: widget.hint,
+                    hintStyle: KalinkaTextStyles.searchPlaceholder,
+                    border: InputBorder.none,
+                    isCollapsed: true,
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ),
               ),
             ),
-            // Clear (✕) + send — appear only when there's text; pinned to
-            // the first line as the field grows.
-            _buildTrailingButtons(),
-          ],
-        ),
+          ),
+          // Clear (✕) + send — appear only when there's text; pinned to
+          // the first line as the field grows.
+          _buildTrailingButtons(),
+        ],
       ),
     );
   }

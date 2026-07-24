@@ -18,6 +18,11 @@ import 'procedural_album_art.dart';
 import 'source_badge.dart';
 import 'transport_button.dart';
 
+/// How long the mini-player takes to slide down out of view when the search
+/// entry overlay opens (and to slide back up on close). The search view holds
+/// the keyboard back by this long so the bar clears first.
+const Duration kMiniPlayerHideDuration = Duration(milliseconds: 260);
+
 /// Fixed bottom mini player — 72px tall plus safe area inset. Stays put on the
 /// search screen too; playback controls remain reachable while browsing.
 ///

@@ -15,12 +15,20 @@ class QueryBlockView extends StatelessWidget {
   final VoidCallback onExpand;
   final ValueChanged<String> onToggleSection;
 
+  /// Reopen the search view with this block's query pre-filled to reword it.
+  final VoidCallback onRefine;
+
+  /// Drop to the Discover surface (catalogs).
+  final VoidCallback onExploreCatalogs;
+
   const QueryBlockView({
     super.key,
     required this.block,
     required this.expanded,
     required this.onExpand,
     required this.onToggleSection,
+    required this.onRefine,
+    required this.onExploreCatalogs,
   });
 
   @override
@@ -61,41 +69,67 @@ class QueryBlockView extends StatelessWidget {
   /// in a soft rounded card. Reads as "the request this search is about".
   Widget _buildQueryHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
       decoration: BoxDecoration(
         color: KalinkaColors.surfaceRaised,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: Icon(
-              CupertinoIcons.double_music_note,
-              size: 18,
-              color: KalinkaColors.accentTint,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                text: 'You asked for ',
-                style: KalinkaTextStyles.trackRowTitle.copyWith(
-                  color: KalinkaColors.textSecondary,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 1),
+                child: Icon(
+                  CupertinoIcons.double_music_note,
+                  size: 18,
+                  color: KalinkaColors.accentTint,
                 ),
-                children: [
-                  TextSpan(
-                    text: block.query,
-                    style: KalinkaTextStyles.trackRowTitle.copyWith(
-                      color: KalinkaColors.accentTint,
-                    ),
-                  ),
-                ],
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    text: 'You asked for ',
+                    style: KalinkaTextStyles.trackRowTitle.copyWith(
+                      color: KalinkaColors.textSecondary,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: block.query,
+                        style: KalinkaTextStyles.trackRowTitle.copyWith(
+                          color: KalinkaColors.accentTint,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Reword the prompt or step out to the catalogs, without dropping the
+          // result. Assist chips (tonal fill + ink state layer) so each reads
+          // as a button and answers hover/press; Wrap lets the second drop to a
+          // new line on a narrow card.
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _QueryAction(
+                icon: Icons.search_rounded,
+                label: 'Refine',
+                onTap: onRefine,
+              ),
+              _QueryAction(
+                icon: Icons.home_rounded,
+                label: 'Explore catalogs',
+                onTap: onExploreCatalogs,
+              ),
+            ],
           ),
         ],
       ),
@@ -160,6 +194,64 @@ class QueryBlockView extends StatelessWidget {
                   Icons.unfold_more_rounded,
                   size: 16,
                   color: KalinkaColors.textMuted,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// An assist chip under the query card (Refine / Explore catalogs): a tonal
+/// pill raised one step off the card, with an ink state layer so it lights up
+/// on hover and ripples on press. Sized for a comfortable tap target.
+class _QueryAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QueryAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      button: true,
+      child: Material(
+        color: KalinkaColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          hoverColor: KalinkaColors.surfaceOverlay,
+          highlightColor: KalinkaColors.surfaceOverlay,
+          splashColor: KalinkaColors.accentSubtle,
+          child: Container(
+            // A hairline outline keeps the chip legible against the card even
+            // before the hover fill lands (M3 assist-chip outline).
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: KalinkaColors.borderDefault, width: 1),
+            ),
+            padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 17, color: KalinkaColors.accentTint),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+                    color: KalinkaColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
