@@ -1,72 +1,84 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../providers/catalog_cards_provider.dart';
 import '../../providers/search_session_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
 import '../search_cards/browse_item_rows.dart';
 import 'catalog_cards_section.dart';
 
-/// Discover (resting) state for the search session — shown under the search
-/// entry when the field is idle. Catalog cards and recent favourites. AI
-/// prompt suggestions and recent searches live in the focused search view
-/// ([SearchSuggestionsList]), not here.
+/// The Catalogs root body: the search invitation (passed in via [leading]),
+/// then an "OR EXPLORE CATALOGS" divider, the catalog cards, and recent
+/// favourites. Suggestions and recent searches live in the focused search
+/// overlay ([SearchSuggestionsList]), not here.
 class SearchZeroState extends ConsumerWidget {
-  /// Submit a query immediately (catalog card, history tile).
-  final ValueChanged<String> onSubmit;
+  /// Opens a catalog page directly (browse id + resolved provider label).
+  final void Function(CatalogCardPlan plan, String provider) onOpenCatalog;
 
   /// Widgets pinned to the top of the scroll — the "What shall we play?"
-  /// heading and the search entry — so they scroll away with the content
-  /// rather than sitting sticky above it.
+  /// heading, description and the search entry — so they scroll with the
+  /// content rather than sitting sticky above it.
   final List<Widget> leading;
-
-  /// Extra bottom padding so the list tail clears the floating composer.
-  final double bottomInset;
 
   const SearchZeroState({
     super.key,
-    required this.onSubmit,
+    required this.onOpenCatalog,
     this.leading = const [],
-    this.bottomInset = 0,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(searchSessionProvider);
-    final favourites = session.recentFavourites;
+    final favourites = ref.watch(
+      searchSessionProvider.select((s) => s.recentFavourites),
+    );
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, 8, 16, 24 + bottomInset),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
         ...leading,
 
-        // ── BACK TO RESULTS ─────────────────────────────────────────────────
-        // One tap returns to the live session parked behind Discover.
-        if (session.blocks.isNotEmpty) ...[
-          _BackToResultsPill(
-            query: session.blocks.last.query,
-            onTap: () =>
-                ref.read(searchSessionProvider.notifier).showResults(),
-          ),
-          const SizedBox(height: 20),
-        ],
-
-        // ── EXPLORE THE CATALOGS ────────────────────────────────────────────
-        CatalogCardsSection(onSubmit: onSubmit),
+        // ── OR EXPLORE CATALOGS ─────────────────────────────────────────────
+        const _DividerLabel('OR EXPLORE CATALOGS'),
+        const SizedBox(height: 16),
+        CatalogCardsSection(onOpenCatalog: onOpenCatalog),
 
         // ── RECENTLY FAVOURITED ─────────────────────────────────────────────
         if (favourites.isNotEmpty) ...[
           const SizedBox(height: 20),
-          _label('RECENTLY FAVOURITED'),
+          Text('RECENTLY FAVOURITED', style: KalinkaTextStyles.sectionLabel),
           const SizedBox(height: 6),
           BrowseItemRows(items: favourites),
         ],
       ],
     );
   }
+}
 
-  Widget _label(String text) =>
-      Text(text, style: KalinkaTextStyles.sectionLabel);
+/// A centred section label flanked by hairline rules — the "OR EXPLORE
+/// CATALOGS" separator between the AI search invitation and the catalog cards.
+class _DividerLabel extends StatelessWidget {
+  final String text;
+
+  const _DividerLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(
+          child: Divider(color: KalinkaColors.borderSubtle, thickness: 1),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(text, style: KalinkaTextStyles.sectionLabel),
+        ),
+        const Expanded(
+          child: Divider(color: KalinkaColors.borderSubtle, thickness: 1),
+        ),
+      ],
+    );
+  }
 }
 
 /// The focused search body under the field: an **AI SUGGESTIONS** section over
@@ -284,64 +296,6 @@ class SearchSuggestionsList extends ConsumerWidget {
           end: Offset.zero,
         ).animate(anim),
         child: child,
-      ),
-    );
-  }
-}
-
-/// Slim accent pill returning to the live session, captioned with its query.
-class _BackToResultsPill extends StatelessWidget {
-  final String query;
-  final VoidCallback onTap;
-
-  const _BackToResultsPill({required this.query, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Back to results for $query',
-      button: true,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: () {
-            KalinkaHaptics.lightImpact();
-            onTap();
-          },
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 11, 10, 11),
-            decoration: BoxDecoration(
-              color: KalinkaColors.accentSubtle,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: KalinkaColors.accentBorder, width: 1),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.manage_search_rounded,
-                  size: 16,
-                  color: KalinkaColors.accentTint,
-                ),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Text(
-                    'Back to results · “$query”',
-                    style: KalinkaTextStyles.aiPromptChipText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 18,
-                  color: KalinkaColors.accentTint,
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

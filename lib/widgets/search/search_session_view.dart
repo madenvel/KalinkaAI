@@ -3,6 +3,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../providers/catalog_cards_provider.dart';
 import '../../providers/indexer_status_provider.dart';
 import '../../providers/search_session_provider.dart';
 import '../../providers/selection_state_provider.dart';
@@ -12,7 +13,8 @@ import '../indexer_status_banner.dart';
 import '../mini_player.dart';
 import '../selection_overlay.dart';
 import '../server_chip.dart';
-import 'query_block_view.dart';
+import 'catalog_page_view.dart';
+import 'results_view.dart';
 import 'search_composer.dart';
 import 'search_zero_state.dart';
 
@@ -49,8 +51,6 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
         WidgetsBindingObserver {
   final _composerController = TextEditingController();
   final _composerFocus = FocusNode();
-  final _scrollController = ScrollController();
-  String _lastNewestBlockId = '';
 
   // Whether the animated search overlay is up. Driven by _openSearch /
   // _closeSearch (not by raw focus), so dismissing the keyboard alone keeps
@@ -102,7 +102,6 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     _overlayCtrl.dispose();
     _composerController.dispose();
     _composerFocus.dispose();
-    _scrollController.dispose();
     // Torn down with the overlay still up (session closed externally) would
     // otherwise leave the shared flag stuck true and the mini-player hidden.
     // Clear it after this frame — a synchronous write could land mid-build of
@@ -138,15 +137,17 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   /// Lift the search overlay out of the resting entry: measure where the entry
   /// sits, fade the scrim in, and forward the transition while the field takes
   /// focus.
-  void _openSearch() {
+  void _openSearch({bool measure = true}) {
     if (_focused) return;
     // Measure the entry in THIS surface's local space (not global): on tablet
     // the search surface is only the right panel, and the overlay positions
-    // itself within it, so the origin must be panel-relative.
+    // itself within it, so the origin must be panel-relative. When opened from
+    // the Results pencil (no entry on screen), skip it and rise from the top.
     final selfBox = context.findRenderObject() as RenderBox?;
     final entryBox = _entryKey.currentContext?.findRenderObject() as RenderBox?;
     _originRect =
-        (selfBox != null &&
+        (measure &&
+            selfBox != null &&
             selfBox.attached &&
             entryBox != null &&
             entryBox.hasSize)
@@ -208,60 +209,46 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     _composerFocus.requestFocus();
   }
 
-  /// "Refine" from a results card: drop to Discover and re-open the search
-  /// overlay pre-filled with the query. The entry only mounts once Discover is
-  /// showing, so the overlay open (which measures it) waits for that frame.
-  void _refine(String query) {
-    ref.read(searchSessionProvider.notifier).showDiscover();
+  /// The Results pencil: reopen the overlay pre-filled with the current query
+  /// (no on-screen entry to rise from, so skip the measurement).
+  void _editSearch() {
+    final query = ref.read(searchSessionProvider).searchQuery;
     _composerController.text = query;
     _composerController.selection = TextSelection.collapsed(
       offset: query.length,
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _openSearch();
-    });
+    _openSearch(measure: false);
   }
 
-  /// "Explore catalogs" from a results card: drop to the calm Discover surface
-  /// (catalogs visible), keeping the live session reachable behind it.
-  void _exploreCatalogs() {
-    ref.read(searchSessionProvider.notifier).showDiscover();
+  /// Open a catalog page directly from a card tap — deterministic browse, never
+  /// the AI router, and never recorded in search history.
+  void _openCatalog(CatalogCardPlan plan, String provider) {
+    ref
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: plan.id, title: plan.title, provider: provider);
   }
 
-  /// One back press unwinds one state (Material back guidance): the open
-  /// overlay closes to Discover; Discover over a live session returns to its
-  /// results; only then does back leave the search surface. Shared by the
-  /// header arrow and the system back gesture.
+  /// One back press unwinds one layer (MD §11): the open overlay closes; a
+  /// catalog page returns to the Catalogs root; otherwise Find Music closes to
+  /// playback. Tab switches never enter this stack. Shared by the header arrow
+  /// and the system back gesture.
   void _handleBack() {
-    final session = ref.read(searchSessionProvider);
     if (_focused) {
       _closeSearch();
-    } else if (session.showZeroState && session.blocks.isNotEmpty) {
-      ref.read(searchSessionProvider.notifier).showResults();
-    } else {
-      ref.read(searchSessionProvider.notifier).close();
+      return;
     }
+    final session = ref.read(searchSessionProvider);
+    if (session.activeTab == FindMusicTab.catalogs &&
+        !session.catalogPage.isRoot) {
+      ref.read(searchSessionProvider.notifier).backToCatalogsRoot();
+      return;
+    }
+    ref.read(searchSessionProvider.notifier).close();
   }
 
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(searchSessionProvider);
-
-    // Newest block renders on top, right under the search bar; scroll back up
-    // to it when one is appended.
-    final newestId = session.blocks.isEmpty ? '' : session.blocks.last.id;
-    if (newestId != _lastNewestBlockId) {
-      _lastNewestBlockId = newestId;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            0,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    }
 
     // The shared tiles long-press into multi-select; surface the same batch
     // bar the old search feed used so the selection can be acted on.
@@ -269,9 +256,9 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
       selectionStateProvider.select((s) => s.isActive),
     );
 
-    // The session owns its back handling: the route must not pop while any
-    // in-screen state can still unwind (the parent screen's PopScope leaves
-    // search alone).
+    // Find Music owns its back handling: the route must not pop while any
+    // in-screen layer can still unwind (the parent screen's PopScope leaves it
+    // alone).
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -285,28 +272,24 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
               children: [
                 _buildHeader(session),
                 const _IndexerBannerSlot(),
+                // Both tabs stay mounted (IndexedStack) so scroll and inline
+                // expansion survive tab switches without a refetch.
                 Expanded(
-                  child: session.isZeroState
-                      ? _buildZeroStateBody(session)
-                      // The hint floats over the list on a top-anchored scrim:
-                      // content scrolls underneath and shows through the fade.
-                      : Stack(
-                          children: [
-                            _buildBlockList(session),
-                            const Positioned(
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              child: IgnorePointer(child: _GestureHintLine()),
-                            ),
-                          ],
-                        ),
+                  child: IndexedStack(
+                    index: session.activeTab == FindMusicTab.results ? 1 : 0,
+                    children: [
+                      _buildCatalogsTab(session),
+                      session.resultsAvailable
+                          ? ResultsView(onEdit: _editSearch)
+                          : const SizedBox.shrink(),
+                    ],
+                  ),
                 ),
               ],
             ),
             // The animated search overlay floats above the header too, so its
-            // dim scrim covers the top bar's back button — the in-field arrow
-            // is the only back affordance while it is up.
+            // dim scrim covers the top bar and tabs — the in-field arrow is the
+            // only back affordance while it is up.
             if (_focused) _buildSearchOverlay(session),
             if (selectionActive)
               const Positioned(
@@ -321,12 +304,23 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     );
   }
 
-  /// Top strip: back · title · connection dot. Solid, same framing as the main
-  /// screen's top bar. The search field no longer lives here — on Discover the
-  /// field sits in the body under its heading; on results the strip just names
-  /// the screen.
+  /// The Catalogs tab: its root (search invitation + cards) or the one open
+  /// catalog page.
+  Widget _buildCatalogsTab(SearchSessionState session) {
+    if (!session.catalogPage.isRoot) {
+      return CatalogPageView(
+        page: session.catalogPage,
+        onBackToCatalogs: () =>
+            ref.read(searchSessionProvider.notifier).backToCatalogsRoot(),
+      );
+    }
+    return _buildCatalogsRoot(session);
+  }
+
+  /// Top strip: back · Catalogs/Results tabs · connection dot. Solid, same
+  /// framing as the main screen's top bar. Results is disabled until the first
+  /// search runs; tab switches never touch the back stack.
   Widget _buildHeader(SearchSessionState session) {
-    final title = session.isZeroState ? 'EXPLORE' : 'SEARCH RESULTS';
     return Container(
       decoration: _kSearchHeaderDecoration,
       child: SafeArea(
@@ -338,8 +332,8 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
             padding: const EdgeInsets.fromLTRB(6, 3, 6, 3),
             child: Row(
               children: [
-                // Back — unwinds one search state per tap, same as the
-                // system back gesture (_handleBack).
+                // Back — unwinds one layer per tap, same as the system back
+                // gesture (_handleBack).
                 Semantics(
                   label: 'Back',
                   button: true,
@@ -360,13 +354,15 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: KalinkaTextStyles.trayTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Center(
+                    child: _FindMusicTabs(
+                      activeTab: session.activeTab,
+                      resultsEnabled: session.resultsAvailable,
+                      onSelect: (tab) =>
+                          ref.read(searchSessionProvider.notifier).selectTab(tab),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 2),
@@ -385,15 +381,15 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     );
   }
 
-  /// Discover surface: one scroll holding the Playfair question, the resting
-  /// search entry, then the catalogs / history / favourites — all scrolling
-  /// together (nothing pinned). Tapping the entry lifts the animated overlay.
-  Widget _buildZeroStateBody(SearchSessionState session) {
+  /// The Catalogs root: one scroll holding the Playfair question, its
+  /// description, the resting search entry, then the "OR EXPLORE CATALOGS"
+  /// divider, catalog cards and favourites. Tapping the entry lifts the overlay.
+  Widget _buildCatalogsRoot(SearchSessionState session) {
     return SearchZeroState(
-      onSubmit: _submitFromTile,
+      onOpenCatalog: _openCatalog,
       leading: [
         Padding(
-          padding: const EdgeInsets.only(top: 6, bottom: 20),
+          padding: const EdgeInsets.only(top: 6, bottom: 10),
           child: Text(
             'What shall we play?',
             style: KalinkaFonts.display(
@@ -403,12 +399,20 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
             ),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 18),
+          child: Text(
+            'Describe a mood, activity, genre, or anything else you would '
+            'like to hear.',
+            style: KalinkaTextStyles.trackRowSubtitle,
+          ),
+        ),
         _SearchEntryButton(
           key: _entryKey,
           hint: _hintText(session),
           onTap: _openSearch,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -559,37 +563,100 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     );
   }
 
-  Widget _buildBlockList(SearchSessionState session) {
-    final blocks = session.blocks;
-    return ListView.builder(
-      controller: _scrollController,
-      // Top padding clears the hint overlay so content starts below it at
-      // rest and only slides under the scrim once scrolled.
-      padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
-      // +1: the Discover escape hatch under the last block.
-      itemCount: blocks.length + 1,
-      itemBuilder: (context, i) {
-        if (i == blocks.length) {
-          return _DiscoverPrompt(
-            onTap: () =>
-                ref.read(searchSessionProvider.notifier).showDiscover(),
-          );
-        }
-        // The session appends newest last; the list shows newest first.
-        final block = blocks[blocks.length - 1 - i];
-        return QueryBlockView(
-          key: ValueKey(block.id),
-          block: block,
-          expanded: block.id == session.expandedBlockId,
-          onExpand: () =>
-              ref.read(searchSessionProvider.notifier).expandBlock(block.id),
-          onToggleSection: (sectionId) => ref
-              .read(searchSessionProvider.notifier)
-              .toggleSection(block.id, sectionId),
-          onRefine: () => _refine(block.query),
-          onExploreCatalogs: _exploreCatalogs,
-        );
-      },
+}
+
+/// The Catalogs / Results tab pair in the header. Results is inert (dimmed, no
+/// tap) until a search has run. The active tab carries an accent underline.
+class _FindMusicTabs extends StatelessWidget {
+  final FindMusicTab activeTab;
+  final bool resultsEnabled;
+  final ValueChanged<FindMusicTab> onSelect;
+
+  const _FindMusicTabs({
+    required this.activeTab,
+    required this.resultsEnabled,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _Tab(
+          label: 'Catalogs',
+          active: activeTab == FindMusicTab.catalogs,
+          enabled: true,
+          onTap: () => onSelect(FindMusicTab.catalogs),
+        ),
+        const SizedBox(width: 4),
+        _Tab(
+          label: 'Results',
+          active: activeTab == FindMusicTab.results,
+          enabled: resultsEnabled,
+          onTap: () => onSelect(FindMusicTab.results),
+        ),
+      ],
+    );
+  }
+}
+
+class _Tab extends StatelessWidget {
+  final String label;
+  final bool active;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _Tab({
+    required this.label,
+    required this.active,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = !enabled
+        ? KalinkaColors.textMuted.withValues(alpha: 0.4)
+        : active
+        ? KalinkaColors.textPrimary
+        : KalinkaColors.textSecondary;
+
+    return Semantics(
+      button: true,
+      selected: active,
+      enabled: enabled,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: enabled
+              ? () {
+                  KalinkaHaptics.lightImpact();
+                  onTap();
+                }
+              : null,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 9, 12, 8),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: active ? KalinkaColors.accent : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+            ),
+            child: Text(
+              label,
+              style: KalinkaFonts.sans(
+                fontSize: KalinkaTypography.baseSize + 1,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -675,113 +742,3 @@ class _IndexerBannerSlot extends ConsumerWidget {
   }
 }
 
-/// Quiet one-line "verb map" floating over the results on a top-anchored
-/// scrim: solid background at the top fading to transparent at the bottom, so
-/// scrolled content stays partially visible underneath. Action keywords pop
-/// in bright ink so the eye catches tap / swipe / hold first and reads the
-/// consequence attached to each. Persistent guidance, not a dismissible tip.
-class _GestureHintLine extends StatelessWidget {
-  const _GestureHintLine();
-
-  @override
-  Widget build(BuildContext context) {
-    final plain = KalinkaFonts.sans(
-      fontSize: KalinkaTypography.baseSize - 1,
-      fontWeight: FontWeight.w500,
-      color: KalinkaColors.textMuted,
-    );
-    final verb = plain.copyWith(
-      fontWeight: FontWeight.w700,
-      color: KalinkaColors.textPrimary.withValues(alpha: 0.82),
-    );
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          // Translucent veil, never solid: content ghosts through the whole
-          // band, just dampened enough to keep the hint legible.
-          colors: [
-            KalinkaColors.background.withValues(alpha: 0.88),
-            KalinkaColors.background.withValues(alpha: 0.55),
-            KalinkaColors.background.withValues(alpha: 0.0),
-          ],
-          stops: const [0.0, 0.55, 1.0],
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 9, 16, 14),
-      child: Text.rich(
-        TextSpan(
-          style: plain,
-          children: [
-            TextSpan(text: 'Tap', style: verb),
-            const TextSpan(text: ' a song to play  ·  '),
-            TextSpan(text: 'swipe →', style: verb),
-            const TextSpan(text: ' queue it, '),
-            TextSpan(text: '← swipe', style: verb),
-            const TextSpan(text: ' play next  ·  '),
-            TextSpan(text: 'hold', style: verb),
-            const TextSpan(text: ' to select'),
-          ],
-        ),
-        textAlign: TextAlign.center,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-  }
-}
-
-/// Quiet footer link to Discover when the results didn't deliver; the session
-/// stays alive behind it (reachable via the "Back to results" pill).
-class _DiscoverPrompt extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _DiscoverPrompt({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 6),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Text(
-            'Can’t find what you’re looking for? ',
-            style: KalinkaTextStyles.trackRowSubtitle,
-          ),
-          Semantics(
-            label: 'Open Discover',
-            button: true,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () {
-                  KalinkaHaptics.lightImpact();
-                  onTap();
-                },
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 6,
-                  ),
-                  child: Text(
-                    'Try Discover',
-                    style: KalinkaFonts.sans(
-                      fontSize: KalinkaTypography.baseSize + 1,
-                      fontWeight: FontWeight.w600,
-                      color: KalinkaColors.accentTint,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

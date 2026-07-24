@@ -24,14 +24,14 @@ const double _kCardAspect = 3 / 1;
 const double _kTextZoneWidth = 0.48;
 
 /// Advertisement cards for the browsable catalogs, grouped by source, on the
-/// search zero state. Each card's background is a server-rendered image (or
-/// black until the server produces it).
+/// Catalogs root. Each card's background is a server-rendered image (or black
+/// until the server produces it).
 class CatalogCardsSection extends ConsumerWidget {
-  /// Fires an AI search when a card is tapped — its title scoped to the card's
-  /// source, e.g. "Popular Tracks on Jamendo".
-  final ValueChanged<String> onSubmit;
+  /// Opens the tapped catalog page directly via its stable browse id — no AI
+  /// routing. [provider] is the resolved source label for the page subtitle.
+  final void Function(CatalogCardPlan plan, String provider) onOpenCatalog;
 
-  const CatalogCardsSection({super.key, required this.onSubmit});
+  const CatalogCardsSection({super.key, required this.onOpenCatalog});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,11 +49,7 @@ class CatalogCardsSection extends ConsumerWidget {
     return groupsAsync.when(
       // Counts unknown yet — one nominal shimmer group so the section doesn't
       // pop in. Once plans resolve, each source gets its exact card count.
-      loading: () => _sectionColumn([
-        _ShimmerBar(width: 120, height: 12),
-        const SizedBox(height: 12),
-        const _CardGrid(cardCount: 3, children: null),
-      ]),
+      loading: () => const _CardGrid(cardCount: 3, children: null),
       error: (_, __) => const SizedBox.shrink(),
       data: (groups) {
         if (groups.isEmpty) return const SizedBox.shrink();
@@ -68,7 +64,7 @@ class CatalogCardsSection extends ConsumerWidget {
                   _CatalogCard(
                     plan: plan,
                     tint: _tintFor(group.sourceName),
-                    onTap: () => onSubmit(_queryFor(plan, group)),
+                    onTap: () => onOpenCatalog(plan, _providerFor(group)),
                   ),
               ],
             ),
@@ -82,22 +78,14 @@ class CatalogCardsSection extends ConsumerWidget {
   Widget _sectionColumn(List<Widget> children) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: 20),
-        Text('EXPLORE YOUR MUSIC', style: KalinkaTextStyles.sectionLabel),
-        const SizedBox(height: 12),
-        ...children,
-      ],
+      children: children,
     );
   }
 
-  /// The AI query a card fires: its title scoped to the card's source.
-  String _queryFor(CatalogCardPlan plan, CatalogCardGroup group) {
-    final source = isLocalSource(group.sourceName)
-        ? 'Local library'
-        : group.sourceTitle;
-    return '${plan.title} on $source';
-  }
+  /// The provider label shown as the opened catalog page's subtitle.
+  String _providerFor(CatalogCardGroup group) => isLocalSource(group.sourceName)
+      ? 'Local library'
+      : group.sourceTitle;
 }
 
 Color _tintFor(String sourceName) => colorForSourceName(sourceName);

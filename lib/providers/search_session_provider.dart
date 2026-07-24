@@ -13,11 +13,6 @@ const _historyKey = 'Kalinka.chatSearchHistory';
 const _maxHistoryItems = 5;
 const _minHistoryQueryLength = 2;
 
-/// Visible query blocks kept in the session: one expanded + up to two folded.
-/// Older blocks scroll out of the session view (but their queries still land
-/// in history on exit).
-const _maxVisibleBlocks = 3;
-
 /// Minimum time the "working…" state stays up, even if results resolve
 /// instantly — the request may be slow, so the UI must always read as busy
 /// rather than flickering a frame of loading.
@@ -37,73 +32,63 @@ const _fallbackSuggestions = <SearchSuggestion>[
   SearchSuggestion(query: 'smooth jazz for a cozy evening'),
 ];
 
-/// One query and its results in the chat-style search session.
-class SearchQueryBlock {
-  final String id;
-  final String query;
+/// The two sibling modes of the Find Music workspace.
+enum FindMusicTab { catalogs, results }
 
-  /// True while the request is in flight (or held under the minimum loading
-  /// duration). Drives the working animation under the bubble.
-  final bool loading;
+/// The Catalogs tab is either at its root (search invitation + catalog cards)
+/// or on one selected catalog page. Navigation is exactly one level deep — a
+/// page never opens another page; albums/artists/playlists unroll inline.
+class CatalogPage {
+  /// Stable browse id of the open catalog category; null on the root screen.
+  final String? id;
 
-  /// AI search result — top-level items are per-source sections, never merged
-  /// into a single ranked list. Null until resolved.
-  final BrowseItemsList? results;
-  final String? error;
+  /// Category title, e.g. "Popular Albums" (shown in Playfair on the page).
+  final String? title;
 
-  /// Section ids expanded past their default visible limit within this block.
-  final Set<String> expandedSections;
+  /// Owning provider, e.g. "Jamendo" — the page subtitle / badge.
+  final String? provider;
 
-  const SearchQueryBlock({
+  const CatalogPage.root() : id = null, title = null, provider = null;
+
+  const CatalogPage.category({
     required this.id,
-    required this.query,
-    this.loading = true,
-    this.results,
-    this.error,
-    this.expandedSections = const {},
+    required this.title,
+    this.provider,
   });
 
-  /// Total result items across all sections (for the folded summary line).
-  int get resultCount {
-    final r = results;
-    if (r == null) return 0;
-    return r.items.fold<int>(0, (sum, s) => sum + (s.sections?.length ?? 0));
-  }
-
-  SearchQueryBlock copyWith({
-    bool? loading,
-    BrowseItemsList? results,
-    String? error,
-    bool clearError = false,
-    Set<String>? expandedSections,
-  }) {
-    return SearchQueryBlock(
-      id: id,
-      query: query,
-      loading: loading ?? this.loading,
-      results: results ?? this.results,
-      error: clearError ? null : (error ?? this.error),
-      expandedSections: expandedSections ?? this.expandedSections,
-    );
-  }
+  bool get isRoot => id == null;
 }
 
-/// Ephemeral state for the bottom-docked, chat-style search session.
+/// State for the Find Music workspace: two sibling tabs (Catalogs / Results)
+/// with independently preserved content, plus the persisted zero-state data.
+/// Results holds a single current query — a new search replaces it.
 class SearchSessionState {
-  /// Whether the full-screen search surface is open.
+  /// Whether the full-screen Find Music surface is open.
   final bool isOpen;
 
-  /// Query blocks in chat order — oldest first, the newest at the bottom.
-  final List<SearchQueryBlock> blocks;
+  /// The selected sibling tab. Switching tabs is pure state — no back-stack.
+  final FindMusicTab activeTab;
 
-  /// Id of the currently expanded block. Exactly one block is expanded at a
-  /// time; the rest render as folded single-line summaries.
-  final String expandedBlockId;
+  /// Results is disabled until the first search is submitted; true thereafter
+  /// for the life of the workspace.
+  final bool resultsAvailable;
 
-  /// When true, the Discover (zero-state) surface is shown even though query
-  /// blocks exist — the session stays alive behind it, reachable again via
-  /// the zero state's "Back to results" pill.
-  final bool showZeroState;
+  // ── Results tab (single query) ─────────────────────────────────────────────
+  final String searchQuery;
+
+  /// AI search result — top-level items are per-source sections, never merged
+  /// into a single ranked list. Null until the current query resolves.
+  final BrowseItemsList? searchResults;
+  final bool searchLoading;
+  final String? searchError;
+
+  /// Section ids expanded past their default visible limit in the results.
+  final Set<String> expandedSections;
+
+  // ── Catalogs tab ───────────────────────────────────────────────────────────
+  /// Root screen, or the one open catalog page. Its item data is fetched by the
+  /// page view via `browseDetailProvider(id)` (cached across tab switches).
+  final CatalogPage catalogPage;
 
   // ── Zero-state data (persisted history + fetched favourites) ───────────────
   final List<String> history;
@@ -117,30 +102,37 @@ class SearchSessionState {
 
   const SearchSessionState({
     this.isOpen = false,
-    this.blocks = const [],
-    this.expandedBlockId = '',
-    this.showZeroState = false,
+    this.activeTab = FindMusicTab.catalogs,
+    this.resultsAvailable = false,
+    this.searchQuery = '',
+    this.searchResults,
+    this.searchLoading = false,
+    this.searchError,
+    this.expandedSections = const {},
+    this.catalogPage = const CatalogPage.root(),
     this.history = const [],
     this.recentFavourites = const [],
     this.zeroStateLoading = false,
     this.aiSuggestions = const [],
   });
 
-  /// True when the zero state (Discover) is shown — either the session has no
-  /// query blocks yet, or the user navigated back to Discover over a live
-  /// session ([showZeroState]).
-  bool get isZeroState => blocks.isEmpty || showZeroState;
-
-  /// Prompts shown in the zero state: the server's context-aware suggestions
-  /// once fetched, static examples until then.
+  /// Prompts shown in the search overlay: the server's context-aware
+  /// suggestions once fetched, static examples until then.
   List<SearchSuggestion> get suggestions =>
       aiSuggestions.isEmpty ? _fallbackSuggestions : aiSuggestions;
 
   SearchSessionState copyWith({
     bool? isOpen,
-    List<SearchQueryBlock>? blocks,
-    String? expandedBlockId,
-    bool? showZeroState,
+    FindMusicTab? activeTab,
+    bool? resultsAvailable,
+    String? searchQuery,
+    BrowseItemsList? searchResults,
+    bool clearResults = false,
+    bool? searchLoading,
+    String? searchError,
+    bool clearError = false,
+    Set<String>? expandedSections,
+    CatalogPage? catalogPage,
     List<String>? history,
     List<BrowseItem>? recentFavourites,
     bool? zeroStateLoading,
@@ -148,9 +140,14 @@ class SearchSessionState {
   }) {
     return SearchSessionState(
       isOpen: isOpen ?? this.isOpen,
-      blocks: blocks ?? this.blocks,
-      expandedBlockId: expandedBlockId ?? this.expandedBlockId,
-      showZeroState: showZeroState ?? this.showZeroState,
+      activeTab: activeTab ?? this.activeTab,
+      resultsAvailable: resultsAvailable ?? this.resultsAvailable,
+      searchQuery: searchQuery ?? this.searchQuery,
+      searchResults: clearResults ? null : (searchResults ?? this.searchResults),
+      searchLoading: searchLoading ?? this.searchLoading,
+      searchError: clearError ? null : (searchError ?? this.searchError),
+      expandedSections: expandedSections ?? this.expandedSections,
+      catalogPage: catalogPage ?? this.catalogPage,
       history: history ?? this.history,
       recentFavourites: recentFavourites ?? this.recentFavourites,
       zeroStateLoading: zeroStateLoading ?? this.zeroStateLoading,
@@ -161,7 +158,10 @@ class SearchSessionState {
 
 class SearchSessionNotifier extends Notifier<SearchSessionState> {
   late SharedPreferences _prefs;
-  int _blockCounter = 0;
+
+  /// Bumped on each [submit]; a resolving query whose generation no longer
+  /// matches has been superseded and drops its result.
+  int _queryGen = 0;
 
   bool _disposed = false;
 
@@ -174,7 +174,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
 
   // ── Open / close ───────────────────────────────────────────────────────────
 
-  /// Open the search surface at the zero state and refresh its data.
+  /// Open Find Music on the Catalogs root and refresh its data.
   void open() {
     if (state.isOpen) return;
     state = state.copyWith(isOpen: true, history: _loadHistory());
@@ -182,70 +182,100 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     _loadSuggestions();
   }
 
-  /// Close the surface: discard the ephemeral session (blocks + results).
-  /// History is written live on each [submit], so nothing to fold here.
+  /// Close Find Music and discard the ephemeral workspace (results + catalog
+  /// page). History is written live on each [submit], so nothing to fold here.
   void close() {
-    if (!state.isOpen && state.blocks.isEmpty) return;
+    if (!state.isOpen) return;
     state = state.copyWith(
       isOpen: false,
-      blocks: const [],
-      expandedBlockId: '',
-      showZeroState: false,
+      activeTab: FindMusicTab.catalogs,
+      resultsAvailable: false,
+      searchQuery: '',
+      clearResults: true,
+      searchLoading: false,
+      clearError: true,
+      expandedSections: const {},
+      catalogPage: const CatalogPage.root(),
       history: _loadHistory(),
     );
   }
 
-  /// Show the Discover (zero-state) surface, keeping the session blocks alive
-  /// behind it — [showResults] (the zero state's "Back to results" pill)
-  /// returns to them intact.
-  void showDiscover() {
-    if (state.isZeroState) return;
-    state = state.copyWith(showZeroState: true);
+  // ── Tabs ─────────────────────────────────────────────────────────────────
+
+  /// Select a sibling tab (pure state, no back-stack). Results is inert until
+  /// a search has run. Reselecting Catalogs while on a page returns to its root.
+  void selectTab(FindMusicTab tab) {
+    if (tab == FindMusicTab.results && !state.resultsAvailable) return;
+    if (tab == FindMusicTab.catalogs &&
+        state.activeTab == FindMusicTab.catalogs &&
+        !state.catalogPage.isRoot) {
+      state = state.copyWith(catalogPage: const CatalogPage.root());
+      return;
+    }
+    if (tab == state.activeTab) return;
+    state = state.copyWith(activeTab: tab);
   }
 
-  /// Return from Discover to the live session blocks.
-  void showResults() {
-    if (!state.showZeroState || state.blocks.isEmpty) return;
-    state = state.copyWith(showZeroState: false);
+  // ── Catalog navigation (deterministic — never through the AI router) ───────
+
+  /// Open a catalog category page directly by its stable browse id. Not
+  /// recorded in search history — this is navigation, not a search.
+  void openCatalog({
+    required String id,
+    required String title,
+    String? provider,
+  }) {
+    state = state.copyWith(
+      activeTab: FindMusicTab.catalogs,
+      catalogPage: CatalogPage.category(
+        id: id,
+        title: title,
+        provider: provider,
+      ),
+    );
   }
 
-  // ── Submitting queries ─────────────────────────────────────────────────────
+  /// Return from a catalog page to the Catalogs root (the search screen).
+  void backToCatalogsRoot() {
+    if (state.catalogPage.isRoot) return;
+    state = state.copyWith(catalogPage: const CatalogPage.root());
+  }
 
-  /// Submit [rawQuery] as a new query block. No-op for blank input. This is the
-  /// only path that fires a network request — there is no search-as-you-type.
+  // ── Submitting queries (AI search) ─────────────────────────────────────────
+
+  /// Submit [rawQuery] through the AI router. No-op for blank input. Enables +
+  /// selects Results and replaces the current query. This is the only path that
+  /// fires a search — there is no search-as-you-type, and catalog taps bypass it.
   void submit(String rawQuery) {
     final query = rawQuery.trim();
     if (query.isEmpty) return;
 
-    final id = 'q${_blockCounter++}';
-    final block = SearchQueryBlock(id: id, query: query);
-
-    // Newest block appends at the bottom (chat order); keep only the most
-    // recent few, dropping the oldest off the top.
-    final blocks = [...state.blocks, block];
-    if (blocks.length > _maxVisibleBlocks) {
-      blocks.removeRange(0, blocks.length - _maxVisibleBlocks);
-    }
-    // Fold the query into persistent history now (dedup + move-to-front), so a
-    // repeated or re-run query jumps straight to the top of Recent searches.
+    // Dedup + move-to-front, so a repeated query jumps to the top of Recent
+    // searches. Catalog navigation never reaches here, so it stays out of it.
     _appendHistory(query);
-    // Submitting always lands on the session view, including from Discover.
+    final gen = ++_queryGen;
     state = state.copyWith(
-      blocks: blocks,
-      expandedBlockId: id,
-      showZeroState: false,
+      activeTab: FindMusicTab.results,
+      resultsAvailable: true,
+      searchQuery: query,
+      clearResults: true,
+      searchLoading: true,
+      clearError: true,
+      expandedSections: const {},
       history: _loadHistory(),
     );
-    _runQuery(id, query);
+    _runQuery(query, gen);
   }
 
-  Future<void> _runQuery(String id, String query) async {
+  Future<void> _runQuery(String query, int gen) async {
     final settings = ref.read(connectionSettingsProvider);
     if (!settings.isSet) {
-      _updateBlock(
-        id,
-        (b) => b.copyWith(loading: false, error: 'No server connected'),
-      );
+      if (gen == _queryGen && !_disposed) {
+        state = state.copyWith(
+          searchLoading: false,
+          searchError: 'No server connected',
+        );
+      }
       return;
     }
 
@@ -254,17 +284,18 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
       final api = ref.read(kalinkaProxyProvider);
       final result = await api.aiSearch(query);
       await _holdMinimumLoading(start);
-      if (_disposed) return;
-      _updateBlock(
-        id,
-        (b) => b.copyWith(loading: false, results: result, clearError: true),
+      if (_disposed || gen != _queryGen) return;
+      state = state.copyWith(
+        searchLoading: false,
+        searchResults: result,
+        clearError: true,
       );
     } catch (e) {
       await _holdMinimumLoading(start);
-      if (_disposed) return;
-      _updateBlock(
-        id,
-        (b) => b.copyWith(loading: false, error: 'Search failed: $e'),
+      if (_disposed || gen != _queryGen) return;
+      state = state.copyWith(
+        searchLoading: false,
+        searchError: 'Search failed: $e',
       );
     }
   }
@@ -277,34 +308,11 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     }
   }
 
-  // ── Block folding / section expansion ──────────────────────────────────────
-
-  /// Expand a folded block, collapsing whichever block was expanded. Only one
-  /// block is ever expanded at a time.
-  void expandBlock(String id) {
-    if (state.expandedBlockId == id) return;
-    if (!state.blocks.any((b) => b.id == id)) return;
-    state = state.copyWith(expandedBlockId: id);
-  }
-
-  /// Toggle "show more" for a section within a block.
-  void toggleSection(String blockId, String sectionId) {
-    _updateBlock(blockId, (b) {
-      final next = Set<String>.from(b.expandedSections);
-      if (!next.remove(sectionId)) next.add(sectionId);
-      return b.copyWith(expandedSections: next);
-    });
-  }
-
-  void _updateBlock(
-    String id,
-    SearchQueryBlock Function(SearchQueryBlock) update,
-  ) {
-    final index = state.blocks.indexWhere((b) => b.id == id);
-    if (index < 0) return;
-    final blocks = [...state.blocks];
-    blocks[index] = update(blocks[index]);
-    state = state.copyWith(blocks: blocks);
+  /// Toggle "show more" for a results section.
+  void toggleSection(String sectionId) {
+    final next = Set<String>.from(state.expandedSections);
+    if (!next.remove(sectionId)) next.add(sectionId);
+    state = state.copyWith(expandedSections: next);
   }
 
   // ── Zero-state data ────────────────────────────────────────────────────────
