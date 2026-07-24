@@ -426,7 +426,6 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   /// right half, so the overlay stays inside it and unrolls exactly as on
   /// phone rather than sweeping across the whole screen.
   Widget _buildSearchOverlay(SearchSessionState session) {
-    final hint = _hintText(session);
     final topInset = MediaQuery.paddingOf(context).top;
     final targetTop = topInset + 6;
 
@@ -498,7 +497,9 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                               controller: _composerController,
                               focusNode: _composerFocus,
                               onSubmit: _submit,
-                              hint: hint,
+                              // No placeholder once activated — the resting
+                              // entry already showed the example prompt.
+                              hint: '',
                               onBack: _closeSearch,
                             ),
                             // The suggestion panel grows top-down; rows fade/slide
