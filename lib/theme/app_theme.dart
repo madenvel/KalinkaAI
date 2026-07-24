@@ -498,15 +498,6 @@ class KalinkaTextStyles {
     color: KalinkaColors.textPrimary,
   );
 
-  // Focused-search overlay section labels — quieter than [sectionLabel] so
-  // the rows below carry the weight.
-  static TextStyle searchOverlayLabel = KalinkaFonts.mono(
-    fontSize: KalinkaTypography.baseSize,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 1.5,
-    color: KalinkaColors.textMuted,
-  );
-
   // Clear all link
   static TextStyle clearAllLink = KalinkaFonts.sans(
     fontSize: KalinkaTypography.baseSize + 1,

@@ -111,9 +111,15 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
 
   @override
   Widget build(BuildContext context) {
-    final selection = ref.watch(selectionStateProvider);
-    final isSelected = selection.selectedIds.contains(widget.item.id);
-    final selectionMode = selection.isActive;
+    // Scoped watches so unrelated selection changes don't rebuild the row.
+    final isSelected = ref.watch(
+      selectionStateProvider.select(
+        (s) => s.selectedIds.contains(widget.item.id),
+      ),
+    );
+    final selectionMode = ref.watch(
+      selectionStateProvider.select((s) => s.isActive),
+    );
 
     final track = widget.item.track;
     final title = track?.title ?? widget.item.name ?? 'Unknown';

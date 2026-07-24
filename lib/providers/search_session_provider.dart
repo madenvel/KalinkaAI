@@ -32,10 +32,11 @@ const _fallbackSuggestions = <SearchSuggestion>[
   SearchSuggestion(query: 'smooth jazz for a cozy evening'),
 ];
 
-/// The two sibling modes of the Find Music workspace.
-enum FindMusicTab { catalogs, results }
+/// The two views of the Find Music workspace; Results sits one back-layer
+/// above Catalogs (there are no tabs).
+enum FindMusicView { catalogs, results }
 
-/// The Catalogs tab is either at its root (search invitation + catalog cards)
+/// The Catalogs view is either at its root (search invitation + catalog cards)
 /// or on one selected catalog page. Navigation is exactly one level deep — a
 /// page never opens another page; albums/artists/playlists unroll inline.
 class CatalogPage {
@@ -73,21 +74,21 @@ class CatalogPage {
   bool get isRoot => id == null;
 }
 
-/// State for the Find Music workspace: two sibling tabs (Catalogs / Results)
-/// with independently preserved content, plus the persisted zero-state data.
+/// State for the Find Music workspace: two views (Catalogs / Results) with
+/// independently preserved content, plus the persisted zero-state data.
 /// Results holds a single current query — a new search replaces it.
 class SearchSessionState {
   /// Whether the full-screen Find Music surface is open.
   final bool isOpen;
 
-  /// The selected sibling tab. Switching tabs is pure state — no back-stack.
-  final FindMusicTab activeTab;
+  /// The visible view. Switching is pure state — no back-stack.
+  final FindMusicView activeView;
 
   /// Results is disabled until the first search is submitted; true thereafter
   /// for the life of the workspace.
   final bool resultsAvailable;
 
-  // ── Results tab (single query) ─────────────────────────────────────────────
+  // ── Results view (single query) ─────────────────────────────────────────────
   final String searchQuery;
 
   /// AI search result — top-level items are per-source sections, never merged
@@ -99,9 +100,9 @@ class SearchSessionState {
   /// Section ids expanded past their default visible limit in the results.
   final Set<String> expandedSections;
 
-  // ── Catalogs tab ───────────────────────────────────────────────────────────
+  // ── Catalogs view ───────────────────────────────────────────────────────────
   /// Root screen, or the one open catalog page. Its item data is fetched by the
-  /// page view via `browseDetailProvider(id)` (cached across tab switches).
+  /// page view via `browseDetailProvider(id)` (cached across view switches).
   final CatalogPage catalogPage;
 
   // ── Zero-state data (persisted history + fetched favourites) ───────────────
@@ -116,7 +117,7 @@ class SearchSessionState {
 
   const SearchSessionState({
     this.isOpen = false,
-    this.activeTab = FindMusicTab.catalogs,
+    this.activeView = FindMusicView.catalogs,
     this.resultsAvailable = false,
     this.searchQuery = '',
     this.searchResults,
@@ -137,7 +138,7 @@ class SearchSessionState {
 
   SearchSessionState copyWith({
     bool? isOpen,
-    FindMusicTab? activeTab,
+    FindMusicView? activeView,
     bool? resultsAvailable,
     String? searchQuery,
     BrowseItemsList? searchResults,
@@ -154,10 +155,12 @@ class SearchSessionState {
   }) {
     return SearchSessionState(
       isOpen: isOpen ?? this.isOpen,
-      activeTab: activeTab ?? this.activeTab,
+      activeView: activeView ?? this.activeView,
       resultsAvailable: resultsAvailable ?? this.resultsAvailable,
       searchQuery: searchQuery ?? this.searchQuery,
-      searchResults: clearResults ? null : (searchResults ?? this.searchResults),
+      searchResults: clearResults
+          ? null
+          : (searchResults ?? this.searchResults),
       searchLoading: searchLoading ?? this.searchLoading,
       searchError: clearError ? null : (searchError ?? this.searchError),
       expandedSections: expandedSections ?? this.expandedSections,
@@ -202,7 +205,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     if (!state.isOpen) return;
     state = state.copyWith(
       isOpen: false,
-      activeTab: FindMusicTab.catalogs,
+      activeView: FindMusicView.catalogs,
       resultsAvailable: false,
       searchQuery: '',
       clearResults: true,
@@ -214,20 +217,20 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     );
   }
 
-  // ── Tabs ─────────────────────────────────────────────────────────────────
+  // ── Views ────────────────────────────────────────────────────────────────
 
-  /// Select a sibling tab (pure state, no back-stack). Results is inert until
-  /// a search has run. Reselecting Catalogs while on a page returns to its root.
-  void selectTab(FindMusicTab tab) {
-    if (tab == FindMusicTab.results && !state.resultsAvailable) return;
-    if (tab == FindMusicTab.catalogs &&
-        state.activeTab == FindMusicTab.catalogs &&
+  /// Switch view (pure state, no back-stack). Results is inert until a search
+  /// has run. Reselecting Catalogs while on a page returns to its root.
+  void selectView(FindMusicView view) {
+    if (view == FindMusicView.results && !state.resultsAvailable) return;
+    if (view == FindMusicView.catalogs &&
+        state.activeView == FindMusicView.catalogs &&
         !state.catalogPage.isRoot) {
       state = state.copyWith(catalogPage: const CatalogPage.root());
       return;
     }
-    if (tab == state.activeTab) return;
-    state = state.copyWith(activeTab: tab);
+    if (view == state.activeView) return;
+    state = state.copyWith(activeView: view);
   }
 
   // ── Catalog navigation (deterministic — never through the AI router) ───────
@@ -242,7 +245,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     String? artPath,
   }) {
     state = state.copyWith(
-      activeTab: FindMusicTab.catalogs,
+      activeView: FindMusicView.catalogs,
       catalogPage: CatalogPage.category(
         id: id,
         title: title,
@@ -273,7 +276,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     _appendHistory(query);
     final gen = ++_queryGen;
     state = state.copyWith(
-      activeTab: FindMusicTab.results,
+      activeView: FindMusicView.results,
       resultsAvailable: true,
       searchQuery: query,
       clearResults: true,
@@ -398,7 +401,9 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
       // A fresh modifiable list — callers append/remove in place. Clamp on
       // load too, so a store written under an older (larger) cap shrinks
       // immediately rather than on the next append.
-      final items = List<String>.from((jsonDecode(json) as List).cast<String>());
+      final items = List<String>.from(
+        (jsonDecode(json) as List).cast<String>(),
+      );
       if (items.length > _maxHistoryItems) {
         items.removeRange(_maxHistoryItems, items.length);
       }
@@ -450,7 +455,6 @@ class SearchEntryModeNotifier extends Notifier<bool> {
   }
 }
 
-final searchEntryModeProvider =
-    NotifierProvider<SearchEntryModeNotifier, bool>(
-      SearchEntryModeNotifier.new,
-    );
+final searchEntryModeProvider = NotifierProvider<SearchEntryModeNotifier, bool>(
+  SearchEntryModeNotifier.new,
+);

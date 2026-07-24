@@ -13,18 +13,15 @@ import '../infinite_list_view.dart';
 import '../search_cards/browse_item_rows.dart';
 import '../source_badge.dart';
 
-/// One selected catalog page — the single navigation level below the Catalogs
-/// root. Only the `‹ Back` link is pinned; the category banner (the catalog
-/// card's art, blurred, behind the Playfair title + provider) scrolls away
-/// with the items. Albums/artists/playlists unroll inline (they are content
-/// state, not further navigation). Items are pulled in chunks by an
-/// [InfiniteListView] straight off the browse endpoint (deterministic — never
-/// the AI router), so long catalogs scroll endlessly.
+/// One selected catalog page — the single navigation level below the
+/// Catalogs root (back lives in the title bar). The banner scrolls away with
+/// the items; albums/artists/playlists unroll inline. Items are pulled in
+/// chunks by an [InfiniteListView] straight off the browse endpoint
+/// (deterministic — never the AI router).
 class CatalogPageView extends ConsumerWidget {
   final CatalogPage page;
 
-  /// Returns to the Catalogs root (the search screen). Shared by the `‹
-  /// Back` link and the back arrow / system back.
+  /// Returns to the Catalogs root — used by the error state's action.
   final VoidCallback onBackToCatalogs;
 
   const CatalogPageView({
@@ -35,139 +32,77 @@ class CatalogPageView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // The `‹ Back` bar floats over the list: content scrolls under it and
-    // dissolves in its gradient scrim rather than hitting a hard edge.
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: InfiniteListView<BrowseItem>(
-            key: ValueKey(page.id),
-            reloadKey: page.id,
-            // No horizontal list padding — the banner bleeds edge to edge;
-            // rows and separators carry their own 16px inset instead. The top
-            // inset keeps the banner clear of the floating bar at rest.
-            padding: const EdgeInsets.only(top: _kBackBarHeight, bottom: 24),
-            header: _CatalogBanner(page: page),
-            fetchChunk: (offset, limit) async {
-              final api = ref.read(kalinkaProxyProvider);
-              final list = await api.browse(
-                page.id!,
-                offset: offset,
-                limit: limit,
-              );
-              return ItemChunk(items: list.items, total: list.total);
-            },
-            separatorBuilder: (context, _) => const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Divider(
-                color: KalinkaColors.borderSubtle,
-                thickness: 1,
-                height: 14,
-              ),
-            ),
-            itemBuilder: (context, item, index, loaded) {
-              // Track rows play the whole loaded list as a queue from the
-              // tapped row; as more chunks scroll in, the context grows.
-              final trackIds = [
-                for (final i in loaded)
-                  if (i.track != null) i.id,
-              ];
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: BrowseItemRows.buildRow(
-                  item,
-                  queueContextIds: trackIds.isEmpty ? null : trackIds,
-                ),
-              );
-            },
-            initialPlaceholder: const Padding(
-              padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
-              child: BrowseRowsShimmer(count: 8),
-            ),
-            loadMorePlaceholder: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: BrowseRowsShimmer(count: 3, leadingDivider: true),
-            ),
-            emptyBuilder: (context) => const _CatalogEmpty(),
-            errorBuilder: (context, _) =>
-                _CatalogError(onReturn: onBackToCatalogs),
+    // Recomputed per chunk, not per row (O(n²) otherwise).
+    final trackIdsMemo = _TrackIdsMemo();
+
+    return InfiniteListView<BrowseItem>(
+      key: ValueKey(page.id),
+      reloadKey: page.id,
+      // No horizontal list padding — the banner bleeds edge to edge; rows and
+      // separators carry their own 16px inset instead.
+      padding: const EdgeInsets.only(bottom: 24),
+      header: _CatalogBanner(page: page),
+      fetchChunk: (offset, limit) async {
+        final api = ref.read(kalinkaProxyProvider);
+        final list = await api.browse(page.id!, offset: offset, limit: limit);
+        return ItemChunk(items: list.items, total: list.total);
+      },
+      separatorBuilder: (context, _) => const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: Divider(
+          color: KalinkaColors.borderSubtle,
+          thickness: 1,
+          height: 14,
+        ),
+      ),
+      itemBuilder: (context, item, index, loaded) {
+        // Track rows play the whole loaded list as a queue from the
+        // tapped row; as more chunks scroll in, the context grows.
+        final trackIds = trackIdsMemo.of(loaded);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: BrowseItemRows.buildRow(
+            item,
+            queueContextIds: trackIds.isEmpty ? null : trackIds,
           ),
-        ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: _BackBar(onBack: onBackToCatalogs),
-        ),
-      ],
+        );
+      },
+      initialPlaceholder: const Padding(
+        padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+        child: BrowseRowsShimmer(count: 8),
+      ),
+      loadMorePlaceholder: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: BrowseRowsShimmer(count: 3, leadingDivider: true),
+      ),
+      emptyBuilder: (context) => const _CatalogEmpty(),
+      // The error state replaces only the rows, never the banner.
+      errorBuilder: (context, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _CatalogBanner(page: page),
+          Expanded(child: _CatalogError(onReturn: onBackToCatalogs)),
+        ],
+      ),
     );
   }
 }
 
-/// Height of the floating `‹ Back` bar — also the list's top inset, so the
-/// banner rests just below it and only slides under when scrolling.
-const double _kBackBarHeight = 48;
+/// Caches the queue-context track ids per loaded-chunk count, so row builds
+/// share one list instead of rescanning all loaded items each time.
+class _TrackIdsMemo {
+  List<String> _ids = const [];
+  int _forLength = -1;
 
-/// The floating `‹ Back` link — the only part of the page chrome that stays
-/// put. Its scrim is the page canvas, solid at the top and dissolving to
-/// nothing at the bottom edge, so content scrolling under it fades out
-/// instead of hitting a hard line. The chevron's Transform cancels the
-/// glyph's left bearing so its stroke lines up with the content edge (16).
-class _BackBar extends StatelessWidget {
-  final VoidCallback onBack;
-
-  const _BackBar({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: _kBackBarHeight,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          stops: [0.0, 0.55, 1.0],
-          colors: [
-            KalinkaColors.background,
-            KalinkaColors.background,
-            Color(0x00080808),
-          ],
-        ),
-      ),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: onBack,
-            borderRadius: BorderRadius.circular(6),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Transform.translate(
-                    offset: const Offset(-4, 0),
-                    child: const Icon(
-                      Icons.chevron_left_rounded,
-                      size: 18,
-                      color: KalinkaColors.textSecondary,
-                    ),
-                  ),
-                  Text(
-                    'Back',
-                    style: KalinkaTextStyles.dialogBody.copyWith(
-                      color: KalinkaColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+  List<String> of(List<BrowseItem> loaded) {
+    if (loaded.length != _forLength) {
+      _forLength = loaded.length;
+      _ids = [
+        for (final i in loaded)
+          if (i.track != null) i.id,
+      ];
+    }
+    return _ids;
   }
 }
 
@@ -193,13 +128,11 @@ class _CatalogBanner extends ConsumerWidget {
       child: ClipRect(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // The banner keeps its proportions as the surface stretches: its
-            // height tracks the width (just under the cards' 3:1) and the
-            // type scales with it, instead of staying a fixed-height strip
-            // that leaves the art peeking out only on the right.
+            // Height tracks width (just under the cards' 3:1); type scales
+            // with it, gently.
             final w = constraints.maxWidth;
             final minHeight = (w * 0.42).clamp(150.0, 320.0);
-            final scale = (w / 380).clamp(1.0, 1.7);
+            final scale = (w / 420).clamp(1.0, 1.25);
             return _buildBanner(ref, url, minHeight, scale);
           },
         ),
@@ -230,6 +163,9 @@ class _CatalogBanner extends ConsumerWidget {
                   fit: BoxFit.cover,
                   gaplessPlayback: true,
                   filterQuality: FilterQuality.medium,
+                  // The blur erases fine detail — no point decoding the
+                  // full-resolution render.
+                  cacheWidth: 800,
                   errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                 ),
               ),
@@ -257,8 +193,9 @@ class _CatalogBanner extends ConsumerWidget {
         ],
         Container(
           constraints: BoxConstraints(minHeight: minHeight),
-          padding: const EdgeInsets.fromLTRB(16, 22, 16, 14),
-          alignment: Alignment.bottomLeft,
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+          // Grows beyond minHeight only if the text needs the room.
+          alignment: Alignment.centerLeft,
           child: FractionallySizedBox(
             widthFactor: 0.55,
             child: Column(

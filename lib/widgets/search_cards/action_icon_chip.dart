@@ -101,11 +101,7 @@ class _ActionIconChipState extends State<ActionIconChip> {
                 ? Colors.white.withValues(alpha: 0.18)
                 : KalinkaColors.textPrimary.withValues(alpha: 0.10),
             highlightColor: KalinkaColors.textPrimary.withValues(alpha: 0.05),
-            child: SizedBox(
-              width: 44,
-              height: 44,
-              child: Center(child: chip),
-            ),
+            child: SizedBox(width: 44, height: 44, child: Center(child: chip)),
           ),
         ),
       ),

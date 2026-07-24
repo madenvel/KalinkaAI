@@ -56,8 +56,7 @@ class ResultsFilterChipRow extends StatelessWidget {
                     _Chip(
                       label: 'Artists',
                       isActive: activeFilter == ResultsFilterType.artists,
-                      onTap: () =>
-                          onFilterChanged(ResultsFilterType.artists),
+                      onTap: () => onFilterChanged(ResultsFilterType.artists),
                     ),
                     const SizedBox(width: 6),
                   ],
@@ -65,8 +64,7 @@ class ResultsFilterChipRow extends StatelessWidget {
                     _Chip(
                       label: 'Albums',
                       isActive: activeFilter == ResultsFilterType.albums,
-                      onTap: () =>
-                          onFilterChanged(ResultsFilterType.albums),
+                      onTap: () => onFilterChanged(ResultsFilterType.albums),
                     ),
                     const SizedBox(width: 6),
                   ],
@@ -74,8 +72,7 @@ class ResultsFilterChipRow extends StatelessWidget {
                     _Chip(
                       label: 'Tracks',
                       isActive: activeFilter == ResultsFilterType.tracks,
-                      onTap: () =>
-                          onFilterChanged(ResultsFilterType.tracks),
+                      onTap: () => onFilterChanged(ResultsFilterType.tracks),
                     ),
                     const SizedBox(width: 6),
                   ],
@@ -83,8 +80,7 @@ class ResultsFilterChipRow extends StatelessWidget {
                     _Chip(
                       label: 'Playlists',
                       isActive: activeFilter == ResultsFilterType.playlists,
-                      onTap: () =>
-                          onFilterChanged(ResultsFilterType.playlists),
+                      onTap: () => onFilterChanged(ResultsFilterType.playlists),
                     ),
                   ],
                   const SizedBox(width: 16),

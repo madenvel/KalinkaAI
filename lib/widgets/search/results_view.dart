@@ -6,9 +6,10 @@ import '../../theme/app_theme.dart';
 import 'search_loading_indicator.dart';
 import 'staging_result_sections.dart';
 
-/// The Results tab: a compact summary of the current query with a pencil that
-/// reopens the search overlay, then the AI results. Holds a single query — a
-/// new search replaces it (Catalogs stays a sibling tab, never a button here).
+/// The Results layer: a compact summary of the current query with a pencil
+/// that reopens the search overlay, then the AI results. Holds a single query
+/// — a new search replaces it. Going back to Catalogs is the title bar's `‹`
+/// (or system back), never a button here.
 class ResultsView extends ConsumerWidget {
   /// Reopen the search overlay pre-filled with the current query.
   final VoidCallback onEdit;
@@ -69,7 +70,11 @@ class _QuerySummary extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.only(top: 1),
-            child: Icon(Icons.auto_awesome, size: 17, color: KalinkaColors.gold),
+            child: Icon(
+              Icons.auto_awesome,
+              size: 17,
+              color: KalinkaColors.gold,
+            ),
           ),
           const SizedBox(width: 11),
           Expanded(

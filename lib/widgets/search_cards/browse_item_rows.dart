@@ -61,30 +61,37 @@ class BrowseItemRows extends StatelessWidget {
       // so scroll just shifts layers instead of re-rasterising the whole
       // section. Matters most for sections that pack many rows into a single
       // outer ListView child (BASED ON NOW PLAYING, RECENTLY FAVOURITED).
-      children.add(RepaintBoundary(
-        child: buildRow(displayed[i], queueContextIds: queueContextIds),
-      ));
+      children.add(
+        RepaintBoundary(
+          child: buildRow(displayed[i], queueContextIds: queueContextIds),
+        ),
+      );
       if (dividers && i < displayed.length - 1) {
-        children.add(const Divider(
-          color: KalinkaColors.borderSubtle,
-          thickness: 1,
-          height: 14,
-        ));
+        children.add(
+          const Divider(
+            color: KalinkaColors.borderSubtle,
+            thickness: 1,
+            height: 14,
+          ),
+        );
       }
     }
 
     final hiddenCount = items.length - shownCount;
     final showMore =
-        limit != null && onToggleExpand != null &&
+        limit != null &&
+        onToggleExpand != null &&
         (hiddenCount > 0 || isExpanded);
     if (showMore) {
-      children.add(RepaintBoundary(
-        child: ShowMoreRow(
-          remainingCount: items.length - limit,
-          isExpanded: isExpanded,
-          onTap: onToggleExpand!,
+      children.add(
+        RepaintBoundary(
+          child: ShowMoreRow(
+            remainingCount: items.length - limit,
+            isExpanded: isExpanded,
+            onTap: onToggleExpand!,
+          ),
         ),
-      ));
+      );
     }
 
     return Column(

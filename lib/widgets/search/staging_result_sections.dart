@@ -10,7 +10,7 @@ import '../../providers/source_modules_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
-import '../search_cards/action_icon_chip.dart';
+import '../search_cards/action_pill_button.dart';
 import '../search_cards/browse_item_rows.dart';
 
 /// Renders one query block's results as per-source sections. Results are
@@ -227,7 +227,8 @@ class _PlayAllChipState extends ConsumerState<_PlayAllChip> {
 
   @override
   Widget build(BuildContext context) {
-    return ActionIconChip(
+    return ActionPillButton(
+      label: 'Play all',
       icon: Icons.play_arrow_rounded,
       accent: true,
       enabled: !_busy,
@@ -289,12 +290,13 @@ class _AddAllChipState extends ConsumerState<_AddAllChip> {
   @override
   Widget build(BuildContext context) {
     final added = _status == _AddStatus.added;
-    return ActionIconChip(
+    return ActionPillButton(
+      label: added ? 'Added' : 'Enqueue',
       icon: added ? Icons.check_rounded : Icons.playlist_add_rounded,
       // Enabled only when idle — no re-add while adding or confirming.
       enabled: _status == _AddStatus.idle,
       onTap: _enqueue,
-      iconOverride: added ? KalinkaColors.gold : null,
+      foregroundOverride: added ? KalinkaColors.gold : null,
       borderOverride: added ? KalinkaColors.gold.withValues(alpha: 0.4) : null,
       semanticsLabel: added
           ? 'Added to queue'

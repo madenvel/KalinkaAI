@@ -83,9 +83,8 @@ class CatalogCardsSection extends ConsumerWidget {
   }
 
   /// The provider label shown as the opened catalog page's subtitle.
-  String _providerFor(CatalogCardGroup group) => isLocalSource(group.sourceName)
-      ? 'Local library'
-      : group.sourceTitle;
+  String _providerFor(CatalogCardGroup group) =>
+      isLocalSource(group.sourceName) ? 'Local library' : group.sourceTitle;
 }
 
 Color _tintFor(String sourceName) => colorForSourceName(sourceName);
@@ -540,7 +539,9 @@ class _ShimmerCatalogCardState extends State<_ShimmerCatalogCard>
                         ),
                       ),
                       SizedBox(width: 10 * scale),
-                      Expanded(child: _ShimmerBar(width: 120, height: 14 * scale)),
+                      Expanded(
+                        child: _ShimmerBar(width: 120, height: 14 * scale),
+                      ),
                     ],
                   ),
                   SizedBox(height: 12 * scale),

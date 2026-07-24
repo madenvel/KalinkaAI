@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 
 /// Compact pill button for the search-results batch actions ("Play all",
-/// "Add all", and the expanded album/playlist header's Play / Add to queue).
+/// "Enqueue", and the expanded album/playlist header's Play / Add to queue).
 ///
-/// [accent] fills the pill with the crimson brand accent — the default,
-/// most-likely action; the neutral variant steps down to a surface fill so the
-/// replace-the-queue action and the additive action are never confused.
+/// [accent] marks the default action with the subtle crimson idiom
+/// (accentSubtle fill, accentBorder edge, berry-tint label) — never a solid
+/// crimson fill; the neutral variant is a plain surface.
 class ActionPillButton extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -34,11 +34,15 @@ class ActionPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = foregroundOverride ?? KalinkaColors.textPrimary;
-    final bg = accent ? KalinkaColors.accent : KalinkaColors.surfaceElevated;
+    final fg =
+        foregroundOverride ??
+        (accent ? KalinkaColors.accentTint : KalinkaColors.textPrimary);
+    final bg = accent
+        ? KalinkaColors.accentSubtle
+        : KalinkaColors.surfaceElevated;
     final border =
         borderOverride ??
-        (accent ? KalinkaColors.accent : KalinkaColors.borderDefault);
+        (accent ? KalinkaColors.accentBorder : KalinkaColors.borderDefault);
 
     Widget button = Material(
       color: bg,

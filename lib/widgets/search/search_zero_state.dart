@@ -162,7 +162,8 @@ class SearchSuggestionsList extends ConsumerWidget {
       shrinkWrap: true,
       padding: const EdgeInsets.fromLTRB(6, 4, 6, 6),
       children: [
-        for (var i = 0; i < rows.length; i++) _staggered(i, rows.length, rows[i]),
+        for (var i = 0; i < rows.length; i++)
+          _staggered(i, rows.length, rows[i]),
       ],
     );
   }
@@ -213,68 +214,56 @@ class SearchSuggestionsList extends ConsumerWidget {
     ),
   );
 
-  /// AI SUGGESTIONS section label with a leading sparkle.
-  Widget _aiHeader() => Padding(
-    padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
-    child: Row(
-      children: [
-        const Icon(Icons.auto_awesome, size: 11, color: KalinkaColors.gold),
-        const SizedBox(width: 7),
-        Text('AI SUGGESTIONS', style: KalinkaTextStyles.searchOverlayLabel),
-      ],
-    ),
+  /// Overlay section heading: the mono section label, larger but dimmed.
+  static TextStyle get _sectionTitle => KalinkaTextStyles.sectionLabel.copyWith(
+    fontSize: KalinkaTypography.baseSize + 3,
+    color: KalinkaColors.textMuted,
   );
 
-  /// RECENT SEARCHES label with a trailing "Clear" that empties the history.
-  /// [divider] draws a hairline above when another section precedes it.
-  Widget _recentHeader({required bool divider, required VoidCallback onClear}) =>
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (divider)
-            Container(
-              height: 1,
-              margin: const EdgeInsets.fromLTRB(8, 10, 8, 0),
-              color: KalinkaColors.borderSubtle,
+  /// AI SUGGESTIONS heading — text only.
+  Widget _aiHeader() => Padding(
+    padding: const EdgeInsets.fromLTRB(10, 14, 10, 8),
+    child: Text('AI SUGGESTIONS', style: _sectionTitle),
+  );
+
+  /// RECENT SEARCHES heading with a trailing "Clear". [divider] separates it
+  /// from a preceding section.
+  Widget _recentHeader({
+    required bool divider,
+    required VoidCallback onClear,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (divider)
+        Container(
+          height: 1,
+          margin: const EdgeInsets.fromLTRB(8, 18, 8, 0),
+          color: KalinkaColors.borderSubtle,
+        ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(10, 18, 4, 6),
+        child: Row(
+          children: [
+            Expanded(child: Text('RECENT SEARCHES', style: _sectionTitle)),
+            TextButton(
+              onPressed: () {
+                KalinkaHaptics.lightImpact();
+                onClear();
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: KalinkaColors.textMuted,
+                textStyle: KalinkaTextStyles.clearAllChips,
+                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('Clear'),
             ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 12, 4, 2),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.history_rounded,
-                  size: 12,
-                  color: KalinkaColors.textMuted,
-                ),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: Text(
-                    'RECENT SEARCHES',
-                    style: KalinkaTextStyles.searchOverlayLabel,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    KalinkaHaptics.lightImpact();
-                    onClear();
-                  },
-                  style: TextButton.styleFrom(
-                    foregroundColor: KalinkaColors.textMuted,
-                    textStyle: KalinkaTextStyles.clearAllChips,
-                    minimumSize: Size.zero,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 6,
-                    ),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text('Clear'),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
+          ],
+        ),
+      ),
+    ],
+  );
 
   /// Wrap a tile in a fade + short upward slide keyed to its row, so rows land
   /// top-to-bottom as the overlay opens.
@@ -286,7 +275,11 @@ class SearchSuggestionsList extends ConsumerWidget {
     final start = (0.35 + index * step).clamp(0.0, 1.0);
     final anim = CurvedAnimation(
       parent: reveal,
-      curve: Interval(start, (start + 0.4).clamp(0.0, 1.0), curve: Curves.easeOut),
+      curve: Interval(
+        start,
+        (start + 0.4).clamp(0.0, 1.0),
+        curve: Curves.easeOut,
+      ),
     );
     return FadeTransition(
       opacity: anim,
@@ -372,14 +365,16 @@ class _SuggestionTile extends StatelessWidget {
         onLongPress: onInsert,
         child: Row(
           children: [
-            Icon(
-              experimental ? Icons.explore_outlined : Icons.auto_awesome,
-              size: 14,
-              color: experimental
-                  ? KalinkaColors.accentTint
-                  : KalinkaColors.gold,
-            ),
-            const SizedBox(width: 11),
+            // Only the serendipity pick carries an icon; the heading already
+            // labels the rest.
+            if (experimental) ...[
+              const Icon(
+                Icons.explore_outlined,
+                size: 14,
+                color: KalinkaColors.accentTint,
+              ),
+              const SizedBox(width: 11),
+            ],
             Expanded(child: _buildText()),
             const SizedBox(width: 8),
             const Icon(
@@ -416,12 +411,6 @@ class _HistoryTile extends StatelessWidget {
         onTap: onTap,
         child: Row(
           children: [
-            const Icon(
-              Icons.history_rounded,
-              size: 15,
-              color: KalinkaColors.textMuted,
-            ),
-            const SizedBox(width: 11),
             Expanded(
               child: Text(
                 query,

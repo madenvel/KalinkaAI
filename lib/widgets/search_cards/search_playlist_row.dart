@@ -74,10 +74,20 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow>
     );
     final urlResolver = ref.read(urlResolverProvider);
 
-    final selection = ref.watch(selectionStateProvider);
-    final selectionMode = selection.isActive;
-    final isSelected = selection.isContainerSelected(widget.item.id);
-    final isPartial = selection.isContainerPartial(widget.item.id);
+    // Scoped watches so unrelated selection changes don't rebuild the row.
+    final selectionMode = ref.watch(
+      selectionStateProvider.select((s) => s.isActive),
+    );
+    final isSelected = ref.watch(
+      selectionStateProvider.select(
+        (s) => s.isContainerSelected(widget.item.id),
+      ),
+    );
+    final isPartial = ref.watch(
+      selectionStateProvider.select(
+        (s) => s.isContainerPartial(widget.item.id),
+      ),
+    );
 
     final playlist = widget.item.playlist;
     final title = playlist?.name ?? widget.item.name ?? 'Unknown';
@@ -488,16 +498,27 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack>
         ? urlResolver.abs(imageUrl)
         : null;
 
-    final selection = ref.watch(selectionStateProvider);
-    final selectionMode = selection.isActive;
-    final isSelected = selection.selectedIds.contains(widget.item.id);
-    final containerSelected = selection.isContainerSelected(widget.containerId);
-    final trackSelected =
-        containerSelected &&
-        selection.isTrackInContainerSelected(
-          widget.containerId,
-          widget.item.id,
-        );
+    // Scoped watches so unrelated selection changes don't rebuild the row.
+    final selectionMode = ref.watch(
+      selectionStateProvider.select((s) => s.isActive),
+    );
+    final isSelected = ref.watch(
+      selectionStateProvider.select(
+        (s) => s.selectedIds.contains(widget.item.id),
+      ),
+    );
+    final containerSelected = ref.watch(
+      selectionStateProvider.select(
+        (s) => s.isContainerSelected(widget.containerId),
+      ),
+    );
+    final trackSelected = ref.watch(
+      selectionStateProvider.select(
+        (s) =>
+            s.isContainerSelected(widget.containerId) &&
+            s.isTrackInContainerSelected(widget.containerId, widget.item.id),
+      ),
+    );
     final inSelectionHighlight = isSelected || trackSelected;
 
     // Now-playing detection — scope the watch so we don't rebuild on every
@@ -696,10 +717,7 @@ class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack>
                     ),
                   ),
                   if (!selectionMode && duration != null)
-                    Text(
-                      duration,
-                      style: KalinkaTextStyles.trackRowSubtitle,
-                    ),
+                    Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
                 ],
               ),
             ),
