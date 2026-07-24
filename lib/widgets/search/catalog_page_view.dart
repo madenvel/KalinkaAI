@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../providers/browse_detail_provider.dart';
+import '../../data_model/data_model.dart';
+import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_session_provider.dart';
 import '../../theme/app_theme.dart';
+import '../browse_rows_shimmer.dart';
+import '../infinite_list_view.dart';
 import '../search_cards/browse_item_rows.dart';
 import '../source_badge.dart';
 
 /// One selected catalog page — the single navigation level below the Catalogs
 /// root. A pinned two-item context header (`‹ Catalogs` + the Playfair category
 /// title + provider) sits over the browsed items; albums/artists/playlists
-/// unroll inline (they are content state, not further navigation). Its data is
-/// fetched deterministically via [browseDetailProvider] — never the AI router.
+/// unroll inline (they are content state, not further navigation). Items are
+/// pulled in chunks by an [InfiniteListView] straight off the browse endpoint
+/// (deterministic — never the AI router), so long catalogs scroll endlessly.
 class CatalogPageView extends ConsumerWidget {
   final CatalogPage page;
 
@@ -27,45 +31,52 @@ class CatalogPageView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(browseDetailProvider(page.id!));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _ContextHeader(page: page, onBack: onBackToCatalogs),
         Expanded(
-          child: async.when(
-            loading: () => const Center(
-              child: SizedBox(
-                width: 26,
-                height: 26,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.4,
-                  color: KalinkaColors.accent,
-                ),
-              ),
+          child: InfiniteListView<BrowseItem>(
+            key: ValueKey(page.id),
+            reloadKey: page.id,
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+            fetchChunk: (offset, limit) async {
+              final api = ref.read(kalinkaProxyProvider);
+              final list = await api.browse(
+                page.id!,
+                offset: offset,
+                limit: limit,
+              );
+              return ItemChunk(items: list.items, total: list.total);
+            },
+            separatorBuilder: (context, _) => const Divider(
+              color: KalinkaColors.borderSubtle,
+              thickness: 1,
+              height: 14,
             ),
-            error: (_, __) => _CatalogError(onReturn: onBackToCatalogs),
-            data: (list) {
-              final items = list.items;
-              if (items.isEmpty) {
-                return const _CatalogEmpty();
-              }
-              // Track-only catalogs play as one queue from the tapped row.
+            itemBuilder: (context, item, index, loaded) {
+              // Track rows play the whole loaded list as a queue from the
+              // tapped row; as more chunks scroll in, the context grows.
               final trackIds = [
-                for (final i in items)
+                for (final i in loaded)
                   if (i.track != null) i.id,
               ];
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                children: [
-                  BrowseItemRows(
-                    items: items,
-                    dividers: true,
-                    queueContextIds: trackIds.isEmpty ? null : trackIds,
-                  ),
-                ],
+              return BrowseItemRows.buildRow(
+                item,
+                queueContextIds: trackIds.isEmpty ? null : trackIds,
               );
             },
+            initialPlaceholder: const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: BrowseRowsShimmer(count: 8),
+            ),
+            loadMorePlaceholder: const BrowseRowsShimmer(
+              count: 3,
+              leadingDivider: true,
+            ),
+            emptyBuilder: (context) => const _CatalogEmpty(),
+            errorBuilder: (context, _) =>
+                _CatalogError(onReturn: onBackToCatalogs),
           ),
         ),
       ],
@@ -83,42 +94,60 @@ class _ContextHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Everything in this header hangs off one left edge (16). The `‹ CATALOGS`
+    // eyebrow cancels the chevron glyph's own left bearing (Transform) so its
+    // stroke — not the icon box — lines up with the title beneath it.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextButton.icon(
-            onPressed: onBack,
-            icon: const Icon(Icons.chevron_left_rounded, size: 20),
-            label: const Text('Catalogs'),
-            style: TextButton.styleFrom(
-              foregroundColor: KalinkaColors.textSecondary,
-              textStyle: KalinkaTextStyles.trackRowSubtitle.copyWith(
-                fontWeight: FontWeight.w600,
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: onBack,
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Transform.translate(
+                        offset: const Offset(-4, 0),
+                        child: const Icon(
+                          Icons.chevron_left_rounded,
+                          size: 18,
+                          color: KalinkaColors.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        'Back',
+                        style: KalinkaTextStyles.sectionLabel.copyWith(
+                          color: KalinkaColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              minimumSize: Size.zero,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
           const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: Text(
-              page.title ?? '',
-              style: KalinkaFonts.display(
-                fontSize: KalinkaTypography.baseSize + 8,
-                fontWeight: FontWeight.w600,
-                color: KalinkaColors.textPrimary,
-              ),
+          Text(
+            page.title ?? '',
+            style: KalinkaFonts.display(
+              fontSize: KalinkaTypography.baseSize + 12,
+              fontWeight: FontWeight.w600,
+              color: KalinkaColors.textPrimary,
             ),
           ),
           // Attribution: the source badge (hidden for the local library / a
           // single source) beside the provider name, then the description.
           if (page.provider != null && page.provider!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(left: 4, top: 4),
+              padding: const EdgeInsets.only(top: 4),
               child: Row(
                 children: [
                   SourceBadge(entityId: page.id!),
@@ -128,9 +157,8 @@ class _ContextHeader extends ConsumerWidget {
                     child: Text(
                       page.provider!,
                       style: KalinkaTextStyles.trackRowSubtitle.copyWith(
-                        color: KalinkaColors.textSecondary,
+                        color: KalinkaColors.textMuted,
                       ),
-                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -139,11 +167,11 @@ class _ContextHeader extends ConsumerWidget {
             ),
           if (page.description != null && page.description!.trim().isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(left: 4, top: 3),
+              padding: const EdgeInsets.only(top: 3),
               child: Text(
                 page.description!,
                 style: KalinkaTextStyles.trackRowSubtitle.copyWith(
-                  color: KalinkaColors.textMuted,
+                  color: KalinkaColors.textPrimary,
                 ),
               ),
             ),

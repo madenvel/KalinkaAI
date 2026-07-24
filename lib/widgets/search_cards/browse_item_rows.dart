@@ -61,7 +61,9 @@ class BrowseItemRows extends StatelessWidget {
       // so scroll just shifts layers instead of re-rasterising the whole
       // section. Matters most for sections that pack many rows into a single
       // outer ListView child (BASED ON NOW PLAYING, RECENTLY FAVOURITED).
-      children.add(RepaintBoundary(child: _rowFor(displayed[i])));
+      children.add(RepaintBoundary(
+        child: buildRow(displayed[i], queueContextIds: queueContextIds),
+      ));
       if (dividers && i < displayed.length - 1) {
         children.add(const Divider(
           color: KalinkaColors.borderSubtle,
@@ -91,7 +93,11 @@ class BrowseItemRows extends StatelessWidget {
     );
   }
 
-  Widget _rowFor(BrowseItem item) {
+  /// Maps a single [BrowseItem] to its Search*Row widget. Public so lazy
+  /// lists (e.g. paged/infinite-scroll surfaces) can build one row at a time
+  /// while keeping the exact same dispatch, tap-to-play, and expansion
+  /// behavior as the stacked [BrowseItemRows] Column.
+  static Widget buildRow(BrowseItem item, {List<String>? queueContextIds}) {
     switch (item.browseType) {
       case BrowseType.track:
         return SearchTrackRow(item: item, queueContextIds: queueContextIds);

@@ -269,9 +269,13 @@ class _CatalogCardState extends State<_CatalogCard> {
               decoration: BoxDecoration(
                 color: KalinkaColors.surfaceRaised,
                 borderRadius: BorderRadius.circular(_kCardRadius),
+                // Neutral frame at rest; the source tint only lights up on
+                // hover (matching the source-badge colour).
                 border: Border.all(
-                  color: tint.withValues(alpha: _hovered ? 0.85 : 0.5),
-                  width: 1.5,
+                  color: _hovered
+                      ? tint.withValues(alpha: 0.85)
+                      : KalinkaColors.borderDefault,
+                  width: 1,
                 ),
               ),
               // Clip one step inside the frame, else the art runs under the

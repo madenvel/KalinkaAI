@@ -223,12 +223,14 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   /// Open a catalog page directly from a card tap — deterministic browse, never
   /// the AI router, and never recorded in search history.
   void _openCatalog(CatalogCardPlan plan, String provider) {
-    ref.read(searchSessionProvider.notifier).openCatalog(
-      id: plan.id,
-      title: plan.title,
-      provider: provider,
-      description: plan.description,
-    );
+    ref
+        .read(searchSessionProvider.notifier)
+        .openCatalog(
+          id: plan.id,
+          title: plan.title,
+          provider: provider,
+          description: plan.description,
+        );
   }
 
   /// One back press unwinds one layer (MD §11): the open overlay closes; a
@@ -244,6 +246,18 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     if (session.activeTab == FindMusicTab.catalogs &&
         !session.catalogPage.isRoot) {
       ref.read(searchSessionProvider.notifier).backToCatalogsRoot();
+      return;
+    }
+    ref.read(searchSessionProvider.notifier).close();
+  }
+
+  /// The title-bar close button always dismisses Find Music to playback —
+  /// never a layer-by-layer unwind. Stepping back out of a catalog is the
+  /// `‹ Catalogs` link's job, not this button's. (An open overlay still closes
+  /// first, since it sits over the whole surface.)
+  void _closeSurface() {
+    if (_focused) {
+      _closeSearch();
       return;
     }
     ref.read(searchSessionProvider.notifier).close();
@@ -342,19 +356,19 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                     // Back — unwinds one layer per tap, same as the system back
                     // gesture (_handleBack).
                     Semantics(
-                      label: 'Back',
+                      label: 'Close',
                       button: true,
                       child: GestureDetector(
                         onTap: () {
                           KalinkaHaptics.lightImpact();
-                          _handleBack();
+                          _closeSurface();
                         },
                         behavior: HitTestBehavior.opaque,
                         child: const SizedBox(
                           width: 42,
                           height: _kBarMinHeight,
                           child: Icon(
-                            Icons.arrow_back,
+                            Icons.close,
                             size: 22,
                             color: KalinkaColors.textPrimary,
                           ),
@@ -363,12 +377,12 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                     ),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(
-                        'Find Music',
-                        style: KalinkaTextStyles.trayTitle,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: _FindMusicTabs(
+                        activeTab: session.activeTab,
+                        resultsEnabled: session.resultsAvailable,
+                        onSelect: (tab) => ref
+                            .read(searchSessionProvider.notifier)
+                            .selectTab(tab),
                       ),
                     ),
                     const SizedBox(width: 2),
@@ -383,19 +397,6 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                       ),
                     ),
                   ],
-                ),
-              ),
-            ),
-            // Tab row — left-aligned under the title.
-            Padding(
-              padding: const EdgeInsets.only(left: 8, bottom: 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: _FindMusicTabs(
-                  activeTab: session.activeTab,
-                  resultsEnabled: session.resultsAvailable,
-                  onSelect: (tab) =>
-                      ref.read(searchSessionProvider.notifier).selectTab(tab),
                 ),
               ),
             ),
@@ -459,7 +460,10 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   /// phone rather than sweeping across the whole screen.
   Widget _buildSearchOverlay(SearchSessionState session) {
     final topInset = MediaQuery.paddingOf(context).top;
-    final targetTop = topInset + 6;
+    // Rest the card at the title-bar bottom rather than the screen top, so it
+    // never overlaps the "Find Music" bar (both the Catalogs entry and the
+    // Results pencil open here).
+    final targetTop = topInset + kKalinkaTopBarHeight;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -586,7 +590,6 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
       },
     );
   }
-
 }
 
 /// The Catalogs / Results tab pair in the header. Results is inert (dimmed, no
@@ -605,20 +608,24 @@ class _FindMusicTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.max,
       children: [
-        _Tab(
-          label: 'Catalogs',
-          active: activeTab == FindMusicTab.catalogs,
-          enabled: true,
-          onTap: () => onSelect(FindMusicTab.catalogs),
+        Expanded(
+          child: _Tab(
+            label: 'CATALOGS',
+            active: activeTab == FindMusicTab.catalogs,
+            enabled: true,
+            onTap: () => onSelect(FindMusicTab.catalogs),
+          ),
         ),
         const SizedBox(width: 4),
-        _Tab(
-          label: 'Results',
-          active: activeTab == FindMusicTab.results,
-          enabled: resultsEnabled,
-          onTap: () => onSelect(FindMusicTab.results),
+        Expanded(
+          child: _Tab(
+            label: 'RESULTS',
+            active: activeTab == FindMusicTab.results,
+            enabled: resultsEnabled,
+            onTap: () => onSelect(FindMusicTab.results),
+          ),
         ),
       ],
     );
@@ -661,6 +668,7 @@ class _Tab extends StatelessWidget {
               : null,
           borderRadius: BorderRadius.circular(8),
           child: Container(
+            alignment: Alignment.center,
             padding: const EdgeInsets.fromLTRB(12, 9, 12, 8),
             decoration: BoxDecoration(
               border: Border(
@@ -672,11 +680,8 @@ class _Tab extends StatelessWidget {
             ),
             child: Text(
               label,
-              style: KalinkaFonts.sans(
-                fontSize: KalinkaTypography.baseSize + 1,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
+              textAlign: TextAlign.center,
+              style: KalinkaTextStyles.sectionLabel.copyWith(color: color),
             ),
           ),
         ),
@@ -765,4 +770,3 @@ class _IndexerBannerSlot extends ConsumerWidget {
     );
   }
 }
-
