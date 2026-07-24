@@ -361,6 +361,9 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
 
   Widget _buildPhoneLayout(BuildContext context) {
     final searchOpen = ref.watch(searchSessionProvider.select((s) => s.isOpen));
+    // The search entry overlay owns the bottom of the screen (keyboard +
+    // suggestions), so the mini-player steps out while it is up.
+    final searchEntryMode = ref.watch(searchEntryModeProvider);
     final connectionState = ref.watch(connectionStateProvider);
 
     // One-time UI tour: first time the queue is visible with a live
@@ -377,11 +380,9 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         // Settings is a full-screen overlay here; it owns its own back via an
-        // internal PopScope (animated close), so leave it alone.
+        // internal PopScope (animated close), so leave it alone. Search owns
+        // its own layered back too (SearchSessionView's PopScope).
         if (_settingsOpen) return;
-        if (searchOpen) {
-          ref.read(searchSessionProvider.notifier).close();
-        }
       },
       child: Stack(
         children: [
@@ -465,7 +466,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
                     ],
                   ),
                 ),
-                MiniPlayer(onTap: _showExpandedPlayer),
+                if (!searchEntryMode) MiniPlayer(onTap: _showExpandedPlayer),
               ],
             ),
           ),
@@ -558,14 +559,11 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen> {
       canPop: !searchOpen && !_settingsOpen && !_serverSheetOpen,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        // Settings owns its own back via an internal PopScope.
+        // Settings and search own their back via internal PopScopes.
         if (_settingsOpen) return;
         if (_serverSheetOpen) {
           setState(() => _serverSheetOpen = false);
           return;
-        }
-        if (searchOpen) {
-          ref.read(searchSessionProvider.notifier).close();
         }
       },
       child: Stack(

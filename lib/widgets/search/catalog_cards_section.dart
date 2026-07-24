@@ -84,7 +84,7 @@ class CatalogCardsSection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 20),
-        Text('EXPLORE THE CATALOGS', style: KalinkaTextStyles.sectionLabel),
+        Text('EXPLORE YOUR MUSIC', style: KalinkaTextStyles.sectionLabel),
         const SizedBox(height: 12),
         ...children,
       ],

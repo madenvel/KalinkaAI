@@ -15,12 +15,20 @@ class QueryBlockView extends StatelessWidget {
   final VoidCallback onExpand;
   final ValueChanged<String> onToggleSection;
 
+  /// Reopen the search view with this block's query pre-filled to reword it.
+  final VoidCallback onRefine;
+
+  /// Drop to the Discover surface (catalogs).
+  final VoidCallback onExploreCatalogs;
+
   const QueryBlockView({
     super.key,
     required this.block,
     required this.expanded,
     required this.onExpand,
     required this.onToggleSection,
+    required this.onRefine,
+    required this.onExploreCatalogs,
   });
 
   @override
@@ -61,40 +69,66 @@ class QueryBlockView extends StatelessWidget {
   /// in a soft rounded card. Reads as "the request this search is about".
   Widget _buildQueryHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
       decoration: BoxDecoration(
         color: KalinkaColors.surfaceRaised,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: KalinkaColors.borderSubtle, width: 1),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: Icon(
-              CupertinoIcons.double_music_note,
-              size: 18,
-              color: KalinkaColors.accentTint,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                text: 'You asked for ',
-                style: KalinkaTextStyles.trackRowTitle.copyWith(
-                  color: KalinkaColors.textSecondary,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 1),
+                child: Icon(
+                  CupertinoIcons.double_music_note,
+                  size: 18,
+                  color: KalinkaColors.accentTint,
                 ),
-                children: [
-                  TextSpan(
-                    text: block.query,
-                    style: KalinkaTextStyles.trackRowTitle.copyWith(
-                      color: KalinkaColors.accentTint,
-                    ),
-                  ),
-                ],
               ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    text: 'You asked for ',
+                    style: KalinkaTextStyles.trackRowTitle.copyWith(
+                      color: KalinkaColors.textSecondary,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: block.query,
+                        style: KalinkaTextStyles.trackRowTitle.copyWith(
+                          color: KalinkaColors.accentTint,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Refine the prompt or step out to the catalogs, without leaving the
+          // result on screen.
+          Padding(
+            padding: const EdgeInsets.only(left: 28),
+            child: Row(
+              children: [
+                _QueryAction(
+                  icon: Icons.search_rounded,
+                  label: 'Refine',
+                  onTap: onRefine,
+                ),
+                const SizedBox(width: 8),
+                _QueryAction(
+                  icon: Icons.home_rounded,
+                  label: 'Explore catalogs',
+                  onTap: onExploreCatalogs,
+                ),
+              ],
             ),
           ),
         ],
@@ -160,6 +194,51 @@ class QueryBlockView extends StatelessWidget {
                   Icons.unfold_more_rounded,
                   size: 16,
                   color: KalinkaColors.textMuted,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A quiet icon + label link under the query card (Refine / Explore catalogs).
+class _QueryAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QueryAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 15, color: KalinkaColors.accentTint),
+                const SizedBox(width: 5),
+                Text(
+                  label,
+                  style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+                    color: KalinkaColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),

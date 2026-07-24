@@ -8,7 +8,11 @@ import '../../theme/app_theme.dart';
 /// [accent] fills the chip solid crimson with a white icon — the same
 /// treatment as [KalinkaButton]'s accent variant — marking the default,
 /// queue-replacing action; neutral chips are additive.
-class ActionIconChip extends StatelessWidget {
+///
+/// Feedback is the standard Material stack: an [InkResponse] ripple + focus
+/// ring on tap, plus a hover fill on the chip itself so a pointer lands
+/// feedback on the visible control (not the padding around it).
+class ActionIconChip extends StatefulWidget {
   final IconData icon;
   final bool accent;
   final bool enabled;
@@ -32,37 +36,78 @@ class ActionIconChip extends StatelessWidget {
   });
 
   @override
+  State<ActionIconChip> createState() => _ActionIconChipState();
+}
+
+class _ActionIconChipState extends State<ActionIconChip> {
+  bool _hovering = false;
+
+  void _setHover(bool value) {
+    if (value == _hovering) return;
+    setState(() => _hovering = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final accent = widget.accent;
+    final interactive = widget.enabled && widget.onTap != null;
+    final hovered = _hovering && interactive;
+
     final iconColor =
-        iconOverride ??
+        widget.iconOverride ??
         (accent ? KalinkaColors.textPrimary : KalinkaColors.textSecondary);
     final border =
-        borderOverride ??
+        widget.borderOverride ??
         (accent ? KalinkaColors.accent : KalinkaColors.borderDefault);
 
-    Widget chip = Container(
+    // Hover fills the chip a step brighter: a lighter crimson on the accent
+    // action, a raised neutral surface on the additive one.
+    final background = accent
+        ? (hovered ? KalinkaColors.accentTint : KalinkaColors.accent)
+        : (hovered ? KalinkaColors.surfaceElevated : Colors.transparent);
+
+    Widget chip = AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: accent ? KalinkaColors.accent : Colors.transparent,
+        color: background,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: border),
       ),
-      child: Icon(icon, size: 24, color: iconColor),
+      child: Icon(widget.icon, size: 24, color: iconColor),
     );
     // Dim while busy/confirming so it reads as disabled.
-    if (!enabled) {
+    if (!widget.enabled) {
       chip = Opacity(opacity: 0.6, child: chip);
     }
 
+    // The ripple/press splash from the standard ink stack; the hover fill above
+    // handles hover, so suppress InkResponse's own hover circle.
     return Semantics(
-      label: semanticsLabel,
+      label: widget.semanticsLabel,
       button: true,
-      enabled: enabled,
-      child: GestureDetector(
-        onTap: enabled ? onTap : null,
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(width: 44, height: 44, child: Center(child: chip)),
+      enabled: widget.enabled,
+      child: MouseRegion(
+        onEnter: (_) => _setHover(true),
+        onExit: (_) => _setHover(false),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkResponse(
+            onTap: interactive ? widget.onTap : null,
+            radius: 24,
+            hoverColor: Colors.transparent,
+            splashColor: accent
+                ? Colors.white.withValues(alpha: 0.18)
+                : KalinkaColors.textPrimary.withValues(alpha: 0.10),
+            highlightColor: KalinkaColors.textPrimary.withValues(alpha: 0.05),
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Center(child: chip),
+            ),
+          ),
+        ),
       ),
     );
   }

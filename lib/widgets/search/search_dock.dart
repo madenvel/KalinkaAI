@@ -33,10 +33,16 @@ class SearchDock extends StatefulWidget {
 
 class _SearchDockState extends State<SearchDock> {
   bool _pressed = false;
+  bool _hovering = false;
 
   void _setPressed(bool value) {
     if (value == _pressed) return;
     setState(() => _pressed = value);
+  }
+
+  void _setHovering(bool value) {
+    if (value == _hovering) return;
+    setState(() => _hovering = value);
   }
 
   @override
@@ -52,34 +58,56 @@ class _SearchDockState extends State<SearchDock> {
             label: 'Search music',
             hint: 'Opens the search screen',
             button: true,
-            child: GestureDetector(
-              // Haptic + scale fire on touch-down so the press is felt and seen
-              // immediately; the tap itself opens search on release.
-              onTapDown: (_) {
-                KalinkaHaptics.lightImpact();
-                _setPressed(true);
-              },
-              onTapUp: (_) => _setPressed(false),
-              onTapCancel: () => _setPressed(false),
-              onTap: widget.onTap,
-              behavior: HitTestBehavior.opaque,
-              child: AnimatedScale(
-                scale: _pressed ? 0.88 : 1.0,
-                duration: const Duration(milliseconds: 130),
-                curve: Curves.easeOutBack,
-                child: Container(
-                  key: widget.buttonKey,
-                  width: 56,
-                  height: 56,
-                  decoration: const BoxDecoration(
-                    color: KalinkaColors.accent,
-                    shape: BoxShape.circle,
-                    boxShadow: FloatingSearchBar.pillShadow,
-                  ),
-                  child: const Icon(
-                    Icons.auto_awesome,
-                    size: 22,
-                    color: KalinkaColors.textPrimary,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) => _setHovering(true),
+              onExit: (_) => _setHovering(false),
+              child: GestureDetector(
+                // Haptic + scale fire on touch-down so the press is felt and seen
+                // immediately; the tap itself opens search on release.
+                onTapDown: (_) {
+                  KalinkaHaptics.lightImpact();
+                  _setPressed(true);
+                },
+                onTapUp: (_) => _setPressed(false),
+                onTapCancel: () => _setPressed(false),
+                onTap: widget.onTap,
+                behavior: HitTestBehavior.opaque,
+                // Press dips it; a pointer hover lifts it a touch. Combined so a
+                // press mid-hover still reads as a press.
+                child: AnimatedScale(
+                  scale: _pressed
+                      ? 0.88
+                      : _hovering
+                      ? 1.06
+                      : 1.0,
+                  duration: const Duration(milliseconds: 130),
+                  curve: Curves.easeOutBack,
+                  child: AnimatedContainer(
+                    key: widget.buttonKey,
+                    duration: const Duration(milliseconds: 130),
+                    curve: Curves.easeOut,
+                    width: 56,
+                    height: 56,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: KalinkaColors.accent,
+                      shape: BoxShape.circle,
+                      // Hover draws a bright ring so the button reads as the
+                      // primary target under a cursor (desktop).
+                      border: _hovering
+                          ? Border.all(
+                              color: KalinkaColors.textPrimary,
+                              width: 2,
+                            )
+                          : null,
+                      boxShadow: FloatingSearchBar.pillShadow,
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome,
+                      size: 22,
+                      color: KalinkaColors.textPrimary,
+                    ),
                   ),
                 ),
               ),

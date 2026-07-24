@@ -418,3 +418,20 @@ final searchSessionProvider =
     NotifierProvider<SearchSessionNotifier, SearchSessionState>(
       SearchSessionNotifier.new,
     );
+
+/// True while the animated search overlay (the focused entry + keyboard) is up.
+/// The main screen watches it to drop the mini-player out of the way so the
+/// keyboard and suggestions own the bottom of the screen.
+class SearchEntryModeNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) {
+    if (state != value) state = value;
+  }
+}
+
+final searchEntryModeProvider =
+    NotifierProvider<SearchEntryModeNotifier, bool>(
+      SearchEntryModeNotifier.new,
+    );
