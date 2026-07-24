@@ -9,6 +9,7 @@ import '../../providers/selection_state_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
 import '../indexer_status_banner.dart';
+import '../mini_player.dart';
 import '../selection_overlay.dart';
 import '../server_chip.dart';
 import 'query_block_view.dart';
@@ -153,11 +154,14 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
               entryBox.size
         : null;
     _keyboardUp = false;
+    // Flips searchEntryModeProvider → the mini-player starts sliding down.
     ref.read(searchEntryModeProvider.notifier).set(true);
     setState(() => _focused = true);
     _overlayCtrl.forward(from: 0);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _composerFocus.requestFocus();
+    // Hold the keyboard until the mini-player has cleared: raising focus is
+    // what triggers the IME, so defer it by the bar's slide-down duration.
+    Future.delayed(kMiniPlayerHideDuration, () {
+      if (mounted && _focused) _composerFocus.requestFocus();
     });
   }
 
