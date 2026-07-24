@@ -1,3 +1,5 @@
+import '../utils/html_unescape.dart';
+
 enum PlayerStateType { stopped, playing, paused, buffering, error }
 
 enum BrowseType { album, artist, playlist, catalog, track, unknown }
@@ -254,7 +256,7 @@ class Track {
 
   factory Track.fromJson(Map<String, dynamic> json) => Track(
     id: json["id"],
-    title: json["title"],
+    title: unescapeHtml(json["title"]),
     duration: json["duration"],
     performer: json["performer"] == null
         ? null
@@ -308,7 +310,7 @@ class Album {
 
   factory Album.fromJson(Map<String, dynamic> json) => Album(
     id: json["id"],
-    title: json["title"],
+    title: unescapeHtml(json["title"]),
     duration: json["duration"],
     trackCount: json["track_count"],
     year: json["year"],
@@ -359,7 +361,7 @@ class Artist {
 
   factory Artist.fromJson(Map<String, dynamic> json) => Artist(
     id: json["id"],
-    name: json["name"],
+    name: unescapeHtml(json["name"]),
     image: json["image"] == null ? null : AlbumImage.fromJson(json["image"]),
     albumCount: json["album_count"],
   );
@@ -403,7 +405,7 @@ class Playlist {
 
   factory Playlist.fromJson(Map<String, dynamic> json) => Playlist(
     id: json["id"],
-    name: json["name"],
+    name: unescapeHtml(json["name"]),
     owner: json["owner"] == null ? null : Owner.fromJson(json["owner"]),
     image: json["image"] == null ? null : AlbumImage.fromJson(json["image"]),
     description: json["description"],
@@ -711,7 +713,7 @@ class Catalog {
 
   factory Catalog.fromJson(Map<String, dynamic> json) => Catalog(
     id: json["id"],
-    title: json["title"],
+    title: unescapeHtml(json["title"]),
     image: json["image"] == null ? null : AlbumImage.fromJson(json["image"]),
     description: json["description"],
     canGenreFilter: json["can_genre_filter"],
@@ -1007,8 +1009,8 @@ class BrowseItem {
 
   factory BrowseItem.fromJson(Map<String, dynamic> json) => BrowseItem(
     id: json["id"],
-    name: json["name"],
-    subname: json["subname"],
+    name: unescapeHtmlOrNull(json["name"]),
+    subname: unescapeHtmlOrNull(json["subname"]),
     canBrowse: json["can_browse"],
     canAdd: json["can_add"],
     timestamp: json["timestamp"] ?? 0,

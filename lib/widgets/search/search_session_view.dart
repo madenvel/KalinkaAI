@@ -223,9 +223,12 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   /// Open a catalog page directly from a card tap — deterministic browse, never
   /// the AI router, and never recorded in search history.
   void _openCatalog(CatalogCardPlan plan, String provider) {
-    ref
-        .read(searchSessionProvider.notifier)
-        .openCatalog(id: plan.id, title: plan.title, provider: provider);
+    ref.read(searchSessionProvider.notifier).openCatalog(
+      id: plan.id,
+      title: plan.title,
+      provider: provider,
+      description: plan.description,
+    );
   }
 
   /// One back press unwinds one layer (MD §11): the open overlay closes; a
@@ -325,57 +328,78 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
       decoration: _kSearchHeaderDecoration,
       child: SafeArea(
         bottom: false,
-        // Shared height so this bar lines up with the queue and settings bars.
-        child: SizedBox(
-          height: kKalinkaTopBarHeight,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(6, 3, 6, 3),
-            child: Row(
-              children: [
-                // Back — unwinds one layer per tap, same as the system back
-                // gesture (_handleBack).
-                Semantics(
-                  label: 'Back',
-                  button: true,
-                  child: GestureDetector(
-                    onTap: () {
-                      KalinkaHaptics.lightImpact();
-                      _handleBack();
-                    },
-                    behavior: HitTestBehavior.opaque,
-                    child: const SizedBox(
-                      width: 42,
-                      height: _kBarMinHeight,
-                      child: Icon(
-                        Icons.arrow_back,
-                        size: 22,
-                        color: KalinkaColors.textPrimary,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Title row: back · "Find Music" · connection dot. Same height and
+            // framing as the queue / settings top bars.
+            SizedBox(
+              height: kKalinkaTopBarHeight,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(6, 3, 6, 3),
+                child: Row(
+                  children: [
+                    // Back — unwinds one layer per tap, same as the system back
+                    // gesture (_handleBack).
+                    Semantics(
+                      label: 'Back',
+                      button: true,
+                      child: GestureDetector(
+                        onTap: () {
+                          KalinkaHaptics.lightImpact();
+                          _handleBack();
+                        },
+                        behavior: HitTestBehavior.opaque,
+                        child: const SizedBox(
+                          width: 42,
+                          height: _kBarMinHeight,
+                          child: Icon(
+                            Icons.arrow_back,
+                            size: 22,
+                            color: KalinkaColors.textPrimary,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Center(
-                    child: _FindMusicTabs(
-                      activeTab: session.activeTab,
-                      resultsEnabled: session.resultsAvailable,
-                      onSelect: (tab) =>
-                          ref.read(searchSessionProvider.notifier).selectTab(tab),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Find Music',
+                        style: KalinkaTextStyles.trayTitle,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 2),
+                    SizedBox(
+                      height: _kBarMinHeight,
+                      width: 42,
+                      child: Center(
+                        child: ServerChip(
+                          compact: true,
+                          onTap: widget.onServerTap,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 2),
-                SizedBox(
-                  height: _kBarMinHeight,
-                  width: 42,
-                  child: Center(
-                    child: ServerChip(compact: true, onTap: widget.onServerTap),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            // Tab row — left-aligned under the title.
+            Padding(
+              padding: const EdgeInsets.only(left: 8, bottom: 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _FindMusicTabs(
+                  activeTab: session.activeTab,
+                  resultsEnabled: session.resultsAvailable,
+                  onSelect: (tab) =>
+                      ref.read(searchSessionProvider.notifier).selectTab(tab),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

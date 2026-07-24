@@ -5,6 +5,7 @@ import '../../providers/browse_detail_provider.dart';
 import '../../providers/search_session_provider.dart';
 import '../../theme/app_theme.dart';
 import '../search_cards/browse_item_rows.dart';
+import '../source_badge.dart';
 
 /// One selected catalog page — the single navigation level below the Catalogs
 /// root. A pinned two-item context header (`‹ Catalogs` + the Playfair category
@@ -74,14 +75,14 @@ class CatalogPageView extends ConsumerWidget {
 
 /// `‹ Catalogs` parent link over the Playfair category title and provider
 /// subtitle — the whole context, never more than two items.
-class _ContextHeader extends StatelessWidget {
+class _ContextHeader extends ConsumerWidget {
   final CatalogPage page;
   final VoidCallback onBack;
 
   const _ContextHeader({required this.page, required this.onBack});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 16, 12),
       child: Column(
@@ -113,11 +114,34 @@ class _ContextHeader extends StatelessWidget {
               ),
             ),
           ),
+          // Attribution: the source badge (hidden for the local library / a
+          // single source) beside the provider name, then the description.
           if (page.provider != null && page.provider!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(left: 4, top: 2),
+              padding: const EdgeInsets.only(left: 4, top: 4),
+              child: Row(
+                children: [
+                  SourceBadge(entityId: page.id!),
+                  if (sourceBadgeVisible(ref, page.id!))
+                    const SizedBox(width: 7),
+                  Flexible(
+                    child: Text(
+                      page.provider!,
+                      style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+                        color: KalinkaColors.textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (page.description != null && page.description!.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, top: 3),
               child: Text(
-                page.provider!,
+                page.description!,
                 style: KalinkaTextStyles.trackRowSubtitle.copyWith(
                   color: KalinkaColors.textMuted,
                 ),

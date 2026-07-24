@@ -45,15 +45,24 @@ class CatalogPage {
   /// Category title, e.g. "Popular Albums" (shown in Playfair on the page).
   final String? title;
 
-  /// Owning provider, e.g. "Jamendo" — the page subtitle / badge.
+  /// Owning provider, e.g. "Jamendo" — shown with its source badge as the
+  /// page's attribution line.
   final String? provider;
 
-  const CatalogPage.root() : id = null, title = null, provider = null;
+  /// Category description, e.g. "Most played this month" — the page subtitle.
+  final String? description;
+
+  const CatalogPage.root()
+    : id = null,
+      title = null,
+      provider = null,
+      description = null;
 
   const CatalogPage.category({
     required this.id,
     required this.title,
     this.provider,
+    this.description,
   });
 
   bool get isRoot => id == null;
@@ -224,6 +233,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     required String id,
     required String title,
     String? provider,
+    String? description,
   }) {
     state = state.copyWith(
       activeTab: FindMusicTab.catalogs,
@@ -231,6 +241,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
         id: id,
         title: title,
         provider: provider,
+        description: description,
       ),
     );
   }
