@@ -102,6 +102,14 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     _composerController.dispose();
     _composerFocus.dispose();
     _scrollController.dispose();
+    // Torn down with the overlay still up (session closed externally) would
+    // otherwise leave the shared flag stuck true and the mini-player hidden.
+    // Clear it after this frame — a synchronous write could land mid-build of
+    // whatever removed this surface.
+    if (_focused) {
+      final notifier = ref.read(searchEntryModeProvider.notifier);
+      WidgetsBinding.instance.addPostFrameCallback((_) => notifier.set(false));
+    }
     super.dispose();
   }
 
@@ -442,6 +450,16 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
             final panelReveal = Curves.easeOutCubic.transform(
               ((_overlayCtrl.value - 0.15) / 0.85).clamp(0.0, 1.0),
             );
+            // Cap the suggestion list to the room left between the card top and
+            // the keyboard (the surface itself is not resized by the IME), so
+            // it scrolls internally instead of running off-screen. ~96 leaves
+            // the composer row + divider + card margins above it.
+            final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+            final listMaxHeight =
+                (constraints.maxHeight - targetTop - keyboardInset - 96).clamp(
+                  80.0,
+                  double.infinity,
+                );
 
             return Stack(
               children: [
@@ -499,11 +517,16 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                                       ),
                                       color: KalinkaColors.borderSubtle,
                                     ),
-                                    SearchSuggestionsList(
-                                      query: _typed,
-                                      onInsert: _insert,
-                                      onSubmit: _submitFromTile,
-                                      reveal: _overlayCtrl,
+                                    ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxHeight: listMaxHeight,
+                                      ),
+                                      child: SearchSuggestionsList(
+                                        query: _typed,
+                                        onInsert: _insert,
+                                        onSubmit: _submitFromTile,
+                                        reveal: _overlayCtrl,
+                                      ),
                                     ),
                                   ],
                                 ),
