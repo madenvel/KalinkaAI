@@ -488,6 +488,15 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                             color: KalinkaColors.borderDefault,
                             width: 1,
                           ),
+                          // Lifts the card off the surface while the scrim is
+                          // still fading in (M3 docked search view elevation).
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0xB3000000),
+                              offset: Offset(0, 12),
+                              blurRadius: 40,
+                            ),
+                          ],
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: Column(

@@ -114,7 +114,7 @@ class SearchSuggestionsList extends ConsumerWidget {
     // lands them one by one top-to-bottom across both sections.
     final rows = <Widget>[
       if (suggestions.isNotEmpty) ...[
-        _label('AI SUGGESTIONS'),
+        _aiHeader(),
         for (final s in suggestions)
           _SuggestionTile(
             text: s.query,
@@ -125,7 +125,10 @@ class SearchSuggestionsList extends ConsumerWidget {
           ),
       ],
       if (history.isNotEmpty) ...[
-        _recentHeader(onClear: notifier.clearHistory),
+        _recentHeader(
+          divider: suggestions.isNotEmpty,
+          onClear: notifier.clearHistory,
+        ),
         for (final q in history)
           _HistoryTile(
             query: q,
@@ -157,80 +160,94 @@ class SearchSuggestionsList extends ConsumerWidget {
   Widget _searchForTile(String text) => Semantics(
     label: 'Search for $text',
     button: true,
-    child: MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () {
-          KalinkaHaptics.lightImpact();
-          onSubmit(text);
-        },
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.search_rounded,
-                size: 16,
-                color: KalinkaColors.textSecondary,
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    style: KalinkaTextStyles.aiPromptChipText,
-                    children: [
-                      const TextSpan(text: 'Search for '),
-                      TextSpan(
-                        text: '“$text”',
-                        style: const TextStyle(
-                          color: KalinkaColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const Icon(
-                Icons.arrow_forward_rounded,
-                size: 15,
-                color: KalinkaColors.textMuted,
-              ),
-            ],
+    child: _HoverRow(
+      onTap: () => onSubmit(text),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.search_rounded,
+            size: 16,
+            color: KalinkaColors.textSecondary,
           ),
-        ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                style: KalinkaTextStyles.searchOverlayRow.copyWith(
+                  color: KalinkaColors.textSecondary,
+                ),
+                children: [
+                  const TextSpan(text: 'Search for '),
+                  TextSpan(
+                    text: '“$text”',
+                    style: const TextStyle(
+                      color: KalinkaColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const Icon(
+            Icons.arrow_forward_rounded,
+            size: 15,
+            color: KalinkaColors.textMuted,
+          ),
+        ],
       ),
     ),
   );
 
-  /// Section label aligned with the tile text below it.
-  Widget _label(String text) => Padding(
-    padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
-    child: Text(text, style: KalinkaTextStyles.sectionLabel),
-  );
-
-  /// RECENT SEARCHES label with a trailing "Clear" that empties the history.
-  Widget _recentHeader({required VoidCallback onClear}) => Padding(
-    padding: const EdgeInsets.fromLTRB(10, 14, 4, 2),
+  /// AI SUGGESTIONS label — a gold sparkle anchors the section; the muted
+  /// mono label recedes so the bright rows below carry the eye.
+  Widget _aiHeader() => Padding(
+    padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
     child: Row(
       children: [
-        Expanded(
-          child: Text('RECENT SEARCHES', style: KalinkaTextStyles.sectionLabel),
-        ),
-        GestureDetector(
-          onTap: onClear,
-          behavior: HitTestBehavior.opaque,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-            child: Text('Clear', style: KalinkaTextStyles.clearAllChips),
-          ),
-        ),
+        const Icon(Icons.auto_awesome, size: 11, color: KalinkaColors.gold),
+        const SizedBox(width: 7),
+        Text('AI SUGGESTIONS', style: KalinkaTextStyles.searchOverlayLabel),
       ],
     ),
   );
+
+  /// RECENT SEARCHES label with a trailing "Clear" that empties the history.
+  /// [divider] draws a hairline above when another section precedes it.
+  Widget _recentHeader({required bool divider, required VoidCallback onClear}) =>
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (divider)
+            Container(
+              height: 1,
+              margin: const EdgeInsets.fromLTRB(8, 10, 8, 0),
+              color: KalinkaColors.borderSubtle,
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 12, 4, 2),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.history_rounded,
+                  size: 12,
+                  color: KalinkaColors.textMuted,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    'RECENT SEARCHES',
+                    style: KalinkaTextStyles.searchOverlayLabel,
+                  ),
+                ),
+                _ClearLink(onTap: onClear),
+              ],
+            ),
+          ),
+        ],
+      );
 
   /// Wrap a tile in a fade + short upward slide keyed to its row, so rows land
   /// top-to-bottom as the overlay opens.
@@ -320,7 +337,7 @@ class _BackToResultsPill extends StatelessWidget {
 /// [experimental] marks the server's serendipity pick (context-matched but
 /// not validated against the library) with a compass icon instead of the
 /// sparkle.
-class _SuggestionTile extends StatefulWidget {
+class _SuggestionTile extends StatelessWidget {
   final String text;
   final bool experimental;
 
@@ -338,35 +355,15 @@ class _SuggestionTile extends StatefulWidget {
     this.highlight = '',
   });
 
-  @override
-  State<_SuggestionTile> createState() => _SuggestionTileState();
-}
-
-class _SuggestionTileState extends State<_SuggestionTile> {
-  bool _hovering = false;
-  bool _pressed = false;
-
-  void _setHover(bool value) {
-    if (value == _hovering) return;
-    setState(() => _hovering = value);
-  }
-
-  void _setPressed(bool value) {
-    if (value == _pressed) return;
-    setState(() => _pressed = value);
-  }
-
   /// The prompt text, emphasising the run that matched the current filter so
   /// the user sees why this suggestion surfaced. Plain text when unfiltered.
   Widget _buildText() {
-    final base = KalinkaTextStyles.aiPromptChipText;
-    final needle = widget.highlight;
-    final start = needle.isEmpty
-        ? -1
-        : widget.text.toLowerCase().indexOf(needle);
+    final base = KalinkaTextStyles.searchOverlayRow;
+    final needle = highlight;
+    final start = needle.isEmpty ? -1 : text.toLowerCase().indexOf(needle);
     if (start < 0) {
       return Text(
-        widget.text,
+        text,
         style: base,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
@@ -377,15 +374,15 @@ class _SuggestionTileState extends State<_SuggestionTile> {
       TextSpan(
         style: base,
         children: [
-          TextSpan(text: widget.text.substring(0, start)),
+          TextSpan(text: text.substring(0, start)),
           TextSpan(
-            text: widget.text.substring(start, end),
+            text: text.substring(start, end),
             style: const TextStyle(
-              color: KalinkaColors.textPrimary,
-              fontWeight: FontWeight.w700,
+              color: KalinkaColors.accentTint,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          TextSpan(text: widget.text.substring(end)),
+          TextSpan(text: text.substring(end)),
         ],
       ),
       maxLines: 2,
@@ -395,72 +392,41 @@ class _SuggestionTileState extends State<_SuggestionTile> {
 
   @override
   Widget build(BuildContext context) {
-    // A borderless row on the shared docked surface: transparent at rest,
-    // lifting a step on hover and another when pressed.
-    final background = _pressed
-        ? KalinkaColors.surfaceOverlay
-        : _hovering
-        ? KalinkaColors.surfaceElevated
-        : Colors.transparent;
-
     return Semantics(
-      label: widget.experimental
-          ? 'Run experimental suggestion: ${widget.text}'
-          : 'Run suggestion: ${widget.text}',
+      label: experimental
+          ? 'Run experimental suggestion: $text'
+          : 'Run suggestion: $text',
       hint: 'Long press to edit before sending',
       button: true,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => _setHover(true),
-        onExit: (_) => _setHover(false),
-        child: GestureDetector(
-          onTap: () {
-            KalinkaHaptics.lightImpact();
-            widget.onRun();
-          },
-          onLongPress: widget.onInsert,
-          onTapDown: (_) => _setPressed(true),
-          onTapUp: (_) => _setPressed(false),
-          onTapCancel: () => _setPressed(false),
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(14),
+      child: _HoverRow(
+        onTap: onRun,
+        onLongPress: onInsert,
+        child: Row(
+          children: [
+            Icon(
+              experimental ? Icons.explore_outlined : Icons.auto_awesome,
+              size: 14,
+              color: experimental
+                  ? KalinkaColors.accentTint
+                  : KalinkaColors.gold,
             ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 11, 10, 11),
-              child: Row(
-                children: [
-                  Icon(
-                    widget.experimental
-                        ? Icons.explore_outlined
-                        : Icons.auto_awesome,
-                    size: 14,
-                    color: widget.experimental
-                        ? KalinkaColors.accentTint
-                        : KalinkaColors.gold,
-                  ),
-                  const SizedBox(width: 11),
-                  Expanded(child: _buildText()),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 15,
-                    color: KalinkaColors.textMuted,
-                  ),
-                ],
-              ),
+            const SizedBox(width: 11),
+            Expanded(child: _buildText()),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              size: 15,
+              color: KalinkaColors.textMuted,
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// A historical query tile. Tapping submits it immediately.
+/// A historical query tile. Tapping submits it immediately; the ✕ deletes just
+/// this entry, and the chevron marks the row as a "runs again" action.
 class _HistoryTile extends StatelessWidget {
   final String query;
   final VoidCallback onTap;
@@ -474,40 +440,201 @@ class _HistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 9, 4, 9),
+    return Semantics(
+      label: 'Search again for $query',
+      button: true,
+      child: _HoverRow(
+        onTap: onTap,
         child: Row(
           children: [
             const Icon(
               Icons.history_rounded,
-              size: 16,
-              color: KalinkaColors.textSecondary,
+              size: 15,
+              color: KalinkaColors.textMuted,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 11),
             Expanded(
               child: Text(
                 query,
-                style: KalinkaTextStyles.trackRowTitle,
+                style: KalinkaTextStyles.searchOverlayRow,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            GestureDetector(
+            _HoverIcon(
+              icon: Icons.close_rounded,
+              semanticsLabel: 'Remove $query from history',
               onTap: onDelete,
-              behavior: HitTestBehavior.opaque,
-              child: const Padding(
-                padding: EdgeInsets.all(6),
-                child: Icon(
-                  Icons.close_rounded,
-                  size: 14,
-                  color: KalinkaColors.textMuted,
-                ),
-              ),
+            ),
+            const SizedBox(width: 2),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: KalinkaColors.textMuted,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shared interaction shell for overlay rows: pointer cursor, hover lift
+/// (surfaceElevated), pressed lift (surfaceOverlay), rounded 14 — so every row
+/// in the card answers the pointer the same way.
+class _HoverRow extends StatefulWidget {
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final Widget child;
+
+  const _HoverRow({required this.onTap, this.onLongPress, required this.child});
+
+  @override
+  State<_HoverRow> createState() => _HoverRowState();
+}
+
+class _HoverRowState extends State<_HoverRow> {
+  bool _hovering = false;
+  bool _pressed = false;
+
+  void _setHover(bool value) {
+    if (value == _hovering) return;
+    setState(() => _hovering = value);
+  }
+
+  void _setPressed(bool value) {
+    if (value == _pressed) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final background = _pressed
+        ? KalinkaColors.surfaceOverlay
+        : _hovering
+        ? KalinkaColors.surfaceElevated
+        : Colors.transparent;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => _setHover(true),
+      onExit: (_) => _setHover(false),
+      child: GestureDetector(
+        onTap: () {
+          KalinkaHaptics.lightImpact();
+          widget.onTap();
+        },
+        onLongPress: widget.onLongPress,
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          padding: const EdgeInsets.fromLTRB(10, 11, 10, 11),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Small icon button inside a row (the history ✕): muted at rest, brightening
+/// under the pointer, with its own tap target so it doesn't fire the row.
+class _HoverIcon extends StatefulWidget {
+  final IconData icon;
+  final String semanticsLabel;
+  final VoidCallback onTap;
+
+  const _HoverIcon({
+    required this.icon,
+    required this.semanticsLabel,
+    required this.onTap,
+  });
+
+  @override
+  State<_HoverIcon> createState() => _HoverIconState();
+}
+
+class _HoverIconState extends State<_HoverIcon> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: widget.semanticsLabel,
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovering = true),
+        onExit: (_) => setState(() => _hovering = false),
+        child: GestureDetector(
+          onTap: () {
+            KalinkaHaptics.lightImpact();
+            widget.onTap();
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.all(6),
+            child: Icon(
+              widget.icon,
+              size: 15,
+              color: _hovering
+                  ? KalinkaColors.textPrimary
+                  : KalinkaColors.textMuted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The "Clear" link on the RECENT SEARCHES header — muted at rest, bright
+/// under the pointer.
+class _ClearLink extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const _ClearLink({required this.onTap});
+
+  @override
+  State<_ClearLink> createState() => _ClearLinkState();
+}
+
+class _ClearLinkState extends State<_ClearLink> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Clear search history',
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovering = true),
+        onExit: (_) => setState(() => _hovering = false),
+        child: GestureDetector(
+          onTap: () {
+            KalinkaHaptics.lightImpact();
+            widget.onTap();
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 120),
+              style: KalinkaTextStyles.clearAllChips.copyWith(
+                color: _hovering
+                    ? KalinkaColors.textPrimary
+                    : KalinkaColors.textMuted,
+              ),
+              child: const Text('Clear'),
+            ),
+          ),
         ),
       ),
     );
