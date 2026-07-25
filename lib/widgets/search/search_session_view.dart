@@ -706,7 +706,7 @@ class _DiscoverHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 30, 0, 8),
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
