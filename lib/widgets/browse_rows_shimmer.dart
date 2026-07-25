@@ -35,7 +35,9 @@ class _BrowseRowsShimmerState extends State<BrowseRowsShimmer>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
-    _opacity = Tween<double>(begin: 0.4, end: 0.7).animate(
+    // Pulses toward full opacity — the boxes are already dark greys, so
+    // fading them further (0.4–0.7) rendered invisibly on the page canvas.
+    _opacity = Tween<double>(begin: 0.55, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
   }
@@ -95,7 +97,7 @@ class _BrowseRowsShimmerState extends State<BrowseRowsShimmer>
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: KalinkaColors.surfaceInput,
+          color: KalinkaColors.surfaceOverlay,
           borderRadius: BorderRadius.circular(6),
         ),
       );
@@ -107,7 +109,7 @@ class _BrowseRowsShimmerState extends State<BrowseRowsShimmer>
           child: Container(
             height: height,
             decoration: BoxDecoration(
-              color: KalinkaColors.surfaceInput,
+              color: KalinkaColors.surfaceOverlay,
               borderRadius: BorderRadius.circular(4),
             ),
           ),
