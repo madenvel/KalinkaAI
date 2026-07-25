@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
+import '../../providers/app_state_provider.dart';
 import '../../providers/browse_detail_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_state_provider.dart';
@@ -361,11 +362,13 @@ class _ArtistTrackRow extends ConsumerStatefulWidget {
   final BrowseItem item;
   final int index;
   final String containerId;
+  final bool siblingIsPlaying;
 
   const _ArtistTrackRow({
     required this.item,
     required this.index,
     required this.containerId,
+    required this.siblingIsPlaying,
   });
 
   @override
@@ -373,8 +376,49 @@ class _ArtistTrackRow extends ConsumerStatefulWidget {
 }
 
 class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow>
-    with LongPressRingMixin {
+    with SingleTickerProviderStateMixin, LongPressRingMixin {
+  late final AnimationController _flashController;
+  late final Animation<Color?> _flashColorAnim;
+  bool _tappedToPlay = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _flashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+    _flashColorAnim = TweenSequence<Color?>([
+      TweenSequenceItem(
+        tween: ColorTween(
+          begin: Colors.transparent,
+          end: KalinkaColors.accent.withValues(alpha: 0.15),
+        ).chain(CurveTween(curve: Curves.easeIn)),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: ColorTween(
+          begin: KalinkaColors.accent.withValues(alpha: 0.15),
+          end: KalinkaColors.accentSubtle,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 2,
+      ),
+    ]).animate(_flashController);
+    _flashController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _flashController.dispose();
+    super.dispose();
+  }
+
   Future<void> _playTrack() async {
+    // Start flash animation immediately on tap, before the async API call.
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    setState(() => _tappedToPlay = true);
+    if (!reduceMotion) _flashController.forward(from: 0.0);
+
     final api = ref.read(kalinkaProxyProvider);
     try {
       await api.clear();
@@ -388,6 +432,11 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow>
         await api.play(widget.index - 1);
       }
     } catch (e) {
+      // API failed — revert optimistic flash.
+      if (mounted) {
+        _flashController.reset();
+        setState(() => _tappedToPlay = false);
+      }
       showSafeToast('Failed to play: $e', isError: true);
     }
   }
@@ -400,12 +449,60 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow>
       track?.duration != null ? track!.duration * 1000 : null,
     );
 
-    final selection = ref.watch(selectionStateProvider);
-    final selectionMode = selection.isActive;
+    // Scoped watches so unrelated selection changes don't rebuild the row.
     // Loose tracks select individually — the 'singles_<artistId>' key is
     // synthetic and has no browseDetailProvider backing.
-    final isSelected = selection.selectedIds.contains(widget.item.id);
-    final inSelectionHighlight = isSelected;
+    final selectionMode = ref.watch(
+      selectionStateProvider.select((s) => s.isActive),
+    );
+    final inSelectionHighlight = ref.watch(
+      selectionStateProvider.select(
+        (s) => s.selectedIds.contains(widget.item.id),
+      ),
+    );
+
+    // Now-playing detection — scope the watch so we don't rebuild on every
+    // position tick (PlaybackState.position updates frequently while playing).
+    final currentTrackId = ref.watch(
+      playerStateProvider.select((s) => s.currentTrack?.id),
+    );
+    final isCurrentTrack =
+        widget.item.id.isNotEmpty && currentTrackId == widget.item.id;
+
+    // Clear optimistic flash once server confirms, or revert if different track.
+    ref.listen(playerStateProvider.select((s) => s.currentTrack?.id), (
+      prev,
+      next,
+    ) {
+      if (!mounted) return;
+      if (next == widget.item.id && _tappedToPlay) {
+        setState(() => _tappedToPlay = false);
+      } else if (_tappedToPlay && next != null && next != widget.item.id) {
+        _flashController.reset();
+        setState(() => _tappedToPlay = false);
+      }
+    });
+
+    // Now-playing row decoration
+    final showNowPlaying = !selectionMode && (_tappedToPlay || isCurrentTrack);
+    final Color rowBg;
+    if (selectionMode && inSelectionHighlight) {
+      rowBg = KalinkaColors.accent.withValues(alpha: 0.05);
+    } else if (showNowPlaying && _flashController.isAnimating) {
+      rowBg = _flashColorAnim.value ?? Colors.transparent;
+    } else if (showNowPlaying) {
+      rowBg = KalinkaColors.accentSubtle;
+    } else {
+      rowBg = Colors.transparent;
+    }
+
+    // Left-edge indicator bar drawn as an overlay so it doesn't push content
+    // right the way a Border would.
+    final Color? barColor = showNowPlaying ? KalinkaColors.accentBorder : null;
+
+    // Sibling dimming: animated fade-in (200ms), instant restore.
+    final dimmed = widget.siblingIsPlaying && !selectionMode;
+    final dimDuration = Duration(milliseconds: dimmed ? 200 : 0);
 
     return SwipeToActRow(
       enabled: !selectionMode,
@@ -429,66 +526,80 @@ class _ArtistTrackRowState extends ConsumerState<_ArtistTrackRow>
         onLongPressEnd: selectionMode ? null : (_) => cancelLongPressRing(),
         onLongPressCancel: selectionMode ? null : cancelLongPressRing,
         behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          // Right 8 lands the duration on the chevrons' right edge.
-          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-          decoration: BoxDecoration(
-            color: selectionMode && inSelectionHighlight
-                ? KalinkaColors.accent.withValues(alpha: 0.05)
-                : Colors.transparent,
-          ),
-          child: Row(
-            children: [
-              // Track number / long-press indicator / selection icon
-              SizedBox(
-                width: 24,
-                child: Stack(
-                  alignment: Alignment.center,
+        child: Stack(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              // Right 8 lands the duration on the chevrons' right edge.
+              padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+              decoration: BoxDecoration(color: rowBg),
+              child: AnimatedOpacity(
+                opacity: dimmed ? 0.7 : 1.0,
+                duration: dimDuration,
+                curve: Curves.easeOut,
+                child: Row(
                   children: [
-                    if (selectionMode)
-                      Icon(
-                        inSelectionHighlight
-                            ? Icons.check_circle
-                            : Icons.radio_button_unchecked,
-                        size: 16,
-                        color: inSelectionHighlight
-                            ? KalinkaColors.accent
-                            : KalinkaColors.textSecondary,
-                      )
-                    else
-                      Text(
-                        '${widget.index}',
-                        style: KalinkaTextStyles.trackRowSubtitle,
-                        textAlign: TextAlign.center,
+                    // Track number / long-press indicator / selection icon
+                    SizedBox(
+                      width: 24,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          if (selectionMode)
+                            Icon(
+                              inSelectionHighlight
+                                  ? Icons.check_circle
+                                  : Icons.radio_button_unchecked,
+                              size: 16,
+                              color: inSelectionHighlight
+                                  ? KalinkaColors.accent
+                                  : KalinkaColors.textSecondary,
+                            )
+                          else
+                            Text(
+                              '${widget.index}',
+                              style: KalinkaTextStyles.trackRowSubtitle,
+                              textAlign: TextAlign.center,
+                            ),
+                          if (longPressing && longPressProgress > 0)
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: LongPressRingPainter(
+                                  progress: longPressProgress,
+                                  color: KalinkaColors.accent,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    if (longPressing && longPressProgress > 0)
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: LongPressRingPainter(
-                            progress: longPressProgress,
-                            color: KalinkaColors.accent,
-                          ),
-                        ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Title
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: KalinkaTextStyles.trackRowTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    // Duration
+                    if (!selectionMode && duration != null)
+                      Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              // Title
-              Expanded(
-                child: Text(
-                  title,
-                  style: KalinkaTextStyles.trackRowTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+            ),
+            if (barColor != null)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Container(width: 2, color: barColor),
                 ),
               ),
-              // Duration
-              if (!selectionMode && duration != null)
-                Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -737,6 +848,13 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection>
     final moreCount = tracks.length - maxInitial;
     final singlesKey = 'singles_${widget.artistId}';
 
+    // Sibling dimming, same as the album expansion: when one of these
+    // tracks is playing, the others step back.
+    final currentTrackId = ref.watch(
+      playerStateProvider.select((s) => s.currentTrack?.id),
+    );
+    final hasPlayingSibling = displayTracks.any((t) => t.id == currentTrackId);
+
     return Container(
       margin: const EdgeInsets.only(left: 16),
       decoration: const BoxDecoration(
@@ -751,6 +869,8 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection>
               item: displayTracks[i],
               index: i + 1,
               containerId: singlesKey,
+              siblingIsPlaying:
+                  hasPlayingSibling && displayTracks[i].id != currentTrackId,
             ),
             if (i < displayTracks.length - 1)
               const Divider(
