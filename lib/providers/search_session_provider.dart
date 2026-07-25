@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data_model/data_model.dart';
+import 'catalog_cards_provider.dart';
 import 'connection_settings_provider.dart';
 import 'kalinka_player_api_provider.dart';
 
@@ -191,10 +192,13 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
 
   // ── Open / close ───────────────────────────────────────────────────────────
 
-  /// Open Find Music on the Catalogs root and refresh its data.
+  /// Open Find Music on the Catalogs root and refresh its data. Catalog
+  /// cards reload on every open (shimmer meanwhile) — a stale set from the
+  /// last session may miss sources added or re-indexed since.
   void open() {
     if (state.isOpen) return;
     state = state.copyWith(isOpen: true, history: _loadHistory());
+    ref.read(catalogCardsReloadProvider.notifier).bump();
     _loadRecentFavourites();
     _loadSuggestions();
   }

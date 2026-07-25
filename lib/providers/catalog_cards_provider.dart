@@ -67,11 +67,27 @@ String? _artPathOf(BrowseItem item) {
   return (path != null && path.isNotEmpty) ? path : null;
 }
 
+/// Bumped on each Find Music open. As a watched dependency it RELOADS the
+/// cards provider — the grid drops to shimmer until fresh plans arrive —
+/// whereas invalidation-driven refetches (art polls, reconnect) are REFRESHES
+/// that hold the previous cards, so the grid never flickers mid-session.
+class CatalogCardsReload extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void bump() => state++;
+}
+
+final catalogCardsReloadProvider = NotifierProvider<CatalogCardsReload, int>(
+  CatalogCardsReload.new,
+);
+
 /// The card plans, grouped by source, each carrying its background URL from the
 /// browse response — the whole payload the cards need, no second per-card fetch.
 final catalogCardGroupsProvider = FutureProvider<List<CatalogCardGroup>>((
   ref,
 ) async {
+  ref.watch(catalogCardsReloadProvider);
   if (!_pollDriven) _artPolls = 0;
   _pollDriven = false;
 

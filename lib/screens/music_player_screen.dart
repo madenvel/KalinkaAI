@@ -435,14 +435,17 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
               children: [
                 // The search session carries its own header (roundel + search
                 // bar + connection dot), so the shared top bar leaves with it.
-                if (!searchOpen)
+                if (!searchOpen) ...[
                   RepaintBoundary(
                     child: KalinkaTopBar(
                       onServerChipTap: _showServerSheet,
                       connectionKey: _connectionDotKey,
                     ),
                   ),
-                const ConnectionBanner(),
+                  // Find Music signals connection state via its header dot; the
+                  // banner would only push its content down.
+                  const ConnectionBanner(),
+                ],
                 Expanded(
                   // The dock (and escalation card) float over the content, which
                   // scrolls behind them and fades into the page; the mini-player
@@ -688,13 +691,16 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                                 children: [
                                   // Search brings its own header row; the
                                   // shared top bar yields to it.
-                                  if (!searchOpen)
+                                  if (!searchOpen) ...[
                                     KalinkaTopBar(
                                       onServerChipTap: () => setState(
                                         () => _serverSheetOpen = true,
                                       ),
                                     ),
-                                  const ConnectionBanner(),
+                                    // Search signals connection via its header
+                                    // dot — no banner while it is up.
+                                    const ConnectionBanner(),
+                                  ],
                                   Expanded(
                                     // Dock floats over the queue, which fades
                                     // behind it (same as phone, minus the
