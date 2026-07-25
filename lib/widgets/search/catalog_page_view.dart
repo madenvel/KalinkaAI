@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -148,20 +150,7 @@ class _CatalogBanner extends ConsumerWidget {
       children: [
         if (url != null) ...[
           Positioned.fill(
-            child: Opacity(
-              opacity: 0.45,
-              // "Blur" by decoding tiny and upscaling — ImageFiltered re-ran
-              // a Gaussian pass on the raster thread every scrolled frame,
-              // which dropped the page from 120 to ~60fps while visible.
-              child: Image.network(
-                url,
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                filterQuality: FilterQuality.medium,
-                cacheWidth: 120,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            ),
+            child: Opacity(opacity: 0.45, child: _BakedBlurImage(url: url)),
           ),
           // No hard edges: the art dissolves out of the page canvas at
           // the top and back into it before the first rows.
@@ -238,6 +227,117 @@ class _CatalogBanner extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The banner art blurred ONCE into an offscreen raster when it loads, then
+/// drawn as a plain texture. A live ImageFiltered re-ran its Gaussian pass on
+/// the raster thread every scrolled frame (120→60fps while visible); a tiny
+/// decode upscaled by the sampler was cheap but read pixelated on wide
+/// windows. Shows nothing until the bake lands (same as the old load/error
+/// behaviour); a url change keeps the previous bake until the new one is in.
+class _BakedBlurImage extends StatefulWidget {
+  final String url;
+
+  const _BakedBlurImage({required this.url});
+
+  @override
+  State<_BakedBlurImage> createState() => _BakedBlurImageState();
+}
+
+class _BakedBlurImageState extends State<_BakedBlurImage> {
+  // Bake resolution: small enough that the one-shot blur is negligible, big
+  // enough that the cover-fit upscale stays smooth. Sigma is in bake pixels,
+  // so on-screen softness grows with the window — fine, it's a backdrop.
+  static const int _bakeWidth = 320;
+  static const double _sigma = 14;
+
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+  ui.Image? _baked;
+
+  /// Bumped per resolve; a bake finishing under an older generation (url
+  /// changed, widget reused) drops its result.
+  int _bakeGen = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolve();
+  }
+
+  @override
+  void didUpdateWidget(_BakedBlurImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) _resolve();
+  }
+
+  void _resolve() {
+    final oldStream = _stream;
+    final oldListener = _listener;
+    final gen = ++_bakeGen;
+    _listener = ImageStreamListener(
+      (info, _) => _bake(info, gen),
+      onError: (_, __) {}, // No art is a valid banner — keep what's shown.
+    );
+    _stream = ResizeImage(
+      NetworkImage(widget.url),
+      width: _bakeWidth,
+    ).resolve(ImageConfiguration.empty);
+    _stream!.addListener(_listener!);
+    if (oldStream != null && oldListener != null) {
+      oldStream.removeListener(oldListener);
+    }
+  }
+
+  Future<void> _bake(ImageInfo info, int gen) async {
+    final src = info.image;
+    final outW = _bakeWidth;
+    final outH = (outW * src.height / src.width).round().clamp(1, 1024);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final paint = Paint()
+      ..imageFilter = ui.ImageFilter.blur(
+        sigmaX: _sigma,
+        sigmaY: _sigma,
+        tileMode: TileMode.clamp,
+      );
+    canvas.drawImageRect(
+      src,
+      Rect.fromLTWH(0, 0, src.width.toDouble(), src.height.toDouble()),
+      Rect.fromLTWH(0, 0, outW.toDouble(), outH.toDouble()),
+      paint,
+    );
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(outW, outH);
+    picture.dispose();
+    info.dispose();
+    if (!mounted || gen != _bakeGen) {
+      image.dispose();
+      return;
+    }
+    setState(() {
+      _baked?.dispose();
+      _baked = image;
+    });
+  }
+
+  @override
+  void dispose() {
+    if (_listener != null) _stream?.removeListener(_listener!);
+    _baked?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final baked = _baked;
+    if (baked == null) return const SizedBox.shrink();
+    return RawImage(
+      image: baked,
+      fit: BoxFit.cover,
+      filterQuality: FilterQuality.medium,
     );
   }
 }
