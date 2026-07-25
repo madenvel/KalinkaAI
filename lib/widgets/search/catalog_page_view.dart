@@ -1,5 +1,3 @@
-import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -152,22 +150,16 @@ class _CatalogBanner extends ConsumerWidget {
           Positioned.fill(
             child: Opacity(
               opacity: 0.45,
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(
-                  sigmaX: 10,
-                  sigmaY: 10,
-                  tileMode: TileMode.clamp,
-                ),
-                child: Image.network(
-                  url,
-                  fit: BoxFit.cover,
-                  gaplessPlayback: true,
-                  filterQuality: FilterQuality.medium,
-                  // The blur erases fine detail — no point decoding the
-                  // full-resolution render.
-                  cacheWidth: 800,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
+              // "Blur" by decoding tiny and upscaling — ImageFiltered re-ran
+              // a Gaussian pass on the raster thread every scrolled frame,
+              // which dropped the page from 120 to ~60fps while visible.
+              child: Image.network(
+                url,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                filterQuality: FilterQuality.medium,
+                cacheWidth: 120,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
               ),
             ),
           ),
