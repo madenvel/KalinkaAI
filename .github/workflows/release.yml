@@ -4,8 +4,8 @@ name: Release
 #   1. bump `version:` in pubspec.yaml, commit, push to main
 #   2. git tag -a vX.Y.Z -m "Kalinka X.Y.Z" && git push origin vX.Y.Z
 # The tag push runs this pipeline: it checks the tag matches pubspec's version
-# (ignoring the +build suffix), builds the signed APKs + Linux desktop tarball,
-# and publishes them to a GitHub Release.
+# (ignoring the +build suffix), builds the signed APKs, Linux desktop tarball,
+# and Windows zip + installer, and publishes them to a GitHub Release.
 
 on:
   push:
@@ -136,6 +136,50 @@ jobs:
           path: dist/*.tar.gz
           if-no-files-found: error
 
+  build-windows:
+    needs: verify-version
+    runs-on: windows-latest
+    env:
+      V: ${{ needs.verify-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build Windows desktop
+        shell: bash # Git Bash — build_release.sh works unchanged
+        run: scripts/build_release.sh windows
+      - name: Package zip
+        shell: pwsh
+        # Stage under a versioned folder so the zip extracts into one directory,
+        # matching the Linux tarball layout.
+        run: |
+          New-Item -ItemType Directory -Force dist, stage | Out-Null
+          Copy-Item -Recurse build/windows/x64/runner/Release `
+            "stage/kalinka-$env:V-windows-x64"
+          Compress-Archive -Path "stage/kalinka-$env:V-windows-x64" `
+            -DestinationPath "dist/kalinka-$env:V-windows-x64.zip"
+      - name: Build installer
+        shell: pwsh
+        run: |
+          iscc packaging/windows/kalinka.iss `
+            /DAppVersion=$env:V `
+            /DSourceDir="$PWD\build\windows\x64\runner\Release" `
+            /DOutputDir="$PWD\dist" `
+            /DOutputBaseFilename="kalinka-$env:V-windows-x64-setup"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            dist/*.zip
+            dist/*.exe
+          if-no-files-found: error
+
   # Architecture-independent browser UI package: the Flutter web bundle,
   # installed where kalinka-server serves it (/usr/share/kalinka-web). The
   # server repo's release workflow re-attaches this deb to server releases so
@@ -168,7 +212,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [verify-version, build-android, build-linux, build-web-deb]
+    needs: [verify-version, build-android, build-linux, build-windows, build-web-deb]
     runs-on: ubuntu-latest
     env:
       V: ${{ needs.verify-version.outputs.version }}
@@ -186,6 +230,7 @@ jobs:
           cd dist
           cp "kalinka-$V.apk" kalinka-android-universal.apk
           cp "kalinka-$V-linux-x64.tar.gz" kalinka-linux-x64.tar.gz
+          cp "kalinka-$V-windows-x64-setup.exe" kalinka-windows-x64-setup.exe
       - name: Checksums
         run: |
           set -euo pipefail
@@ -221,7 +266,10 @@ jobs:
             dist/kalinka-${{ env.V }}-armeabi-v7a.apk
             dist/kalinka-${{ env.V }}.apk
             dist/kalinka-${{ env.V }}-linux-x64.tar.gz
+            dist/kalinka-${{ env.V }}-windows-x64.zip
+            dist/kalinka-${{ env.V }}-windows-x64-setup.exe
             dist/kalinka-web_${{ env.V }}_all.deb
             dist/kalinka-android-universal.apk
             dist/kalinka-linux-x64.tar.gz
+            dist/kalinka-windows-x64-setup.exe
             dist/md5.txt
