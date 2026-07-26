@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data_model/data_model.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/haptics.dart';
 import '../../utils/play_next.dart';
 
 /// Shared behaviour for the search-result row widgets (album / artist /
@@ -110,7 +110,7 @@ mixin LongPressRingMixin<T extends StatefulWidget> on State<T> {
       });
       if (longPressProgress >= 1.0) {
         timer.cancel();
-        HapticFeedback.mediumImpact();
+        KalinkaHaptics.mediumImpact();
         if (!mounted) return;
         onComplete();
         if (!mounted) return;

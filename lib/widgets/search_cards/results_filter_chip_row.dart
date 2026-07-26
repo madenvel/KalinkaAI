@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../data_model/data_model.dart';
 import '../../providers/search_state_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/haptics.dart';
 
 /// Type-based filter chip row for search results.
 /// Shows: All | Artists | Albums | Tracks | Playlists.
@@ -119,7 +119,7 @@ class _Chip extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
-          HapticFeedback.lightImpact();
+          KalinkaHaptics.lightImpact();
           onTap();
         },
         overlayColor: WidgetStateProperty.resolveWith((states) {

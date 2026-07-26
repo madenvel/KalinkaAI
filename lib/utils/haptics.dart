@@ -6,7 +6,9 @@ import 'package:vibration/vibration.dart';
 bool get _isAndroid =>
     !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-/// Platform-aware haptic utility.
+bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+/// Platform-aware haptic utility. No-op on desktop and web.
 ///
 /// iOS  — uses Flutter's HapticFeedback (CoreHaptics taptic engine, excellent).
 /// Android — uses the `vibration` package with explicit duration+amplitude,
@@ -26,7 +28,7 @@ class KalinkaHaptics {
       _nativeChannel.invokeMethod('hapticTick').catchError((_) {
         Vibration.vibrate(duration: 15, amplitude: 80);
       });
-    } else {
+    } else if (_isIOS) {
       HapticFeedback.selectionClick();
     }
   }
@@ -34,7 +36,7 @@ class KalinkaHaptics {
   static void lightImpact() {
     if (_isAndroid) {
       Vibration.vibrate(duration: 20, amplitude: 110);
-    } else {
+    } else if (_isIOS) {
       HapticFeedback.lightImpact();
     }
   }
@@ -42,7 +44,7 @@ class KalinkaHaptics {
   static void mediumImpact() {
     if (_isAndroid) {
       Vibration.vibrate(duration: 35, amplitude: 160);
-    } else {
+    } else if (_isIOS) {
       HapticFeedback.mediumImpact();
     }
   }
@@ -50,7 +52,7 @@ class KalinkaHaptics {
   static void heavyImpact() {
     if (_isAndroid) {
       Vibration.vibrate(duration: 50, amplitude: 230);
-    } else {
+    } else if (_isIOS) {
       HapticFeedback.heavyImpact();
     }
   }
@@ -67,7 +69,7 @@ class KalinkaHaptics {
         pattern: [0, 40, 100, 25],
         intensities: [0, 180, 0, 110],
       );
-    } else {
+    } else if (_isIOS) {
       HapticFeedback.mediumImpact();
       await Future.delayed(const Duration(milliseconds: 80));
       HapticFeedback.lightImpact();
@@ -84,7 +86,7 @@ class KalinkaHaptics {
         pattern: [0, 30, 80, 70],
         intensities: [0, 100, 0, 230],
       );
-    } else {
+    } else if (_isIOS) {
       HapticFeedback.lightImpact();
       await Future.delayed(const Duration(milliseconds: 60));
       HapticFeedback.heavyImpact();
@@ -115,7 +117,7 @@ class KalinkaHaptics {
           intensities: [0, 180, 220, 80, 0],
         );
       }
-    } else {
+    } else if (_isIOS) {
       HapticFeedback.heavyImpact();
     }
   }
@@ -141,7 +143,7 @@ class KalinkaHaptics {
           intensities: [0, 80, 0, 220],
         );
       }
-    } else {
+    } else if (_isIOS) {
       HapticFeedback.lightImpact();
       await Future.delayed(const Duration(milliseconds: 30));
       HapticFeedback.heavyImpact();
