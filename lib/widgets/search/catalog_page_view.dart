@@ -106,73 +106,83 @@ class _TrackIdsMemo {
   }
 }
 
-/// The scrolling page banner: the catalog card's server-rendered art, blurred
-/// and dimmed, bleeding edge to edge of the surface with no frame — it fades
-/// out of the page canvas at the top and back into it at the bottom. The
-/// Playfair title + attribution keep to the left half so they sit in the
-/// art's darker zone.
-class _CatalogBanner extends ConsumerWidget {
+/// The blurred catalog art as a full-bleed backdrop for the page — painted at
+/// the surface Stack level (like the Discover-root bloom) so it runs from the
+/// very top of the screen, behind the status inset and title bar, and fades
+/// into the page canvas before the first rows. The scrolling content passes
+/// over it; at 0.45 opacity under a bake-time blur it reads as a colour wash.
+class CatalogArtBackdrop extends ConsumerWidget {
+  final String artPath;
+
+  const CatalogArtBackdrop({super.key, required this.artPath});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (artPath.isEmpty) return const SizedBox.shrink();
+    final url = ref.watch(urlResolverProvider).abs(artPath);
+    final topInset = MediaQuery.paddingOf(context).top;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Chrome above + the banner zone (matching _CatalogBanner's height
+        // curve), so the fade lands right where the rows begin.
+        final w = constraints.maxWidth;
+        final height =
+            topInset + kKalinkaTopBarHeight + (w * 0.42).clamp(150.0, 320.0);
+        return SizedBox(
+          height: height,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Opacity(opacity: 0.45, child: _BakedBlurImage(url: url)),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: [0.45, 0.97],
+                    colors: [Color(0x00080808), KalinkaColors.background],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The scrolling page banner: the Playfair title + attribution over the
+/// left half of [CatalogArtBackdrop]'s art zone (the art itself is fixed at
+/// the surface level and does not scroll with this header).
+class _CatalogBanner extends StatelessWidget {
   final CatalogPage page;
 
   const _CatalogBanner({required this.page});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final artPath = page.artPath;
-    final url = (artPath == null || artPath.isEmpty)
-        ? null
-        : ref.watch(urlResolverProvider).abs(artPath);
-
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: ClipRect(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            // Height tracks width (just under the cards' 3:1); type scales
-            // with it, gently.
-            final w = constraints.maxWidth;
-            final minHeight = (w * 0.42).clamp(150.0, 320.0);
-            final scale = (w / 420).clamp(1.0, 1.25);
-            return _buildBanner(ref, url, minHeight, scale);
-          },
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Height tracks width (just under the cards' 3:1); type scales
+          // with it, gently.
+          final w = constraints.maxWidth;
+          final minHeight = (w * 0.42).clamp(150.0, 320.0);
+          final scale = (w / 420).clamp(1.0, 1.25);
+          return _buildBanner(minHeight, scale);
+        },
       ),
     );
   }
 
-  Widget _buildBanner(
-    WidgetRef ref,
-    String? url,
-    double minHeight,
-    double scale,
-  ) {
-    return Stack(
-      children: [
-        if (url != null) ...[
-          Positioned.fill(
-            child: Opacity(opacity: 0.45, child: _BakedBlurImage(url: url)),
-          ),
-          // No hard edges: the art dissolves out of the page canvas at
-          // the top and back into it before the first rows.
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: [0.0, 0.22, 0.50, 0.95],
-                  colors: [
-                    KalinkaColors.background,
-                    Color(0x00080808),
-                    Color(0x00080808),
-                    KalinkaColors.background,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-        Container(
+  Widget _buildBanner(double minHeight, double scale) {
+    return Consumer(
+      builder: (context, ref, _) {
+        return Container(
           constraints: BoxConstraints(minHeight: minHeight),
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
           // Grows beyond minHeight only if the text needs the room.
@@ -225,8 +235,8 @@ class _CatalogBanner extends ConsumerWidget {
               ],
             ),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

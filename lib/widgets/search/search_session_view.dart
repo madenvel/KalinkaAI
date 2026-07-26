@@ -293,6 +293,22 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                   ),
                 ),
               ),
+            // On a catalog page the card's blurred art backs the whole top of
+            // the screen — status inset and title bar included — fading into
+            // the canvas before the rows (same layer as the bloom above).
+            if (session.activeView == FindMusicView.catalogs &&
+                !session.catalogPage.isRoot &&
+                session.catalogPage.artPath != null)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: CatalogArtBackdrop(
+                    artPath: session.catalogPage.artPath!,
+                  ),
+                ),
+              ),
             Column(
               children: [
                 _buildHeader(session),
@@ -341,7 +357,7 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     return _buildCatalogsRoot(session);
   }
 
-  /// Title bar: back arrow · breadcrumb · connection dot · filter. The arrow
+  /// Title bar: back arrow · breadcrumb · filter · connection dot. The arrow
   /// is the one navigation control (layered back, [_handleBack]).
   Widget _buildHeader(SearchSessionState session) {
     final onResults = session.activeView == FindMusicView.results;
@@ -378,13 +394,6 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
               ),
               const SizedBox(width: 8),
               Expanded(child: _buildBreadcrumb(session, onResults)),
-              SizedBox(
-                height: _kBarMinHeight,
-                width: 42,
-                child: Center(
-                  child: ServerChip(compact: true, onTap: widget.onServerTap),
-                ),
-              ),
               // Placeholder filter affordance — greyed and inert for now.
               SizedBox(
                 height: _kBarMinHeight,
@@ -396,6 +405,13 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                   constraints: const BoxConstraints.expand(),
                   disabledColor: KalinkaColors.textMuted.withValues(alpha: 0.5),
                   icon: const Icon(Icons.filter_list_rounded),
+                ),
+              ),
+              SizedBox(
+                height: _kBarMinHeight,
+                width: 42,
+                child: Center(
+                  child: ServerChip(compact: true, onTap: widget.onServerTap),
                 ),
               ),
             ],
