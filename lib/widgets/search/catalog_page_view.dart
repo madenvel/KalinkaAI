@@ -106,6 +106,13 @@ class _TrackIdsMemo {
   }
 }
 
+/// Height of the banner zone (art fade + title block) for a given surface
+/// width. Grows slowly and caps low: the near-3:1 phone proportions turned
+/// into a mostly-empty 320px slab on desktop widths, with the text block
+/// centred in ~90px of dead art above and below. ~168px at a 400dp phone.
+double _bannerZoneHeight(double width) =>
+    (120 + width * 0.12).clamp(150.0, 230.0);
+
 /// The blurred catalog art as a full-bleed backdrop for the page — painted at
 /// the surface Stack level (like the Discover-root bloom) so it runs from the
 /// very top of the screen, behind the status inset and title bar, and fades
@@ -126,9 +133,10 @@ class CatalogArtBackdrop extends ConsumerWidget {
       builder: (context, constraints) {
         // Chrome above + the banner zone (matching _CatalogBanner's height
         // curve), so the fade lands right where the rows begin.
-        final w = constraints.maxWidth;
         final height =
-            topInset + kKalinkaTopBarHeight + (w * 0.42).clamp(150.0, 320.0);
+            topInset +
+            kKalinkaTopBarHeight +
+            _bannerZoneHeight(constraints.maxWidth);
         return SizedBox(
           height: height,
           width: double.infinity,
@@ -168,10 +176,9 @@ class _CatalogBanner extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // Height tracks width (just under the cards' 3:1); type scales
-          // with it, gently.
           final w = constraints.maxWidth;
-          final minHeight = (w * 0.42).clamp(150.0, 320.0);
+          final minHeight = _bannerZoneHeight(w);
+          // Type scales with width, gently.
           final scale = (w / 420).clamp(1.0, 1.25);
           return _buildBanner(minHeight, scale);
         },
