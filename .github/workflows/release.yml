@@ -15,7 +15,7 @@ permissions:
   contents: write # required to create the GitHub Release
 
 env:
-  FLUTTER_VERSION: "3.35.4"
+  FLUTTER_VERSION: "3.44.8"
 
 jobs:
   # Fail fast if the tag and pubspec version disagree, before any build runs.

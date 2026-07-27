@@ -19,7 +19,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 version: 0.4.0+8
 
 environment:
-  sdk: ^3.9.2
+  sdk: ^3.12.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -36,7 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   freezed_annotation: ^3.1.0
   json_annotation: ^4.9.0
-  flutter_riverpod: ^3.3.2
+  flutter_riverpod: ^3.4.1
   logger: ^2.6.2
   shared_preferences: ^2.5.4
   dio: ^5.9.1
