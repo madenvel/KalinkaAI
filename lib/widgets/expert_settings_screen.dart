@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+// Not re-exported through material.dart as of Flutter 3.44.
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data_model/presentation_schema.dart';
@@ -106,7 +108,7 @@ class _ExpertSettingsScreenState extends ConsumerState<ExpertSettingsScreen> {
                   // the rows are stable, so caching a generous window
                   // avoids re-init of TextInput controllers when the
                   // user scrolls back to a row they just touched.
-                  cacheExtent: 600,
+                  scrollCacheExtent: ScrollCacheExtent.pixels(600),
                   padding: const EdgeInsets.fromLTRB(0, 12, 0, 32),
                   itemCount: filtered.length,
                   // 8 px gap between rows; each row carries its own
@@ -142,9 +144,7 @@ class _SearchBar extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: KalinkaColors.surfaceBase,
-        border: Border(
-          bottom: BorderSide(color: KalinkaColors.borderSubtle),
-        ),
+        border: Border(bottom: BorderSide(color: KalinkaColors.borderSubtle)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Container(
@@ -236,16 +236,13 @@ class _EmptyState extends StatelessWidget {
               color: KalinkaColors.textMuted,
             ),
             const SizedBox(height: 12),
-            Text(
-              'No settings match',
-              style: KalinkaTextStyles.cardTitle,
-            ),
+            Text('No settings match', style: KalinkaTextStyles.cardTitle),
             const SizedBox(height: 6),
             Text(
               query.trim().isEmpty
                   ? 'Nothing to show.'
                   : 'Try fewer or different terms — search uses '
-                      'AND across whitespace-separated words.',
+                        'AND across whitespace-separated words.',
               textAlign: TextAlign.center,
               style: KalinkaTextStyles.trayRowSublabel,
             ),
@@ -351,10 +348,7 @@ class _ExpertRow extends ConsumerWidget {
           control,
           if (isStaged) ...[
             const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _StagedPill(),
-            ),
+            Align(alignment: Alignment.centerLeft, child: _StagedPill()),
           ],
         ],
       ),

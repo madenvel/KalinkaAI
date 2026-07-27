@@ -64,23 +64,19 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
 
   // ── Reorder ───────────────────────────────────────────────────────────────
 
-  void _onReorder(int oldIndex, int newIndex) {
-    // SliverReorderableList passes newIndex as the insertion point in the
-    // original list (before removal). Adjust so it becomes the final position.
-    if (newIndex > oldIndex) newIndex--;
-
+  // onReorderItem delivers newIndex as the final position (already adjusted
+  // for the removal) and only fires when the position actually changed.
+  void _onReorderItem(int oldIndex, int newIndex) {
     final from = _currentIndex + oldIndex;
     final to = _currentIndex + newIndex;
 
-    if (from != to) {
-      ref
-          .read(playQueueStateStoreProvider.notifier)
-          .optimisticallyReorder(from, to);
-      ref
-          .read(kalinkaWsApiProvider)
-          .sendQueueCommand(QueueCommand.move(fromIndex: from, toIndex: to));
-      KalinkaHaptics.mediumImpact();
-    }
+    ref
+        .read(playQueueStateStoreProvider.notifier)
+        .optimisticallyReorder(from, to);
+    ref
+        .read(kalinkaWsApiProvider)
+        .sendQueueCommand(QueueCommand.move(fromIndex: from, toIndex: to));
+    KalinkaHaptics.mediumImpact();
   }
 
   Widget _proxyDecorator(Widget child, int index, Animation<double> animation) {
@@ -281,7 +277,7 @@ class _QueueZoneState extends ConsumerState<QueueZone> {
             else
               SliverReorderableList(
                 itemCount: queueTracks.length,
-                onReorder: _onReorder,
+                onReorderItem: _onReorderItem,
                 onReorderStart: (i) => setState(() => _isDragging = true),
                 onReorderEnd: (i) => setState(() => _isDragging = false),
                 proxyDecorator: _proxyDecorator,

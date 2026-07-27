@@ -552,7 +552,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                 // above settles down with it.
                 SizeTransition(
                   sizeFactor: _miniPlayerReveal,
-                  axisAlignment: 1.0,
+                  alignment: AlignmentDirectional.bottomStart,
                   child: SlideTransition(
                     position: _miniPlayerSlide,
                     child: MiniPlayer(onTap: _showExpandedPlayer),

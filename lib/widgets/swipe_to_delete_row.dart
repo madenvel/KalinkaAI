@@ -265,7 +265,7 @@ class _SwipeToDeleteRowState extends State<SwipeToDeleteRow>
     return SizeTransition(
       sizeFactor: collapseFactor,
       axis: Axis.vertical,
-      axisAlignment: -1.0,
+      alignment: AlignmentDirectional.topStart,
       // _exitSlideOffset translates the whole row (Stack + background + icon)
       // so nothing is left behind when the height collapses.
       child: Transform.translate(
