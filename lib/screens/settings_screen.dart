@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/restart_provider.dart';
+import '../providers/server_update_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/upgrade_provider.dart';
 import '../data_model/presentation_schema.dart' show PageSpec;
 import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
@@ -12,6 +14,9 @@ import '../widgets/kalinka_button.dart';
 import '../widgets/pending_changes_banner.dart';
 import '../widgets/restart_confirm_dialog.dart';
 import '../widgets/restart_overlay.dart';
+import '../widgets/update_banner.dart';
+import '../widgets/upgrade_confirm_dialog.dart';
+import '../widgets/upgrade_overlay.dart';
 import '../widgets/expert_settings_screen.dart';
 import '../widgets/settings_controls/settings_toggle.dart';
 import '../widgets/settings_renderer.dart';
@@ -41,6 +46,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   late Animation<Offset> _slideAnimation;
   int _tabIndex = 0;
   bool _restartOverlayOpen = false;
+  bool _upgradeOverlayOpen = false;
 
   @override
   void initState() {
@@ -193,12 +199,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                                   settingsState.schema!.pages.length - 1,
                                 ),
                                 children: [
-                                  for (final page
-                                      in settingsState.schema!.pages)
-                                    SchemaPageRenderer(
-                                      key: ValueKey('page_${page.id}'),
-                                      page: page,
-                                    ),
+                                  for (final (i, page)
+                                      in settingsState.schema!.pages.indexed)
+                                    // The first (General) page carries the
+                                    // server-upgrade banner above its
+                                    // sections.
+                                    if (i == 0)
+                                      Column(
+                                        children: [
+                                          UpdateBanner(onUpgrade: _onUpgrade),
+                                          Expanded(
+                                            child: SchemaPageRenderer(
+                                              key: ValueKey('page_${page.id}'),
+                                              page: page,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    else
+                                      SchemaPageRenderer(
+                                        key: ValueKey('page_${page.id}'),
+                                        page: page,
+                                      ),
                                 ],
                               ),
                       )
@@ -217,6 +239,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               onDismiss: () {
                 setState(() => _restartOverlayOpen = false);
                 // Reload config after restart
+                ref.read(settingsProvider.notifier).loadConfig();
+              },
+            ),
+          ),
+        // Upgrade overlay — no dismiss until it succeeds or errors out
+        if (_upgradeOverlayOpen)
+          Positioned.fill(
+            child: UpgradeOverlay(
+              onDismiss: () {
+                setState(() => _upgradeOverlayOpen = false);
                 ref.read(settingsProvider.notifier).loadConfig();
               },
             ),
@@ -318,6 +350,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _onUpgrade() async {
+    final version = ref.read(serverUpdateProvider).value?.latestVersion;
+    if (version == null) return;
+    final confirmed = await showKalinkaConfirmDialog<bool>(
+      context: context,
+      builder: (_) => UpgradeConfirmDialog(version: version),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _upgradeOverlayOpen = true);
+    ref.read(upgradeProvider.notifier).executeUpgrade(version);
   }
 
   Future<void> _onRestart() async {

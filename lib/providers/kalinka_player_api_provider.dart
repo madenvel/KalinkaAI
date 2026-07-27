@@ -99,6 +99,14 @@ abstract class KalinkaPlayerProxy {
 
   /// `{server_version, api_version, name}` from `/server/version`.
   Future<Map<String, dynamic>> getServerVersion();
+
+  /// Server release-update info from `GET /server/update`, or null when the
+  /// server predates the endpoint (404).
+  Future<Map<String, dynamic>?> getServerUpdateInfo();
+
+  /// Ask the server to upgrade itself to [version] — the value advertised by
+  /// [getServerUpdateInfo]. The server 409s if that no longer matches.
+  Future<void> upgradeServer(String version);
   Future<ModulesAndDevices> listModules();
 
   /// PUT body: `{"schema_version": ..., "changes": {<flat dotted path>: value}}`.
@@ -620,6 +628,29 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
       throw Exception('Failed to get server version, url=${response.realUri}');
     }
     return (response.data as Map).cast<String, dynamic>();
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getServerUpdateInfo() async {
+    try {
+      final response = await client.get('/server/update');
+      return (response.data as Map).cast<String, dynamic>();
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> upgradeServer(String version) async {
+    final response = await client.put(
+      '/server/upgrade',
+      options: Options(contentType: Headers.jsonContentType),
+      data: jsonEncode({'version': version}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to upgrade server, url=${response.realUri}');
+    }
   }
 
   @override
