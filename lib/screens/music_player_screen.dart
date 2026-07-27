@@ -8,6 +8,7 @@ import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/search_session_provider.dart';
+import '../providers/settings_provider.dart';
 import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/clear_all_confirm_dialog.dart';
@@ -67,6 +68,11 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   // so its overlay covers the search dock like the connection sheet.
   bool _queueTrayOpen = false;
 
+  // The wizard connects, which fires `connected` — these keep the
+  // connected-listener from stacking a second wizard or racing itself.
+  bool _wizardOpen = false;
+  bool _setupCheckBusy = false;
+
   // Tracks the on-screen playback-error dialog so a re-fired error (the state
   // store re-syncs on resume/reconnect) doesn't stack another copy.
   ModalRoute<void>? _playbackErrorRoute;
@@ -100,6 +106,16 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       end: const Offset(0, 1),
     ).animate(curved);
 
+    // Every connection — at launch or via discovery — checks whether the
+    // server itself still needs setup (see _checkServerNeedsSetup).
+    if (!kIsWeb) {
+      ref.listenManual(connectionStateProvider, (_, next) {
+        if (next == ConnectionStatus.connected) {
+          _checkServerNeedsSetup();
+        }
+      });
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Web seeds its connection from the serving origin (main.dart) and has
       // no working wizard or mDNS discovery — never open either.
@@ -108,7 +124,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       // installs (server already stored) as complete on its own, so they
       // fall through to the regular flow below.
       if (!ref.read(onboardingStatusProvider).oobeComplete) {
-        Navigator.of(context).push(_onboardingRoute());
+        _openWizard();
         return;
       }
       // Set up but no stored server (e.g. after Disconnect): plain discovery.
@@ -124,14 +140,40 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     super.dispose();
   }
 
-  Route<void> _onboardingRoute() {
+  void _openWizard({bool startAtSetup = false}) {
+    _wizardOpen = true;
+    Navigator.of(context)
+        .push(_onboardingRoute(startAtSetup: startAtSetup))
+        .whenComplete(() => _wizardOpen = false);
+  }
+
+  /// A connected server reporting `oobe_complete: false` was never set up —
+  /// a fresh server behind a stored connection, one just picked in
+  /// discovery, or a setup run that was killed midway. Run the wizard's
+  /// setup steps; the connection already exists, so discovery is skipped.
+  Future<void> _checkServerNeedsSetup() async {
+    if (_wizardOpen || _setupCheckBusy) return;
+    _setupCheckBusy = true;
+    try {
+      await ref.read(settingsProvider.notifier).loadConfig();
+      if (!mounted || _wizardOpen) return;
+      final values = ref.read(settingsProvider).values;
+      if (values[OnboardingStatusNotifier.serverOobeFlagPath] == false) {
+        _openWizard(startAtSetup: true);
+      }
+    } finally {
+      _setupCheckBusy = false;
+    }
+  }
+
+  Route<void> _onboardingRoute({required bool startAtSetup}) {
     return PageRouteBuilder(
       opaque: true,
       transitionDuration: const Duration(milliseconds: 280),
       reverseTransitionDuration: const Duration(milliseconds: 280),
-      pageBuilder: (_, __, ___) => const Material(
+      pageBuilder: (_, __, ___) => Material(
         type: MaterialType.transparency,
-        child: OnboardingScreen(),
+        child: OnboardingScreen(startAtSetup: startAtSetup),
       ),
       transitionsBuilder: (_, anim, __, child) =>
           FadeTransition(opacity: anim, child: child),

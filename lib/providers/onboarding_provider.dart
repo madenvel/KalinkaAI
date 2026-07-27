@@ -3,8 +3,14 @@ import 'connection_settings_provider.dart';
 
 /// First-run state persisted across launches.
 ///
-/// `oobeComplete` flips only when the user finishes the whole setup wizard
-/// (final restart triggered). An interrupted run — app killed mid-wizard —
+/// Whether the *server* has been set up lives in the server's own config
+/// (`base_config.server.oobe_complete`) — the wizard reads it after
+/// connecting and skips straight to the app when another client already
+/// completed setup. The flags here are per-install only:
+///
+/// `oobeComplete` records that this install finished the first-run flow —
+/// either the full wizard or the connect-only fast path against an
+/// already-set-up server. An interrupted run — app killed mid-wizard —
 /// leaves it false and, because the wizard connects ephemerally, no stored
 /// server either, so the next launch restarts setup from the beginning.
 /// Backgrounding does not reset anything: the wizard's widget state stays
@@ -32,10 +38,14 @@ class OnboardingStatusNotifier extends Notifier<OnboardingStatus> {
   static const String sharedPrefOobeComplete = 'Kalinka.oobeComplete';
   static const String sharedPrefCoachMarksShown = 'Kalinka.coachMarksShown';
 
+  /// Dotted config path of the server-side "setup finished" flag.
+  static const String serverOobeFlagPath = 'base_config.server.oobe_complete';
+
   /// Testing hook: `flutter run --dart-define=KALINKA_FORCE_OOBE=true`
   /// replays the setup wizard and the coach-mark tour on every launch,
-  /// regardless of stored flags or a stored server. Finishing the wizard
-  /// still behaves normally within the session; the next launch resets.
+  /// regardless of stored flags, a stored server, or the server-side flag
+  /// (the fast path is disabled too). Finishing the wizard still behaves
+  /// normally within the session; the next launch resets.
   static const bool forceOobe = bool.fromEnvironment('KALINKA_FORCE_OOBE');
 
   @override
@@ -68,9 +78,7 @@ class OnboardingStatusNotifier extends Notifier<OnboardingStatus> {
   }
 
   Future<void> markOobeComplete() async {
-    await ref
-        .read(sharedPrefsProvider)
-        .setBool(sharedPrefOobeComplete, true);
+    await ref.read(sharedPrefsProvider).setBool(sharedPrefOobeComplete, true);
     state = state.copyWith(oobeComplete: true);
   }
 

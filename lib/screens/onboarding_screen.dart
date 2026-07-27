@@ -24,8 +24,17 @@ import '../widgets/restart_overlay.dart';
 /// beginning; backgrounding keeps the current step (widget state stays
 /// alive). On success the server connection is persisted, the
 /// `oobeComplete` flag is set, and the wizard pops back to the play queue.
+///
+/// Whether the *server* is set up is its own config flag
+/// (`base_config.server.oobe_complete`): the wizard reads it after
+/// connecting and skips straight to the app when another client already
+/// completed setup. With [startAtSetup] the discovery step is skipped
+/// instead — for an already-connected (stored) server that reports the
+/// flag false, e.g. an existing install pointing at a fresh server.
 class OnboardingScreen extends ConsumerStatefulWidget {
-  const OnboardingScreen({super.key});
+  const OnboardingScreen({super.key, this.startAtSetup = false});
+
+  final bool startAtSetup;
 
   @override
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -34,18 +43,37 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   static const _stepCount = 6;
 
-  int _step = 0;
+  late int _step = widget.startAtSetup ? 1 : 0;
+
+  /// The lowest step the user can walk back to: discovery is not part of
+  /// the flow when the connection came from outside the wizard.
+  late final int _firstStep = widget.startAtSetup ? 1 : 0;
   bool _restartOverlayOpen = false;
   // Set when the restart succeeded and persistence was kicked off;
   // completes once the connection and the first-run flag are written.
   Future<void>? _commitFuture;
 
-  void _onConnected() {
-    ref.read(settingsProvider.notifier).loadConfig();
+  Future<void> _onConnected() async {
+    // The discovery step keeps its "connecting" state up while this runs.
+    await ref.read(settingsProvider.notifier).loadConfig();
+    if (!mounted) return;
+    // Another client already set up the server: just persist the
+    // connection. The coach-mark tour still runs once per install.
+    final values = ref.read(settingsProvider).values;
+    if (!OnboardingStatusNotifier.forceOobe &&
+        values[OnboardingStatusNotifier.serverOobeFlagPath] == true) {
+      await _commitSetup();
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
     setState(() => _step = 1);
   }
 
   void _finish() {
+    // Mark the server set up; rides along with the staged config.
+    ref
+        .read(settingsProvider.notifier)
+        .stageChange(OnboardingStatusNotifier.serverOobeFlagPath, true);
     setState(() => _restartOverlayOpen = true);
     ref.read(restartProvider.notifier).executeRestart();
   }
@@ -96,7 +124,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         // System back walks one step backwards; never leaves the wizard.
-        if (_step > 0 && !_restartOverlayOpen) {
+        if (_step > _firstStep && !_restartOverlayOpen) {
           setState(() => _step--);
         }
       },
@@ -175,10 +203,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       stepCount: _stepCount,
       title: title,
       subtitle: subtitle,
-      onBack: () => setState(() => _step--),
-      onNext: _step == _stepCount - 1
-          ? _finish
-          : () => setState(() => _step++),
+      onBack: _step > _firstStep ? () => setState(() => _step--) : null,
+      onNext: _step == _stepCount - 1 ? _finish : () => setState(() => _step++),
       nextLabel: nextLabel,
       children: [_wrapSettingsState(body)],
     );
@@ -231,8 +257,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 label: 'Retry',
                 variant: KalinkaButtonVariant.accent,
                 size: KalinkaButtonSize.compact,
-                onTap: () =>
-                    ref.read(settingsProvider.notifier).loadConfig(),
+                onTap: () => ref.read(settingsProvider.notifier).loadConfig(),
               ),
             ],
           ),
