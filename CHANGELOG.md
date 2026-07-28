@@ -4,6 +4,34 @@ Curated, user-facing notes per release. Add a `## <version>` section (matching
 the `pubspec.yaml` semver, no build suffix) before tagging — the release
 pipeline pulls the matching section into the GitHub Release body.
 
+## 0.5.0
+
+### Added
+- Find Music: hybrid browse/search replacing the tabbed flow — explore source
+  catalogs through art-backed category pages with breadcrumb navigation and
+  infinite scrolling, or ask the AI and return to your results at any time.
+- Redesigned AI search entry with an animated overlay, curated history and
+  suggestion slots.
+- Server updates from the app: an update banner in Settings → Server with a
+  confirm dialog and install progress overlay.
+- Windows x64 desktop build with an Inno Setup installer.
+- Permanent latest-download links: every release also publishes version-less
+  alias assets.
+
+### Changed
+- Catalog cards redesigned as 3:1 banners with framed art and source
+  attribution.
+- Faster catalog browsing: banner blur pre-baked, flatter banner heights on
+  wide screens, brighter loading shimmer.
+- Initial setup wizard now only runs when the server requests it.
+- Haptic feedback disabled on desktop and web.
+- Upgraded to Flutter 3.44 and Riverpod 3.4.
+
+### Fixed
+- Now-playing highlight for singles and loose tracks in the artist expansion.
+- Spurious connection banner while browsing Find Music; catalog cards refresh
+  once per session.
+
 ## 0.3.0
 
 ### Added

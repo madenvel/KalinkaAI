@@ -1,0 +1,5 @@
+- Find Music: browse source catalogs with art-backed category pages or ask the AI — one screen, breadcrumb navigation
+- Redesigned search entry with animated overlay
+- Server updates from the app: banner, confirm dialog and progress
+- Smoother catalogs: infinite scroll, faster banners, brighter loading shimmer
+- Fixed now-playing highlight for singles in artist view
