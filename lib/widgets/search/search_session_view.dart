@@ -769,46 +769,69 @@ class _SearchEntryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The main feature of the surface — a crimson-tinted field with a soft
+    // glow so it reads as the invitation, not another gray card.
     return Semantics(
       label: 'Search',
       hint: 'Ask for music in plain language',
       button: true,
-      child: Material(
-        color: KalinkaColors.surfaceInput,
-        borderRadius: BorderRadius.circular(22),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            KalinkaHaptics.lightImpact();
-            onTap();
-          },
-          child: Container(
-            height: 52,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: KalinkaColors.borderDefault, width: 1),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: KalinkaColors.accent.withValues(alpha: 0.16),
+              blurRadius: 26,
+              spreadRadius: 1,
             ),
-            child: Row(
-              children: [
-                const SizedBox(
-                  width: 26,
-                  child: Icon(
-                    Icons.auto_awesome,
-                    size: 16,
-                    color: KalinkaColors.gold,
+          ],
+        ),
+        child: Material(
+          color: Color.alphaBlend(
+            KalinkaColors.accentSubtle,
+            KalinkaColors.surfaceInput,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () {
+              KalinkaHaptics.lightImpact();
+              onTap();
+            },
+            child: Container(
+              height: 54,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: KalinkaColors.accentBorder, width: 1),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 26,
+                    child: Icon(
+                      Icons.auto_awesome,
+                      size: 16,
+                      color: KalinkaColors.gold,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    hint,
-                    style: KalinkaTextStyles.searchPlaceholder,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      hint,
+                      style: KalinkaTextStyles.searchPlaceholder,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 18,
+                    color: KalinkaColors.accentTint,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

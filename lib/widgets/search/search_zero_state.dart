@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data_model/data_model.dart' show SearchSuggestion;
 import '../../providers/catalog_cards_provider.dart';
 import '../../providers/search_session_provider.dart';
 import '../../theme/app_theme.dart';
@@ -81,13 +82,14 @@ class _DividerLabel extends StatelessWidget {
   }
 }
 
-/// The focused search body under the field: an **AI SUGGESTIONS** section over
-/// a **RECENT SEARCHES** section, each under a section label like Discover's.
-/// Both narrow to entries containing [query] as the user types; when nothing
-/// matches the list goes empty and the composer's send button carries the
-/// free-typed query onward. Tap runs a suggestion / history query, long-press
-/// drops a suggestion into the field; recent searches clear individually (✕) or
-/// all at once.
+/// The focused search body under the field. At rest: an **AI SUGGESTIONS**
+/// section with the curated (validated) suggestions, a friendly lead-in
+/// introducing the serendipity pick, then **RECENT SEARCHES**.
+/// While the user types, the prompts drop away and both lists narrow to plain
+/// rows containing the typed text; when nothing matches the free-typed query
+/// itself becomes the one action so the field never dead-ends. Tap runs a
+/// suggestion / history query, long-press drops a suggestion into the field;
+/// recent searches clear individually (✕) or all at once.
 class SearchSuggestionsList extends ConsumerWidget {
   final String query;
   final ValueChanged<String> onInsert;
@@ -122,20 +124,34 @@ class SearchSuggestionsList extends ConsumerWidget {
               .where((q) => q.toLowerCase().contains(needle))
               .toList(growable: false);
 
-    // A flat row list — section labels and tiles — so the staggered entrance
-    // lands them one by one top-to-bottom across both sections.
+    // While typing, headers and prompts drop away: just the matching rows.
+    // At rest the curated suggestions sit under AI SUGGESTIONS and the
+    // serendipity pick gets a lead-in explaining the compass mark.
+    final curated = suggestions.where((s) => !s.experimental);
+    final serendipity = suggestions.where((s) => s.experimental);
+
+    Widget tile(SearchSuggestion s) => _SuggestionTile(
+      text: s.query,
+      highlight: needle,
+      experimental: s.experimental,
+      onInsert: () => onInsert(s.query),
+      onRun: () => onSubmit(s.query),
+    );
+
+    // A flat row list — lead-ins, section labels and tiles — so the staggered
+    // entrance lands them one by one top-to-bottom across all sections.
     final rows = <Widget>[
-      if (suggestions.isNotEmpty) ...[
-        _aiHeader(),
-        for (final s in suggestions)
-          _SuggestionTile(
-            text: s.query,
-            highlight: needle,
-            experimental: s.experimental,
-            onInsert: () => onInsert(s.query),
-            onRun: () => onSubmit(s.query),
-          ),
-      ],
+      if (needle.isEmpty) ...[
+        if (curated.isNotEmpty) ...[
+          _aiHeader(),
+          ...curated.map(tile),
+        ],
+        if (serendipity.isNotEmpty) ...[
+          _leadIn('Or fancy something new? Venture beyond your library:'),
+          ...serendipity.map(tile),
+        ],
+      ] else
+        ...suggestions.map(tile),
       if (history.isNotEmpty) ...[
         _recentHeader(
           divider: suggestions.isNotEmpty,
@@ -226,6 +242,20 @@ class SearchSuggestionsList extends ConsumerWidget {
     child: Text('AI SUGGESTIONS', style: _sectionTitle),
   );
 
+  /// Conversational lead-in over the serendipity pick — sentence case, not the
+  /// mono section chrome, so it reads as an invitation rather than a label.
+  Widget _leadIn(String text) => Padding(
+    padding: const EdgeInsets.fromLTRB(10, 16, 10, 6),
+    child: Text(
+      text,
+      style: KalinkaFonts.sans(
+        fontSize: KalinkaTypography.baseSize + 2,
+        fontWeight: FontWeight.w500,
+        color: KalinkaColors.textSecondary,
+      ),
+    ),
+  );
+
   /// RECENT SEARCHES heading with a trailing "Clear". [divider] separates it
   /// from a preceding section.
   Widget _recentHeader({
@@ -296,9 +326,9 @@ class SearchSuggestionsList extends ConsumerWidget {
 
 /// AI prompt suggestion. Tapping runs it straight away — the expected action;
 /// long-pressing drops it into the composer to edit before sending.
-/// [experimental] marks the server's serendipity pick (context-matched but
-/// not validated against the library) with a compass icon instead of the
-/// sparkle.
+/// Curated picks lead with the gold AI sparkle; [experimental] marks the
+/// server's serendipity pick (context-matched but not validated against the
+/// library) with a compass instead.
 class _SuggestionTile extends StatelessWidget {
   final String text;
   final bool experimental;
@@ -365,16 +395,14 @@ class _SuggestionTile extends StatelessWidget {
         onLongPress: onInsert,
         child: Row(
           children: [
-            // Only the serendipity pick carries an icon; the heading already
-            // labels the rest.
-            if (experimental) ...[
-              const Icon(
-                Icons.explore_outlined,
-                size: 14,
-                color: KalinkaColors.accentTint,
-              ),
-              const SizedBox(width: 11),
-            ],
+            Icon(
+              experimental ? Icons.explore_outlined : Icons.auto_awesome,
+              size: 14,
+              color: experimental
+                  ? KalinkaColors.accentTint
+                  : KalinkaColors.gold,
+            ),
+            const SizedBox(width: 11),
             Expanded(child: _buildText()),
             const SizedBox(width: 8),
             const Icon(
@@ -411,6 +439,13 @@ class _HistoryTile extends StatelessWidget {
         onTap: onTap,
         child: Row(
           children: [
+            // History mark keeps recents visually apart from the AI rows.
+            const Icon(
+              Icons.history_rounded,
+              size: 15,
+              color: KalinkaColors.textMuted,
+            ),
+            const SizedBox(width: 11),
             Expanded(
               child: Text(
                 query,
