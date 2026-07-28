@@ -41,14 +41,15 @@ class UpgradeConfirmDialog extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                'Upgrade server to $version?',
+                'Update Kalinka Server?',
                 style: KalinkaTextStyles.dialogTitle,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                'Downloading and installing can take several minutes, and '
-                'the server restarts when done. Playback will stop.',
+                'A new version $version is available. Updating takes a few '
+                'minutes — the server will be unavailable and playback '
+                'will stop until it restarts.',
                 style: KalinkaTextStyles.dialogBody,
                 textAlign: TextAlign.center,
               ),
@@ -66,7 +67,7 @@ class UpgradeConfirmDialog extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: KalinkaButton(
-                      label: 'Upgrade',
+                      label: 'Restart & Update',
                       variant: KalinkaButtonVariant.accent,
                       fullWidth: true,
                       onTap: () => Navigator.pop(context, true),

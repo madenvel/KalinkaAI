@@ -41,16 +41,3 @@ final serverUpdateProvider = FutureProvider<ServerUpdateInfo?>((ref) async {
     return null;
   }
 });
-
-/// Session-scoped banner dismissal — resets on next app start by design.
-final updateBannerDismissedProvider =
-    NotifierProvider<UpdateBannerDismissedNotifier, bool>(
-      UpdateBannerDismissedNotifier.new,
-    );
-
-class UpdateBannerDismissedNotifier extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void dismiss() => state = true;
-}

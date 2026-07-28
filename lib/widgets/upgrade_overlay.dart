@@ -51,9 +51,12 @@ class _UpgradeOverlayState extends ConsumerState<UpgradeOverlay>
 
   void _close() {
     _autoDismissTimer?.cancel();
-    ref.read(upgradeProvider.notifier).dismiss();
+    // Fade out first: resetting the provider unmounts this overlay (the
+    // settings screen shows it while isUpgrading), so it must come last.
     _fadeController.reverse().then((_) {
-      if (mounted) widget.onDismiss();
+      if (!mounted) return;
+      widget.onDismiss();
+      ref.read(upgradeProvider.notifier).dismiss();
     });
   }
 

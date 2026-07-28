@@ -7,6 +7,7 @@ import '../providers/modules_state_provider.dart';
 import '../providers/server_info_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
+import 'server_update_banner.dart';
 import 'settings_controls/footer_note.dart';
 import 'settings_controls/module_header_row.dart';
 import 'settings_controls/settings_card.dart';
@@ -403,6 +404,9 @@ class SchemaSectionRenderer extends ConsumerWidget {
                 ? const _ServerAddressBadge()
                 : null,
           ),
+          // "New version available ›" banner between the SERVER label
+          // and the settings fields; hidden when there's no update.
+          if (section.id == 'base_config.server') const ServerUpdateBanner(),
           ...section.banners.map((b) => SchemaBanner(banner: b)),
           SettingsCard(children: [body]),
         ],
@@ -534,7 +538,7 @@ class _ServerAddressBadge extends ConsumerWidget {
     ];
     if (parts.isEmpty) return const SizedBox.shrink();
     return Text(
-      parts.join(' \u00b7 '),
+      parts.join(' · '),
       style: KalinkaTextStyles.trayRowSublabel.copyWith(
         fontSize: KalinkaTypography.baseSize + 1,
       ),
