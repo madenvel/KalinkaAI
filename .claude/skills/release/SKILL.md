@@ -1,22 +1,24 @@
 ---
 name: release
-description: Cut a new Kalinka app release — bump the version, build the signed APKs + Linux desktop tarball, and publish a GitHub release with assets and md5.txt. Use when the user asks to "release", "publish a release", "bump the version", "cut a version", or "make a new release".
+description: Cut a new Kalinka app release — bump the version, write the changelogs, tag, and let the GitHub Actions pipeline build and publish the release. Use when the user asks to "release", "publish a release", "bump the version", "cut a version", or "make a new release".
 ---
 
 # Kalinka release
 
-Builds and publishes a Kalinka app release to GitHub. Covers a patch, minor, or
-major bump. The repo is `madenvel/KalinkaAI`; releases go to GitHub Releases.
+Cuts a Kalinka app release. Covers a patch, minor, or major bump. The repo is
+`madenvel/KalinkaAI`; a tag push triggers the release pipeline
+(`.github/workflows/release.yml`), which builds everything and publishes to
+GitHub Releases — nothing is built locally.
 
 ## Versioning
 
 `pubspec.yaml` holds `version: <semver>+<build>` (e.g. `0.2.0+3`).
 - **patch** `0.1.1 → 0.1.2`, **minor** `0.1.1 → 0.2.0`, **major** `0.1.1 → 1.0.0`.
 - The **build number** (`+N`) increments by 1 every release, regardless of bump type.
-- Android `versionCode = flutter.versionCode` = the build number. With
-  `--split-per-abi`, Flutter offsets it by `1000 × abiIndex`; **arm64-v8a uses
-  index 2**, so the indexed code IzzyOnDroid tracks is `2000 + build`
-  (build `3` → `2003`). Name the fastlane changelog file after that number.
+- Android `versionCode = flutter.versionCode` = the build number. Only the
+  universal APK is built (per-ABI splits dropped after 0.5.0 — their offset
+  versionCodes blocked cross-variant upgrades). Name the fastlane changelog
+  file after the plain build number (build `10` → `10.txt`).
 
 ## Steps
 
@@ -25,73 +27,45 @@ major bump. The repo is `madenvel/KalinkaAI`; releases go to GitHub Releases.
 
 2. **Bump `pubspec.yaml`.** Edit the `version:` line to `<newsemver>+<newbuild>`.
 
-3. **Write the fastlane changelog.** Create
-   `fastlane/metadata/android/en-US/changelogs/<arm64-versionCode>.txt`
-   (= `2000 + build`). Keep it short, bulleted, user-facing. Source the points
-   from `git log <prev-tag>..HEAD --oneline`.
+3. **Write the changelogs.**
+   - Add a `## <newsemver>` section to `CHANGELOG.md` (Added / Changed / Fixed,
+     curated and user-facing, summarizing `git log <prev-tag>..HEAD --oneline`).
+     The pipeline pulls this section into the GitHub Release body; without it
+     the body is footer + auto-notes only.
+   - Create `fastlane/metadata/android/en-US/changelogs/<build>.txt` (plain
+     build number, e.g. `10.txt`). Short, bulleted, user-facing.
 
-4. **Commit, tag, push.** Build artifacts MUST come from the clean tag checkout
-   so the embedded version (`git describe`) is clean — commit and tag *before*
-   building.
+4. **Commit, tag, push.** The pipeline builds from the tag, so commit and tag
+   *before* pushing.
    ```bash
-   git add pubspec.yaml fastlane/metadata/android/en-US/changelogs/<code>.txt
+   git add pubspec.yaml CHANGELOG.md fastlane/metadata/android/en-US/changelogs/<build>.txt
    git commit -m "Bump version to <newsemver>"   # add Co-Authored-By trailer
    git tag -a v<newsemver> -m "Kalinka <newsemver>"
    git push origin main && git push origin v<newsemver>
-   git describe --tags --dirty   # must print exactly "v<newsemver>" (no -dirty)
    ```
    `main` is protected but the maintainer's pushes bypass the rule — a
    "Bypassed rule violations" notice on push is expected, not an error.
 
-5. **Build artifacts** (from the clean checkout, via `scripts/build_release.sh`
-   which embeds `--dart-define=GIT_DESCRIBE`):
+5. **Watch the pipeline.** The tag push triggers `.github/workflows/release.yml`
+   (~8 min): it verifies tag == pubspec version, builds the signed universal
+   APK, Linux tarball, Windows zip + Inno Setup installer, and the kalinka-web
+   .deb, then publishes the GitHub Release with md5.txt and the version-less
+   alias assets (`kalinka-android-universal.apk` etc.) for permanent
+   latest-download links. NEVER build locally.
    ```bash
-   mkdir -p dist
-   # per-ABI (produces armeabi-v7a, arm64-v8a, x86_64; we ship the first two)
-   scripts/build_release.sh apk --split-per-abi
-   cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk   dist/kalinka-<v>-arm64-v8a.apk
-   cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/kalinka-<v>-armeabi-v7a.apk
-   # universal
-   scripts/build_release.sh apk
-   cp build/app/outputs/flutter-apk/app-release.apk dist/kalinka-<v>.apk
-   # Linux desktop
-   scripts/build_release.sh linux
-   tar -czf dist/kalinka-<v>-linux-x64.tar.gz \
-     --transform 's,^bundle,kalinka-<v>-linux-x64,' \
-     -C build/linux/x64/release bundle
+   gh run list --workflow=release.yml --limit 1   # then monitor to completion
    ```
-   If a build fails with an invalid-Java-home error, check
-   `~/.gradle/gradle.properties` (`org.gradle.java.home` pins the Android Studio
-   flatpak JBR 21; Fedora's system Java can't run Gradle 8.12).
 
-6. **Checksums + signing check.**
-   ```bash
-   cd dist && md5sum kalinka-<v>-arm64-v8a.apk kalinka-<v>-armeabi-v7a.apk \
-     kalinka-<v>.apk kalinka-<v>-linux-x64.tar.gz > md5.txt && cd ..
-   # verify signing cert is the expected release key
-   "$(ls ~/Android/Sdk/build-tools/*/apksigner | sort -V | tail -1)" \
-     verify --print-certs dist/kalinka-<v>-arm64-v8a.apk | grep SHA-256
-   ```
-   Expected cert SHA-256: `79e0051195d444fd531637202870223455fb436b80b75d55ce2c133aa33e11fb`.
-   If it doesn't match, STOP — `android/key.properties` is missing and the APK
-   fell back to debug signing.
-
-7. **Publish.** Write release notes (Added / Changed / Fixed, an Installation
-   section with the md5 verify instructions, the cert SHA-256, and a Linux
-   desktop note — mirror the previous release's body) to a temp file, then:
-   - In the Linux desktop note, tell users to extract the tarball and run
-     `./install.sh` to register the app (launcher icon + "Kalinka" name);
-     `./install.sh --uninstall` reverses it. The app still runs directly via
-     the `kalinka` binary without installing.
-   ```bash
-   gh release create v<v> --title "Kalinka <v>" --notes-file /tmp/relnotes.md \
-     dist/kalinka-<v>-arm64-v8a.apk dist/kalinka-<v>-armeabi-v7a.apk \
-     dist/kalinka-<v>.apk dist/kalinka-<v>-linux-x64.tar.gz dist/md5.txt
-   ```
+6. **Verify the release.** `gh release view v<v>` — check all assets are
+   attached and the body starts with the CHANGELOG section. Expected signing
+   cert SHA-256 (printed in the build-android job log):
+   `79e0051195d444fd531637202870223455fb436b80b75d55ce2c133aa33e11fb`.
 
 ## Notes
 
-- Always attach the per-ABI arm64-v8a APK — IzzyOnDroid's 30 MB budget indexes it.
-- We ship arm64-v8a, armeabi-v7a, universal, Linux tarball, md5.txt. x86_64 is
-  built by `--split-per-abi` but not published.
-- `dist/` is scratch; it's fine to leave or clean up after publishing.
+- We ship: universal APK, Linux tarball, Windows zip + setup.exe, kalinka-web
+  .deb, md5.txt, plus version-less aliases. No per-ABI APKs (dropped after
+  0.5.0 — offset versionCodes blocked cross-variant upgrades; IzzyOnDroid
+  rejected the app so its 30 MB budget no longer matters).
+- After the release publishes, consider the kalinka-site version bump
+  (index.html checklist in the site repo).

@@ -2,11 +2,8 @@
 
 ### Android
 
-Download an APK below and install it:
-
-- `kalinka-__VERSION__-arm64-v8a.apk` — most phones (64-bit ARM)
-- `kalinka-__VERSION__-armeabi-v7a.apk` — older 32-bit devices
-- `kalinka-__VERSION__.apk` — universal (larger; runs on any ABI)
+Download `kalinka-__VERSION__.apk` below and install it (universal — runs on
+any device).
 
 Prefer a link that never changes? This **permanent URL** always serves the
 newest release's universal APK — safe to bookmark or script, no per-version edits:
