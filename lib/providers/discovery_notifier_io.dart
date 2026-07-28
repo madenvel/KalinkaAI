@@ -33,6 +33,9 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
     state = const DiscoveryState(isScanning: true);
 
     final foundServers = <DiscoveredServer>[];
+    // SRV target host:port pairs already resolved — re-announcements within
+    // the scan window would otherwise list the same server repeatedly.
+    final resolvedTargets = <String>{};
     bool minDurationElapsed = false;
 
     // Enforce minimum 1.2 second scan duration for visual stability
@@ -87,7 +90,7 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
           )
           .listen(
             (ptr) async {
-              await _resolveService(ptr, foundServers);
+              await _resolveService(ptr, foundServers, resolvedTargets);
               if (minDurationElapsed) {
                 _finalizeScan(foundServers);
               }
@@ -111,6 +114,7 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
   Future<void> _resolveService(
     PtrResourceRecord ptr,
     List<DiscoveredServer> foundServers,
+    Set<String> resolvedTargets,
   ) async {
     final client = _client;
     if (client == null) return;
@@ -127,6 +131,8 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
       ResourceRecordQuery.service(ptr.domainName),
       timeout: const Duration(seconds: 2),
     )) {
+      // One machine per list entry.
+      if (!resolvedTargets.add('${srv.target}:${srv.port}')) return;
       port = srv.port;
 
       // IPv4 address
