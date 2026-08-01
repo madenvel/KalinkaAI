@@ -370,11 +370,15 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   void _dismissPlaybackErrorDialog() {
     // Also cancels a show that is still waiting for its post-frame callback.
     _playbackErrorShowToken++;
-    if (_playbackErrorRoute == null) return;
+
+    final route = _playbackErrorRoute;
+    if (route == null) return;
+
     // Same-frame reasoning as the show path: removing a route rebuilds the
     // overlay, which can't happen while the provider graph is settling.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (!identical(_playbackErrorRoute, route)) return;
       _removePlaybackErrorRoute();
     });
   }
