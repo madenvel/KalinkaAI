@@ -1,5 +1,11 @@
 import 'dart:async' show StreamSubscription, Timer;
-import 'dart:io' show RawDatagramSocket;
+import 'dart:io'
+    show
+        InternetAddress,
+        InternetAddressType,
+        NetworkInterface,
+        Platform,
+        RawDatagramSocket;
 
 import 'package:dio/dio.dart' show Dio, BaseOptions;
 import 'package:logger/logger.dart' show Logger;
@@ -8,6 +14,48 @@ import 'package:multicast_dns/multicast_dns.dart';
 import 'discovery_types.dart';
 
 final _logger = Logger();
+
+// `multicast_dns` keeps its own copies of these private.
+final _mDnsGroupIPv4 = InternetAddress('224.0.0.251');
+final _mDnsGroupIPv6 = InternetAddress('FF02::FB');
+
+/// Interfaces that accept a multicast join for the mDNS group.
+///
+/// `MDnsClient.start()` joins on every interface it is handed without guarding
+/// the call, so one adapter that refuses takes down the whole scan — Windows
+/// virtual adapters reject it with WSAENOPROTOOPT. Rehearse the joins the same
+/// way, on one throwaway socket, and keep the interfaces that survive.
+Future<Iterable<NetworkInterface>> _multicastCapableInterfaces(
+  InternetAddressType type,
+) async {
+  final isIPv6 = type == InternetAddressType.IPv6;
+  final group = isIPv6 ? _mDnsGroupIPv6 : _mDnsGroupIPv4;
+  final interfaces = await NetworkInterface.list(
+    includeLinkLocal: true,
+    type: type,
+    includeLoopback: true,
+  );
+
+  final usable = <NetworkInterface>[];
+  final probe = await RawDatagramSocket.bind(
+    isIPv6 ? InternetAddress.anyIPv6 : InternetAddress.anyIPv4,
+    0,
+    reuseAddress: true,
+  );
+  try {
+    for (final interface in interfaces) {
+      try {
+        probe.joinMulticast(group, interface);
+        usable.add(interface);
+      } catch (e) {
+        _logger.d('Skipping ${interface.name}: multicast join failed ($e)');
+      }
+    }
+  } finally {
+    probe.close();
+  }
+  return usable;
+}
 
 DiscoveryNotifier createDiscoveryNotifier() => IoDiscoveryNotifier();
 
@@ -64,7 +112,8 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
               host,
               port,
               reuseAddress: reuseAddress,
-              reusePort: reusePort,
+              // Windows has no SO_REUSEPORT; asking logs a native error per bind.
+              reusePort: reusePort && !Platform.isWindows,
               ttl: ttl,
             );
           } catch (_) {
@@ -79,7 +128,7 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
           }
         },
       );
-      await _client!.start();
+      await _client!.start(interfacesFactory: _multicastCapableInterfaces);
 
       const serviceType = '_kalinkaplayer._tcp.local';
 
