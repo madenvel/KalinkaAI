@@ -73,10 +73,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   bool _setupCheckBusy = false;
 
   // Tracks the on-screen playback-error dialog so a re-fired error (the state
-  // store re-syncs on resume/reconnect) doesn't stack another copy.
+  // store re-syncs on resume/reconnect) doesn't stack another copy. The token
+  // identifies the latest requested dialog, so a show still waiting on its
+  // post-frame callback can be cancelled.
   ModalRoute<void>? _playbackErrorRoute;
   String? _playbackErrorMessage;
-  int _playbackErrorGen = 0;
+  int _playbackErrorShowToken = 0;
 
   // Live height of the floating dock (plus escalation card, when shown) so the
   // queue behind it can reserve matching bottom space and clear the bar.
@@ -326,37 +328,62 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
 
   void _showPlaybackErrorDialog(String? message) {
     if (!mounted) return;
+    // Claimed here, not in the callback: an error that clears in the same
+    // frame has to cancel this pending show rather than race it.
+    final token = ++_playbackErrorShowToken;
     // Defer to the next frame: the error listener fires mid-connect while the
     // provider graph is still settling, and inserting the dialog in that frame
     // rebuilds the overlay against dirty providers (setState during build).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || token != _playbackErrorShowToken) return;
       // Only one playback-error dialog at a time. An identical error while one
       // is up (state re-sync on resume) keeps the existing dialog; a different
       // error replaces it.
       if (_playbackErrorRoute != null) {
         if (message == _playbackErrorMessage) return;
-        final navigator = Navigator.of(context);
-        final route = _playbackErrorRoute!;
-        if (route.isActive) navigator.removeRoute(route);
+        _removePlaybackErrorRoute();
       }
-      final gen = ++_playbackErrorGen;
       _playbackErrorMessage = message;
+      ModalRoute<void>? shown;
       showKalinkaDialog<void>(
         context: context,
         builder: (dialogContext) {
-          _playbackErrorRoute = ModalRoute.of<void>(dialogContext);
+          shown = ModalRoute.of<void>(dialogContext);
+          _playbackErrorRoute = shown;
           return PlaybackErrorDialog(message: message);
         },
       ).whenComplete(() {
-        // Closed (dismissed, skipped, or replaced). A replacement has already
-        // bumped the generation and owns the fields — don't clear its state.
-        if (gen == _playbackErrorGen) {
+        // Closed (dismissed, skipped, or replaced). A replacement already owns
+        // the fields — don't clear its state.
+        if (identical(_playbackErrorRoute, shown)) {
           _playbackErrorRoute = null;
           _playbackErrorMessage = null;
         }
       });
     });
+  }
+
+  /// Takes the playback-error dialog down when the error it describes stops
+  /// being true — playback recovered, or another client skipped past the
+  /// failing track and the server pushed the new state.
+  void _dismissPlaybackErrorDialog() {
+    // Also cancels a show that is still waiting for its post-frame callback.
+    _playbackErrorShowToken++;
+    if (_playbackErrorRoute == null) return;
+    // Same-frame reasoning as the show path: removing a route rebuilds the
+    // overlay, which can't happen while the provider graph is settling.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _removePlaybackErrorRoute();
+    });
+  }
+
+  void _removePlaybackErrorRoute() {
+    final route = _playbackErrorRoute;
+    if (route == null) return;
+    _playbackErrorRoute = null;
+    _playbackErrorMessage = null;
+    if (route.isActive) Navigator.of(context).removeRoute(route);
   }
 
   @override
@@ -368,12 +395,23 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     // in the phone layout.
     ref.listen(
       playQueueStateStoreProvider.select(
-        (s) => (state: s.playbackState.state, message: s.playbackState.message),
+        (s) => (
+          state: s.playbackState.state,
+          message: s.playbackState.message,
+          // Identity of the track the error is about. Watched so a skip from
+          // another client — which arrives as a plain state update — retires
+          // or replaces the dialog instead of leaving it stranded.
+          trackId: s.playbackState.currentTrack?.id,
+        ),
       ),
       (prev, next) {
-        if (next.state == PlayerStateType.error &&
-            (prev?.state != PlayerStateType.error ||
-                prev?.message != next.message)) {
+        if (next.state != PlayerStateType.error) {
+          _dismissPlaybackErrorDialog();
+          return;
+        }
+        if (prev?.state != PlayerStateType.error ||
+            prev?.message != next.message ||
+            prev?.trackId != next.trackId) {
           _showPlaybackErrorDialog(next.message);
         }
       },
