@@ -8,7 +8,7 @@ import '../providers/upgrade_provider.dart';
 import '../data_model/presentation_schema.dart' show PageSpec;
 import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
-import '../widgets/kalinka_bottom_sheet.dart' show showKalinkaConfirmDialog;
+import '../widgets/kalinka_dialog.dart' show showKalinkaDialog;
 import '../widgets/kalinka_button.dart';
 import '../widgets/pending_changes_banner.dart';
 import '../widgets/restart_confirm_dialog.dart';
@@ -333,7 +333,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   Future<void> _onRestart() async {
-    final confirmed = await showKalinkaConfirmDialog<bool>(
+    final confirmed = await showKalinkaDialog<bool>(
       context: context,
       builder: (_) => const RestartConfirmDialog(),
     );

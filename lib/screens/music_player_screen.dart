@@ -19,6 +19,7 @@ import '../widgets/escalation_card.dart';
 import '../widgets/kalinka_button.dart';
 import '../widgets/kalinka_top_bar.dart';
 import '../widgets/kalinka_bottom_sheet.dart';
+import '../widgets/kalinka_dialog.dart';
 import '../widgets/measure_size.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/now_playing_content.dart';
@@ -43,8 +44,6 @@ class MusicPlayerScreen extends ConsumerStatefulWidget {
 
 class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     with SingleTickerProviderStateMixin {
-  static const _tabletBreakpoint = 900.0;
-
   final _searchDockKey = GlobalKey();
   final _connectionDotKey = GlobalKey();
 
@@ -212,7 +211,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       case TrayAction.clearAll:
         await Future.delayed(const Duration(milliseconds: 160));
         if (!mounted) return;
-        await showKalinkaConfirmDialog<bool>(
+        await showKalinkaDialog<bool>(
           context: context,
           builder: (_) => ClearAllConfirmDialog(onConfirmClearAll: _clearAll),
         );
@@ -229,7 +228,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       case TrayAction.clearAll:
         await Future.delayed(const Duration(milliseconds: 160));
         if (!mounted) return;
-        await showKalinkaConfirmDialog<bool>(
+        await showKalinkaDialog<bool>(
           context: context,
           builder: (_) => ClearAllConfirmDialog(onConfirmClearAll: _clearAll),
         );
@@ -247,7 +246,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       // Override the M3 default 640px cap so the sheet fills the window and
       // resizes smoothly instead of centering with the layout poking out.
       constraints: const BoxConstraints(maxWidth: double.infinity),
-      builder: (_) => const _ExpandedPlayerSheet(breakpoint: _tabletBreakpoint),
+      builder: (_) => const _ExpandedPlayerSheet(),
     );
   }
 
@@ -343,11 +342,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       }
       final gen = ++_playbackErrorGen;
       _playbackErrorMessage = message;
-      showKalinkaConfirmDialog<void>(
+      showKalinkaDialog<void>(
         context: context,
-        // The dialog paints its own scrim and re-lays-out on resize, so keep
-        // the global barrier clear.
-        barrierColor: Colors.transparent,
         builder: (dialogContext) {
           _playbackErrorRoute = ModalRoute.of<void>(dialogContext);
           return PlaybackErrorDialog(message: message);
@@ -398,7 +394,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       backgroundColor: KalinkaColors.background,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isTablet = constraints.maxWidth >= _tabletBreakpoint;
+          final isTablet = constraints.maxWidth >= kKalinkaTabletBreakpoint;
           return Stack(
             // Tight constraints keep the layout root a relayout boundary.
             fit: StackFit.expand,
@@ -880,9 +876,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
 /// player instead lives permanently in the left panel — otherwise the sheet
 /// would float on top of the tablet layout.
 class _ExpandedPlayerSheet extends StatefulWidget {
-  final double breakpoint;
-
-  const _ExpandedPlayerSheet({required this.breakpoint});
+  const _ExpandedPlayerSheet();
 
   @override
   State<_ExpandedPlayerSheet> createState() => _ExpandedPlayerSheetState();
@@ -897,7 +891,7 @@ class _ExpandedPlayerSheetState extends State<_ExpandedPlayerSheet> {
     // pop on every resize frame re-ran after the route was gone and threw
     // "No element" (Navigator.pop on empty history) mid-resize.
     if (!_dismissing &&
-        MediaQuery.of(context).size.width >= widget.breakpoint) {
+        MediaQuery.of(context).size.width >= kKalinkaTabletBreakpoint) {
       _dismissing = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && (ModalRoute.of(context)?.isCurrent ?? false)) {

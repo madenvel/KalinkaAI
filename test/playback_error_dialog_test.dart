@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kalinka/data_model/kalinka_ws_api.dart';
 import 'package:kalinka/providers/kalinka_ws_api_provider.dart';
-import 'package:kalinka/widgets/kalinka_bottom_sheet.dart';
+import 'package:kalinka/widgets/kalinka_dialog.dart';
 import 'package:kalinka/widgets/playback_error_dialog.dart';
 
 // The playback-error dialog used to live in MiniPlayer; it now renders via
-// showKalinkaConfirmDialog (driven from MusicPlayerScreen so it also shows on
+// showKalinkaDialog (driven from MusicPlayerScreen so it also shows on
 // tablet, where MiniPlayer isn't mounted). These tests cover the dialog widget
 // and the show-helper integration directly.
 
@@ -65,19 +65,19 @@ void main() {
       expect(find.text('This track couldn’t be played.'), findsOneWidget);
     });
 
-    testWidgets('wide (tablet) layout still renders the card', (tester) async {
-      // The tablet/phone split is decided reactively from MediaQuery, so drive
-      // it with a wide surface rather than a constructor flag.
+    testWidgets('wide (tablet) layout keeps the card in the player panel', (
+      tester,
+    ) async {
+      // The tablet/phone split is decided reactively from layout constraints,
+      // so drive it with a wide surface rather than a constructor flag.
+      await tester.binding.setSurfaceSize(const Size(1200, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: _overrides(),
           child: const MaterialApp(
-            home: MediaQuery(
-              data: MediaQueryData(size: Size(1200, 800)),
-              child: Scaffold(
-                body: PlaybackErrorDialog(message: 'Boom'),
-              ),
-            ),
+            home: Scaffold(body: PlaybackErrorDialog(message: 'Boom')),
           ),
         ),
       );
@@ -85,10 +85,15 @@ void main() {
 
       expect(find.text('Playback error'), findsOneWidget);
       expect(find.text('Boom'), findsOneWidget);
+      // Left half of the window — the Now Playing side.
+      expect(
+        tester.getRect(find.byKey(KalinkaDialog.cardKey)).right,
+        lessThanOrEqualTo(600),
+      );
     });
   });
 
-  group('showKalinkaConfirmDialog + PlaybackErrorDialog', () {
+  group('showKalinkaDialog + PlaybackErrorDialog', () {
     Future<void> openDialog(
       WidgetTester tester,
       ProviderContainer container, {
@@ -102,7 +107,7 @@ void main() {
               body: Builder(
                 builder: (context) => Center(
                   child: ElevatedButton(
-                    onPressed: () => showKalinkaConfirmDialog<void>(
+                    onPressed: () => showKalinkaDialog<void>(
                       context: context,
                       builder: (_) => PlaybackErrorDialog(message: message),
                     ),
