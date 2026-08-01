@@ -1,0 +1,4 @@
+- Fixed a crash when clearing the playback queue
+- Fixed duplicate servers appearing in network scan results
+- Find Music: more prominent search entry and a clearer suggestion overlay
+- Android now ships a single universal APK

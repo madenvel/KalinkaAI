@@ -4,6 +4,18 @@ Curated, user-facing notes per release. Add a `## <version>` section (matching
 the `pubspec.yaml` semver, no build suffix) before tagging — the release
 pipeline pulls the matching section into the GitHub Release body.
 
+## 0.5.1
+
+### Changed
+- Find Music: the search entry now stands out on the Discover screen, and the
+  suggestion overlay reads more clearly — icons on every row and less prompt
+  text while you type.
+- Android now ships a single universal APK instead of per-ABI builds.
+
+### Fixed
+- Crash when clearing the playback queue.
+- Duplicate entries when scanning for servers on the local network.
+
 ## 0.5.0
 
 ### Added
