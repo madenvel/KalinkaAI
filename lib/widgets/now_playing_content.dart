@@ -243,6 +243,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
             mimeLabel: mimeLabel,
             qualityLabel: qualityLabel,
           ),
+          const _PlaybackErrorNote(),
         ],
       ],
     );
@@ -356,6 +357,47 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
   }
 }
 
+/// Inline note under the track metadata when the current track failed to play.
+///
+/// The transport disc stays a plain play button that retries, so this line and
+/// the queue's CAN'T PLAY label are what report the failure once the dialog is
+/// gone. Its own widget so state changes don't rebuild the metadata above it.
+class _PlaybackErrorNote extends ConsumerWidget {
+  const _PlaybackErrorNote();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final failed = ref.watch(
+      playerStateProvider.select((s) => s.state == PlayerStateType.error),
+    );
+    if (!failed) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.warning_rounded,
+            size: 14,
+            color: KalinkaColors.statusPendingLight,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              'Couldn’t play this track',
+              style: KalinkaTextStyles.expandedAttribution.copyWith(
+                color: KalinkaColors.statusPendingLight,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Transport controls row (shuffle, prev, play/pause, next, repeat).
 /// Extracted so only this widget rebuilds on playerState / playbackMode changes,
 /// leaving the rest of NowPlayingContent (album art, metadata) untouched.
@@ -387,9 +429,9 @@ class _TransportControls extends ConsumerWidget {
     // playback: repeat-all wraps around and shuffle decouples list order from
     // play order, so in those modes either end stays meaningful.
     final boundedNav = !isShuffle && !isRepeatAll;
-    final canPrev =
-        hasTrack && (!boundedNav || queuePosition.index > 0);
-    final canNext = hasTrack &&
+    final canPrev = hasTrack && (!boundedNav || queuePosition.index > 0);
+    final canNext =
+        hasTrack &&
         (!boundedNav || queuePosition.index < queuePosition.length - 1);
 
     return RepaintBoundary(
@@ -453,7 +495,7 @@ class _TransportControls extends ConsumerWidget {
               child: PlayPauseGlyph(
                 playerState: playerState,
                 iconSize: 38,
-                statusSize: 30,
+                spinnerSize: 30,
                 spinnerStrokeWidth: 3,
               ),
             ),
