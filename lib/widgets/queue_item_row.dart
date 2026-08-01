@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart';
 import '../data_model/kalinka_ws_api.dart';
 import '../providers/kalinka_player_api_provider.dart';
+import '../providers/playback_failure_provider.dart';
 import '../providers/playback_time_provider.dart';
 import '../providers/toast_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
@@ -87,6 +88,11 @@ class QueueItemRow extends ConsumerWidget {
     final api = ref.read(kalinkaWsApiProvider);
     final kalinkaProxy = ref.read(kalinkaProxyProvider);
     final urlResolver = ref.read(urlResolverProvider);
+    // Failures this session, so a track that couldn't play stays marked after
+    // the error dialog is gone and the player has moved on.
+    final playbackFailed = ref.watch(
+      playbackFailuresProvider.select((ids) => ids.contains(track.id)),
+    );
 
     final imageUrl = track.album?.image?.small;
     final resolvedImageUrl = imageUrl != null
@@ -209,9 +215,11 @@ class QueueItemRow extends ConsumerWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      if (track.unavailable) ...[
+                      if (track.unavailable || playbackFailed) ...[
                         Tooltip(
-                          message: 'Unavailable — could not load this track',
+                          message: track.unavailable
+                              ? 'Unavailable — could not load this track'
+                              : 'Playback failed — press play to try again',
                           child: const Icon(
                             Icons.error_outline,
                             size: 16,
@@ -276,8 +284,7 @@ class QueueItemRow extends ConsumerWidget {
                           Text(
                             _formatDuration(track.duration),
                             // Keep Up Next duration fixed for fast scanning.
-                            style:
-                                KalinkaTextStyles.queueItemDuration.copyWith(
+                            style: KalinkaTextStyles.queueItemDuration.copyWith(
                               color: KalinkaColors.textSecondary,
                             ),
                           ),

@@ -7,6 +7,7 @@ import '../providers/connection_settings_provider.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/onboarding_provider.dart';
+import '../providers/playback_failure_provider.dart';
 import '../providers/search_session_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/toast_provider.dart';
@@ -389,6 +390,10 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   @override
   Widget build(BuildContext context) {
     ref.read(mediaNotificationProvider);
+    // Arm the failure recorder from app start. Left to the queue rows that
+    // read it, it would miss an error that lands while the queue isn't built
+    // — during a search session, say.
+    ref.read(playbackFailuresProvider);
 
     // Surface playback errors as a dialog in both phone and tablet layouts.
     // Lives here (not in MiniPlayer) because the mini player is only mounted
