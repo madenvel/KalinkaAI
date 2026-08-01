@@ -23,12 +23,13 @@ class ServerUpdateInfo {
   bool get canUpgrade => updateAvailable && upgradeSupported;
 }
 
-/// Fetched lazily once per app session (Riverpod caches the future for the
-/// container's lifetime). Resolves to null when the server predates the
-/// endpoint or the request fails — both mean "show nothing".
+/// Re-fetched on every server switch: the `watch` below ties this to the proxy,
+/// which is rebuilt from the connection settings. A `read` would instead pin the
+/// first server's answer for the container's lifetime. Resolves to null when the
+/// server predates the endpoint or the request fails — both mean "show nothing".
 final serverUpdateProvider = FutureProvider<ServerUpdateInfo?>((ref) async {
   try {
-    final info = await ref.read(kalinkaProxyProvider).getServerUpdateInfo();
+    final info = await ref.watch(kalinkaProxyProvider).getServerUpdateInfo();
     if (info == null) return null;
     return ServerUpdateInfo(
       currentVersion: (info['current_version'] ?? '') as String,
