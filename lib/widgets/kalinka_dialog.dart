@@ -8,7 +8,7 @@ enum KalinkaDialogSide {
   left,
 
   /// Right panel — the queue and the search session, so queue confirmations
-  /// (clear all, playback error) belong here.
+  /// (clear all) belong here.
   right,
 
   /// Screens with no split layout, such as onboarding: the dialog owns the
