@@ -46,8 +46,10 @@ class PlaybackFailuresNotifier extends Notifier<Set<String>> {
     switch (next.state) {
       case PlayerStateType.error:
         if (!state.contains(id)) state = {...state, id};
+        break;
       case PlayerStateType.playing:
         if (state.contains(id)) state = {...state}..remove(id);
+        break;
       // Paused/stopped/buffering say nothing either way — a paused track that
       // failed earlier keeps its mark.
       case PlayerStateType.paused:
