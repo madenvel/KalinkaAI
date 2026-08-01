@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kalinka/data_model/data_model.dart';
+import 'package:kalinka/data_model/kalinka_ws_api.dart';
 import 'package:kalinka/data_model/playqueue_events.dart';
 import 'package:kalinka/providers/app_state_provider.dart';
 import 'package:kalinka/providers/connection_state_provider.dart';
+import 'package:kalinka/providers/kalinka_ws_api_provider.dart';
 import 'package:kalinka/providers/playback_time_provider.dart';
 import 'package:kalinka/providers/search_session_provider.dart';
 import 'package:kalinka/providers/url_resolver.dart';
@@ -47,6 +49,18 @@ class _FakePlaybackTimeNotifier extends PlaybackTimeMsNotifier {
 
 // Return type is intentionally inferred — Riverpod's Override type is sealed
 // and its concrete form is resolved by the package internally.
+/// Records queue commands instead of hitting the websocket.
+class _FakeWsApi extends KalinkaWsApi {
+  _FakeWsApi(super.ref);
+
+  final List<QueueCommand> sent = [];
+
+  @override
+  Future<void> sendQueueCommand(QueueCommand command) async {
+    sent.add(command);
+  }
+}
+
 _buildOverrides({
   required PlayQueueState queueState,
   ConnectionStatus connectionStatus = ConnectionStatus.connected,
@@ -102,7 +116,6 @@ void main() {
 
       expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
       expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
-      expect(find.byIcon(Icons.warning_rounded), findsNothing);
     });
 
     testWidgets('shows play icon when paused', (tester) async {
@@ -135,16 +148,59 @@ void main() {
       expect(find.byIcon(Icons.pause_rounded), findsNothing);
     });
 
-    testWidgets('shows warning icon when error', (tester) async {
+    // A failed track keeps a plain play button — pressing it retries. Showing
+    // a warning there read as "this control is broken".
+    testWidgets('shows play icon when the track failed', (tester) async {
       await pumpMiniPlayer(
         tester,
         queueState:
             _queueWithState(state: PlayerStateType.error, message: 'Oops'),
       );
 
-      expect(find.byIcon(Icons.warning_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
+      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.warning_rounded), findsNothing);
       expect(find.byIcon(Icons.pause_rounded), findsNothing);
+    });
+
+    testWidgets('pressing play on a failed track retries it', (tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          ..._buildOverrides(
+            queueState: PlayQueueState(
+              playbackState: PlaybackState(
+                state: PlayerStateType.error,
+                message: 'Oops',
+              ),
+              trackList: [
+                Track(
+                  id: 't0',
+                  title: 'Track',
+                  duration: 1000,
+                  performer: Artist(id: 'a', name: 'Someone'),
+                ),
+              ],
+              playbackMode: PlaybackMode.empty,
+              seq: 0,
+            ),
+          ),
+          kalinkaWsApiProvider.overrideWith((ref) => _FakeWsApi(ref)),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: Scaffold(body: MiniPlayer())),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.play_arrow_rounded));
+      await tester.pump();
+
+      final api = container.read(kalinkaWsApiProvider) as _FakeWsApi;
+      expect(api.sent, [const QueueCommand.play()]);
     });
   });
 

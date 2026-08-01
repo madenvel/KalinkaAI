@@ -451,9 +451,11 @@ class _NowPlayingHeaderDelegate extends SliverPersistentHeaderDelegate {
 
 /// Header label + format suffix for the NOW PLAYING section.
 ///
-/// The label tracks the player state: PLAYING / PAUSED / READY. Buffering and
-/// error never replace the label — they hold the last stable value so the
-/// header doesn't strobe on a flaky connection.
+/// The label tracks the player state: PLAYING / PAUSED / READY / CAN'T PLAY.
+/// Buffering never replaces the label — it holds the last stable value so the
+/// header doesn't strobe on a flaky connection. A failed track does show,
+/// because it persists until someone acts on it, and it is the one state the
+/// transport controls deliberately don't advertise.
 class _NowPlayingHeaderContent extends ConsumerStatefulWidget {
   const _NowPlayingHeaderContent();
 
@@ -474,8 +476,9 @@ class _NowPlayingHeaderContentState
         return 'PAUSED';
       case PlayerStateType.stopped:
         return 'READY';
-      case PlayerStateType.buffering:
       case PlayerStateType.error:
+        return "CAN'T PLAY";
+      case PlayerStateType.buffering:
       case null:
         return null;
     }

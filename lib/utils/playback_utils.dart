@@ -9,7 +9,10 @@ void sendPlayPauseCommand(WidgetRef ref, PlayerStateType? playerState) {
   final api = ref.read(kalinkaWsApiProvider);
   if (playerState == PlayerStateType.buffering) return;
 
-  if (playerState == PlayerStateType.stopped) {
+  // A failed track is stopped as far as the transport is concerned, so play
+  // means "try it again" — the only retry the app offers.
+  if (playerState == PlayerStateType.stopped ||
+      playerState == PlayerStateType.error) {
     api.sendQueueCommand(const QueueCommand.play());
   } else if (playerState == PlayerStateType.paused) {
     api.sendQueueCommand(const QueueCommand.pause(paused: false));

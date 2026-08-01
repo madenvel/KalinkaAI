@@ -537,7 +537,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
             child: PlayPauseGlyph(
               playerState: playerState,
               iconSize: 26,
-              statusSize: 22,
+              spinnerSize: 22,
             ),
           ),
         ),
