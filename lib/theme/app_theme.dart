@@ -7,6 +7,12 @@ const double kKalinkaTopBarHeight = 52;
 /// Wordmark height inside the top bar, shared by every screen that shows it.
 const double kKalinkaWordmarkHeight = 30;
 
+/// Window width at/above which the app switches to the two-panel tablet
+/// layout (Now Playing + Settings on the left, queue + search on the right).
+/// Anything that has to line up with that split — dialogs, sheets — must read
+/// the same number, so it lives here rather than in each screen.
+const double kKalinkaTabletBreakpoint = 900;
+
 /// Decoration shared by the queue, search, and settings top bars so all three
 /// read identically — solid surface, a hairline bottom rule, and a soft drop
 /// shadow. Applied via [Container] (not DecoratedBox) so the border also insets

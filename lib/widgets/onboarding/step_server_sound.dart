@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
-import '../kalinka_bottom_sheet.dart' show showKalinkaConfirmDialog;
+import '../kalinka_dialog.dart' show showKalinkaDialog;
 import '../settings_controls/settings_card.dart';
 import 'onboarding_fields.dart';
 import 'onboarding_step_scaffold.dart';
@@ -47,7 +47,7 @@ class OnboardingServerSoundStep extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.all(12),
               child: _TestOutputButton(
-                onTap: () => showKalinkaConfirmDialog<void>(
+                onTap: () => showKalinkaDialog<void>(
                   context: context,
                   builder: (_) => const SpeakerTestDialog(),
                 ),

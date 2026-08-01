@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/server_update_provider.dart';
 import '../providers/upgrade_provider.dart';
 import '../theme/app_theme.dart';
-import 'kalinka_bottom_sheet.dart' show showKalinkaConfirmDialog;
+import 'kalinka_dialog.dart' show showKalinkaDialog;
 import 'upgrade_confirm_dialog.dart';
 
 /// One-line server update status banner under the SERVER section header.
@@ -93,7 +93,7 @@ class ServerUpdateBanner extends ConsumerWidget {
     WidgetRef ref,
     String version,
   ) async {
-    final confirmed = await showKalinkaConfirmDialog<bool>(
+    final confirmed = await showKalinkaDialog<bool>(
       context: context,
       builder: (_) => UpgradeConfirmDialog(version: version),
     );
