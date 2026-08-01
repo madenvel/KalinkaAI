@@ -18,9 +18,13 @@ import 'package:kalinka/providers/websocket_provider.dart';
 import 'package:kalinka/screens/music_player_screen.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-// The playback-error dialog is raised from server state, so it has to be
-// retired from server state too: if another client skips the failing track,
-// the error the dialog describes is gone and the dialog must go with it.
+// How a failed track surfaces, driven end to end from server state.
+//
+// The dialog is raised from server state, so it has to be retired from server
+// state too: if another client skips the failing track, the error the dialog
+// describes is gone and the dialog must go with it. The queue's own signals —
+// the CAN'T PLAY header and the per-row marker — are covered here too, since
+// they are what remains once the dialog is gone.
 
 class _SettableQueueNotifier extends PlayQueueStateStore {
   _SettableQueueNotifier(this._initial);
@@ -160,6 +164,38 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Playback error'), findsNothing);
+  });
+
+  testWidgets('the queue reports the failure in its header and on the row', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final queue = await _pumpScreen(tester);
+    expect(find.byIcon(Icons.error_outline), findsNothing);
+
+    queue.set(
+      _queue(
+        state: PlayerStateType.error,
+        index: 0,
+        message: 'Unsupported codec',
+        seq: 1,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text("CAN'T PLAY"), findsOneWidget);
+    expect(find.byIcon(Icons.error_outline), findsWidgets);
+
+    // The marker outlives the dialog: another client skips on, the row the
+    // user just watched fail stays flagged.
+    queue.set(_queue(state: PlayerStateType.playing, index: 1, seq: 2));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Playback error'), findsNothing);
+    expect(find.byIcon(Icons.error_outline), findsWidgets);
   });
 
   testWidgets('a second error on a new track replaces the dialog', (
