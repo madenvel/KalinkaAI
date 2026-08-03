@@ -1,0 +1,5 @@
+- The play button now retries a track that failed to play
+- Tracks the player couldn't play stay marked in the queue
+- The playback error dialog closes when the error clears
+- Fixed the server update banner not re-checking after switching servers
+- Consistent, tablet-aware confirmation dialogs

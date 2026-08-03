@@ -4,6 +4,29 @@ Curated, user-facing notes per release. Add a `## <version>` section (matching
 the `pubspec.yaml` semver, no build suffix) before tagging — the release
 pipeline pulls the matching section into the GitHub Release body.
 
+## 0.5.2
+
+### Added
+- Retry a track that failed to play: the play button now sends play again
+  instead of turning into a dead warning icon.
+- Tracks the player couldn't play stay marked in the queue for the rest of the
+  session, and the now-playing header says so — the mark clears once the track
+  plays.
+
+### Changed
+- Every confirmation dialog now shares one presentation: bottom-anchored, and
+  on tablets it stays inside the panel it belongs to and follows window
+  resizes.
+
+### Fixed
+- Server discovery on Windows: a virtual network adapter refusing to join the
+  multicast group aborted the whole scan, so the app jumped straight to manual
+  address entry.
+- The server update banner now re-checks after connecting to a different
+  server instead of describing the one connected first.
+- The playback error dialog now goes away when the error does — for example
+  when another client skips the failing track.
+
 ## 0.5.1
 
 ### Changed
