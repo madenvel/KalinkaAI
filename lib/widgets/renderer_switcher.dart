@@ -333,13 +333,17 @@ class _RendererRow extends StatelessWidget {
         ),
         child: Opacity(
           opacity: connected ? 1.0 : 0.45,
-          child: Row(
-            children: [
-              Expanded(
-                child: Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(11),
-                  clipBehavior: Clip.antiAlias,
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              children: [
+                // Full-bleed, and under the content: hovering the name lights
+                // the whole item rather than the strip left of the rule. The
+                // gear is painted over it and takes its own hits first, so its
+                // highlight stays a circle.
+                Positioned.fill(
                   child: InkWell(
                     onTap: canPlayHere
                         ? () {
@@ -347,56 +351,68 @@ class _RendererRow extends StatelessWidget {
                             onIntent(RendererPickerIntent.play);
                           }
                         : null,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(11, 10, 8, 10),
-                      child: Row(
-                        children: [
-                          _SelectionMark(selected: active),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  name,
-                                  style: KalinkaTextStyles.trayRowLabel,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                if (detail.isNotEmpty) ...[
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    detail,
-                                    style: KalinkaTextStyles.trayRowSublabel,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ),
-              ),
-              // Two targets in one row: the rule is what says so.
-              Container(
-                width: 1,
-                height: 26,
-                color: KalinkaColors.borderSubtle,
-              ),
-              _GearButton(
-                rendererName: name,
-                onTap: canConfigure
-                    ? () {
-                        KalinkaHaptics.selectionClick();
-                        onIntent(RendererPickerIntent.configure);
-                      }
-                    : null,
-              ),
-            ],
+                Row(
+                  children: [
+                    Expanded(
+                      // Text swallows pointers (RenderParagraph hit-tests
+                      // itself for selection), which would keep the hover off
+                      // the InkWell below. Nothing here is a target anyway.
+                      child: IgnorePointer(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(11, 10, 8, 10),
+                          child: Row(
+                            children: [
+                              _SelectionMark(selected: active),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: KalinkaTextStyles.trayRowLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (detail.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        detail,
+                                        style:
+                                            KalinkaTextStyles.trayRowSublabel,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Two targets in one row: the rule is what says so.
+                    Container(
+                      width: 1,
+                      height: 26,
+                      color: KalinkaColors.borderSubtle,
+                    ),
+                    _GearButton(
+                      rendererName: name,
+                      onTap: canConfigure
+                          ? () {
+                              KalinkaHaptics.selectionClick();
+                              onIntent(RendererPickerIntent.configure);
+                            }
+                          : null,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -46,6 +46,19 @@ List<RendererInfo> _parse(String body) => [
     RendererInfo.fromJson(Map<String, dynamic>.from(r as Map)),
 ];
 
+/// The picker row carrying [name]. Its Stack is the item's full extent — the
+/// play target underneath and the gear over it.
+Finder _rowOf(String name) =>
+    find.ancestor(of: find.text(name), matching: find.byType(Stack)).first;
+
+/// That row's gear, which is its own target rather than part of the row tap.
+Finder _gearOf(String name) => find
+    .descendant(
+      of: _rowOf(name),
+      matching: find.byIcon(Icons.settings_outlined),
+    )
+    .first;
+
 /// Serves the captured list and records selections; everything else throws.
 class _FakeApi implements KalinkaPlayerProxy {
   _FakeApi({this.unsupported = false, this.failWith});
@@ -328,11 +341,32 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.speaker_outlined));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Kitchen'));
+    // tapAt, not tap: the label ignores pointers so the whole row is one
+    // target, which means the finder's widget isn't the one that's hit.
+    await tester.tapAt(tester.getCenter(find.text('Kitchen')));
     await tester.pumpAndSettle();
 
     expect(api.selected, ['r-kitchen']);
     expect(find.text('PLAY ON'), findsNothing, reason: 'sheet dismissed');
+  });
+
+  testWidgets('the whole row is the target, not just the label', (
+    tester,
+  ) async {
+    // Hovering or tapping the blank stretch right of the name has to act on
+    // the row — the highlight covers the full item, so the hit area must too.
+    final api = _FakeApi();
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.pumpAndSettle();
+    final row = tester.getRect(_rowOf('Kitchen'));
+    // Left of the rule that fences off the gear, right of any text.
+    await tester.tapAt(Offset(row.right - 60, row.center.dy));
+    await tester.pumpAndSettle();
+
+    expect(api.selected, ['r-kitchen']);
   });
 
   testWidgets('the gear opens that renderer\'s settings page', (tester) async {
@@ -344,17 +378,7 @@ void main() {
     await tester.pumpAndSettle();
     // One gear per row; take the active renderer's, which the row tap can't
     // act on — proving the gear is its own target rather than the row's.
-    await tester.tap(
-      find
-          .descendant(
-            of: find.ancestor(
-              of: find.text('Living Room'),
-              matching: find.byType(Row),
-            ),
-            matching: find.byIcon(Icons.settings_outlined),
-          )
-          .first,
-    );
+    await tester.tap(_gearOf('Living Room'));
     await tester.pumpAndSettle();
 
     expect(api.selected, isEmpty, reason: 'configuring is not switching');
@@ -373,17 +397,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.speaker_outlined));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find
-          .descendant(
-            of: find.ancestor(
-              of: find.text('Living Room'),
-              matching: find.byType(Row),
-            ),
-            matching: find.byIcon(Icons.settings_outlined),
-          )
-          .first,
-    );
+    await tester.tap(_gearOf('Living Room'));
     await tester.pumpAndSettle();
 
     // Same panel widget the server settings screen uses — one animation.
@@ -400,17 +414,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.speaker_outlined));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find
-          .descendant(
-            of: find.ancestor(
-              of: find.text('Living Room'),
-              matching: find.byType(Row),
-            ),
-            matching: find.byIcon(Icons.settings_outlined),
-          )
-          .first,
-    );
+    await tester.tap(_gearOf('Living Room'));
     await tester.pumpAndSettle();
     expect(find.text('OUTPUT SETTINGS'), findsOneWidget);
 
@@ -433,13 +437,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.speaker_outlined));
     await tester.pumpAndSettle();
-    final studyGear = find
-        .descendant(
-          of: find.ancestor(of: find.text('Study'), matching: find.byType(Row)),
-          matching: find.byIcon(Icons.settings_outlined),
-        )
-        .first;
-    await tester.tap(studyGear);
+    await tester.tap(_gearOf('Study'));
     await tester.pumpAndSettle();
 
     expect(find.text('OUTPUT SETTINGS'), findsNothing);
@@ -453,7 +451,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.speaker_outlined));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Study'));
+    await tester.tapAt(tester.getCenter(find.text('Study')));
     await tester.pumpAndSettle();
 
     expect(api.selected, isEmpty);
