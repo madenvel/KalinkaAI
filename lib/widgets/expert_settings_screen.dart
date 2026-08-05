@@ -306,7 +306,7 @@ class _ExpertRow extends ConsumerWidget {
         : buildFieldControl(
             field: field,
             value: value,
-            state: state,
+            options: state,
             onChanged: (v) => notifier.stageChange(field.path, v),
             // Expert rows allocate the full row width to each
             // control — let narrow widgets like the numeric input

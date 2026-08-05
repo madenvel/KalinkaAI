@@ -1,11 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/presentation_schema.dart';
 import 'kalinka_player_api_provider.dart';
+import 'settings_binding.dart';
 
 /// Settings state keyed entirely by flat dotted paths (`base_config.server.port`,
 /// `input_modules.qobuz.email`, …). The backend owns the presentation schema —
 /// we never regroup, relabel, or re-derive anything on the client.
-class SettingsState {
+class SettingsState implements EnumOptionSource {
   final PresentationSchema? schema;
   final String? schemaVersion;
   final Map<String, dynamic> values; // Path → server value
@@ -43,6 +44,7 @@ class SettingsState {
   /// Live option list for [path] if the backend resolved one this
   /// refresh, else null (caller should fall back to the schema's
   /// static enum_values).
+  @override
   List<OptionSpec>? optionsFor(String path) => enumOptions[path];
 
   SettingsState copyWith({
@@ -69,6 +71,27 @@ class SettingsState {
 final settingsProvider = NotifierProvider<SettingsNotifier, SettingsState>(
   SettingsNotifier.new,
 );
+
+/// The server's own settings as a [SettingsBinding], so the schema widgets
+/// render `/server/config` without depending on this provider directly.
+class ServerSettingsBinding implements SettingsBinding {
+  final SettingsState state;
+  final SettingsNotifier notifier;
+
+  const ServerSettingsBinding(this.state, this.notifier);
+
+  @override
+  dynamic effectiveValue(String path) => state.getEffective(path);
+
+  @override
+  bool isStaged(String path) => state.isStaged(path);
+
+  @override
+  List<OptionSpec>? optionsFor(String path) => state.optionsFor(path);
+
+  @override
+  void stage(String path, dynamic value) => notifier.stageChange(path, value);
+}
 
 /// Global toggle for "expert" importance fields.
 class ExpertModeNotifier extends Notifier<bool> {

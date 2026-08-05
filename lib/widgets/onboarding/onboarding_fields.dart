@@ -73,7 +73,7 @@ class OnboardingFieldRow extends ConsumerWidget {
       control: buildFieldControl(
         field: field,
         value: value,
-        state: state,
+        options: state,
         onChanged: (v) => notifier.stageChange(path, v),
       ),
     );

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kalinka/data_model/data_model.dart';
+import 'package:kalinka/data_model/renderer_config.dart';
 import 'package:kalinka/providers/connection_settings_provider.dart';
 import 'package:kalinka/providers/connection_state_provider.dart';
 import 'package:kalinka/providers/kalinka_player_api_provider.dart';
@@ -48,6 +49,15 @@ class _FakeApi implements KalinkaPlayerProxy {
   int listCalls = 0;
   final List<String?> selected = [];
   List<RendererInfo> renderers = _parse(_listPayload);
+
+  /// Set when a settings page opened and asked this renderer for its config.
+  String? configuredRenderer;
+
+  @override
+  Future<RendererConfigSnapshot> getRendererConfig(String rendererId) async {
+    configuredRenderer = rendererId;
+    return const RendererConfigSnapshot();
+  }
 
   @override
   Future<List<RendererInfo>> listRenderers() async {
@@ -240,6 +250,54 @@ void main() {
 
     expect(api.selected, ['r-kitchen']);
     expect(find.text('PLAY ON'), findsNothing, reason: 'sheet dismissed');
+  });
+
+  testWidgets('the gear opens that renderer\'s settings page', (tester) async {
+    final api = _FakeApi();
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.pumpAndSettle();
+    // One gear per row; take the active renderer's, which the row tap can't
+    // act on — proving the gear is its own target rather than the row's.
+    await tester.tap(
+      find
+          .descendant(
+            of: find.ancestor(
+              of: find.text('Living Room'),
+              matching: find.byType(Row),
+            ),
+            matching: find.byIcon(Icons.settings_outlined),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(api.selected, isEmpty, reason: 'configuring is not switching');
+    expect(find.text('OUTPUT SETTINGS'), findsOneWidget);
+    expect(find.text('Living Room'), findsOneWidget);
+    expect(api.configuredRenderer, 'r-living');
+  });
+
+  testWidgets('an offline renderer has no gear to tap', (tester) async {
+    final api = _FakeApi();
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.pumpAndSettle();
+    final studyGear = find
+        .descendant(
+          of: find.ancestor(of: find.text('Study'), matching: find.byType(Row)),
+          matching: find.byIcon(Icons.settings_outlined),
+        )
+        .first;
+    await tester.tap(studyGear);
+    await tester.pumpAndSettle();
+
+    expect(find.text('OUTPUT SETTINGS'), findsNothing);
+    expect(api.configuredRenderer, isNull);
   });
 
   testWidgets('an offline renderer cannot be chosen', (tester) async {
