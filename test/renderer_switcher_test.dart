@@ -11,7 +11,10 @@ import 'package:kalinka/providers/connection_settings_provider.dart';
 import 'package:kalinka/providers/connection_state_provider.dart';
 import 'package:kalinka/providers/kalinka_player_api_provider.dart';
 import 'package:kalinka/providers/renderer_provider.dart';
+import 'package:kalinka/providers/renderer_settings_route_provider.dart';
+import 'package:kalinka/screens/renderer_settings_screen.dart';
 import 'package:kalinka/widgets/renderer_switcher.dart';
+import 'package:kalinka/widgets/slide_in_panel.dart';
 
 /// A `/renderer/list` body shaped like the server's, so the wire format is
 /// pinned (ids vs names, status strings, the active/selected pair).
@@ -202,10 +205,33 @@ void main() {
     expect(state.active?.rendererId, 'r-living', reason: 'playback unmoved');
   });
 
+  /// Mirrors how MusicPlayerScreen hosts the renderer settings panel: an
+  /// overlay driven by the route provider, not a pushed route — that is what
+  /// lets the tablet layout put it in the left panel.
   Widget wrap(KalinkaPlayerProxy api) => ProviderScope(
     overrides: overrides(api),
-    child: const MaterialApp(
-      home: Scaffold(body: Center(child: RendererSwitcherButton())),
+    child: MaterialApp(
+      home: Scaffold(
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            const Center(child: RendererSwitcherButton()),
+            Consumer(
+              builder: (context, ref, _) {
+                final route = ref.watch(rendererSettingsRouteProvider);
+                if (route == null) return const SizedBox.shrink();
+                return RendererSettingsScreen(
+                  key: ValueKey(route.rendererId),
+                  rendererId: route.rendererId,
+                  rendererName: route.rendererName,
+                  onClose: () =>
+                      ref.read(rendererSettingsRouteProvider.notifier).close(),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     ),
   );
 
@@ -278,6 +304,69 @@ void main() {
     expect(find.text('OUTPUT SETTINGS'), findsOneWidget);
     expect(find.text('Living Room'), findsOneWidget);
     expect(api.configuredRenderer, 'r-living');
+  });
+
+  testWidgets('the settings panel is an overlay, not a pushed route', (
+    tester,
+  ) async {
+    // A route would always span the window; the tablet layout needs the panel
+    // inside its left half, so it has to be host-placed and slide itself in.
+    await tester.pumpWidget(wrap(_FakeApi()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find
+          .descendant(
+            of: find.ancestor(
+              of: find.text('Living Room'),
+              matching: find.byType(Row),
+            ),
+            matching: find.byIcon(Icons.settings_outlined),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+
+    // Same panel widget the server settings screen uses — one animation.
+    expect(find.byType(SlideInPanel), findsOneWidget);
+    // The switcher underneath is still mounted, so nothing was pushed over it.
+    expect(find.byType(RendererSwitcherButton), findsOneWidget);
+  });
+
+  testWidgets('back slides the panel away and clears the route', (
+    tester,
+  ) async {
+    await tester.pumpWidget(wrap(_FakeApi()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find
+          .descendant(
+            of: find.ancestor(
+              of: find.text('Living Room'),
+              matching: find.byType(Row),
+            ),
+            matching: find.byIcon(Icons.settings_outlined),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('OUTPUT SETTINGS'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Back'));
+    // Mid-slide the panel is still there; only the host removes it, and only
+    // once the animation has run.
+    await tester.pump();
+    await tester.pump(kSlideInPanelDuration ~/ 2);
+    expect(find.text('OUTPUT SETTINGS'), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    expect(find.text('OUTPUT SETTINGS'), findsNothing);
+    expect(find.byType(RendererSwitcherButton), findsOneWidget);
   });
 
   testWidgets('an offline renderer has no gear to tap', (tester) async {

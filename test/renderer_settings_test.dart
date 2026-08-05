@@ -389,12 +389,16 @@ void main() {
   // ── Screen ────────────────────────────────────────────────────────────────
 
   group('RendererSettingsScreen', () {
+    // The panel carries no Scaffold of its own — it is hosted inside
+    // MusicPlayerScreen's, which is where Material comes from.
     Widget wrap(KalinkaPlayerProxy api) => ProviderScope(
       overrides: overrides(api),
       child: const MaterialApp(
-        home: RendererSettingsScreen(
-          rendererId: rendererId,
-          rendererName: 'Living Room',
+        home: Scaffold(
+          body: RendererSettingsScreen(
+            rendererId: rendererId,
+            rendererName: 'Living Room',
+          ),
         ),
       ),
     );

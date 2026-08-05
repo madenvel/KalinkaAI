@@ -12,6 +12,7 @@ import '../widgets/pending_changes_banner.dart';
 import '../widgets/settings_controls/settings_binding.dart';
 import '../widgets/settings_controls/settings_card.dart';
 import '../widgets/settings_renderer.dart';
+import '../widgets/slide_in_panel.dart';
 
 /// One renderer's own settings, drawn by the same schema renderer as the
 /// server's settings page.
@@ -19,14 +20,27 @@ import '../widgets/settings_renderer.dart';
 /// A separate page rather than a section of server settings, because the
 /// values live on the renderer: they are read from it on demand, written path
 /// by path, and apply without restarting the server.
+///
+/// Hosted the same way as [SettingsScreen] — a [SlideInPanel] the host places
+/// over the whole screen on phone and inside the left panel on tablet.
 class RendererSettingsScreen extends ConsumerStatefulWidget {
   final String rendererId;
   final String rendererName;
+
+  /// Close callback for overlay mode. When null the panel behaves as a route
+  /// and pops itself.
+  final VoidCallback? onClose;
+
+  /// Fires `true` once the slide-in finishes and `false` as the slide-out
+  /// begins, so the host can stop painting what the panel covers.
+  final ValueChanged<bool>? onCoverageChanged;
 
   const RendererSettingsScreen({
     super.key,
     required this.rendererId,
     required this.rendererName,
+    this.onClose,
+    this.onCoverageChanged,
   });
 
   @override
@@ -51,22 +65,26 @@ class _RendererSettingsScreenState
   Widget build(BuildContext context) {
     final state = ref.watch(rendererSettingsProvider(widget.rendererId));
 
-    return Scaffold(
-      backgroundColor: KalinkaColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            const ConnectionBanner(),
-            PendingChangesBanner(
-              pendingCount: state.pendingCount,
-              consequence: state.pendingCost.warning,
-              busy: state.saving,
-              onDiscard: _notifier.discard,
-              onApply: _notifier.save,
-            ),
-            Expanded(child: _buildBody(state)),
-          ],
+    return SlideInPanel(
+      onClose: widget.onClose,
+      onCoverageChanged: widget.onCoverageChanged,
+      child: Container(
+        color: KalinkaColors.background,
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              const ConnectionBanner(),
+              PendingChangesBanner(
+                pendingCount: state.pendingCount,
+                consequence: state.pendingCost.warning,
+                busy: state.saving,
+                onDiscard: _notifier.discard,
+                onApply: _notifier.save,
+              ),
+              Expanded(child: _buildBody(state)),
+            ],
+          ),
         ),
       ),
     );
@@ -155,20 +173,23 @@ class _RendererSettingsScreenState
           child: Row(
             children: [
               // Plain, borderless back — the same control settings and Find
-              // Music use.
+              // Music use. Builder: the panel scope is below this State's
+              // context.
               Semantics(
                 label: 'Back',
                 button: true,
-                child: GestureDetector(
-                  onTap: () => Navigator.of(context).maybePop(),
-                  behavior: HitTestBehavior.opaque,
-                  child: const SizedBox(
-                    width: 42,
-                    height: 42,
-                    child: Icon(
-                      Icons.arrow_back,
-                      size: 22,
-                      color: KalinkaColors.textPrimary,
+                child: Builder(
+                  builder: (context) => GestureDetector(
+                    onTap: () => SlideInPanel.closeOf(context),
+                    behavior: HitTestBehavior.opaque,
+                    child: const SizedBox(
+                      width: 42,
+                      height: 42,
+                      child: Icon(
+                        Icons.arrow_back,
+                        size: 22,
+                        color: KalinkaColors.textPrimary,
+                      ),
                     ),
                   ),
                 ),
