@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 
 /// Amber banner that appears when settings changes are staged but not yet applied.
@@ -10,20 +8,39 @@ import '../theme/app_theme.dart';
 /// pulsing dot animation here turned out to be a major CPU drain (perpetual
 /// 60Hz Opacity rebuild + saveLayer) and gave no information the colour
 /// didn't already convey. Now a flat static dot.
-class PendingChangesBanner extends ConsumerWidget {
+///
+/// Presentational only — the caller supplies the count and the actions, so the
+/// same banner serves the server's settings (apply = restart) and a renderer's
+/// (apply = write the paths), which cost different things and read from
+/// different stores.
+class PendingChangesBanner extends StatelessWidget {
+  final int pendingCount;
+
+  /// Trailing clause after the count, e.g. `restart required`. Omitted when
+  /// applying costs nothing worth warning about.
+  final String? consequence;
+  final VoidCallback onDiscard;
   final VoidCallback onApply;
 
-  const PendingChangesBanner({super.key, required this.onApply});
+  /// While true the actions are inert and the button reads APPLYING.
+  final bool busy;
+
+  const PendingChangesBanner({
+    super.key,
+    required this.pendingCount,
+    required this.onDiscard,
+    required this.onApply,
+    this.consequence,
+    this.busy = false,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settingsState = ref.watch(settingsProvider);
-
+  Widget build(BuildContext context) {
     return AnimatedSize(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
       alignment: Alignment.topCenter,
-      child: settingsState.hasPendingChanges
+      child: pendingCount > 0
           ? Container(
               width: double.infinity,
               decoration: BoxDecoration(
@@ -48,7 +65,8 @@ class PendingChangesBanner extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '${settingsState.pendingCount} change${settingsState.pendingCount == 1 ? '' : 's'} staged · restart required',
+                      '$pendingCount change${pendingCount == 1 ? '' : 's'} staged'
+                      '${consequence == null ? '' : ' · $consequence'}',
                       style: KalinkaTextStyles.bannerText.copyWith(
                         color: KalinkaColors.statusPendingLight,
                       ),
@@ -58,9 +76,7 @@ class PendingChangesBanner extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
-                    onTap: () {
-                      ref.read(settingsProvider.notifier).discardAll();
-                    },
+                    onTap: busy ? null : onDiscard,
                     child: Text(
                       'Discard',
                       style: KalinkaTextStyles.cancelButton,
@@ -68,7 +84,7 @@ class PendingChangesBanner extends ConsumerWidget {
                   ),
                   const SizedBox(width: 15),
                   GestureDetector(
-                    onTap: onApply,
+                    onTap: busy ? null : onApply,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -86,7 +102,7 @@ class PendingChangesBanner extends ConsumerWidget {
                         ),
                       ),
                       child: Text(
-                        'APPLY',
+                        busy ? 'APPLYING…' : 'APPLY',
                         style: KalinkaTextStyles.bannerText.copyWith(
                           color: KalinkaColors.statusPendingLight,
                           fontWeight: FontWeight.w600,

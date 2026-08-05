@@ -15,6 +15,7 @@ import '../widgets/restart_confirm_dialog.dart';
 import '../widgets/restart_overlay.dart';
 import '../widgets/upgrade_overlay.dart';
 import '../widgets/expert_settings_screen.dart';
+import '../widgets/settings_controls/settings_binding.dart';
 import '../widgets/settings_controls/settings_toggle.dart';
 import '../widgets/settings_renderer.dart';
 
@@ -133,7 +134,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   else ...[
                     // Pending changes banner — only actionable while
                     // connected, since applying restarts the server.
-                    PendingChangesBanner(onApply: _onApply),
+                    PendingChangesBanner(
+                      pendingCount: settingsState.pendingCount,
+                      consequence: 'restart required',
+                      onDiscard: () =>
+                          ref.read(settingsProvider.notifier).discardAll(),
+                      onApply: _onApply,
+                    ),
                     // Tab bar — only meaningful in simple mode; expert is
                     // a single flat about:config-style screen.
                     if (!expertMode) _buildTabBar(settingsState.schema?.pages),
@@ -189,19 +196,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       Expanded(
                         child: expertMode
                             ? const ExpertSettingsScreen()
-                            : IndexedStack(
-                                index: _tabIndex.clamp(
-                                  0,
-                                  settingsState.schema!.pages.length - 1,
+                            : SettingsScope(
+                                binding: ServerSettingsBinding(
+                                  settingsState,
+                                  ref.read(settingsProvider.notifier),
                                 ),
-                                children: [
-                                  for (final page
-                                      in settingsState.schema!.pages)
-                                    SchemaPageRenderer(
-                                      key: ValueKey('page_${page.id}'),
-                                      page: page,
-                                    ),
-                                ],
+                                child: IndexedStack(
+                                  index: _tabIndex.clamp(
+                                    0,
+                                    settingsState.schema!.pages.length - 1,
+                                  ),
+                                  children: [
+                                    for (final page
+                                        in settingsState.schema!.pages)
+                                      SchemaPageRenderer(
+                                        key: ValueKey('page_${page.id}'),
+                                        page: page,
+                                      ),
+                                  ],
+                                ),
                               ),
                       )
                     else

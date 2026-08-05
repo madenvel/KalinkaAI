@@ -24,6 +24,8 @@ import '../data_model/data_model.dart'
         StatusMessage,
         TrackList;
 import '../data_model/presentation_schema.dart' show PresentationSchema;
+import '../data_model/renderer_config.dart'
+    show RendererConfigResult, RendererConfigSnapshot;
 
 abstract class KalinkaPlayerProxy {
   Future<StatusMessage> play([int? index]);
@@ -117,17 +119,33 @@ abstract class KalinkaPlayerProxy {
   });
   Future<void> restartServer();
 
-  /// Play a short test tone on one channel (`left` / `right`). [device] is
-  /// the ALSA identifier to play through — pass the user's (possibly not
-  /// yet applied) selection; the server falls back to its configured output
-  /// when omitted. Throws [TestToneUnsupportedException] when the server
-  /// predates the `/server/test_tone` endpoint.
-  Future<void> testTone(String channel, {String? device});
+  /// Play a short test tone on one channel (`left` / `right`).
+  ///
+  /// [device] is the ALSA identifier to play through — pass the user's
+  /// (possibly not yet applied) selection; the server falls back to its
+  /// configured output when omitted. [rendererId] names the renderer the tone
+  /// should come out of; without it the server picks the active one. Throws
+  /// [TestToneUnsupportedException] when the server predates the
+  /// `/server/test_tone` endpoint.
+  Future<void> testTone(String channel, {String? device, String? rendererId});
 
   /// Playback endpoints known to the server, from `GET /renderer/list`.
   /// Throws [RenderersUnsupportedException] on a server that predates the
   /// endpoint.
   Future<List<RendererInfo>> listRenderers();
+
+  /// This renderer's own settings — schema and values together, from
+  /// `GET /renderer/{id}/config`. Not part of `/server/config`: the renderer
+  /// owns them, so they are fetched from it on demand.
+  Future<RendererConfigSnapshot> getRendererConfig(String rendererId);
+
+  /// Apply renderer settings via `PUT /renderer/{id}/config`. [changes] is
+  /// path → wire text. The reply says what ended up in effect, which is not
+  /// always what was asked.
+  Future<RendererConfigResult> updateRendererConfig(
+    String rendererId,
+    Map<String, String> changes,
+  );
 
   /// Pin playback to [rendererId] via `PUT /renderer/active`; pass null to
   /// hand selection back to the server (first connected renderer wins).
@@ -157,6 +175,16 @@ class RenderersUnsupportedException implements Exception {
 class RendererSwitchException implements Exception {
   final String message;
   const RendererSwitchException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+/// A renderer's settings could not be read or written. [message] is already
+/// phrased for the user.
+class RendererConfigException implements Exception {
+  final String message;
+  const RendererConfigException(this.message);
 
   @override
   String toString() => message;
@@ -726,7 +754,11 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
   }
 
   @override
-  Future<void> testTone(String channel, {String? device}) async {
+  Future<void> testTone(
+    String channel, {
+    String? device,
+    String? rendererId,
+  }) async {
     try {
       final response = await client.post(
         '/server/test_tone',
@@ -734,6 +766,8 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
         data: jsonEncode({
           'channel': channel,
           if (device != null && device.isNotEmpty) 'device': device,
+          if (rendererId != null && rendererId.isNotEmpty)
+            'renderer_id': rendererId,
         }),
       );
       if (response.statusCode != 200) {
@@ -766,6 +800,47 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
       rethrow;
     }
   }
+
+  @override
+  Future<RendererConfigSnapshot> getRendererConfig(String rendererId) async {
+    try {
+      final response = await client.get('/renderer/$rendererId/config');
+      return RendererConfigSnapshot.fromJson(
+        (response.data as Map).cast<String, dynamic>(),
+      );
+    } on DioException catch (e) {
+      throw RendererConfigException(_configFailure(e));
+    }
+  }
+
+  @override
+  Future<RendererConfigResult> updateRendererConfig(
+    String rendererId,
+    Map<String, String> changes,
+  ) async {
+    try {
+      final response = await client.put(
+        '/renderer/$rendererId/config',
+        options: Options(contentType: Headers.jsonContentType),
+        data: jsonEncode({'changes': changes}),
+      );
+      return RendererConfigResult.fromJson(
+        (response.data as Map).cast<String, dynamic>(),
+      );
+    } on DioException catch (e) {
+      throw RendererConfigException(_configFailure(e));
+    }
+  }
+
+  /// Settings travel to the renderer over its socket, so the failures are
+  /// about that hop rather than about the server.
+  static String _configFailure(DioException e) =>
+      switch (e.response?.statusCode) {
+        404 => 'That output is no longer available',
+        409 => 'That output isn’t connected',
+        504 => 'That output didn’t respond',
+        _ => 'Couldn’t reach that output',
+      };
 
   // A 404 here is the server rejecting an unknown renderer id, not a missing
   // endpoint — the switcher only exists once `listRenderers` has succeeded.

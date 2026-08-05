@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/kalinka_player_api_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
 import '../kalinka_dialog.dart' show showKalinkaDialog;
@@ -46,10 +49,25 @@ class OnboardingServerSoundStep extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.all(12),
-              child: _TestOutputButton(
-                onTap: () => showKalinkaDialog<void>(
-                  context: context,
-                  builder: (_) => const SpeakerTestDialog(),
+              child: Consumer(
+                builder: (context, ref, _) => _TestOutputButton(
+                  onTap: () => showKalinkaDialog<void>(
+                    context: context,
+                    builder: (_) => SpeakerTestDialog(
+                      // Route through the user's (possibly still staged)
+                      // device choice — the staged ALSA selection isn't
+                      // applied until the final restart.
+                      playTone: (channel) => ref
+                          .read(kalinkaProxyProvider)
+                          .testTone(
+                            channel,
+                            device: ref
+                                .read(settingsProvider)
+                                .getEffective('base_config.output.alsa.device')
+                                ?.toString(),
+                          ),
+                    ),
+                  ),
                 ),
               ),
             ),

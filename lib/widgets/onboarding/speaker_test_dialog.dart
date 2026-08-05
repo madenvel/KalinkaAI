@@ -3,23 +3,33 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/kalinka_player_api_provider.dart';
-import '../../providers/settings_provider.dart';
 import '../../theme/app_theme.dart';
 import '../kalinka_button.dart';
 import '../kalinka_dialog.dart';
 
 enum _TestPhase { left, right, done }
 
+/// Asks for a tone on one channel (`left` / `right`). Throwing
+/// [TestToneUnsupportedException] tells the dialog the server is too old.
+typedef ToneRequest = Future<void> Function(String channel);
+
 /// Speaker test popup: lights up the left speaker for 2 seconds, then the
-/// right, asking the server to play a tone on the matching channel at the
-/// start of each segment. The visual sequence runs even when the server
-/// can't play tones yet (endpoint added in a newer server release) — a
-/// note explains that no sound will come out in that case.
+/// right, asking for a tone on the matching channel at the start of each
+/// segment. The visual sequence runs even when the server can't play tones
+/// yet (endpoint added in a newer server release) — a note explains that no
+/// sound will come out in that case.
 ///
-/// Runs during onboarding, which has no split layout, so the dialog spans the
-/// window at every width. Show via [showKalinkaDialog].
+/// Where the tone comes from is the caller's business: onboarding routes it
+/// through the server's staged output device, the renderer settings page
+/// routes it to that renderer. Show via [showKalinkaDialog].
 class SpeakerTestDialog extends ConsumerStatefulWidget {
-  const SpeakerTestDialog({super.key});
+  final ToneRequest playTone;
+
+  /// Names the thing being tested, e.g. `Kitchen`. Shown in the title when
+  /// there is more than one possible target.
+  final String? targetName;
+
+  const SpeakerTestDialog({super.key, required this.playTone, this.targetName});
 
   @override
   ConsumerState<SpeakerTestDialog> createState() => _SpeakerTestDialogState();
@@ -80,13 +90,7 @@ class _SpeakerTestDialogState extends ConsumerState<SpeakerTestDialog>
   Future<void> _playTone(String channel) async {
     if (_unsupported) return;
     try {
-      // Route through the user's (possibly still staged) device choice —
-      // the staged ALSA selection isn't applied until the final restart.
-      final device = ref
-          .read(settingsProvider)
-          .getEffective('base_config.output.alsa.device')
-          ?.toString();
-      await ref.read(kalinkaProxyProvider).testTone(channel, device: device);
+      await widget.playTone(channel);
     } on TestToneUnsupportedException {
       if (mounted) setState(() => _unsupported = true);
     } catch (_) {
@@ -98,7 +102,9 @@ class _SpeakerTestDialogState extends ConsumerState<SpeakerTestDialog>
   Widget build(BuildContext context) {
     return KalinkaDialog(
       side: KalinkaDialogSide.full,
-      title: 'Testing output',
+      title: widget.targetName == null
+          ? 'Testing output'
+          : 'Testing ${widget.targetName}',
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

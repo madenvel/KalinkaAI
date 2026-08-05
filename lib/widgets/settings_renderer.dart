@@ -5,10 +5,10 @@ import '../data_model/presentation_schema.dart';
 import '../providers/connection_settings_provider.dart';
 import '../providers/modules_state_provider.dart';
 import '../providers/server_info_provider.dart';
-import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 import 'server_update_banner.dart';
 import 'settings_controls/footer_note.dart';
+import 'settings_controls/settings_binding.dart';
 import 'settings_controls/module_header_row.dart';
 import 'settings_controls/settings_card.dart';
 import 'settings_controls/settings_enum_dropdown.dart';
@@ -109,16 +109,15 @@ class SchemaBanner extends StatelessWidget {
 // Field renderer: FieldSpec → SettingsRow+control
 // ---------------------------------------------------------------------------
 
-class SchemaFieldRenderer extends ConsumerWidget {
+class SchemaFieldRenderer extends StatelessWidget {
   final FieldSpec field;
   const SchemaFieldRenderer({super.key, required this.field});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(settingsProvider);
-    final notifier = ref.read(settingsProvider.notifier);
-    final isStaged = state.isStaged(field.path);
-    final value = state.getEffective(field.path) ?? field.defaultValue;
+  Widget build(BuildContext context) {
+    final binding = SettingsScope.of(context);
+    final isStaged = binding.isStaged(field.path);
+    final value = binding.effectiveValue(field.path) ?? field.defaultValue;
 
     // Read-only fields (including dynamic plugin-resolved status views)
     // never get an editable control. Render as a labeled elevated card
@@ -136,7 +135,7 @@ class SchemaFieldRenderer extends ConsumerWidget {
     // render them bare (no SettingsRow wrapper — that would duplicate the
     // label).
     if (field.widget == WidgetKind.numberSlider) {
-      return _buildSlider(value, notifier);
+      return _buildSlider(value, binding);
     }
 
     // Pills, list editors, text inputs, and multi-line controls need the full
@@ -156,18 +155,22 @@ class SchemaFieldRenderer extends ConsumerWidget {
       sublabel: field.help,
       isStaged: isStaged,
       isVertical: vertical,
-      control: _buildControl(value, notifier, state),
+      control: buildFieldControl(
+        field: field,
+        value: value,
+        options: binding,
+        onChanged: (v) => binding.stage(field.path, v),
+      ),
     );
   }
 
-  Widget _buildSlider(dynamic value, SettingsNotifier notifier) {
+  Widget _buildSlider(dynamic value, SettingsBinding binding) {
     final v = (value as num? ?? 0).toDouble();
     final c = field.constraints;
     final min = c?.sliderMin ?? c?.ge ?? 0;
     final max = c?.sliderMax ?? c?.le ?? 100;
     final unit = c?.unit ?? '';
-    String fmt(num n) =>
-        '${n.toInt()}${unit.isEmpty ? '' : ' $unit'}';
+    String fmt(num n) => '${n.toInt()}${unit.isEmpty ? '' : ' $unit'}';
     return SettingsSlider(
       label: field.label,
       value: v.clamp(min, max),
@@ -177,31 +180,23 @@ class SchemaFieldRenderer extends ConsumerWidget {
       minLabel: fmt(min),
       maxLabel: fmt(max),
       formatValue: fmt,
-      onChanged: (nv) => notifier.stageChange(field.path, nv.round()),
+      onChanged: (nv) => binding.stage(field.path, nv.round()),
     );
   }
-
-  Widget _buildControl(
-    dynamic value,
-    SettingsNotifier notifier,
-    SettingsState state,
-  ) =>
-      buildFieldControl(
-        field: field,
-        value: value,
-        state: state,
-        onChanged: (v) => notifier.stageChange(field.path, v),
-      );
 }
 
 /// Dispatch a [FieldSpec] to the right editable widget, given the
-/// current value, the surrounding settings state (needed for live
-/// enum options), and a callback that stages the change.
+/// current value, a source of live enum options, and a callback that
+/// stages the change.
 ///
 /// Exposed at module level so the expert/about:config screen can
 /// reuse exactly the same control widgets the simple page uses —
 /// the rows there look different (mono path, dense layout), but
 /// every input behaves identically and shares the staging flow.
+///
+/// Takes [EnumOptionSource] rather than a whole settings store: the
+/// dispatcher reads options and nothing else, so anything that can
+/// answer that one question can drive these controls.
 ///
 /// [compact] is false on the expert screen, where every control
 /// occupies a dedicated row beneath the path — narrow defaults like
@@ -211,7 +206,7 @@ class SchemaFieldRenderer extends ConsumerWidget {
 Widget buildFieldControl({
   required FieldSpec field,
   required dynamic value,
-  required SettingsState state,
+  required EnumOptionSource options,
   required ValueChanged<dynamic> onChanged,
   bool compact = true,
 }) {
@@ -223,10 +218,7 @@ Widget buildFieldControl({
           // sit alone in the middle of the row.
           : Align(
               alignment: Alignment.centerLeft,
-              child: SettingsToggle(
-                value: value == true,
-                onChanged: onChanged,
-              ),
+              child: SettingsToggle(value: value == true, onChanged: onChanged),
             );
     case WidgetKind.numberInput:
       return SettingsNumericInput(
@@ -266,13 +258,14 @@ Widget buildFieldControl({
       // the values envelope as enum_options[path]; if missing, fall
       // back to the schema's static enum_values shaped as
       // (value = label) pairs.
-      final liveOptions = state.optionsFor(field.path);
-      final options = liveOptions ??
+      final liveOptions = options.optionsFor(field.path);
+      final enumOptions =
+          liveOptions ??
           (field.enumValues ?? const [])
               .map((v) => OptionSpec(value: v, label: v))
               .toList();
       return SettingsEnumDropdown(
-        options: options,
+        options: enumOptions,
         selectedValue: (value ?? '').toString(),
         onChanged: onChanged,
       );
@@ -316,7 +309,7 @@ Widget buildFieldControl({
 // Section renderer
 // ---------------------------------------------------------------------------
 
-class SchemaSectionRenderer extends ConsumerWidget {
+class SchemaSectionRenderer extends StatelessWidget {
   final SectionSpec section;
   final bool isTopLevel;
   const SchemaSectionRenderer({
@@ -326,7 +319,7 @@ class SchemaSectionRenderer extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     // The backend prunes EXPERT-tier content out of the simple page
     // tree before sending, so the renderer no longer filters by
     // importance — every field/section it receives is meant to be
@@ -354,7 +347,7 @@ class SchemaSectionRenderer extends ConsumerWidget {
     // widget with the body unchanged.
     if (enabledField != null) {
       return _buildToggleableSection(
-        ref,
+        SettingsScope.of(context),
         enabledField,
         statusField,
         visibleFields,
@@ -434,27 +427,25 @@ class SchemaSectionRenderer extends ConsumerWidget {
   }
 
   Widget _buildToggleableSection(
-    WidgetRef ref,
+    SettingsBinding binding,
     FieldSpec enabledField,
     FieldSpec? statusField,
     List<FieldSpec> bodyFields,
     List<SectionSpec> bodySubSections,
   ) {
-    final settings = ref.watch(settingsProvider);
-    final notifier = ref.read(settingsProvider.notifier);
     final enabledValue =
-        (settings.getEffective(enabledField.path) ??
+        (binding.effectiveValue(enabledField.path) ??
                 enabledField.defaultValue ??
                 false)
             as bool;
-    final isStaged = settings.isStaged(enabledField.path);
+    final isStaged = binding.isStaged(enabledField.path);
 
     // Status text is whichever value the values blob currently carries
     // for the dynamic status_view field — resolved server-side by the
     // owning plugin.
     String? statusMarkdown;
     if (statusField != null) {
-      final raw = settings.getEffective(statusField.path);
+      final raw = binding.effectiveValue(statusField.path);
       if (raw != null && raw.toString().trim().isNotEmpty) {
         statusMarkdown = raw.toString();
       }
@@ -490,7 +481,7 @@ class SchemaSectionRenderer extends ConsumerWidget {
     return SettingsToggleableSection(
       title: section.title,
       enabled: enabledValue,
-      onToggle: (v) => notifier.stageChange(enabledField.path, v),
+      onToggle: (v) => binding.stage(enabledField.path, v),
       statusMarkdown: statusMarkdown,
       body: body,
       // Simple-tier sub-features expand by default — anything users
@@ -510,10 +501,7 @@ class SchemaSectionRenderer extends ConsumerWidget {
             label.toUpperCase(),
             style: KalinkaTextStyles.sectionHeaderMuted,
           ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 4),
-            subtitle,
-          ],
+          if (subtitle != null) ...[const SizedBox(height: 4), subtitle],
         ],
       ),
     );
@@ -577,8 +565,10 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
   @override
   Widget build(BuildContext context) {
     final m = widget.module;
-    final state = ref.watch(settingsProvider);
-    final notifier = ref.read(settingsProvider.notifier);
+    // Modules only ever appear on the server's own settings page, but they read
+    // values through the same binding as everything else — nothing here needs
+    // to know which store is behind it.
+    final binding = SettingsScope.of(context);
 
     // Live module state lives at /server/modules — the schema deliberately
     // doesn't carry it so schema_version doesn't churn on plugin hiccups.
@@ -591,7 +581,7 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
     final isError = live?.state == ModuleState.error;
 
     // Preview subtitle from backend-declared preview_fields.
-    final subtitle = _subtitleFor(m, state);
+    final subtitle = _subtitleFor(m, binding);
     final icon = _iconFromName(m.icon);
     final color = _colorFromHex(m.iconColor, KalinkaColors.textSecondary);
 
@@ -600,7 +590,7 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
     final enabledField = _firstFieldWithPathSuffix(m.fields, '.enabled');
     final bool? enabledValue = enabledField == null
         ? null
-        : (state.getEffective(enabledField.path) ??
+        : (binding.effectiveValue(enabledField.path) ??
                   enabledField.defaultValue ??
                   false)
               as bool;
@@ -643,7 +633,7 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
             enabled: enabledValue,
             onEnabledChanged: enabledField == null
                 ? null
-                : (v) => notifier.stageChange(enabledField.path, v),
+                : (v) => binding.stage(enabledField.path, v),
           ),
           AnimatedSize(
             duration: const Duration(milliseconds: 340),
@@ -666,7 +656,11 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
                         // Module-level scalar fields render flat, with a
                         // divider above them so they read as continuous
                         // content under the header rather than floating.
-                        for (var i = 0; i < visibleModuleFields.length; i++) ...[
+                        for (
+                          var i = 0;
+                          i < visibleModuleFields.length;
+                          i++
+                        ) ...[
                           const Divider(
                             height: 1,
                             thickness: 1,
@@ -716,13 +710,13 @@ class _SchemaModuleCardState extends ConsumerState<SchemaModuleCard> {
   };
 
   /// Build the subtitle by reading `module.previewFields` from the staged/server values.
-  String _subtitleFor(ModuleSpec m, SettingsState state) {
+  String _subtitleFor(ModuleSpec m, SettingsBinding binding) {
     final parts = <String>[];
     final prefix = m.kind == 'device'
         ? 'devices.${m.id}'
         : 'input_modules.${m.id}';
     for (final name in m.previewFields) {
-      final v = state.getEffective('$prefix.$name');
+      final v = binding.effectiveValue('$prefix.$name');
       if (v == null) continue;
       if (v is List) {
         if (v.isNotEmpty) {
