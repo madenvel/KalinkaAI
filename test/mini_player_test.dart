@@ -8,6 +8,7 @@ import 'package:kalinka/providers/app_state_provider.dart';
 import 'package:kalinka/providers/connection_state_provider.dart';
 import 'package:kalinka/providers/kalinka_ws_api_provider.dart';
 import 'package:kalinka/providers/playback_time_provider.dart';
+import 'package:kalinka/providers/renderer_provider.dart';
 import 'package:kalinka/providers/search_session_provider.dart';
 import 'package:kalinka/providers/url_resolver.dart';
 import 'package:kalinka/widgets/gradient_progress_line.dart';
@@ -45,6 +46,13 @@ class _FakePlaybackTimeNotifier extends PlaybackTimeMsNotifier {
   int build() => 0;
 }
 
+/// No renderers, so the switcher stays hidden and the real notifier's
+/// `/renderer/list` fetch (and its connection-settings dependency) is skipped.
+class _FakeRendererNotifier extends RendererListNotifier {
+  @override
+  RendererListState build() => const RendererListState();
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // Return type is intentionally inferred — Riverpod's Override type is sealed
@@ -72,6 +80,7 @@ _buildOverrides({
           .overrideWith(() => _FakeConnectionNotifier(connectionStatus)),
       searchSessionProvider.overrideWith(() => _FakeSearchSessionNotifier()),
       playbackTimeMsProvider.overrideWith(() => _FakePlaybackTimeNotifier()),
+      rendererListProvider.overrideWith(() => _FakeRendererNotifier()),
       urlResolverProvider.overrideWithValue(UrlResolver('')),
     ];
 

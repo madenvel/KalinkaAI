@@ -1,0 +1,258 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:kalinka/data_model/data_model.dart';
+import 'package:kalinka/providers/connection_settings_provider.dart';
+import 'package:kalinka/providers/connection_state_provider.dart';
+import 'package:kalinka/providers/kalinka_player_api_provider.dart';
+import 'package:kalinka/providers/renderer_provider.dart';
+import 'package:kalinka/widgets/renderer_switcher.dart';
+
+/// A `/renderer/list` body shaped like the server's, so the wire format is
+/// pinned (ids vs names, status strings, the active/selected pair).
+const _listPayload = '''
+{"renderers":[
+  {"renderer_id":"r-kitchen","instance_id":"i1","friendly_name":"Kitchen",
+   "software_version":"0.1.0","kind":"native","status":"connected",
+   "platform":{"os":"linux"},"connected_at":1.0,"last_seen":2.0,
+   "active":false,"selected":false},
+  {"renderer_id":"r-living","instance_id":"i2","friendly_name":"Living Room",
+   "software_version":"0.1.0","kind":"native","status":"connected",
+   "platform":{"os":"linux"},"connected_at":1.0,"last_seen":2.0,
+   "active":true,"selected":true},
+  {"renderer_id":"r-study","instance_id":"i3","friendly_name":"Study",
+   "software_version":"0.1.0","kind":"native","status":"offline",
+   "platform":{"os":"linux"},"connected_at":1.0,"last_seen":2.0,
+   "active":false,"selected":false}
+],"volume_control_modules":[]}
+''';
+
+List<RendererInfo> _parse(String body) => [
+  for (final r in (jsonDecode(body) as Map)['renderers'] as List)
+    RendererInfo.fromJson(Map<String, dynamic>.from(r as Map)),
+];
+
+/// Serves the captured list and records selections; everything else throws.
+class _FakeApi implements KalinkaPlayerProxy {
+  _FakeApi({this.unsupported = false, this.failWith});
+
+  final bool unsupported;
+
+  /// Thrown by [setActiveRenderer] when set, to exercise the failure path.
+  final Object? failWith;
+
+  int listCalls = 0;
+  final List<String?> selected = [];
+  List<RendererInfo> renderers = _parse(_listPayload);
+
+  @override
+  Future<List<RendererInfo>> listRenderers() async {
+    listCalls++;
+    if (unsupported) throw RenderersUnsupportedException();
+    return renderers;
+  }
+
+  @override
+  Future<void> setActiveRenderer(String? rendererId) async {
+    selected.add(rendererId);
+    if (failWith != null) throw failWith!;
+    renderers = [
+      for (final r in renderers)
+        RendererInfo(
+          rendererId: r.rendererId,
+          friendlyName: r.friendlyName,
+          status: r.status,
+          active: r.rendererId == rendererId,
+          selected: r.rendererId == rendererId,
+        ),
+    ];
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
+}
+
+class _FakeConnectionNotifier extends ConnectionStateNotifier {
+  _FakeConnectionNotifier(this._status);
+  final ConnectionStatus _status;
+
+  @override
+  ConnectionStatus build() => _status;
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  late SharedPreferences prefs;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({
+      'Kalinka.host': 'localhost',
+      'Kalinka.port': 8080,
+      'Kalinka.name': 'Test',
+    });
+    prefs = await SharedPreferences.getInstance();
+  });
+
+  // Return type is intentionally inferred — Riverpod's Override type is sealed
+  // and its concrete form is resolved by the package internally.
+  overrides(
+    KalinkaPlayerProxy api, {
+    ConnectionStatus status = ConnectionStatus.connected,
+  }) => [
+    sharedPrefsProvider.overrideWithValue(prefs),
+    kalinkaProxyProvider.overrideWithValue(api),
+    connectionStateProvider.overrideWith(() => _FakeConnectionNotifier(status)),
+  ];
+
+  ProviderContainer makeContainer(
+    KalinkaPlayerProxy api, {
+    ConnectionStatus status = ConnectionStatus.connected,
+  }) {
+    final container = ProviderContainer(
+      overrides: overrides(api, status: status),
+    );
+    addTearDown(container.dispose);
+    return container;
+  }
+
+  test('RendererInfo parses the /renderer/list wire format', () {
+    final list = _parse(_listPayload);
+    expect(list, hasLength(3));
+    expect(list[0].rendererId, 'r-kitchen');
+    expect(list[0].friendlyName, 'Kitchen');
+    expect(list[0].isConnected, isTrue);
+    expect(list[1].active, isTrue);
+    expect(list[1].selected, isTrue);
+    expect(list[2].isConnected, isFalse, reason: 'status is offline');
+  });
+
+  test('connecting loads the renderer list', () async {
+    final api = _FakeApi();
+    final container = makeContainer(api);
+    container.listen(rendererListProvider, (_, __) {}, fireImmediately: true);
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    expect(api.listCalls, 1);
+    final state = container.read(rendererListProvider);
+    expect(state.renderers.map((r) => r.friendlyName), [
+      'Kitchen',
+      'Living Room',
+      'Study',
+    ]);
+    expect(state.active?.rendererId, 'r-living');
+    expect(state.hasRenderers, isTrue);
+  });
+
+  test('a server without /renderer/* hides the switcher', () async {
+    final api = _FakeApi(unsupported: true);
+    final container = makeContainer(api);
+    container.listen(rendererListProvider, (_, __) {}, fireImmediately: true);
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    final state = container.read(rendererListProvider);
+    expect(state.supported, isFalse);
+    expect(state.hasRenderers, isFalse);
+  });
+
+  test('select() PUTs the renderer id and moves the active marker', () async {
+    final api = _FakeApi();
+    final container = makeContainer(api);
+    container.listen(rendererListProvider, (_, __) {}, fireImmediately: true);
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    await container.read(rendererListProvider.notifier).select('r-kitchen');
+
+    expect(api.selected, ['r-kitchen']);
+    final state = container.read(rendererListProvider);
+    expect(state.active?.rendererId, 'r-kitchen');
+  });
+
+  test('a rejected switch rethrows and re-reads the server list', () async {
+    final api = _FakeApi(
+      failWith: const RendererSwitchException('That output is busy'),
+    );
+    final container = makeContainer(api);
+    container.listen(rendererListProvider, (_, __) {}, fireImmediately: true);
+    await Future.delayed(const Duration(milliseconds: 50));
+    final callsBefore = api.listCalls;
+
+    await expectLater(
+      container.read(rendererListProvider.notifier).select('r-kitchen'),
+      throwsA(isA<RendererSwitchException>()),
+    );
+
+    expect(api.listCalls, callsBefore + 1, reason: 'reconciled after failure');
+    final state = container.read(rendererListProvider);
+    expect(state.active?.rendererId, 'r-living', reason: 'playback unmoved');
+  });
+
+  Widget wrap(KalinkaPlayerProxy api) => ProviderScope(
+    overrides: overrides(api),
+    child: const MaterialApp(
+      home: Scaffold(body: Center(child: RendererSwitcherButton())),
+    ),
+  );
+
+  testWidgets('no renderers → nothing is rendered', (tester) async {
+    final api = _FakeApi()..renderers = const [];
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.speaker_outlined), findsNothing);
+  });
+
+  testWidgets('the picker lists friendly names and ticks the active one', (
+    tester,
+  ) async {
+    final api = _FakeApi();
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PLAY ON'), findsOneWidget);
+    expect(find.text('Kitchen'), findsOneWidget);
+    expect(find.text('Living Room'), findsOneWidget);
+    expect(find.text('Study'), findsOneWidget);
+    expect(find.text('Offline'), findsOneWidget, reason: 'the study is down');
+    // One tick, on the renderer playback is running on.
+    expect(find.byIcon(Icons.check), findsOneWidget);
+  });
+
+  testWidgets('choosing a renderer PUTs its id and closes the sheet', (
+    tester,
+  ) async {
+    final api = _FakeApi();
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kitchen'));
+    await tester.pumpAndSettle();
+
+    expect(api.selected, ['r-kitchen']);
+    expect(find.text('PLAY ON'), findsNothing, reason: 'sheet dismissed');
+  });
+
+  testWidgets('an offline renderer cannot be chosen', (tester) async {
+    final api = _FakeApi();
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Study'));
+    await tester.pumpAndSettle();
+
+    expect(api.selected, isEmpty);
+    expect(find.text('PLAY ON'), findsOneWidget, reason: 'sheet stays open');
+  });
+}
