@@ -17,21 +17,27 @@ import 'package:kalinka/widgets/renderer_switcher.dart';
 import 'package:kalinka/widgets/slide_in_panel.dart';
 
 /// A `/renderer/list` body shaped like the server's, so the wire format is
-/// pinned (ids vs names, status strings, the active/selected pair).
+/// pinned (ids vs names, status strings, the active/selected pair, and the
+/// platform block the picker's supporting line is drawn from).
 const _listPayload = '''
 {"renderers":[
   {"renderer_id":"r-kitchen","instance_id":"i1","friendly_name":"Kitchen",
    "software_version":"0.1.0","kind":"native","status":"connected",
-   "platform":{"os":"linux"},"connected_at":1.0,"last_seen":2.0,
-   "active":false,"selected":false},
+   "platform":{"os":"linux","hostname":"kitchen-pi","audio_backend":"alsa"},
+   "connected_at":1.0,"last_seen":2.0,"active":false,"selected":false},
   {"renderer_id":"r-living","instance_id":"i2","friendly_name":"Living Room",
    "software_version":"0.1.0","kind":"native","status":"connected",
-   "platform":{"os":"linux"},"connected_at":1.0,"last_seen":2.0,
-   "active":true,"selected":true},
+   "platform":{"os":"linux","hostname":"living-pi","audio_backend":"pipewire"},
+   "connected_at":1.0,"last_seen":2.0,"active":true,"selected":true},
   {"renderer_id":"r-study","instance_id":"i3","friendly_name":"Study",
    "software_version":"0.1.0","kind":"native","status":"offline",
-   "platform":{"os":"linux"},"connected_at":1.0,"last_seen":2.0,
-   "active":false,"selected":false}
+   "platform":{"os":"linux","hostname":"study-pi","audio_backend":"alsa"},
+   "connected_at":1.0,"last_seen":2.0,"active":false,"selected":false},
+  {"renderer_id":"r-pi","instance_id":"i4",
+   "friendly_name":"Kalinka Renderer on raspberrypi",
+   "software_version":"0.1.0","kind":"native","status":"connected",
+   "platform":{"os":"linux","hostname":"raspberrypi","audio_backend":"alsa"},
+   "connected_at":1.0,"last_seen":2.0,"active":false,"selected":false}
 ],"volume_control_modules":[]}
 ''';
 
@@ -75,10 +81,7 @@ class _FakeApi implements KalinkaPlayerProxy {
     if (failWith != null) throw failWith!;
     renderers = [
       for (final r in renderers)
-        RendererInfo(
-          rendererId: r.rendererId,
-          friendlyName: r.friendlyName,
-          status: r.status,
+        r.copyWith(
           active: r.rendererId == rendererId,
           selected: r.rendererId == rendererId,
         ),
@@ -136,13 +139,29 @@ void main() {
 
   test('RendererInfo parses the /renderer/list wire format', () {
     final list = _parse(_listPayload);
-    expect(list, hasLength(3));
+    expect(list, hasLength(4));
     expect(list[0].rendererId, 'r-kitchen');
     expect(list[0].friendlyName, 'Kitchen');
     expect(list[0].isConnected, isTrue);
+    // The platform block is nested, and absent on a renderer that reported
+    // none — it must not blow up the parse.
+    expect(list[0].hostname, 'kitchen-pi');
+    expect(list[0].audioBackend, 'alsa');
+    expect(list[0].kind, 'native');
     expect(list[1].active, isTrue);
     expect(list[1].selected, isTrue);
     expect(list[2].isConnected, isFalse, reason: 'status is offline');
+  });
+
+  test('a renderer with no platform block still parses', () {
+    final info = RendererInfo.fromJson(const {
+      'renderer_id': 'r-bare',
+      'friendly_name': 'Bare',
+      'status': 'connected',
+    });
+    expect(info.hostname, isEmpty);
+    expect(info.audioBackend, isEmpty);
+    expect(info.isConnected, isTrue);
   });
 
   test('connecting loads the renderer list', () async {
@@ -157,6 +176,7 @@ void main() {
       'Kitchen',
       'Living Room',
       'Study',
+      'Kalinka Renderer on raspberrypi',
     ]);
     expect(state.active?.rendererId, 'r-living');
     expect(state.hasRenderers, isTrue);
@@ -257,9 +277,46 @@ void main() {
     expect(find.text('Kitchen'), findsOneWidget);
     expect(find.text('Living Room'), findsOneWidget);
     expect(find.text('Study'), findsOneWidget);
-    expect(find.text('Offline'), findsOneWidget, reason: 'the study is down');
-    // One tick, on the renderer playback is running on.
+    // One filled mark, on the renderer playback is running on.
     expect(find.byIcon(Icons.check), findsOneWidget);
+  });
+
+  testWidgets('each row says which host it is and how it plays', (
+    tester,
+  ) async {
+    // Friendly names alone don't tell two boxes apart, which is the whole
+    // reason the picker exists.
+    await tester.pumpWidget(wrap(_FakeApi()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('kitchen-pi · ALSA'), findsOneWidget);
+    expect(find.text('living-pi · PipeWire'), findsOneWidget);
+    // Offline leads: it's why the row can't be tapped.
+    expect(find.text('Offline · study-pi'), findsOneWidget);
+    // Host dropped when the name already carries it — the server's default
+    // friendly name is "Kalinka Renderer on <host>".
+    expect(find.text('ALSA'), findsOneWidget);
+  });
+
+  testWidgets('refresh re-reads the list without closing the sheet', (
+    tester,
+  ) async {
+    final api = _FakeApi();
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.pumpAndSettle();
+    final callsBefore = api.listCalls;
+
+    await tester.tap(find.bySemanticsLabel('Refresh outputs'));
+    await tester.pumpAndSettle();
+
+    expect(api.listCalls, callsBefore + 1);
+    expect(find.text('PLAY ON'), findsOneWidget, reason: 'sheet stays open');
   });
 
   testWidgets('choosing a renderer PUTs its id and closes the sheet', (

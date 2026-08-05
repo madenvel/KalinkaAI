@@ -29,7 +29,7 @@ class RendererPickerChoice {
 }
 
 /// Icon button that opens the renderer picker — the list of playback endpoints
-/// the server knows about, with a tick on the one playback is running on.
+/// the server knows about, with the one playback is running on marked.
 ///
 /// Renders nothing while the server reports no renderers (or predates the
 /// `/renderer/*` endpoints), so it stays out of the way on a plain
@@ -51,14 +51,30 @@ class RendererSwitcherButton extends ConsumerWidget {
     );
     if (!visible) return const SizedBox.shrink();
 
-    return TransportButton(
-      hitDiameter: hitDiameter,
-      onTapDown: (_) => KalinkaHaptics.selectionClick(),
-      onTap: () => _openPicker(context, ref),
-      child: Icon(
-        Icons.speaker_outlined,
-        size: iconSize,
-        color: KalinkaColors.textSecondary,
+    // The button is too small for a name, so the current output goes in the
+    // label instead — otherwise nothing tells you where sound is going.
+    final playingOn = ref.watch(
+      rendererListProvider.select((s) => s.active?.friendlyName),
+    );
+
+    return Semantics(
+      label: playingOn == null || playingOn.isEmpty
+          ? 'Choose output'
+          : 'Output: $playingOn',
+      button: true,
+      child: Tooltip(
+        message: 'Choose output',
+        excludeFromSemantics: true,
+        child: TransportButton(
+          hitDiameter: hitDiameter,
+          onTapDown: (_) => KalinkaHaptics.selectionClick(),
+          onTap: () => _openPicker(context, ref),
+          child: Icon(
+            Icons.speaker_outlined,
+            size: iconSize,
+            color: KalinkaColors.textSecondary,
+          ),
+        ),
       ),
     );
   }
@@ -109,32 +125,12 @@ class RendererPickerContent extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-          child: Row(
-            children: [
-              Text('PLAY ON', style: KalinkaTextStyles.sectionHeaderMuted),
-              const SizedBox(width: 10),
-              if (state.loading)
-                const SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.5,
-                    color: KalinkaColors.textMuted,
-                  ),
-                ),
-            ],
-          ),
+        _PickerHeader(
+          loading: state.loading,
+          onRefresh: ref.read(rendererListProvider.notifier).refresh,
         ),
         if (renderers.isEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-            child: Text(
-              state.loading ? 'Looking for outputs…' : 'No outputs available',
-              style: KalinkaTextStyles.trayRowSublabel,
-            ),
-          )
+          _EmptyNote(loading: state.loading)
         else
           // Many-renderer installs are rare, but a scroll cap keeps the sheet
           // from swallowing the screen if one turns up.
@@ -144,7 +140,7 @@ class RendererPickerContent extends ConsumerWidget {
             ),
             child: ListView.builder(
               shrinkWrap: true,
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 10),
               itemCount: renderers.length,
               itemBuilder: (ctx, i) => _RendererRow(
                 renderer: renderers[i],
@@ -164,9 +160,139 @@ class RendererPickerContent extends ConsumerWidget {
   }
 }
 
+/// Sheet title plus a re-read control. Renderers announce themselves to the
+/// server, so there is nothing to scan for from here — refresh is the only
+/// honest action.
+class _PickerHeader extends StatelessWidget {
+  final bool loading;
+  final VoidCallback onRefresh;
+
+  const _PickerHeader({required this.loading, required this.onRefresh});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      // Right inset is what puts this glyph on the same vertical line as the
+      // rows' gears (row margin 8 + border 1 + half of a 48 target).
+      padding: const EdgeInsets.fromLTRB(20, 14, 13, 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text('PLAY ON', style: KalinkaTextStyles.sectionHeaderMuted),
+          ),
+          Semantics(
+            label: 'Refresh outputs',
+            button: true,
+            enabled: !loading,
+            child: Tooltip(
+              message: 'Refresh',
+              excludeFromSemantics: true,
+              child: Material(
+                color: Colors.transparent,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: loading
+                      ? null
+                      : () {
+                          KalinkaHaptics.selectionClick();
+                          onRefresh();
+                        },
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Center(
+                      child: loading
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: KalinkaColors.textMuted,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.refresh,
+                              size: 18,
+                              color: KalinkaColors.textSecondary,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyNote extends StatelessWidget {
+  final bool loading;
+
+  const _EmptyNote({required this.loading});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            loading ? 'Looking for outputs…' : 'No outputs available',
+            style: KalinkaTextStyles.trayRowLabel,
+          ),
+          if (!loading) ...[
+            const SizedBox(height: 4),
+            Text(
+              'An output appears here once it connects to your server.',
+              style: KalinkaTextStyles.trayRowSublabel,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// Friendly name, falling back to the id for a renderer that reported none.
 String _displayName(RendererInfo renderer) =>
     renderer.friendlyName.isEmpty ? renderer.rendererId : renderer.friendlyName;
+
+const _backendLabels = {
+  'alsa': 'ALSA',
+  'pipewire': 'PipeWire',
+  'pulse': 'PulseAudio',
+  'pulseaudio': 'PulseAudio',
+  'coreaudio': 'Core Audio',
+  'wasapi': 'WASAPI',
+  'oboe': 'Oboe',
+};
+
+/// Supporting line: which machine this output is and how it plays — the
+/// question the picker exists to answer, since friendly names alone don't
+/// distinguish two boxes. Offline leads, because it's why the row is dead.
+String _detailFor(RendererInfo renderer) {
+  final parts = <String>[];
+  if (!renderer.isConnected) parts.add('Offline');
+  final host = renderer.hostname;
+  // Skipped when the name already carries it — most default to "… on <host>".
+  if (host.isNotEmpty &&
+      !renderer.friendlyName.toLowerCase().contains(host.toLowerCase())) {
+    parts.add(host);
+  }
+  if (renderer.isConnected) {
+    if (renderer.kind == 'web') parts.add('Browser');
+    final backend = renderer.audioBackend;
+    if (backend.isNotEmpty) {
+      parts.add(_backendLabels[backend.toLowerCase()] ?? backend);
+    }
+  }
+  return parts.join(' · ');
+}
 
 class _RendererRow extends StatelessWidget {
   final RendererInfo renderer;
@@ -185,89 +311,123 @@ class _RendererRow extends StatelessWidget {
     // one has nothing to serve — but the renderer playback is already on is a
     // perfectly good thing to configure.
     final canConfigure = connected;
+    final name = _displayName(renderer);
+    final detail = _detailFor(renderer);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: canPlayHere
-            ? () {
-                KalinkaHaptics.selectionClick();
-                onIntent(RendererPickerIntent.play);
-              }
-            : null,
+    return Semantics(
+      // One output plays at a time; say so rather than leaving a screen reader
+      // to infer it from a tick.
+      inMutuallyExclusiveGroup: true,
+      selected: active,
+      enabled: connected,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          // Selection lives in the container, not the label colour — it
+          // survives a glance and doesn't lean on hue to carry state.
+          color: active ? KalinkaColors.accentSubtle : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: active ? KalinkaColors.accentBorder : Colors.transparent,
+          ),
+        ),
         child: Opacity(
           opacity: connected ? 1.0 : 0.45,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: active
-                        ? KalinkaColors.accentSubtle
-                        : KalinkaColors.surfaceOverlay,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.speaker_outlined,
-                    size: 16,
-                    color: active
-                        ? KalinkaColors.accentTint
-                        : KalinkaColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _displayName(renderer),
-                        style: KalinkaTextStyles.trayRowLabel.copyWith(
-                          color: active
-                              ? KalinkaColors.accentTint
-                              : KalinkaColors.textPrimary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+          child: Row(
+            children: [
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(11),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: canPlayHere
+                        ? () {
+                            KalinkaHaptics.selectionClick();
+                            onIntent(RendererPickerIntent.play);
+                          }
+                        : null,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(11, 10, 8, 10),
+                      child: Row(
+                        children: [
+                          _SelectionMark(selected: active),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: KalinkaTextStyles.trayRowLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (detail.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    detail,
+                                    style: KalinkaTextStyles.trayRowSublabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      if (!connected) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          'Offline',
-                          style: KalinkaTextStyles.trayRowSublabel,
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
-                if (active) ...[
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.check,
-                    size: 18,
-                    color: KalinkaColors.accentTint,
-                  ),
-                ],
-                const SizedBox(width: 4),
-                // Its own tap target inside the row: the row switches
-                // playback, the gear opens that renderer's settings.
-                _GearButton(
-                  rendererName: _displayName(renderer),
-                  onTap: canConfigure
-                      ? () {
-                          KalinkaHaptics.selectionClick();
-                          onIntent(RendererPickerIntent.configure);
-                        }
-                      : null,
-                ),
-              ],
-            ),
+              ),
+              // Two targets in one row: the rule is what says so.
+              Container(
+                width: 1,
+                height: 26,
+                color: KalinkaColors.borderSubtle,
+              ),
+              _GearButton(
+                rendererName: name,
+                onTap: canConfigure
+                    ? () {
+                        KalinkaHaptics.selectionClick();
+                        onIntent(RendererPickerIntent.configure);
+                      }
+                    : null,
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Leading single-choice mark: an empty ring, filled with a check on the
+/// output playback runs on. Shape carries the state, colour only reinforces.
+class _SelectionMark extends StatelessWidget {
+  final bool selected;
+
+  const _SelectionMark({required this.selected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20,
+      height: 20,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: selected ? KalinkaColors.accent : Colors.transparent,
+        border: Border.all(
+          color: selected ? KalinkaColors.accent : KalinkaColors.borderDefault,
+          width: 1.5,
+        ),
+      ),
+      child: selected
+          ? const Icon(Icons.check, size: 13, color: KalinkaColors.textPrimary)
+          : null,
     );
   }
 }
@@ -283,22 +443,27 @@ class _GearButton extends StatelessWidget {
     return Semantics(
       label: '$rendererName settings',
       button: true,
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: 38,
-            height: 38,
-            child: Icon(
-              Icons.settings_outlined,
-              size: 18,
-              color: onTap == null
-                  ? KalinkaColors.textMuted
-                  : KalinkaColors.textSecondary,
+      enabled: onTap != null,
+      child: Tooltip(
+        message: 'Output settings',
+        excludeFromSemantics: true,
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(
+                Icons.settings_outlined,
+                size: 19,
+                color: onTap == null
+                    ? KalinkaColors.textMuted
+                    : KalinkaColors.textSecondary,
+              ),
             ),
           ),
         ),

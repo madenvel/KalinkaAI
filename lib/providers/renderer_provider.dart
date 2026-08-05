@@ -109,10 +109,7 @@ class RendererListNotifier extends Notifier<RendererListState> {
     state = state.copyWith(
       renderers: [
         for (final r in state.renderers)
-          RendererInfo(
-            rendererId: r.rendererId,
-            friendlyName: r.friendlyName,
-            status: r.status,
+          r.copyWith(
             active: r.rendererId == rendererId,
             selected: r.rendererId == rendererId,
           ),
