@@ -1447,3 +1447,40 @@ class SearchSuggestionList {
         attested: (json['attested'] ?? false) as bool,
       );
 }
+
+/// One playback endpoint known to the server, from `/renderer/list`.
+class RendererInfo {
+  /// Stable id — what `PUT /renderer/active` takes. Never the name.
+  final String rendererId;
+  final String friendlyName;
+
+  /// `connected` while the renderer holds a live socket; `offline` for one
+  /// that dropped and hasn't been reaped yet.
+  final String status;
+
+  /// True for the renderer playback actually runs on — the pinned one while
+  /// it is connected, otherwise the first connected.
+  final bool active;
+
+  /// True for the renderer pinned by `PUT /renderer/active`. No renderer
+  /// carries it while selection is automatic.
+  final bool selected;
+
+  const RendererInfo({
+    required this.rendererId,
+    required this.friendlyName,
+    required this.status,
+    this.active = false,
+    this.selected = false,
+  });
+
+  bool get isConnected => status == 'connected';
+
+  factory RendererInfo.fromJson(Map<String, dynamic> json) => RendererInfo(
+        rendererId: (json['renderer_id'] ?? '') as String,
+        friendlyName: (json['friendly_name'] ?? '') as String,
+        status: (json['status'] ?? 'offline') as String,
+        active: (json['active'] ?? false) as bool,
+        selected: (json['selected'] ?? false) as bool,
+      );
+}

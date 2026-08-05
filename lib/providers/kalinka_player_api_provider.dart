@@ -16,6 +16,7 @@ import '../data_model/data_model.dart'
         IndexerStatus,
         ModulesAndDevices,
         Playlist,
+        RendererInfo,
         SearchSuggestionList,
         SearchType,
         SearchTypeExtension,
@@ -122,6 +123,20 @@ abstract class KalinkaPlayerProxy {
   /// when omitted. Throws [TestToneUnsupportedException] when the server
   /// predates the `/server/test_tone` endpoint.
   Future<void> testTone(String channel, {String? device});
+
+  /// Playback endpoints known to the server, from `GET /renderer/list`.
+  /// Throws [RenderersUnsupportedException] on a server that predates the
+  /// endpoint.
+  Future<List<RendererInfo>> listRenderers();
+
+  /// Pin playback to [rendererId] via `PUT /renderer/active`; pass null to
+  /// hand selection back to the server (first connected renderer wins).
+  ///
+  /// Playback moves with the pin, so this can fail on the handover — the
+  /// target is busy, gone, or silent. Those come back as
+  /// [RendererSwitchException] with a message fit to show the user; playback
+  /// stays where it was.
+  Future<void> setActiveRenderer(String? rendererId);
   void close();
 }
 
@@ -129,6 +144,22 @@ abstract class KalinkaPlayerProxy {
 class TestToneUnsupportedException implements Exception {
   @override
   String toString() => 'Server does not support test tone playback';
+}
+
+/// The connected server has no `/renderer/*` endpoints (older build).
+class RenderersUnsupportedException implements Exception {
+  @override
+  String toString() => 'Server does not support renderers';
+}
+
+/// The server refused to move playback to the requested renderer.
+/// [message] is already phrased for the user.
+class RendererSwitchException implements Exception {
+  final String message;
+  const RendererSwitchException(this.message);
+
+  @override
+  String toString() => message;
 }
 
 class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
@@ -715,6 +746,48 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
         throw TestToneUnsupportedException();
       }
       rethrow;
+    }
+  }
+
+  @override
+  Future<List<RendererInfo>> listRenderers() async {
+    try {
+      final response = await client.get('/renderer/list');
+      final list = (response.data as Map)['renderers'] as List? ?? const [];
+      return [
+        for (final r in list)
+          RendererInfo.fromJson(Map<String, dynamic>.from(r as Map)),
+      ];
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 404 || status == 405) {
+        throw RenderersUnsupportedException();
+      }
+      rethrow;
+    }
+  }
+
+  // A 404 here is the server rejecting an unknown renderer id, not a missing
+  // endpoint — the switcher only exists once `listRenderers` has succeeded.
+  @override
+  Future<void> setActiveRenderer(String? rendererId) async {
+    try {
+      final response = await client.put(
+        '/renderer/active',
+        options: Options(contentType: Headers.jsonContentType),
+        data: jsonEncode({'renderer_id': rendererId}),
+      );
+      if (response.statusCode != 200) {
+        throw const RendererSwitchException('Couldn’t switch output');
+      }
+    } on DioException catch (e) {
+      throw RendererSwitchException(switch (e.response?.statusCode) {
+        404 => 'That output is no longer available',
+        409 => 'That output is already playing for someone else',
+        503 => 'That output isn’t connected',
+        504 => 'That output didn’t respond',
+        _ => 'Couldn’t switch output',
+      });
     }
   }
 

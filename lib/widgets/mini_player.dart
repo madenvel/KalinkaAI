@@ -15,6 +15,7 @@ import '../utils/playback_utils.dart';
 import 'gradient_progress_line.dart';
 import 'play_pause_glyph.dart';
 import 'procedural_album_art.dart';
+import 'renderer_switcher.dart';
 import 'source_badge.dart';
 import 'transport_button.dart';
 
@@ -416,7 +417,17 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
+              // Outside the gesture area too, for the same reason as the play
+              // button: the swipe recognizer must not steal its taps.
+              IgnorePointer(
+                ignoring: isOffline,
+                child: const RendererSwitcherButton(
+                  hitDiameter: 40,
+                  iconSize: 20,
+                ),
+              ),
+              const SizedBox(width: 4),
               _buildPlayPauseButton(
                 playerState: playerState,
                 isOffline: isOffline,

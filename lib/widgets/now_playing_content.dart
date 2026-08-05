@@ -11,6 +11,7 @@ import '../utils/playback_utils.dart';
 import '../providers/source_modules_provider.dart';
 import 'play_pause_glyph.dart';
 import 'playback_progress_slider.dart';
+import 'renderer_switcher.dart';
 import 'transport_button.dart';
 import 'procedural_album_art.dart';
 import 'source_badge.dart';
@@ -315,18 +316,31 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
               ),
             ),
             const SizedBox(height: 12),
-            // NOW PLAYING + close button
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // NOW PLAYING + renderer switch + close button. A Stack, not a
+            // spaceBetween Row: the switcher hides itself when the server has
+            // no renderers, and the label must stay centred either way.
+            Stack(
+              alignment: Alignment.center,
               children: [
-                const SizedBox(width: 36),
                 Text('NOW PLAYING', style: KalinkaTextStyles.nowPlayingLabel),
-                GestureDetector(
-                  onTap: widget.onClose,
-                  child: const Icon(
-                    Icons.keyboard_arrow_down,
-                    size: 28,
-                    color: KalinkaColors.textSecondary,
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const RendererSwitcherButton(
+                        hitDiameter: 36,
+                        iconSize: 20,
+                      ),
+                      GestureDetector(
+                        onTap: widget.onClose,
+                        child: const Icon(
+                          Icons.keyboard_arrow_down,
+                          size: 28,
+                          color: KalinkaColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -340,18 +354,32 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
       // Connection status lives in the right-panel top bar, not here.
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text('NOW PLAYING', style: KalinkaTextStyles.nowPlayingLabel),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'NOW PLAYING',
+                style: KalinkaTextStyles.nowPlayingLabel,
+              ),
+            ),
+            const RendererSwitcherButton(hitDiameter: 36, iconSize: 20),
+          ],
         ),
       );
     }
 
-    // Embedded mode: just the label
+    // Embedded mode: label centred, switcher pinned right.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: Center(
-        child: Text('NOW PLAYING', style: KalinkaTextStyles.nowPlayingLabel),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Text('NOW PLAYING', style: KalinkaTextStyles.nowPlayingLabel),
+          const Align(
+            alignment: Alignment.centerRight,
+            child: RendererSwitcherButton(hitDiameter: 36, iconSize: 20),
+          ),
+        ],
       ),
     );
   }
