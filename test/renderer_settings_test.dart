@@ -30,8 +30,9 @@ const _configPayload = '''
       "value":"default","default":"default",
       "options":[
         {"value":"default","label":"default (not present)","description":""},
-        {"value":"hw:CARD=Headphones,DEV=0","label":"bcm2835 Headphones","description":"Direct hardware"},
-        {"value":"hw:CARD=sndrpihifiberry,DEV=0","label":"HiFiBerry Digi+ Pro","description":""}],
+        {"value":"hw:CARD=Headphones,DEV=0","label":"bcm2835 Headphones, bcm2835 Headphones \\u00b7 Direct hardware device without any conversions","description":""},
+        {"value":"plughw:CARD=Headphones,DEV=0","label":"bcm2835 Headphones, bcm2835 Headphones \\u00b7 Hardware device with all software conversions","description":""},
+        {"value":"hw:CARD=sndrpihifiberry,DEV=0","label":"HiFiBerry Digi+ Pro","description":"Bit-perfect S/PDIF"}],
       "apply":"interrupts_playback","read_only":false},
      {"path":"output.volume_mode","title":"Volume control",
       "description":"How volume is applied","type":"enum",
@@ -196,11 +197,40 @@ void main() {
       expect(options.map((o) => o.value), [
         'default',
         'hw:CARD=Headphones,DEV=0',
+        'plughw:CARD=Headphones,DEV=0',
         'hw:CARD=sndrpihifiberry,DEV=0',
       ]);
-      expect(options[1].label, 'bcm2835 Headphones');
-      expect(options[1].description, 'Direct hardware');
       expect(options[0].description, isNull, reason: 'empty is not a subtitle');
+    });
+
+    test('splits the detail the renderer packs into an option label', () {
+      final view = adaptRendererConfig(_snapshot());
+      final device = view.options['output.device']!;
+
+      expect(device[1].label, 'bcm2835 Headphones, bcm2835 Headphones');
+      expect(
+        device[1].description,
+        'Direct hardware device without any conversions',
+      );
+      expect(device[2].label, 'bcm2835 Headphones, bcm2835 Headphones');
+      expect(
+        device[2].description,
+        'Hardware device with all software conversions',
+      );
+    });
+
+    test('a description the renderer did send is left alone', () {
+      final view = adaptRendererConfig(_snapshot());
+      final device = view.options['output.device']!;
+      expect(device[3].label, 'HiFiBerry Digi+ Pro');
+      expect(device[3].description, 'Bit-perfect S/PDIF');
+    });
+
+    test('a label with no separator stays whole', () {
+      final view = adaptRendererConfig(_snapshot());
+      expect(view.options['output.device']![0].label, 'default (not present)');
+      expect(view.options['output.driver']!.single.label, 'ALSA');
+      expect(view.options['output.volume_mode']![0].label, 'auto');
     });
 
     test('keeps each field apply cost for the pending-changes warning', () {
@@ -385,6 +415,48 @@ void main() {
       expect(find.text('Reset'), findsNothing);
       expect(find.text('SPEAKER TEST'), findsOneWidget);
       expect(find.text('Test settings'), findsOneWidget);
+    });
+
+    testWidgets('a field description reads as a second line under its label', (
+      tester,
+    ) async {
+      await tester.pumpWidget(wrap(_FakeApi()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Volume control'), findsOneWidget);
+      expect(find.text('How volume is applied'), findsOneWidget);
+    });
+
+    testWidgets('the popup dims an option detail onto its own line', (
+      tester,
+    ) async {
+      await tester.pumpWidget(wrap(_FakeApi()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('default (not present)'));
+      await tester.pumpAndSettle();
+
+      // Name and detail are separate lines, not one run-on label.
+      expect(
+        find.text('bcm2835 Headphones, bcm2835 Headphones'),
+        findsNWidgets(2),
+      );
+      expect(
+        find.text('Direct hardware device without any conversions'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Hardware device with all software conversions'),
+        findsOneWidget,
+      );
+      // The detail is set smaller than the name it sits under.
+      final name = tester.widget<Text>(
+        find.text('bcm2835 Headphones, bcm2835 Headphones').first,
+      );
+      final detail = tester.widget<Text>(
+        find.text('Direct hardware device without any conversions'),
+      );
+      expect(detail.style!.fontSize, lessThan(name.style!.fontSize!));
     });
 
     testWidgets('choosing a device stages it and names the cost', (

@@ -52,14 +52,7 @@ RendererSchemaView adaptRendererConfig(RendererConfigSnapshot snapshot) {
       values[field.path] = decodeRendererValue(field.type, field.value);
       applyCosts[field.path] = field.apply;
       if (field.options.isNotEmpty) {
-        options[field.path] = [
-          for (final o in field.options)
-            OptionSpec(
-              value: o.value,
-              label: o.label.isEmpty ? o.value : o.label,
-              description: o.description.isEmpty ? null : o.description,
-            ),
-        ];
+        options[field.path] = [for (final o in field.options) _toOptionSpec(o)];
       }
     }
     if (fields.isEmpty) continue;
@@ -80,6 +73,43 @@ RendererSchemaView adaptRendererConfig(RendererConfigSnapshot snapshot) {
     values: values,
     options: options,
     applyCosts: applyCosts,
+  );
+}
+
+/// Separator the renderer puts between an option's name and its detail.
+const _optionDetailSeparator = ' · ';
+
+/// Split an option's detail out of its label so the picker can dim it onto a
+/// second line.
+///
+/// The server's own device dropdown ships `label` and `description` apart, and
+/// the picker shows the description as a smaller second line under the name —
+/// the collapsed trigger row stays clean because it renders the label alone.
+/// The renderer packs both into one label (`"Card, Device · Direct hardware
+/// device without any conversions"`), which would otherwise render as a single
+/// long line. Splitting here makes the two dropdowns read the same.
+///
+/// A `description` the renderer did send always wins; a label with no
+/// separator is left whole.
+OptionSpec _toOptionSpec(RendererConfigOption option) {
+  final label = option.label.isEmpty ? option.value : option.label;
+  if (option.description.isNotEmpty) {
+    return OptionSpec(
+      value: option.value,
+      label: label,
+      description: option.description,
+    );
+  }
+  // First separator, not last: the detail itself may contain one.
+  final split = label.indexOf(_optionDetailSeparator);
+  if (split <= 0) {
+    return OptionSpec(value: option.value, label: label);
+  }
+  final detail = label.substring(split + _optionDetailSeparator.length).trim();
+  return OptionSpec(
+    value: option.value,
+    label: label.substring(0, split).trim(),
+    description: detail.isEmpty ? null : detail,
   );
 }
 
