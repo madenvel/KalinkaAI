@@ -5,8 +5,8 @@ import '../data_model/data_model.dart' show RendererInfo;
 import '../providers/kalinka_player_api_provider.dart'
     show RendererSwitchException;
 import '../providers/renderer_provider.dart';
+import '../providers/renderer_settings_route_provider.dart';
 import '../providers/toast_provider.dart';
-import '../screens/renderer_settings_screen.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import 'kalinka_bottom_sheet.dart';
@@ -66,6 +66,7 @@ class RendererSwitcherButton extends ConsumerWidget {
   Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
     final notifier = ref.read(rendererListProvider.notifier);
     final toast = ref.read(toastProvider.notifier);
+    final route = ref.read(rendererSettingsRouteProvider.notifier);
     final navigator = Navigator.of(context);
     // The list has no push channel — re-read it as the sheet opens so a
     // renderer that came or went since the last fetch shows up.
@@ -78,14 +79,11 @@ class RendererSwitcherButton extends ConsumerWidget {
 
     switch (choice.intent) {
       case RendererPickerIntent.configure:
-        navigator.push(
-          MaterialPageRoute<void>(
-            builder: (_) => RendererSettingsScreen(
-              rendererId: choice.rendererId,
-              rendererName: choice.rendererName,
-            ),
-          ),
-        );
+        // The panel is hosted by MusicPlayerScreen, under anything still on
+        // the navigator — the phone's Now Playing sheet, for one. Fall back
+        // to it first so the panel is what the user ends up looking at.
+        navigator.popUntil((r) => r.isFirst);
+        route.open(choice.rendererId, choice.rendererName);
       case RendererPickerIntent.play:
         try {
           await notifier.select(choice.rendererId);

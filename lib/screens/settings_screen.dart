@@ -16,6 +16,7 @@ import '../widgets/restart_overlay.dart';
 import '../widgets/upgrade_overlay.dart';
 import '../widgets/expert_settings_screen.dart';
 import '../widgets/settings_controls/settings_binding.dart';
+import '../widgets/slide_in_panel.dart';
 import '../widgets/settings_controls/settings_toggle.dart';
 import '../widgets/settings_renderer.dart';
 
@@ -38,53 +39,17 @@ class SettingsScreen extends ConsumerStatefulWidget {
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends ConsumerState<SettingsScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _slideController;
-  late Animation<Offset> _slideAnimation;
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int _tabIndex = 0;
   bool _restartOverlayOpen = false;
 
   @override
   void initState() {
     super.initState();
-    _slideController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 320),
-    );
-    _slideAnimation = Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
-        .animate(
-          CurvedAnimation(
-            parent: _slideController,
-            curve: const Cubic(0.4, 0, 0.2, 1),
-          ),
-        );
-    _slideController.forward().whenComplete(() {
-      if (mounted) widget.onCoverageChanged?.call(true);
-    });
-
     // Load config
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(settingsProvider.notifier).loadConfig();
     });
-  }
-
-  @override
-  void dispose() {
-    _slideController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _animateClose() async {
-    if (widget.onClose != null) {
-      // Overlay mode — reveal what's behind us before sliding out, then remove.
-      widget.onCoverageChanged?.call(false);
-      await _slideController.reverse();
-      widget.onClose!();
-    } else {
-      // Phone Navigator route mode — route transition handles animation.
-      Navigator.pop(context);
-    }
   }
 
   void _onApply() {
@@ -111,153 +76,136 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       }
     });
 
-    final content = Stack(
-      children: [
-        SlideTransition(
-          position: _slideAnimation,
-          child: Container(
-            color: KalinkaColors.background,
-            child: SafeArea(
-              child: Column(
-                children: [
-                  // Header (carries the Expert mode toggle on the right)
-                  _buildHeader(),
-                  // Reconnecting / offline indicator — the same banner the
-                  // queue screen shows. Self-hides when connected.
-                  const ConnectionBanner(),
-                  if (disconnected)
-                    // Server unreachable: replace the apply bar, tab bar and
-                    // settings body with a placeholder. Settings reload
-                    // automatically once the connection returns (the
-                    // ref.listen above), swapping this back for the apply bar.
-                    _buildDisconnectedPlaceholder()
-                  else ...[
-                    // Pending changes banner — only actionable while
-                    // connected, since applying restarts the server.
-                    PendingChangesBanner(
-                      pendingCount: settingsState.pendingCount,
-                      consequence: 'restart required',
-                      onDiscard: () =>
-                          ref.read(settingsProvider.notifier).discardAll(),
-                      onApply: _onApply,
-                    ),
-                    // Tab bar — only meaningful in simple mode; expert is
-                    // a single flat about:config-style screen.
-                    if (!expertMode) _buildTabBar(settingsState.schema?.pages),
-                    // Loading / error state
-                    if (settingsState.isLoading)
-                      const Expanded(
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation(
-                              KalinkaColors.accent,
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (settingsState.error != null &&
-                        settingsState.schema == null)
-                      Expanded(
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: KalinkaColors.statusOffline,
-                                size: 32,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Could not load settings',
-                                style: KalinkaTextStyles.cardTitle,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                settingsState.error!,
-                                textAlign: TextAlign.center,
-                                style: KalinkaTextStyles.trayRowSublabel,
-                              ),
-                              const SizedBox(height: 16),
-                              KalinkaButton(
-                                label: 'Retry',
-                                variant: KalinkaButtonVariant.accent,
-                                size: KalinkaButtonSize.compact,
-                                onTap: () => ref
-                                    .read(settingsProvider.notifier)
-                                    .loadConfig(),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else if (settingsState.schema != null)
-                      Expanded(
-                        child: expertMode
-                            ? const ExpertSettingsScreen()
-                            : SettingsScope(
-                                binding: ServerSettingsBinding(
-                                  settingsState,
-                                  ref.read(settingsProvider.notifier),
-                                ),
-                                child: IndexedStack(
-                                  index: _tabIndex.clamp(
-                                    0,
-                                    settingsState.schema!.pages.length - 1,
-                                  ),
-                                  children: [
-                                    for (final page
-                                        in settingsState.schema!.pages)
-                                      SchemaPageRenderer(
-                                        key: ValueKey('page_${page.id}'),
-                                        page: page,
-                                      ),
-                                  ],
-                                ),
-                              ),
-                      )
-                    else
-                      const Expanded(child: SizedBox.shrink()),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
+    return SlideInPanel(
+      onClose: widget.onClose,
+      onCoverageChanged: widget.onCoverageChanged,
+      overlays: [
         // Restart overlay
         if (_restartOverlayOpen)
-          Positioned.fill(
-            child: RestartOverlay(
-              onDismiss: () {
-                setState(() => _restartOverlayOpen = false);
-                // Reload config after restart
-                ref.read(settingsProvider.notifier).loadConfig();
-              },
-            ),
+          RestartOverlay(
+            onDismiss: () {
+              setState(() => _restartOverlayOpen = false);
+              // Reload config after restart
+              ref.read(settingsProvider.notifier).loadConfig();
+            },
           ),
         // Upgrade overlay — provider-driven (the server update banner starts
         // the flow); no dismiss until it succeeds or errors out.
         if (ref.watch(upgradeProvider).isUpgrading)
-          Positioned.fill(
-            child: UpgradeOverlay(
-              onDismiss: () {
-                ref.read(settingsProvider.notifier).loadConfig();
-              },
-            ),
+          UpgradeOverlay(
+            onDismiss: () {
+              ref.read(settingsProvider.notifier).loadConfig();
+            },
           ),
       ],
-    );
-
-    // As an overlay (onClose set) intercept the system back to animate out,
-    // matching the header back button. As a route the transition handles it.
-    if (widget.onClose == null) return content;
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _animateClose();
-      },
-      child: content,
+      child: Container(
+        color: KalinkaColors.background,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header (carries the Expert mode toggle on the right)
+              _buildHeader(),
+              // Reconnecting / offline indicator — the same banner the
+              // queue screen shows. Self-hides when connected.
+              const ConnectionBanner(),
+              if (disconnected)
+                // Server unreachable: replace the apply bar, tab bar and
+                // settings body with a placeholder. Settings reload
+                // automatically once the connection returns (the
+                // ref.listen above), swapping this back for the apply bar.
+                _buildDisconnectedPlaceholder()
+              else ...[
+                // Pending changes banner — only actionable while
+                // connected, since applying restarts the server.
+                PendingChangesBanner(
+                  pendingCount: settingsState.pendingCount,
+                  consequence: 'restart required',
+                  onDiscard: () =>
+                      ref.read(settingsProvider.notifier).discardAll(),
+                  onApply: _onApply,
+                ),
+                // Tab bar — only meaningful in simple mode; expert is
+                // a single flat about:config-style screen.
+                if (!expertMode) _buildTabBar(settingsState.schema?.pages),
+                // Loading / error state
+                if (settingsState.isLoading)
+                  const Expanded(
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(
+                          KalinkaColors.accent,
+                        ),
+                      ),
+                    ),
+                  )
+                else if (settingsState.error != null &&
+                    settingsState.schema == null)
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: KalinkaColors.statusOffline,
+                            size: 32,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Could not load settings',
+                            style: KalinkaTextStyles.cardTitle,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            settingsState.error!,
+                            textAlign: TextAlign.center,
+                            style: KalinkaTextStyles.trayRowSublabel,
+                          ),
+                          const SizedBox(height: 16),
+                          KalinkaButton(
+                            label: 'Retry',
+                            variant: KalinkaButtonVariant.accent,
+                            size: KalinkaButtonSize.compact,
+                            onTap: () => ref
+                                .read(settingsProvider.notifier)
+                                .loadConfig(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (settingsState.schema != null)
+                  Expanded(
+                    child: expertMode
+                        ? const ExpertSettingsScreen()
+                        : SettingsScope(
+                            binding: ServerSettingsBinding(
+                              settingsState,
+                              ref.read(settingsProvider.notifier),
+                            ),
+                            child: IndexedStack(
+                              index: _tabIndex.clamp(
+                                0,
+                                settingsState.schema!.pages.length - 1,
+                              ),
+                              children: [
+                                for (final page in settingsState.schema!.pages)
+                                  SchemaPageRenderer(
+                                    key: ValueKey('page_${page.id}'),
+                                    page: page,
+                                  ),
+                              ],
+                            ),
+                          ),
+                  )
+                else
+                  const Expanded(child: SizedBox.shrink()),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -272,19 +220,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           child: Row(
             children: [
               // Back — same plain, borderless style as the Find Music close.
+              // Builder: the panel scope is *below* this State's context.
               Semantics(
                 label: 'Back',
                 button: true,
-                child: GestureDetector(
-                  onTap: _animateClose,
-                  behavior: HitTestBehavior.opaque,
-                  child: const SizedBox(
-                    width: 42,
-                    height: 42,
-                    child: Icon(
-                      Icons.arrow_back,
-                      size: 22,
-                      color: KalinkaColors.textPrimary,
+                child: Builder(
+                  builder: (context) => GestureDetector(
+                    onTap: () => SlideInPanel.closeOf(context),
+                    behavior: HitTestBehavior.opaque,
+                    child: const SizedBox(
+                      width: 42,
+                      height: 42,
+                      child: Icon(
+                        Icons.arrow_back,
+                        size: 22,
+                        color: KalinkaColors.textPrimary,
+                      ),
                     ),
                   ),
                 ),

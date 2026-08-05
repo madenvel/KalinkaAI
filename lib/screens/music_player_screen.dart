@@ -8,6 +8,7 @@ import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/playback_failure_provider.dart';
+import '../providers/renderer_settings_route_provider.dart';
 import '../providers/search_session_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/toast_provider.dart';
@@ -31,6 +32,7 @@ import '../widgets/search/search_dock.dart';
 import '../widgets/search/search_session_view.dart';
 import '../widgets/server_sheet.dart';
 import 'onboarding_screen.dart';
+import 'renderer_settings_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/kalinka_toast_overlay.dart';
 import '../widgets/sheet_anchor.dart';
@@ -483,8 +485,28 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     ),
   );
 
+  /// The renderer settings panel, wired to close through the same route
+  /// provider that opened it. Coverage rides on [_settingsCovering] — only one
+  /// settings panel is ever up, and both hide the same content behind them.
+  Widget _buildRendererSettings(RendererSettingsRoute route) {
+    return RendererSettingsScreen(
+      // Keyed by renderer so switching targets rebuilds rather than reusing
+      // the previous renderer's page and its staged edits.
+      key: ValueKey(route.rendererId),
+      rendererId: route.rendererId,
+      rendererName: route.rendererName,
+      onClose: () {
+        ref.read(rendererSettingsRouteProvider.notifier).close();
+        setState(() => _settingsCovering = false);
+      },
+      onCoverageChanged: (covering) =>
+          setState(() => _settingsCovering = covering),
+    );
+  }
+
   Widget _buildPhoneLayout(BuildContext context) {
     final searchOpen = ref.watch(searchSessionProvider.select((s) => s.isOpen));
+    final rendererSettings = ref.watch(rendererSettingsRouteProvider);
     final connectionState = ref.watch(connectionStateProvider);
 
     // One-time UI tour: first time the queue is visible with a live
@@ -497,13 +519,14 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
         !searchOpen;
 
     return PopScope(
-      canPop: !searchOpen && !_settingsOpen,
+      canPop: !searchOpen && !_settingsOpen && rendererSettings == null,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         // Settings is a full-screen overlay here; it owns its own back via an
-        // internal PopScope (animated close), so leave it alone. Search owns
-        // its own layered back too (SearchSessionView's PopScope).
-        if (_settingsOpen) return;
+        // internal PopScope (animated close), so leave it alone — as does the
+        // renderer settings panel. Search owns its own layered back too
+        // (SearchSessionView's PopScope).
+        if (_settingsOpen || rendererSettings != null) return;
       },
       child: Stack(
         children: [
@@ -637,6 +660,9 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                     setState(() => _settingsCovering = covering),
               ),
             ),
+          // A renderer's own settings, hosted exactly like the server's.
+          if (rendererSettings != null)
+            Positioned.fill(child: _buildRendererSettings(rendererSettings)),
           // One-time first-run tour
           if (showCoachMarks)
             Positioned.fill(
@@ -689,12 +715,18 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
 
   Widget _buildTabletLayout(BuildContext context) {
     final searchOpen = ref.watch(searchSessionProvider.select((s) => s.isOpen));
+    final rendererSettings = ref.watch(rendererSettingsRouteProvider);
     return PopScope(
-      canPop: !searchOpen && !_settingsOpen && !_serverSheetOpen,
+      canPop:
+          !searchOpen &&
+          !_settingsOpen &&
+          !_serverSheetOpen &&
+          rendererSettings == null,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        // Settings and search own their back via internal PopScopes.
-        if (_settingsOpen) return;
+        // Settings, renderer settings and search own their back via internal
+        // PopScopes.
+        if (_settingsOpen || rendererSettings != null) return;
         if (_serverSheetOpen) {
           setState(() => _serverSheetOpen = false);
           return;
@@ -744,6 +776,14 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                                     () => _settingsCovering = covering,
                                   ),
                                 ),
+                              ),
+                            ),
+                          // A renderer's settings share the left panel and the
+                          // same clip, so the slide reads identically.
+                          if (rendererSettings != null)
+                            Positioned.fill(
+                              child: ClipRect(
+                                child: _buildRendererSettings(rendererSettings),
                               ),
                             ),
                         ],
