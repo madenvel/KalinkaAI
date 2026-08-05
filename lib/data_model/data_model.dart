@@ -1466,21 +1466,54 @@ class RendererInfo {
   /// carries it while selection is automatic.
   final bool selected;
 
+  /// Host the renderer runs on, from its `platform` block. Empty when the
+  /// renderer reported none — it's what tells two outputs apart when their
+  /// friendly names don't.
+  final String hostname;
+
+  /// Audio backend it plays through (`alsa`, `pipewire`, …), or empty.
+  final String audioBackend;
+
+  /// `native` for a device renderer, `web` for a browser one.
+  final String kind;
+
   const RendererInfo({
     required this.rendererId,
     required this.friendlyName,
     required this.status,
     this.active = false,
     this.selected = false,
+    this.hostname = '',
+    this.audioBackend = '',
+    this.kind = '',
   });
 
   bool get isConnected => status == 'connected';
 
-  factory RendererInfo.fromJson(Map<String, dynamic> json) => RendererInfo(
-        rendererId: (json['renderer_id'] ?? '') as String,
-        friendlyName: (json['friendly_name'] ?? '') as String,
-        status: (json['status'] ?? 'offline') as String,
-        active: (json['active'] ?? false) as bool,
-        selected: (json['selected'] ?? false) as bool,
+  RendererInfo copyWith({bool? active, bool? selected}) => RendererInfo(
+        rendererId: rendererId,
+        friendlyName: friendlyName,
+        status: status,
+        active: active ?? this.active,
+        selected: selected ?? this.selected,
+        hostname: hostname,
+        audioBackend: audioBackend,
+        kind: kind,
       );
+
+  factory RendererInfo.fromJson(Map<String, dynamic> json) {
+    final platform = json['platform'] is Map
+        ? Map<String, dynamic>.from(json['platform'] as Map)
+        : const <String, dynamic>{};
+    return RendererInfo(
+      rendererId: (json['renderer_id'] ?? '') as String,
+      friendlyName: (json['friendly_name'] ?? '') as String,
+      status: (json['status'] ?? 'offline') as String,
+      active: (json['active'] ?? false) as bool,
+      selected: (json['selected'] ?? false) as bool,
+      hostname: platform['hostname']?.toString() ?? '',
+      audioBackend: platform['audio_backend']?.toString() ?? '',
+      kind: (json['kind'] ?? '') as String,
+    );
+  }
 }
