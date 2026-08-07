@@ -14,10 +14,10 @@ import '../widgets/pending_changes_banner.dart';
 import '../widgets/restart_confirm_dialog.dart';
 import '../widgets/restart_overlay.dart';
 import '../widgets/upgrade_overlay.dart';
+import '../widgets/expert_mode_toggle.dart';
 import '../widgets/expert_settings_screen.dart';
 import '../widgets/settings_controls/settings_binding.dart';
 import '../widgets/slide_in_panel.dart';
-import '../widgets/settings_controls/settings_toggle.dart';
 import '../widgets/settings_renderer.dart';
 
 /// Full-screen settings overlay with tabbed content (General / Modules / Devices).
@@ -288,7 +288,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               // connection state surfaces clearly enough through the
               // loading/error UI below, so the prime header slot is better
               // spent on a control the user actually interacts with.
-              const _ExpertModeHeaderToggle(),
+              const ExpertModeToggle(),
             ],
           ),
         ),
@@ -377,50 +377,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           );
         }),
-      ),
-    );
-  }
-}
-
-/// Compact "EXPERT" label + toggle that sits in the header where the
-/// connection status pill used to live. Off = simple tabbed view,
-/// On = flat about:config-style screen.
-///
-/// The label is muted-uppercase to match other meta chrome in the
-/// header; the toggle is scaled slightly down so it sits proportional
-/// to the back button and logo rather than dominating the row.
-class _ExpertModeHeaderToggle extends ConsumerWidget {
-  const _ExpertModeHeaderToggle();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final expert = ref.watch(expertModeProvider);
-    final notifier = ref.read(expertModeProvider.notifier);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: notifier.toggle,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'EXPERT',
-            style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
-              letterSpacing: 1.0,
-              color: expert
-                  ? KalinkaColors.accent
-                  : KalinkaColors.textSecondary,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Transform.scale(
-            scale: 0.82,
-            alignment: Alignment.centerRight,
-            child: SettingsToggle(
-              value: expert,
-              onChanged: (_) => notifier.toggle(),
-            ),
-          ),
-        ],
       ),
     );
   }

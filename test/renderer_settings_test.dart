@@ -17,7 +17,10 @@ import 'package:kalinka/widgets/kalinka_button.dart';
 
 /// A `/renderer/{id}/config` body shaped like the live one from a Pi renderer:
 /// enum fields whose options are resolved per request, text values in both
-/// directions, and a per-field apply cost.
+/// directions, a per-field apply cost, and the tier the field belongs on.
+///
+/// `output.volume_mode` deliberately declares no tier — a renderer built before
+/// the tier existed says nothing, and its fields belong on the page proper.
 const _configPayload = '''
 {"config_version":"0af6bb750fbe4865","sections":[
   {"path":"output","title":"Output","description":"",
@@ -25,7 +28,7 @@ const _configPayload = '''
      {"path":"output.driver","title":"Driver","description":"","type":"enum",
       "value":"alsa","default":"alsa",
       "options":[{"value":"alsa","label":"ALSA","description":""}],
-      "apply":"restart_required","read_only":false},
+      "apply":"restart_required","read_only":false,"importance":"simple"},
      {"path":"output.device","title":"Device","description":"","type":"enum",
       "value":"default","default":"default",
       "options":[
@@ -33,7 +36,7 @@ const _configPayload = '''
         {"value":"hw:CARD=Headphones,DEV=0","label":"bcm2835 Headphones, bcm2835 Headphones \\u00b7 Direct hardware device without any conversions","description":""},
         {"value":"plughw:CARD=Headphones,DEV=0","label":"bcm2835 Headphones, bcm2835 Headphones \\u00b7 Hardware device with all software conversions","description":""},
         {"value":"hw:CARD=sndrpihifiberry,DEV=0","label":"HiFiBerry Digi+ Pro","description":"Bit-perfect S/PDIF"}],
-      "apply":"interrupts_playback","read_only":false},
+      "apply":"interrupts_playback","read_only":false,"importance":"simple"},
      {"path":"output.volume_mode","title":"Volume control",
       "description":"How volume is applied","type":"enum",
       "value":"auto","default":"auto",
@@ -43,13 +46,25 @@ const _configPayload = '''
       "apply":"instant","read_only":false},
      {"path":"output.exclusive","title":"Exclusive mode","description":"",
       "type":"bool","value":"false","default":"false","options":[],
-      "apply":"instant","read_only":false},
+      "apply":"instant","read_only":false,"importance":"simple"},
      {"path":"output.latency_ms","title":"Latency","description":"",
       "type":"int","value":"100","default":"100","options":[],
-      "apply":"restart_required","read_only":false},
+      "apply":"restart_required","read_only":false,"importance":"expert",
+      "range":{"min":20,"max":1000,"step":10},"unit":"ms","widget":"slider"},
+     {"path":"output.buffer_bytes","title":"Buffer","description":"",
+      "type":"int","value":"768000","default":"768000","options":[],
+      "apply":"instant","read_only":false,"importance":"expert",
+      "range":{"min":64000,"max":33554432,"step":0},"unit":"bytes",
+      "widget":"number"},
      {"path":"output.reset","title":"Reset","description":"","type":"trigger",
       "value":"","default":"","options":[],
-      "apply":"instant","read_only":false}
+      "apply":"instant","read_only":false,"importance":"simple"}
+   ]},
+  {"path":"clock","title":"Clock","description":"",
+   "fields":[
+     {"path":"clock.resync_ms","title":"Resync window","description":"",
+      "type":"int","value":"20","default":"20","options":[],
+      "apply":"instant","read_only":false,"importance":"expert"}
    ]}
 ]}
 ''';
@@ -168,20 +183,109 @@ void main() {
 
       expect(view.sections, hasLength(1));
       expect(view.sections.single.title, 'Output');
-      final widgets = {
-        for (final f in view.sections.single.fields) f.path: f.widget,
-      };
+      final widgets = {for (final f in view.expertFields) f.path: f.widget};
       expect(widgets['output.driver'], WidgetKind.enumDropdown);
       expect(widgets['output.device'], WidgetKind.enumDropdown);
       expect(widgets['output.exclusive'], WidgetKind.toggle);
-      expect(widgets['output.latency_ms'], WidgetKind.numberInput);
+      expect(widgets['clock.resync_ms'], WidgetKind.numberInput);
     });
 
     test('drops trigger fields, which have no control to render', () {
       final view = adaptRendererConfig(_snapshot());
       final paths = view.sections.single.fields.map((f) => f.path);
       expect(paths, isNot(contains('output.reset')));
+      expect(
+        view.expertFields.map((f) => f.path),
+        isNot(contains('output.reset')),
+      );
       expect(view.values.containsKey('output.reset'), isFalse);
+    });
+
+    test('keeps expert fields off the simple page', () {
+      final view = adaptRendererConfig(_snapshot());
+
+      expect(view.sections.single.fields.map((f) => f.path), [
+        'output.driver',
+        'output.device',
+        'output.volume_mode',
+        'output.exclusive',
+      ]);
+      // A section with nothing but expert fields is left out entirely.
+      expect(view.sections.map((s) => s.id), isNot(contains('clock')));
+    });
+
+    test('a field that declares no tier stays on the simple page', () {
+      final view = adaptRendererConfig(_snapshot());
+      final volumeMode = view.sections.single.fields.firstWhere(
+        (f) => f.path == 'output.volume_mode',
+      );
+      expect(volumeMode.importance, Importance.simple);
+    });
+
+    test('expertFields lists every field, both tiers, sorted by path', () {
+      final view = adaptRendererConfig(_snapshot());
+
+      expect(view.expertFields.map((f) => f.path), [
+        'clock.resync_ms',
+        'output.buffer_bytes',
+        'output.device',
+        'output.driver',
+        'output.exclusive',
+        'output.latency_ms',
+        'output.volume_mode',
+      ]);
+      final latency = view.expertFields.firstWhere(
+        (f) => f.path == 'output.latency_ms',
+      );
+      expect(latency.importance, Importance.expert);
+    });
+
+    test('a bounded field the renderer wants dragged becomes a slider', () {
+      final view = adaptRendererConfig(_snapshot());
+      final latency = view.expertFields.firstWhere(
+        (f) => f.path == 'output.latency_ms',
+      );
+
+      expect(latency.widget, WidgetKind.numberSlider);
+      expect(latency.constraints!.ge, 20);
+      expect(latency.constraints!.le, 1000);
+      expect(latency.constraints!.sliderMin, 20);
+      expect(latency.constraints!.sliderMax, 1000);
+      expect(latency.constraints!.step, 10);
+      expect(latency.constraints!.unit, 'ms');
+    });
+
+    test('a bounded field the renderer wants typed stays a number input', () {
+      final view = adaptRendererConfig(_snapshot());
+      final buffer = view.expertFields.firstWhere(
+        (f) => f.path == 'output.buffer_bytes',
+      );
+
+      expect(buffer.widget, WidgetKind.numberInput);
+      expect(buffer.constraints!.ge, 64000);
+      expect(buffer.constraints!.le, 33554432);
+      expect(buffer.constraints!.unit, 'bytes');
+      expect(buffer.constraints!.step, isNull, reason: '0 is "any value"');
+    });
+
+    test('a field the renderer left unbounded gets no constraints', () {
+      final view = adaptRendererConfig(_snapshot());
+      final resync = view.expertFields.firstWhere(
+        (f) => f.path == 'clock.resync_ms',
+      );
+
+      expect(resync.widget, WidgetKind.numberInput);
+      expect(resync.constraints, isNull);
+    });
+
+    test('an expert field keeps its value, options and cost', () {
+      final view = adaptRendererConfig(_snapshot());
+      expect(view.values['output.latency_ms'], 100);
+      expect(view.values['clock.resync_ms'], 20);
+      expect(
+        view.applyCosts['output.latency_ms'],
+        RendererApplyCost.restartRequired,
+      );
     });
 
     test('decodes wire text into the types the controls edit', () {
@@ -279,6 +383,7 @@ void main() {
       expect(api.loadCalls, 1);
       expect(state.loaded, isTrue);
       expect(state.sections, hasLength(1));
+      expect(state.expertFields, hasLength(7), reason: 'both tiers, flat');
       expect(state.values['output.volume_mode'], 'auto');
       expect(state.hasPendingChanges, isFalse);
     });
@@ -419,6 +524,119 @@ void main() {
       expect(find.text('Reset'), findsNothing);
       expect(find.text('SPEAKER TEST'), findsOneWidget);
       expect(find.text('Test settings'), findsOneWidget);
+    });
+
+    testWidgets('the page proper shows nothing the renderer marked expert', (
+      tester,
+    ) async {
+      await tester.pumpWidget(wrap(_FakeApi()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Latency'), findsNothing);
+      expect(find.text('CLOCK'), findsNothing);
+      expect(find.text('Resync window'), findsNothing);
+    });
+
+    testWidgets('expert lists every setting by path, both tiers', (
+      tester,
+    ) async {
+      await tester.pumpWidget(wrap(_FakeApi()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('EXPERT'));
+      await tester.pumpAndSettle();
+
+      // Paths, not section cards — sorted, so the expert-only section leads.
+      expect(find.text('clock.resync_ms'), findsOneWidget);
+      expect(find.text('output.device'), findsOneWidget);
+      expect(find.text('OUTPUT'), findsNothing, reason: 'flat list, no cards');
+      // The speaker test belongs to the page, not the flat list.
+      expect(find.text('Test settings'), findsNothing);
+
+      // The rest are below the fold of an 800x600 window.
+      await tester.scrollUntilVisible(
+        find.text('output.latency_ms'),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('output.latency_ms'), findsOneWidget);
+    });
+
+    testWidgets('an expert row stages against the same renderer', (
+      tester,
+    ) async {
+      final api = _FakeApi();
+      await tester.pumpWidget(wrap(api));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('EXPERT'));
+      await tester.pumpAndSettle();
+
+      // Narrow to the one row, so the only other text field on screen is the
+      // search box itself.
+      await tester.enterText(find.byType(TextField).first, 'buffer');
+      await tester.pump(const Duration(milliseconds: 200)); // debounce
+      await tester.pumpAndSettle();
+      expect(find.text('output.buffer_bytes'), findsOneWidget);
+      expect(find.text('output.device'), findsNothing);
+
+      await tester.enterText(find.byType(TextField).last, '900000');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 change staged'), findsOneWidget);
+
+      await tester.tap(find.text('APPLY'));
+      await tester.pumpAndSettle();
+      expect(api.writes, [
+        {'output.buffer_bytes': '900000'},
+      ]);
+    });
+
+    testWidgets('a number outside the declared range is pulled back in', (
+      tester,
+    ) async {
+      final api = _FakeApi();
+      await tester.pumpWidget(wrap(api));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('EXPERT'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'buffer');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+
+      // Below the renderer's minimum, which it would refuse on apply.
+      await tester.enterText(find.byType(TextField).last, '10');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('APPLY'));
+      await tester.pumpAndSettle();
+      expect(api.writes, [
+        {'output.buffer_bytes': '64000'},
+      ]);
+    });
+
+    testWidgets('a slider is drawn for a knob the renderer wants dragged', (
+      tester,
+    ) async {
+      await tester.pumpWidget(wrap(_FakeApi()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('EXPERT'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'latency');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Slider), findsOneWidget);
+      // The range reads in the unit the renderer named.
+      expect(find.text('20 ms'), findsOneWidget);
+      expect(find.text('1000 ms'), findsOneWidget);
+      // Continuous underneath: the discrete mode animates the thumb toward
+      // each stop and reads as lag. Stops are ours, from the declared step.
+      expect(tester.widget<Slider>(find.byType(Slider)).divisions, isNull);
     });
 
     testWidgets('a field description reads as a second line under its label', (

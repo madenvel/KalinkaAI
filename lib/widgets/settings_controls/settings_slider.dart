@@ -10,12 +10,21 @@ import '../../utils/haptics.dart';
 /// The readout updates live while dragging, but [onChanged] only fires on
 /// release — so staging (and the "apply" banner) reflects committed values,
 /// not every intermediate drag tick.
+///
+/// Values land on [step] boundaries, but the Material slider underneath is
+/// always continuous: its discrete mode animates the thumb toward each stop
+/// over a fixed 75 ms, which reads as the thumb lagging behind the finger for
+/// the whole drag. Snapping here keeps the thumb glued to the touch and still
+/// only ever reports a value the backend accepts.
 class SettingsSlider extends StatefulWidget {
   final String label;
   final double value;
   final double min;
   final double max;
-  final int? divisions;
+
+  /// Distance between the values this slider may report. Null or 0 leaves the
+  /// range continuous.
+  final double? step;
   final String? minLabel;
   final String? maxLabel;
 
@@ -36,7 +45,7 @@ class SettingsSlider extends StatefulWidget {
     required this.value,
     required this.min,
     required this.max,
-    this.divisions,
+    this.step,
     this.minLabel,
     this.maxLabel,
     this.formatValue,
@@ -73,6 +82,15 @@ class _SettingsSliderState extends State<SettingsSlider> {
       widget.formatValue?.call(n) ??
       n.toStringAsFixed(n == n.roundToDouble() ? 0 : 1);
 
+  /// The nearest value on the step grid, measured from [SettingsSlider.min] so
+  /// a range that doesn't start at zero still lands on its own stops.
+  double _snap(double value) {
+    final step = widget.step;
+    if (step == null || step <= 0) return value;
+    final snapped = widget.min + ((value - widget.min) / step).round() * step;
+    return snapped.clamp(widget.min, widget.max).toDouble();
+  }
+
   @override
   Widget build(BuildContext context) {
     final dense = widget.dense;
@@ -108,19 +126,20 @@ class _SettingsSliderState extends State<SettingsSlider> {
         value: liveValue,
         min: widget.min,
         max: widget.max,
-        divisions: widget.divisions,
         onChanged: (value) {
+          final snapped = _snap(value);
           final tickSize = (widget.max - widget.min) * 0.10;
-          if ((value - _lastHapticPosition).abs() >= tickSize) {
+          if ((snapped - _lastHapticPosition).abs() >= tickSize) {
             KalinkaHaptics.selectionClick();
-            _lastHapticPosition = value;
+            _lastHapticPosition = snapped;
           }
-          setState(() => _dragValue = value);
+          if (snapped == _dragValue) return;
+          setState(() => _dragValue = snapped);
         },
         onChangeEnd: (value) {
           // Hold until the parent commits (cleared in didUpdateWidget).
-          _dragValue = value;
-          widget.onChanged(value);
+          _dragValue = _snap(value);
+          widget.onChanged(_dragValue!);
         },
       ),
     );

@@ -135,7 +135,12 @@ class SchemaFieldRenderer extends StatelessWidget {
     // render them bare (no SettingsRow wrapper — that would duplicate the
     // label).
     if (field.widget == WidgetKind.numberSlider) {
-      return _buildSlider(value, binding);
+      return buildSliderControl(
+        field: field,
+        value: value,
+        onChanged: (v) => binding.stage(field.path, v),
+        dense: false,
+      );
     }
 
     // Pills, list editors, text inputs, and multi-line controls need the full
@@ -163,26 +168,36 @@ class SchemaFieldRenderer extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildSlider(dynamic value, SettingsBinding binding) {
-    final v = (value as num? ?? 0).toDouble();
-    final c = field.constraints;
-    final min = c?.sliderMin ?? c?.ge ?? 0;
-    final max = c?.sliderMax ?? c?.le ?? 100;
-    final unit = c?.unit ?? '';
-    String fmt(num n) => '${n.toInt()}${unit.isEmpty ? '' : ' $unit'}';
-    return SettingsSlider(
-      label: field.label,
-      value: v.clamp(min, max),
-      min: min,
-      max: max,
-      divisions: 100,
-      minLabel: fmt(min),
-      maxLabel: fmt(max),
-      formatValue: fmt,
-      onChanged: (nv) => binding.stage(field.path, nv.round()),
-    );
-  }
+/// Slider for a bounded numeric field, built the same way wherever it appears.
+///
+/// [dense] is the expert row, which prints the label itself and gives the
+/// control the full row width; the simple page passes false and lets the
+/// slider carry its own label.
+Widget buildSliderControl({
+  required FieldSpec field,
+  required dynamic value,
+  required ValueChanged<dynamic> onChanged,
+  required bool dense,
+}) {
+  final c = field.constraints;
+  final min = c?.sliderMin ?? c?.ge ?? 0;
+  final max = c?.sliderMax ?? c?.le ?? 100;
+  final unit = c?.unit ?? '';
+  String fmt(num n) => '${n.toInt()}${unit.isEmpty ? '' : ' $unit'}';
+  return SettingsSlider(
+    label: dense ? '' : field.label,
+    value: (value as num? ?? 0).toDouble().clamp(min, max),
+    min: min,
+    max: max,
+    step: c?.step,
+    minLabel: fmt(min),
+    maxLabel: fmt(max),
+    formatValue: fmt,
+    dense: dense,
+    onChanged: (nv) => onChanged(nv.round()),
+  );
 }
 
 /// Dispatch a [FieldSpec] to the right editable widget, given the
@@ -225,31 +240,20 @@ Widget buildFieldControl({
         value: value is num ? value : 0,
         onChanged: onChanged,
         unit: field.constraints?.unit,
+        min: field.constraints?.ge,
+        max: field.constraints?.le,
         // Match the surrounding controls (text, dropdown) when the
         // row gives us its full width.
         width: compact ? 80 : double.infinity,
       );
     case WidgetKind.numberSlider:
-      // SchemaFieldRenderer renders sliders bare (with the field label) before
+      // SchemaFieldRenderer renders sliders with the field label before
       // reaching here; the expert/onboarding rows route through this dispatch
-      // and already show the label above, so render the slider with an empty
-      // label — just the value readout and range chrome.
-      final sv = (value as num? ?? 0).toDouble();
-      final sc = field.constraints;
-      final sMin = sc?.sliderMin ?? sc?.ge ?? 0;
-      final sMax = sc?.sliderMax ?? sc?.le ?? 100;
-      final sUnit = sc?.unit ?? '';
-      String sFmt(num n) => '${n.toInt()}${sUnit.isEmpty ? '' : ' $sUnit'}';
-      return SettingsSlider(
-        label: '',
-        value: sv.clamp(sMin, sMax),
-        min: sMin,
-        max: sMax,
-        divisions: 100,
-        minLabel: sFmt(sMin),
-        maxLabel: sFmt(sMax),
-        formatValue: sFmt,
-        onChanged: (nv) => onChanged(nv.round()),
+      // and already show the label above, so the dense form drops it.
+      return buildSliderControl(
+        field: field,
+        value: value,
+        onChanged: onChanged,
         dense: true,
       );
     case WidgetKind.enumDropdown:
