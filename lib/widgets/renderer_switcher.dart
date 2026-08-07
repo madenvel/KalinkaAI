@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_model/data_model.dart' show RendererInfo;
 import '../providers/kalinka_player_api_provider.dart'
     show RendererSwitchException;
+import '../providers/renderer_host_provider.dart' show rendererIdentityProvider;
 import '../providers/renderer_provider.dart';
 import '../providers/renderer_settings_route_provider.dart';
 import '../providers/toast_provider.dart';
@@ -120,6 +121,7 @@ class RendererPickerContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(rendererListProvider);
     final renderers = state.renderers;
+    final ownId = ref.watch(rendererIdentityProvider).value?.rendererId;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -144,6 +146,7 @@ class RendererPickerContent extends ConsumerWidget {
               itemCount: renderers.length,
               itemBuilder: (ctx, i) => _RendererRow(
                 renderer: renderers[i],
+                isSelf: renderers[i].rendererId == ownId,
                 onIntent: (intent) => Navigator.pop(
                   ctx,
                   RendererPickerChoice(
@@ -275,7 +278,7 @@ const _backendLabels = {
 /// Supporting line: which machine this output is and how it plays — the
 /// question the picker exists to answer, since friendly names alone don't
 /// distinguish two boxes. Offline leads, because it's why the row is dead.
-String _detailFor(RendererInfo renderer) {
+String _detailFor(RendererInfo renderer, {bool isSelf = false}) {
   final parts = <String>[];
   if (!renderer.isConnected) parts.add('Offline');
   final host = renderer.hostname;
@@ -285,7 +288,7 @@ String _detailFor(RendererInfo renderer) {
     parts.add(host);
   }
   if (renderer.isConnected) {
-    if (renderer.kind == 'web') parts.add('Browser');
+    if (renderer.kind == 'web') parts.add(isSelf ? 'This browser' : 'Browser');
     final backend = renderer.audioBackend;
     if (backend.isNotEmpty) {
       parts.add(_backendLabels[backend.toLowerCase()] ?? backend);
@@ -296,9 +299,16 @@ String _detailFor(RendererInfo renderer) {
 
 class _RendererRow extends StatelessWidget {
   final RendererInfo renderer;
+
+  /// The renderer this app itself hosts (web build); its row says so.
+  final bool isSelf;
   final ValueChanged<RendererPickerIntent> onIntent;
 
-  const _RendererRow({required this.renderer, required this.onIntent});
+  const _RendererRow({
+    required this.renderer,
+    required this.isSelf,
+    required this.onIntent,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -312,7 +322,7 @@ class _RendererRow extends StatelessWidget {
     // perfectly good thing to configure.
     final canConfigure = connected;
     final name = _displayName(renderer);
-    final detail = _detailFor(renderer);
+    final detail = _detailFor(renderer, isSelf: isSelf);
 
     return Semantics(
       // One output plays at a time; say so rather than leaving a screen reader
