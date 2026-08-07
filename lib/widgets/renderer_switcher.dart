@@ -151,7 +151,10 @@ class RendererPickerContent extends ConsumerWidget {
                   ctx,
                   RendererPickerChoice(
                     rendererId: renderers[i].rendererId,
-                    rendererName: _displayName(renderers[i]),
+                    rendererName: _displayName(
+                      renderers[i],
+                      isSelf: renderers[i].rendererId == ownId,
+                    ),
                     intent: intent,
                   ),
                 ),
@@ -262,8 +265,14 @@ class _EmptyNote extends StatelessWidget {
 }
 
 /// Friendly name, falling back to the id for a renderer that reported none.
-String _displayName(RendererInfo renderer) =>
-    renderer.friendlyName.isEmpty ? renderer.rendererId : renderer.friendlyName;
+/// The renderer this page itself hosts is simply "This browser" — the
+/// UA-derived name it registers under is for everyone else's picker.
+String _displayName(RendererInfo renderer, {bool isSelf = false}) {
+  if (isSelf && renderer.kind == 'web') return 'This browser';
+  return renderer.friendlyName.isEmpty
+      ? renderer.rendererId
+      : renderer.friendlyName;
+}
 
 const _backendLabels = {
   'alsa': 'ALSA',
@@ -288,7 +297,8 @@ String _detailFor(RendererInfo renderer, {bool isSelf = false}) {
     parts.add(host);
   }
   if (renderer.isConnected) {
-    if (renderer.kind == 'web') parts.add(isSelf ? 'This browser' : 'Browser');
+    // Skipped for the self row, whose name already reads "This browser".
+    if (renderer.kind == 'web' && !isSelf) parts.add('Browser');
     final backend = renderer.audioBackend;
     if (backend.isNotEmpty) {
       parts.add(_backendLabels[backend.toLowerCase()] ?? backend);
@@ -321,7 +331,7 @@ class _RendererRow extends StatelessWidget {
     // one has nothing to serve — but the renderer playback is already on is a
     // perfectly good thing to configure.
     final canConfigure = connected;
-    final name = _displayName(renderer);
+    final name = _displayName(renderer, isSelf: isSelf);
     final detail = _detailFor(renderer, isSelf: isSelf);
 
     return Semantics(
