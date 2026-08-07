@@ -15,6 +15,10 @@ class SettingsNumericInput extends StatefulWidget {
   // Optional unit label (e.g. "s", "min", "ms") rendered to the right of
   // the input box. Sourced from the field's constraints.unit.
   final String? unit;
+  // Bounds the backend declared, if any. A value outside them is pulled back
+  // in on commit rather than sent to be refused.
+  final num? min;
+  final num? max;
 
   const SettingsNumericInput({
     super.key,
@@ -22,6 +26,8 @@ class SettingsNumericInput extends StatefulWidget {
     required this.onChanged,
     this.width = 80,
     this.unit,
+    this.min,
+    this.max,
   });
 
   @override
@@ -51,12 +57,25 @@ class _SettingsNumericInputState extends State<SettingsNumericInput> {
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value && !_focusNode.hasFocus) {
       _committedValue = widget.value;
-      final text = widget.value.toString();
-      if (_controller.text != text) {
-        _controller.text = text;
-        _controller.selection = TextSelection.collapsed(offset: text.length);
-      }
+      _showValue(widget.value.toString());
     }
+  }
+
+  /// A bound is a [double] even for a field that only holds whole numbers, so
+  /// it is rounded to what the user was typing — a clamped `10` must go out as
+  /// `64000`, not `64000.0`.
+  num _pulledInsideBounds(num value) {
+    final min = widget.min;
+    final max = widget.max;
+    if (min != null && value < min) return value is int ? min.round() : min;
+    if (max != null && value > max) return value is int ? max.round() : max;
+    return value;
+  }
+
+  void _showValue(String text) {
+    if (_controller.text == text) return;
+    _controller.text = text;
+    _controller.selection = TextSelection.collapsed(offset: text.length);
   }
 
   @override
@@ -76,21 +95,18 @@ class _SettingsNumericInputState extends State<SettingsNumericInput> {
   /// what the parent currently holds. Invalid text (mid-typing "1.")
   /// is left alone — the user might continue typing — and silently
   /// reverts on blur because we restore the text from
-  /// [_committedValue].
+  /// [_committedValue]. A number outside the declared bounds is pulled
+  /// back to the nearest one it may hold, and the field shows what it sent.
   void _commitIfChanged() {
-    final parsed = num.tryParse(_controller.text);
+    var parsed = num.tryParse(_controller.text);
     if (parsed == null) {
       // Restore display so the user isn't left looking at an unparseable
       // string after blurring.
-      final restored = _committedValue.toString();
-      if (_controller.text != restored) {
-        _controller.text = restored;
-        _controller.selection = TextSelection.collapsed(
-          offset: restored.length,
-        );
-      }
+      _showValue(_committedValue.toString());
       return;
     }
+    parsed = _pulledInsideBounds(parsed);
+    _showValue(parsed.toString());
     if (parsed != _committedValue) {
       _committedValue = parsed;
       widget.onChanged(parsed);

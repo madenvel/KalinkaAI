@@ -29,6 +29,20 @@ enum RendererFieldType {
   };
 }
 
+/// Which page a field belongs on.
+///
+/// A renderer built before this tier existed says nothing, and what it declares
+/// is what its settings page already showed: silence means the page proper, not
+/// the expert list its fields have never been in.
+enum RendererFieldImportance {
+  simple,
+  expert;
+
+  static RendererFieldImportance fromName(String? s) => s == 'expert'
+      ? RendererFieldImportance.expert
+      : RendererFieldImportance.simple;
+}
+
 /// What applying a field costs, so the page can warn before the user commits.
 enum RendererApplyCost {
   instant,
@@ -59,6 +73,50 @@ enum RendererApplyCost {
     RendererApplyCost.restartRequired => 'renderer restart required',
     _ => null,
   };
+}
+
+/// How a numeric field is best edited. The renderer decides: bounds alone do
+/// not say, since a byte count spans orders of magnitude and is typed, while a
+/// latency in milliseconds is dragged.
+enum RendererFieldWidget {
+  /// The renderer left it to us, so the type decides.
+  unspecified,
+  slider,
+  number;
+
+  static RendererFieldWidget fromName(String? s) => switch (s) {
+    'slider' => RendererFieldWidget.slider,
+    'number' => RendererFieldWidget.number,
+    _ => RendererFieldWidget.unspecified,
+  };
+}
+
+/// What a numeric field will accept. The renderer refuses a write outside it,
+/// so the control keeps the user inside it.
+class RendererFieldRange {
+  final int min;
+  final int max;
+
+  /// 0 when any value in range will do.
+  final int step;
+
+  const RendererFieldRange({
+    required this.min,
+    required this.max,
+    this.step = 0,
+  });
+
+  static RendererFieldRange? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final min = (raw['min'] as num?)?.toInt();
+    final max = (raw['max'] as num?)?.toInt();
+    if (min == null || max == null || max <= min) return null;
+    return RendererFieldRange(
+      min: min,
+      max: max,
+      step: (raw['step'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
 
 class RendererConfigOption {
@@ -93,6 +151,14 @@ class RendererConfigField {
   final List<RendererConfigOption> options;
   final RendererApplyCost apply;
   final bool readOnly;
+  final RendererFieldImportance importance;
+
+  /// Set for numeric fields the renderer bounded; null when it named no limits.
+  final RendererFieldRange? range;
+
+  /// Shown beside the value, e.g. `ms`. Empty when the number stands alone.
+  final String unit;
+  final RendererFieldWidget widget;
 
   const RendererConfigField({
     required this.path,
@@ -104,6 +170,10 @@ class RendererConfigField {
     this.options = const [],
     this.apply = RendererApplyCost.unknown,
     this.readOnly = false,
+    this.importance = RendererFieldImportance.simple,
+    this.range,
+    this.unit = '',
+    this.widget = RendererFieldWidget.unspecified,
   });
 
   factory RendererConfigField.fromJson(Map<String, dynamic> j) =>
@@ -120,6 +190,12 @@ class RendererConfigField {
         ],
         apply: RendererApplyCost.fromName(j['apply'] as String?),
         readOnly: (j['read_only'] ?? false) as bool,
+        importance: RendererFieldImportance.fromName(
+          j['importance'] as String?,
+        ),
+        range: RendererFieldRange.fromJson(j['range']),
+        unit: (j['unit'] ?? '') as String,
+        widget: RendererFieldWidget.fromName(j['widget'] as String?),
       );
 }
 

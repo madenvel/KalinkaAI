@@ -11,7 +11,14 @@ import 'renderer_config.dart';
 
 /// A renderer config snapshot expressed the way the settings widgets want it.
 class RendererSchemaView {
+  /// The simple page: sections holding only the fields the renderer marked
+  /// simple. A section whose fields are all expert is left out entirely.
   final List<SectionSpec> sections;
+
+  /// Every settable field, both tiers, sorted by path — what the expert list
+  /// searches. Mirrors [PresentationSchema.expertFields] for the server's own
+  /// settings, so the same about:config screen renders either.
+  final List<FieldSpec> expertFields;
 
   /// Path → typed value (bool/int/String), ready for the controls.
   final Map<String, dynamic> values;
@@ -26,6 +33,7 @@ class RendererSchemaView {
 
   const RendererSchemaView({
     this.sections = const [],
+    this.expertFields = const [],
     this.values = const {},
     this.options = const {},
     this.applyCosts = const {},
@@ -38,29 +46,37 @@ class RendererSchemaView {
 /// write-only action has no control in the shared schema. Give [WidgetKind] a
 /// trigger case the day one appears — until then, rendering it as some other
 /// widget would be worse than not showing it.
+///
+/// Expert fields are kept out of [RendererSchemaView.sections] but stay in
+/// every other map: their values and options are what the expert list edits.
+/// The server prunes its own tree before sending; a renderer sends both tiers
+/// in one snapshot, so the split happens here instead.
 RendererSchemaView adaptRendererConfig(RendererConfigSnapshot snapshot) {
   final sections = <SectionSpec>[];
+  final expertFields = <FieldSpec>[];
   final values = <String, dynamic>{};
   final options = <String, List<OptionSpec>>{};
   final applyCosts = <String, RendererApplyCost>{};
 
   for (final section in snapshot.sections) {
-    final fields = <FieldSpec>[];
+    final simpleFields = <FieldSpec>[];
     for (final field in section.fields) {
       if (field.type == RendererFieldType.trigger) continue;
-      fields.add(_toFieldSpec(field));
+      final spec = _toFieldSpec(field);
+      expertFields.add(spec);
+      if (spec.importance == Importance.simple) simpleFields.add(spec);
       values[field.path] = decodeRendererValue(field.type, field.value);
       applyCosts[field.path] = field.apply;
       if (field.options.isNotEmpty) {
         options[field.path] = [for (final o in field.options) _toOptionSpec(o)];
       }
     }
-    if (fields.isEmpty) continue;
+    if (simpleFields.isEmpty) continue;
     sections.add(
       SectionSpec(
         id: section.path,
         title: section.title.isEmpty ? section.path : section.title,
-        fields: fields,
+        fields: simpleFields,
         banners: section.description.isEmpty
             ? const []
             : [BannerSpec(text: section.description, severity: Severity.info)],
@@ -68,8 +84,11 @@ RendererSchemaView adaptRendererConfig(RendererConfigSnapshot snapshot) {
     );
   }
 
+  expertFields.sort((a, b) => a.path.compareTo(b.path));
+
   return RendererSchemaView(
     sections: sections,
+    expertFields: expertFields,
     values: values,
     options: options,
     applyCosts: applyCosts,
@@ -121,17 +140,46 @@ FieldSpec _toFieldSpec(RendererConfigField field) => FieldSpec(
   help: field.description.isEmpty ? null : field.description,
   defaultValue: decodeRendererValue(field.type, field.defaultValue),
   readonly: field.readOnly,
+  importance: switch (field.importance) {
+    RendererFieldImportance.expert => Importance.expert,
+    RendererFieldImportance.simple => Importance.simple,
+  },
+  constraints: _constraintsFor(field),
 );
 
 WidgetKind _widgetFor(RendererConfigField field) => switch (field.type) {
   RendererFieldType.boolean => WidgetKind.toggle,
-  RendererFieldType.integer => WidgetKind.numberInput,
+  // A slider only where the renderer asked for one and said what it accepts:
+  // its byte counts are bounded too, and dragging one across a 32 MB range
+  // would never land on a number anybody wanted.
+  RendererFieldType.integer =>
+    field.widget == RendererFieldWidget.slider && field.range != null
+        ? WidgetKind.numberSlider
+        : WidgetKind.numberInput,
   // Always a dropdown, never pills: the option that matters here is the ALSA
   // device list, whose labels run 30–60 characters and whose length changes
   // with hot-plug — exactly what the dropdown exists for.
   RendererFieldType.enumeration => WidgetKind.enumDropdown,
   _ => WidgetKind.text,
 };
+
+/// The renderer's limits as the shared controls read them. `ge`/`le` bound what
+/// can be typed, `sliderMin`/`sliderMax` the drag; they are the same numbers
+/// because a renderer names one range and enforces it on every write.
+Constraints? _constraintsFor(RendererConfigField field) {
+  final range = field.range;
+  if (range == null) {
+    return field.unit.isEmpty ? null : Constraints(unit: field.unit);
+  }
+  return Constraints(
+    ge: range.min.toDouble(),
+    le: range.max.toDouble(),
+    step: range.step > 0 ? range.step.toDouble() : null,
+    unit: field.unit.isEmpty ? null : field.unit,
+    sliderMin: range.min.toDouble(),
+    sliderMax: range.max.toDouble(),
+  );
+}
 
 String _typeNameFor(RendererFieldType type) => switch (type) {
   RendererFieldType.boolean => 'boolean',

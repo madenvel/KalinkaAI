@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data_model/presentation_schema.dart' show OptionSpec, SectionSpec;
+import '../data_model/presentation_schema.dart'
+    show FieldSpec, OptionSpec, SectionSpec;
 import '../data_model/renderer_config.dart';
 import '../data_model/renderer_config_adapter.dart';
 import 'kalinka_player_api_provider.dart';
@@ -14,7 +15,12 @@ import 'settings_binding.dart';
 /// apply without restarting the server. Only the *rendering* is shared, via
 /// [SettingsBinding].
 class RendererSettingsState {
+  /// The simple page — expert-tier fields are not in it.
   final List<SectionSpec> sections;
+
+  /// Every field the renderer declared, flat and sorted by path, for the
+  /// expert list.
+  final List<FieldSpec> expertFields;
 
   /// Path → value as the renderer reported it, typed for the controls.
   final Map<String, dynamic> values;
@@ -34,6 +40,7 @@ class RendererSettingsState {
 
   const RendererSettingsState({
     this.sections = const [],
+    this.expertFields = const [],
     this.values = const {},
     this.options = const {},
     this.applyCosts = const {},
@@ -59,6 +66,7 @@ class RendererSettingsState {
 
   RendererSettingsState copyWith({
     List<SectionSpec>? sections,
+    List<FieldSpec>? expertFields,
     Map<String, dynamic>? values,
     Map<String, List<OptionSpec>>? options,
     Map<String, RendererApplyCost>? applyCosts,
@@ -70,6 +78,7 @@ class RendererSettingsState {
     bool? loaded,
   }) => RendererSettingsState(
     sections: sections ?? this.sections,
+    expertFields: expertFields ?? this.expertFields,
     values: values ?? this.values,
     options: options ?? this.options,
     applyCosts: applyCosts ?? this.applyCosts,
@@ -103,6 +112,7 @@ class RendererSettingsNotifier extends Notifier<RendererSettingsState> {
       final view = adaptRendererConfig(snapshot);
       state = RendererSettingsState(
         sections: view.sections,
+        expertFields: view.expertFields,
         values: view.values,
         options: view.options,
         applyCosts: view.applyCosts,

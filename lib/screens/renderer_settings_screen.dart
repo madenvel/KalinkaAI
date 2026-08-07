@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/renderer_settings_provider.dart';
+import '../providers/settings_provider.dart' show expertModeProvider;
 import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
+import '../widgets/expert_field_list.dart';
+import '../widgets/expert_mode_toggle.dart';
 import '../widgets/kalinka_button.dart';
 import '../widgets/kalinka_dialog.dart' show showKalinkaDialog;
 import '../widgets/onboarding/speaker_test_dialog.dart';
@@ -64,6 +67,7 @@ class _RendererSettingsScreenState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(rendererSettingsProvider(widget.rendererId));
+    final expertMode = ref.watch(expertModeProvider);
 
     return SlideInPanel(
       onClose: widget.onClose,
@@ -82,7 +86,7 @@ class _RendererSettingsScreenState
                 onDiscard: _notifier.discard,
                 onApply: _notifier.save,
               ),
-              Expanded(child: _buildBody(state)),
+              Expanded(child: _buildBody(state, expertMode)),
             ],
           ),
         ),
@@ -90,7 +94,7 @@ class _RendererSettingsScreenState
     );
   }
 
-  Widget _buildBody(RendererSettingsState state) {
+  Widget _buildBody(RendererSettingsState state, bool expertMode) {
     if (state.loading && !state.loaded) {
       return const Center(
         child: CircularProgressIndicator(
@@ -99,12 +103,36 @@ class _RendererSettingsScreenState
         ),
       );
     }
+
+    final binding = RendererSettingsBinding(state, _notifier);
+
+    // Expert: every field the renderer declared, by path, searchable — the
+    // same list the server's settings show, pointed at this renderer. No
+    // speaker test here; it belongs with the page, not the flat list.
+    if (expertMode) {
+      if (state.expertFields.isEmpty) return _buildLoadFailure(state.error);
+      return Column(
+        children: [
+          if (state.error != null) _ErrorNote(message: state.error!),
+          Expanded(
+            child: ExpertFieldList(
+              fields: state.expertFields,
+              binding: binding,
+            ),
+          ),
+        ],
+      );
+    }
+
     if (state.sections.isEmpty) {
+      // Told apart from "nothing at all": the renderer does have settings,
+      // they are just all expert-tier, so point at the switch that shows them.
+      if (state.expertFields.isNotEmpty) return _buildExpertOnlyNote();
       return _buildLoadFailure(state.error);
     }
 
     return SettingsScope(
-      binding: RendererSettingsBinding(state, _notifier),
+      binding: binding,
       child: ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: [
@@ -121,6 +149,35 @@ class _RendererSettingsScreenState
             hasPendingChanges: state.hasPendingChanges,
           ),
         ],
+      ),
+    );
+  }
+
+  /// Shown when the renderer marked every setting it has as expert — the page
+  /// proper has nothing to draw, but the settings are one switch away.
+  Widget _buildExpertOnlyNote() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.tune,
+              color: KalinkaColors.textSecondary,
+              size: 32,
+            ),
+            const SizedBox(height: 12),
+            Text('Expert settings only', style: KalinkaTextStyles.cardTitle),
+            const SizedBox(height: 8),
+            Text(
+              'This output keeps all of its settings behind EXPERT. Turn it on '
+              'above to see them by path.',
+              textAlign: TextAlign.center,
+              style: KalinkaTextStyles.trayRowSublabel,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -213,6 +270,10 @@ class _RendererSettingsScreenState
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              // Same switch, same place as the server's settings header — one
+              // expert mode across both pages.
+              const ExpertModeToggle(),
             ],
           ),
         ),
