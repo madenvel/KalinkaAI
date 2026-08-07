@@ -10,8 +10,10 @@ import 'package:kalinka/data_model/renderer_config.dart';
 import 'package:kalinka/providers/connection_settings_provider.dart';
 import 'package:kalinka/providers/connection_state_provider.dart';
 import 'package:kalinka/providers/kalinka_player_api_provider.dart';
+import 'package:kalinka/providers/renderer_host_provider.dart';
 import 'package:kalinka/providers/renderer_provider.dart';
 import 'package:kalinka/providers/renderer_settings_route_provider.dart';
+import 'package:kalinka/renderer/renderer_identity.dart';
 import 'package:kalinka/screens/renderer_settings_screen.dart';
 import 'package:kalinka/widgets/renderer_switcher.dart';
 import 'package:kalinka/widgets/slide_in_panel.dart';
@@ -312,6 +314,60 @@ void main() {
     // Host dropped when the name already carries it — the server's default
     // friendly name is "Kalinka Renderer on <host>".
     expect(find.text('ALSA'), findsOneWidget);
+  });
+
+  testWidgets('the app\'s own renderer is named "This browser"', (
+    tester,
+  ) async {
+    final api = _FakeApi();
+    api.renderers = [
+      ...api.renderers,
+      // Two browser renderers: ours and someone else's — only ours renames.
+      RendererInfo.fromJson(const {
+        'renderer_id': 'r-self',
+        'friendly_name': 'Chrome on Linux',
+        'kind': 'web',
+        'status': 'connected',
+        'platform': {'os': 'web'},
+      }),
+      RendererInfo.fromJson(const {
+        'renderer_id': 'r-other',
+        'friendly_name': 'Firefox on Windows',
+        'kind': 'web',
+        'status': 'connected',
+        'platform': {'os': 'web'},
+      }),
+    ];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...overrides(api),
+          rendererIdentityProvider.overrideWith(
+            (ref) async => const RendererIdentity(
+              rendererId: 'r-self',
+              instanceId: 'i-self',
+              friendlyName: 'Chrome on Linux',
+              softwareVersion: '0.0.0',
+              os: 'web',
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: Center(child: RendererSwitcherButton())),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('This browser'), findsOneWidget);
+    expect(find.text('Chrome on Linux'), findsNothing);
+    // The other browser keeps its registered name and the kind detail; the
+    // self row's name already says it, so no detail repeats it.
+    expect(find.text('Firefox on Windows'), findsOneWidget);
+    expect(find.text('Browser'), findsOneWidget);
   });
 
   testWidgets('refresh re-reads the list without closing the sheet', (
