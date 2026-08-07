@@ -19,6 +19,11 @@ const _minHistoryQueryLength = 2;
 /// rather than flickering a frame of loading.
 const _minLoadingDuration = Duration(milliseconds: 650);
 
+/// How long a search may run before the app gives up on it. ai_search fronts
+/// an AI pipeline that can wedge without the HTTP layer noticing, so the cap
+/// is deliberately tighter than the Dio receive timeout.
+const _searchTimeout = Duration(seconds: 10);
+
 /// How many suggestions the zero state asks the server for.
 const _suggestionCount = 4;
 
@@ -307,13 +312,19 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     final start = DateTime.now();
     try {
       final api = ref.read(kalinkaProxyProvider);
-      final result = await api.aiSearch(query);
+      final result = await api.aiSearch(query).timeout(_searchTimeout);
       await _holdMinimumLoading(start);
       if (_disposed || gen != _queryGen) return;
       state = state.copyWith(
         searchLoading: false,
         searchResults: result,
         clearError: true,
+      );
+    } on TimeoutException {
+      if (_disposed || gen != _queryGen) return;
+      state = state.copyWith(
+        searchLoading: false,
+        searchError: 'Search timed out — the server didn’t answer. Try again.',
       );
     } catch (e) {
       await _holdMinimumLoading(start);

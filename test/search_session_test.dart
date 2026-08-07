@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -57,6 +60,20 @@ class _FakeApi implements KalinkaPlayerProxy {
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName}');
+}
+
+/// The search that never answers — its future simply never completes.
+class _HangingApi extends _FakeApi {
+  @override
+  Future<BrowseItemsList> aiSearch(
+    String query, {
+    int offset = 0,
+    int limit = 10,
+    List<String>? sources,
+  }) {
+    aiSearchCalls++;
+    return Completer<BrowseItemsList>().future;
+  }
 }
 
 /// Pinned connection state — the real notifier arms a retry [Timer] that
@@ -179,6 +196,30 @@ void main() {
       expect(api.queries, ['one', 'two']);
       // Newest-first history.
       expect(state.history.take(2), ['two', 'one']);
+    });
+
+    test('a search that never answers times out with an error', () {
+      fakeAsync((async) {
+        final api = _HangingApi();
+        final container = makeContainer(api);
+        final notifier = container.read(searchSessionProvider.notifier);
+        notifier.open();
+        notifier.submit('jazz');
+        async.flushMicrotasks();
+        expect(container.read(searchSessionProvider).searchLoading, isTrue);
+        expect(api.aiSearchCalls, 1);
+
+        // Just short of the cap the search is still patiently loading…
+        async.elapse(const Duration(seconds: 9));
+        expect(container.read(searchSessionProvider).searchLoading, isTrue);
+
+        // …and past it the app gives up and says so.
+        async.elapse(const Duration(seconds: 2));
+        final state = container.read(searchSessionProvider);
+        expect(state.searchLoading, isFalse);
+        expect(state.searchResults, isNull);
+        expect(state.searchError, contains('timed out'));
+      });
     });
 
     test('view switches are gated and layered', () async {
