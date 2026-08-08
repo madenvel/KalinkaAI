@@ -57,6 +57,10 @@ class RendererSwitcherButton extends ConsumerWidget {
     final playingOn = ref.watch(
       rendererListProvider.select((s) => s.active?.friendlyName),
     );
+    // Live = sound has somewhere to go: an output is chosen and reachable.
+    final outputLive = ref.watch(
+      rendererListProvider.select((s) => s.active?.isConnected ?? false),
+    );
 
     return Semantics(
       label: playingOn == null || playingOn.isEmpty
@@ -70,46 +74,157 @@ class RendererSwitcherButton extends ConsumerWidget {
           hitDiameter: hitDiameter,
           onTapDown: (_) => KalinkaHaptics.selectionClick(),
           onTap: () => _openPicker(context, ref),
-          child: Icon(
-            Icons.speaker_outlined,
-            size: iconSize,
-            color: KalinkaColors.textSecondary,
+          child: _CastGlyph(size: iconSize, live: outputLive),
+        ),
+      ),
+    );
+  }
+}
+
+/// Cast icon with a corner state badge: a green dot while an output is
+/// active, a grey cross while none is — the one fact worth a glance at the
+/// playbar, since the picker is a tap away for everything else.
+class _CastGlyph extends StatelessWidget {
+  final double size;
+  final bool live;
+
+  const _CastGlyph({required this.size, required this.live});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size + 4,
+      height: size + 2,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(Icons.cast, size: size, color: KalinkaColors.textSecondary),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: live
+                ? Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: KalinkaColors.statusOnline,
+                      shape: BoxShape.circle,
+                    ),
+                  )
+                : const Icon(
+                    Icons.close,
+                    size: 10,
+                    color: KalinkaColors.statusOffline,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Renderer switch for the Now Playing header: the current output by name,
+/// with a chevron saying a menu drops from it. Same picker as the playbar
+/// button, same self-hiding on a single-output setup.
+class RendererSwitcherDropdown extends ConsumerWidget {
+  /// Longer names are ellipsised; the header has a centred label to respect.
+  final double maxNameWidth;
+
+  const RendererSwitcherDropdown({super.key, this.maxNameWidth = 140});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visible = ref.watch(
+      rendererListProvider.select((s) => s.hasRenderers),
+    );
+    if (!visible) return const SizedBox.shrink();
+
+    final active = ref.watch(rendererListProvider.select((s) => s.active));
+    final ownId = ref.watch(rendererIdentityProvider).value?.rendererId;
+    final name = active == null
+        ? 'Choose output'
+        : _displayName(active, isSelf: active.rendererId == ownId);
+
+    return Semantics(
+      label: active == null ? 'Choose output' : 'Output: $name',
+      button: true,
+      child: Tooltip(
+        message: 'Choose output',
+        excludeFromSemantics: true,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () {
+              KalinkaHaptics.selectionClick();
+              _openPicker(context, ref);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.cast,
+                    size: 18,
+                    color: KalinkaColors.textSecondary,
+                  ),
+                  const SizedBox(width: 7),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxNameWidth),
+                    child: Text(
+                      name,
+                      style: KalinkaTextStyles.trayRowSublabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 18,
+                    color: KalinkaColors.textMuted,
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
     );
   }
+}
 
-  Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
-    final notifier = ref.read(rendererListProvider.notifier);
-    final toast = ref.read(toastProvider.notifier);
-    final route = ref.read(rendererSettingsRouteProvider.notifier);
-    final navigator = Navigator.of(context);
-    // The list has no push channel — re-read it as the sheet opens so a
-    // renderer that came or went since the last fetch shows up.
-    notifier.refresh();
-    final choice = await showKalinkaBottomSheet<RendererPickerChoice>(
-      context: context,
-      contentBuilder: (_) => const RendererPickerContent(),
-    );
-    if (choice == null) return;
+Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
+  final notifier = ref.read(rendererListProvider.notifier);
+  final toast = ref.read(toastProvider.notifier);
+  final route = ref.read(rendererSettingsRouteProvider.notifier);
+  final navigator = Navigator.of(context);
+  // The list has no push channel — re-read it as the sheet opens so a
+  // renderer that came or went since the last fetch shows up.
+  notifier.refresh();
+  final choice = await showKalinkaBottomSheet<RendererPickerChoice>(
+    context: context,
+    contentBuilder: (_) => const RendererPickerContent(),
+  );
+  if (choice == null) return;
 
-    switch (choice.intent) {
-      case RendererPickerIntent.configure:
-        // The panel is hosted by MusicPlayerScreen, under anything still on
-        // the navigator — the phone's Now Playing sheet, for one. Fall back
-        // to it first so the panel is what the user ends up looking at.
-        navigator.popUntil((r) => r.isFirst);
-        route.open(choice.rendererId, choice.rendererName);
-      case RendererPickerIntent.play:
-        try {
-          await notifier.select(choice.rendererId);
-        } on RendererSwitchException catch (e) {
-          toast.show(e.message, isError: true);
-        } catch (_) {
-          toast.show('Couldn’t switch output', isError: true);
-        }
-    }
+  switch (choice.intent) {
+    case RendererPickerIntent.configure:
+      // The panel is hosted by MusicPlayerScreen, under anything still on
+      // the navigator — the phone's Now Playing sheet, for one. Fall back
+      // to it first so the panel is what the user ends up looking at.
+      navigator.popUntil((r) => r.isFirst);
+      route.open(choice.rendererId, choice.rendererName);
+    case RendererPickerIntent.play:
+      try {
+        await notifier.select(choice.rendererId);
+      } on RendererSwitchException catch (e) {
+        toast.show(e.message, isError: true);
+      } catch (_) {
+        toast.show('Couldn’t switch output', isError: true);
+      }
   }
 }
 

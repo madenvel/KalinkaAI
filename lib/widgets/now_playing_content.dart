@@ -328,10 +328,10 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const RendererSwitcherButton(
-                        hitDiameter: 36,
-                        iconSize: 20,
-                      ),
+                      // Tighter cap than elsewhere: the close chevron and the
+                      // centred NOW PLAYING label both need their room.
+                      const RendererSwitcherDropdown(maxNameWidth: 110),
+                      const SizedBox(width: 4),
                       GestureDetector(
                         onTap: widget.onClose,
                         child: const Icon(
@@ -362,7 +362,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                 style: KalinkaTextStyles.nowPlayingLabel,
               ),
             ),
-            const RendererSwitcherButton(hitDiameter: 36, iconSize: 20),
+            const RendererSwitcherDropdown(),
           ],
         ),
       );
@@ -377,7 +377,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
           Text('NOW PLAYING', style: KalinkaTextStyles.nowPlayingLabel),
           const Align(
             alignment: Alignment.centerRight,
-            child: RendererSwitcherButton(hitDiameter: 36, iconSize: 20),
+            child: RendererSwitcherDropdown(),
           ),
         ],
       ),

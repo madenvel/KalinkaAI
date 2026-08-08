@@ -275,7 +275,32 @@ void main() {
     await tester.pumpWidget(wrap(api));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.speaker_outlined), findsNothing);
+    expect(find.byIcon(Icons.cast), findsNothing);
+  });
+
+  testWidgets('the playbar badge says whether an output is live', (
+    tester,
+  ) async {
+    // With Living Room active and connected: green dot, so no cross.
+    final api = _FakeApi();
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+    final inButton = find.descendant(
+      of: find.byType(RendererSwitcherButton),
+      matching: find.byIcon(Icons.close),
+    );
+    expect(find.byIcon(Icons.cast), findsOneWidget);
+    expect(inButton, findsNothing);
+
+    // Nothing active: the dot gives way to the grey cross.
+    api.renderers = [
+      for (final r in api.renderers) r.copyWith(active: false, selected: false),
+    ];
+    await tester.tap(find.byIcon(Icons.cast));
+    await tester.pumpAndSettle(); // sheet's refresh re-reads the list
+    await tester.tapAt(const Offset(5, 5)); // dismiss the sheet
+    await tester.pumpAndSettle();
+    expect(inButton, findsOneWidget);
   });
 
   testWidgets('the picker lists friendly names and ticks the active one', (
@@ -285,7 +310,7 @@ void main() {
     await tester.pumpWidget(wrap(api));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
 
     expect(find.text('PLAY ON'), findsOneWidget);
@@ -304,7 +329,7 @@ void main() {
     await tester.pumpWidget(wrap(_FakeApi()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
 
     expect(find.text('kitchen-pi · ALSA'), findsOneWidget);
@@ -359,7 +384,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
 
     expect(find.text('This browser'), findsOneWidget);
@@ -377,7 +402,7 @@ void main() {
     await tester.pumpWidget(wrap(api));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
     final callsBefore = api.listCalls;
 
@@ -395,7 +420,7 @@ void main() {
     await tester.pumpWidget(wrap(api));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
     // tapAt, not tap: the label ignores pointers so the whole row is one
     // target, which means the finder's widget isn't the one that's hit.
@@ -415,7 +440,7 @@ void main() {
     await tester.pumpWidget(wrap(api));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
     final row = tester.getRect(_rowOf('Kitchen'));
     // Left of the rule that fences off the gear, right of any text.
@@ -430,7 +455,7 @@ void main() {
     await tester.pumpWidget(wrap(api));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
     // One gear per row; take the active renderer's, which the row tap can't
     // act on — proving the gear is its own target rather than the row's.
@@ -451,7 +476,7 @@ void main() {
     await tester.pumpWidget(wrap(_FakeApi()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
     await tester.tap(_gearOf('Living Room'));
     await tester.pumpAndSettle();
@@ -468,7 +493,7 @@ void main() {
     await tester.pumpWidget(wrap(_FakeApi()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
     await tester.tap(_gearOf('Living Room'));
     await tester.pumpAndSettle();
@@ -491,7 +516,7 @@ void main() {
     await tester.pumpWidget(wrap(api));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
     await tester.tap(_gearOf('Study'));
     await tester.pumpAndSettle();
@@ -505,7 +530,7 @@ void main() {
     await tester.pumpWidget(wrap(api));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.speaker_outlined));
+    await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
     await tester.tapAt(tester.getCenter(find.text('Study')));
     await tester.pumpAndSettle();
