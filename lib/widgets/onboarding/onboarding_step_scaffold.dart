@@ -18,6 +18,16 @@ class OnboardingStepScaffold extends StatelessWidget {
   final VoidCallback? onNext;
   final String nextLabel;
 
+  /// One short label per step; the current one is highlighted. Scaled down
+  /// as one line on narrow screens rather than wrapped.
+  final List<String> stepLabels;
+
+  /// Marks the step as skippable — an OPTIONAL tag joins the header.
+  final bool optional;
+
+  /// Gates Continue without hiding it; the step says what's missing.
+  final bool nextEnabled;
+
   const OnboardingStepScaffold({
     super.key,
     required this.stepNumber,
@@ -28,6 +38,9 @@ class OnboardingStepScaffold extends StatelessWidget {
     this.onBack,
     this.onNext,
     this.nextLabel = 'Continue',
+    this.stepLabels = const [],
+    this.optional = false,
+    this.nextEnabled = true,
   });
 
   @override
@@ -44,10 +57,37 @@ class OnboardingStepScaffold extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'STEP $stepNumber OF $stepCount',
-                      style: KalinkaTextStyles.sectionHeaderMuted,
+                    Row(
+                      children: [
+                        Text(
+                          'STEP $stepNumber OF $stepCount',
+                          style: KalinkaTextStyles.sectionHeaderMuted,
+                        ),
+                        const Spacer(),
+                        if (optional)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: KalinkaColors.borderDefault,
+                              ),
+                            ),
+                            child: Text(
+                              'OPTIONAL',
+                              style: KalinkaTextStyles.sectionHeaderMuted
+                                  .copyWith(color: KalinkaColors.textMuted),
+                            ),
+                          ),
+                      ],
                     ),
+                    if (stepLabels.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _buildStepper(),
+                    ],
                     const SizedBox(height: 8),
                     _buildProgressBar(),
                     const SizedBox(height: 20),
@@ -90,8 +130,8 @@ class OnboardingStepScaffold extends StatelessWidget {
                         variant: KalinkaButtonVariant.accent,
                         size: KalinkaButtonSize.normal,
                         fullWidth: true,
-                        enabled: onNext != null,
-                        onTap: onNext,
+                        enabled: nextEnabled && onNext != null,
+                        onTap: nextEnabled ? onNext : null,
                       ),
                     ),
                   ],
@@ -100,6 +140,42 @@ class OnboardingStepScaffold extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// The step names in one mono line — walked steps in accent, the current
+  /// one bright, the rest muted. Scaled down as a whole when width runs out,
+  /// so it never wraps or truncates a label.
+  Widget _buildStepper() {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        children: [
+          for (var i = 0; i < stepLabels.length; i++) ...[
+            if (i > 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 7),
+                child: Text(
+                  '·',
+                  style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
+                    color: KalinkaColors.textMuted,
+                  ),
+                ),
+              ),
+            Text(
+              stepLabels[i],
+              style: KalinkaTextStyles.sectionHeaderMuted.copyWith(
+                color: i + 1 == stepNumber
+                    ? KalinkaColors.textPrimary
+                    : i + 1 < stepNumber
+                    ? KalinkaColors.accentTint
+                    : KalinkaColors.textMuted,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

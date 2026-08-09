@@ -3,79 +3,48 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/presentation_schema.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_theme.dart';
+import '../settings_controls/module_header_row.dart' show ModuleHeaderRow;
 import '../settings_controls/settings_card.dart';
 import '../settings_controls/settings_toggle.dart';
 import '../settings_controls/warning_note.dart';
 import 'onboarding_fields.dart';
 import 'onboarding_step_scaffold.dart';
 
-/// Wizard step: input plugins (Local files locked on) + music folders.
+/// Wizard step: enable and configure the sources that feed the library.
+///
+/// One card per installed input plugin, straight off the schema: the enable
+/// switch, then the module's own simple fields while it is on — the schema
+/// serves only the simple tier here, so whatever a plugin marks simple is
+/// its setup form. Smart Search toggles are held back for their own step.
+/// A source reads Ready once nothing required is missing (credentials,
+/// folder lists); the step's Continue gates on at least one ready source.
 class OnboardingMusicSourcesStep extends ConsumerWidget {
   const OnboardingMusicSourcesStep({super.key});
-
-  static const _foldersPath = 'input_modules.localfiles.music_folders';
-
-  /// Only plugins that work out of the box belong in first-run setup —
-  /// account-based sources like Qobuz stay in Settings.
-  static const _setupPluginIds = {'localfiles', 'jamendo'};
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(settingsProvider);
-    final modules = schemaModulesOfKind(
-      state.schema,
-      'input_module',
-    ).where((m) => _setupPluginIds.contains(m.id)).toList();
-
-    final folders =
-        (state.getEffective(_foldersPath) as List?)
-            ?.map((e) => e.toString())
-            .toList() ??
-        const <String>[];
-    final hasHomeFolder = folders.any(
-      (f) => f.startsWith('~') || f.startsWith('/home'),
-    );
+    final modules = schemaModulesOfKind(state.schema, 'input_module');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const OnboardingSectionLabel('Input plugins'),
-        SettingsCard(
-          children: [for (final m in modules) _PluginRow(module: m)],
-        ),
-        // Only promise Jamendo while it isn't actually in the list yet.
-        if (!modules.any((m) => m.id == 'jamendo'))
-          const OnboardingNote(
-            'More plugins — like Jamendo internet radio — will appear here '
-            'in future releases.',
-          ),
-        const OnboardingSectionLabel('Music folders'),
-        const OnboardingNote(
-          'These folders are on the Kalinka server, not on this device. '
-          'The server scans them and keeps your library up to date.',
-        ),
-        const SettingsCard(
-          children: [
-            OnboardingFieldRow(
-              path: _foldersPath,
-              label: 'Folders to scan',
-              help: 'Add every folder on the server that holds your music.',
-            ),
-          ],
-        ),
-        if (hasHomeFolder)
+        for (final m in modules) _ModuleCard(module: m),
+        if (!anySourceConfigured(state))
           const Padding(
             padding: EdgeInsets.only(top: 8),
             child: WarningNote(
               severity: WarningNoteSeverity.warning,
               message:
-                  'The server can’t read music from home folders. '
-                  'Keep it in /srv/music or on a drive under /media.',
+                  'Set up at least one source to continue — add a music '
+                  'folder, or switch on a streaming source and fill in '
+                  'what it asks for.',
             ),
           ),
         const OnboardingNote(
-          'The first scan of a big library takes a while — it runs in the '
+          'Folders live on the Kalinka server, not on this device. The '
+          'first scan of a big library takes a while — it runs in the '
           'background after setup.',
         ),
       ],
@@ -83,12 +52,12 @@ class OnboardingMusicSourcesStep extends ConsumerWidget {
   }
 }
 
-/// One input-module row: icon tile, title, toggle. Local files is the
-/// built-in library backend — its toggle renders on and locked.
-class _PluginRow extends ConsumerWidget {
+/// One input plugin: header with switch and readiness pill, its schema
+/// fields underneath while enabled, and what's missing called out inline.
+class _ModuleCard extends ConsumerWidget {
   final ModuleSpec module;
 
-  const _PluginRow({required this.module});
+  const _ModuleCard({required this.module});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -96,24 +65,17 @@ class _PluginRow extends ConsumerWidget {
     final notifier = ref.read(settingsProvider.notifier);
 
     final isLocalFiles = module.id == 'localfiles';
-    FieldSpec? enabledField;
-    for (final f in module.fields) {
-      if (f.path.endsWith('.enabled')) {
-        enabledField = f;
-        break;
-      }
-    }
-    final enabled = isLocalFiles
-        ? true
-        : enabledField != null &&
-              (state.getEffective(enabledField.path) ??
-                      enabledField.defaultValue ??
-                      false) ==
-                  true;
+    final enabledField = moduleEnabledField(module);
+    final enabled = inputModuleEnabled(state, module);
+    final missing = enabled
+        ? moduleMissingFields(state, module)
+        : const <String>[];
+    final fields = setupModuleFields(module);
+
+    final (icon, iconColor) = ModuleHeaderRow.iconForModule(module.id);
 
     final sublabel = isLocalFiles
-        ? 'Always enabled — your library on the server is built in and '
-              'can’t be turned off.'
+        ? 'Your music folders on the server — always on.'
         : enabledField == null
         ? 'Set up later in Settings.'
         : 'Streaming source — can be changed later in Settings.';
@@ -130,36 +92,107 @@ class _PluginRow extends ConsumerWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: SettingsCard(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: KalinkaColors.surfaceOverlay,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              isLocalFiles ? Icons.folder_outlined : Icons.extension_outlined,
-              size: 18,
-              color: KalinkaColors.textSecondary,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
               children: [
-                Text(module.title, style: KalinkaTextStyles.trayRowLabel),
-                const SizedBox(height: 2),
-                Text(sublabel, style: KalinkaTextStyles.trayRowSublabel),
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: KalinkaColors.surfaceOverlay,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 18, color: iconColor),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              module.title,
+                              style: KalinkaTextStyles.trayRowLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _StatusPill(enabled: enabled, missing: missing),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(sublabel, style: KalinkaTextStyles.trayRowSublabel),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                toggle,
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          toggle,
+          if (enabled)
+            for (final f in fields) ...[
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: Colors.white.withValues(alpha: 0.07),
+              ),
+              OnboardingFieldRow(path: f.path),
+            ],
+          if (missing.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: WarningNote(
+                severity: WarningNoteSeverity.warning,
+                message:
+                    '${missing.join(' and ')} '
+                    '${missing.length == 1 ? 'is' : 'are'} required for '
+                    '${module.title} to work.',
+              ),
+            ),
         ],
+      ),
+    );
+  }
+}
+
+/// Readiness at a glance: READY once nothing required is missing, NEEDS
+/// SETUP while something is, OFF when disabled. Staged readiness, not live —
+/// the plugin only runs against these values after the final restart.
+class _StatusPill extends StatelessWidget {
+  final bool enabled;
+  final List<String> missing;
+
+  const _StatusPill({required this.enabled, required this.missing});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = !enabled
+        ? ('OFF', KalinkaColors.textMuted)
+        : missing.isEmpty
+        ? ('READY', KalinkaColors.statusOnline)
+        : ('NEEDS SETUP', KalinkaColors.statusPendingLight);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
+      ),
+      child: Text(
+        label,
+        style: KalinkaTextStyles.tagPill.copyWith(
+          color: color,
+          fontSize: KalinkaTypography.baseSize - 1,
+          letterSpacing: 0.8,
+        ),
       ),
     );
   }
