@@ -215,7 +215,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     final (title, subtitle, body, nextLabel) = switch (_step) {
       1 => (
-        'Server & sound',
+        'Server & output',
         'Name your server and pick where the music comes out.',
         const OnboardingServerSoundStep() as Widget,
         'Continue',
