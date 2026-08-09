@@ -132,6 +132,13 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     widget.onClose?.call();
   }
 
+  void _rescan() {
+    // The new list may come back in a different order — let the
+    // auto-select in _buildServerList re-pick.
+    setState(() => _selectedIndex = null);
+    ref.read(discoveryProvider.notifier).rescan();
+  }
+
   @override
   Widget build(BuildContext context) {
     final discoveryState = ref.watch(discoveryProvider);
@@ -344,7 +351,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
             variant: KalinkaButtonVariant.accent,
             size: KalinkaButtonSize.normal,
             fullWidth: true,
-            onTap: () => ref.read(discoveryProvider.notifier).rescan(),
+            onTap: _rescan,
           ),
           const SizedBox(height: 20),
           // Separator
@@ -433,11 +440,29 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
           ),
         ),
         const Spacer(),
-        // Connect button
+        // Rescan + Connect, mirroring the wizard footer's neutral/accent pair.
+        // A found list can still be missing a server whose announcement was
+        // dropped, and the wizard embed has no other way back into scanning.
         if (!_showManualEntry) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: _buildConnectButton(servers),
+            child: Row(
+              children: [
+                KalinkaButton(
+                  label: 'Rescan',
+                  variant: KalinkaButtonVariant.neutral,
+                  size: KalinkaButtonSize.normal,
+                  leading: const Icon(
+                    Icons.refresh_rounded,
+                    size: 16,
+                    color: KalinkaColors.textSecondary,
+                  ),
+                  onTap: _rescan,
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: _buildConnectButton(servers)),
+              ],
+            ),
           ),
           // Manual entry link
           GestureDetector(
