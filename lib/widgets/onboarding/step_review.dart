@@ -47,19 +47,22 @@ class OnboardingReviewStep extends ConsumerWidget {
             .toList() ??
         const <String>[];
 
-    // Device control choice: the first enabled device plugin, if any.
-    final devices = schemaModulesOfKind(
-      state.schema,
-      'device',
-    ).where((m) => m.id != 'dummydevice').toList();
+    // Volume & power choice: the first enabled device plugin, else the
+    // built-in renderer default (plain "None" on a server without it).
     ModuleSpec? controlledDevice;
-    for (final m in devices) {
+    for (final m in setupDeviceModules(state.schema)) {
       if (state.getEffective('devices.${m.id}.enabled') == true) {
         controlledDevice = m;
         break;
       }
     }
-    var deviceControlValue = 'None';
+    final hasRendererModule = schemaModulesOfKind(
+      state.schema,
+      'device',
+    ).any((m) => m.id == kRendererVolumeModuleId);
+    var deviceControlValue = hasRendererModule
+        ? 'Kalinka Renderer default'
+        : 'None';
     if (controlledDevice != null) {
       final zone = effectiveString(
         'devices.${controlledDevice.id}.zone_name',
@@ -97,7 +100,7 @@ class OnboardingReviewStep extends ConsumerWidget {
               label: 'Music folders',
               value: folders.isEmpty ? 'None yet' : folders.join('\n'),
             ),
-            _SummaryRow(label: 'Device control', value: deviceControlValue),
+            _SummaryRow(label: 'Volume & power', value: deviceControlValue),
             _SummaryRow(label: 'AI search', value: aiSearchOn ? 'On' : 'Off'),
             _SummaryRow(label: 'AcoustID', value: acoustidOn ? 'On' : 'Off'),
           ],

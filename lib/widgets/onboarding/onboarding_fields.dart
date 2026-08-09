@@ -26,6 +26,18 @@ List<ModuleSpec> schemaModulesOfKind(PresentationSchema? schema, String kind) {
   ];
 }
 
+/// The server's built-in renderer volume module. Never offered as a choice
+/// and never toggled by the wizard: disabling it drops volume control for
+/// every output.
+const kRendererVolumeModuleId = 'kalinka-renderer';
+
+/// Device plugins the wizard may offer: real controllable devices only —
+/// the developer stub and the built-in renderer volume module stay out.
+List<ModuleSpec> setupDeviceModules(PresentationSchema? schema) => [
+  for (final m in schemaModulesOfKind(schema, 'device'))
+    if (m.id != 'dummydevice' && m.id != kRendererVolumeModuleId) m,
+];
+
 /// Renders a single backend config field inside the setup wizard, bound to
 /// the shared settings staging flow ([SettingsNotifier.stageChange]).
 ///
