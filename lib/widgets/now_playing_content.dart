@@ -316,32 +316,29 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
               ),
             ),
             const SizedBox(height: 12),
-            // NOW PLAYING + renderer switch + close button. A Stack, not a
-            // spaceBetween Row: the switcher hides itself when the server has
-            // no renderers, and the label must stay centred either way.
+            // Minimise on the left, output switch on the right, NOW PLAYING
+            // centred. A Stack, not a spaceBetween Row: the switcher hides
+            // itself when the server has no renderers, and the label must
+            // stay centred either way. The switcher stays icon-only here —
+            // a phone header hasn't the width the tablet's name enjoys.
             Stack(
               alignment: Alignment.center,
               children: [
                 Text('NOW PLAYING', style: KalinkaTextStyles.nowPlayingLabel),
                 Align(
-                  alignment: Alignment.centerRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Tighter cap than elsewhere: the close chevron and the
-                      // centred NOW PLAYING label both need their room.
-                      const RendererSwitcherDropdown(maxNameWidth: 110),
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: widget.onClose,
-                        child: const Icon(
-                          Icons.keyboard_arrow_down,
-                          size: 28,
-                          color: KalinkaColors.textSecondary,
-                        ),
-                      ),
-                    ],
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: widget.onClose,
+                    child: const Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 28,
+                      color: KalinkaColors.textSecondary,
+                    ),
                   ),
+                ),
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: RendererSwitcherButton(hitDiameter: 36, iconSize: 20),
                 ),
               ],
             ),
