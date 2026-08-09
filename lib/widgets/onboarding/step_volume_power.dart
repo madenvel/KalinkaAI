@@ -119,21 +119,6 @@ class OnboardingVolumePowerStep extends ConsumerWidget {
                   OnboardingFieldRow(path: f.path),
             ],
           ),
-          const OnboardingSectionLabel('Power automation'),
-          const SettingsCard(
-            children: [
-              OnboardingFieldRow(
-                path: 'base_config.device_automation.auto_power_on',
-                label: 'Power on with playback',
-                help: 'Wake the device when music starts.',
-              ),
-              OnboardingFieldRow(
-                path: 'base_config.device_automation.auto_power_off',
-                label: 'Power off when idle',
-                help: 'Switch the device off after playback stops.',
-              ),
-            ],
-          ),
           OnboardingNote(
             'Kalinka finds compatible devices on your network by itself — '
             'set an address only if yours isn’t found. '

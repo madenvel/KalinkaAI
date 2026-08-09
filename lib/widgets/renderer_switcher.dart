@@ -139,7 +139,7 @@ class RendererSwitcherDropdown extends ConsumerWidget {
     final ownId = ref.watch(rendererIdentityProvider).value?.rendererId;
     final name = active == null
         ? 'Choose output'
-        : _displayName(active, isSelf: active.rendererId == ownId);
+        : rendererDisplayName(active, isSelf: active.rendererId == ownId);
 
     return Semantics(
       label: active == null ? 'Choose output' : 'Output: $name',
@@ -262,7 +262,7 @@ class RendererPickerContent extends ConsumerWidget {
                   ctx,
                   RendererPickerChoice(
                     rendererId: renderers[i].rendererId,
-                    rendererName: _displayName(
+                    rendererName: rendererDisplayName(
                       renderers[i],
                       isSelf: renderers[i].rendererId == ownId,
                     ),
@@ -378,7 +378,7 @@ class _EmptyNote extends StatelessWidget {
 /// Friendly name, falling back to the id for a renderer that reported none.
 /// The renderer this page itself hosts is simply "This browser" — the
 /// UA-derived name it registers under is for everyone else's picker.
-String _displayName(RendererInfo renderer, {bool isSelf = false}) {
+String rendererDisplayName(RendererInfo renderer, {bool isSelf = false}) {
   if (isSelf && renderer.kind == 'web') return 'This browser';
   return renderer.friendlyName.isEmpty
       ? renderer.rendererId
@@ -398,7 +398,7 @@ const _backendLabels = {
 /// Supporting line: which machine this output is and how it plays — the
 /// question the picker exists to answer, since friendly names alone don't
 /// distinguish two boxes. Offline leads, because it's why the row is dead.
-String _detailFor(RendererInfo renderer, {bool isSelf = false}) {
+String rendererDetail(RendererInfo renderer, {bool isSelf = false}) {
   final parts = <String>[];
   if (!renderer.isConnected) parts.add('Offline');
   final host = renderer.hostname;
@@ -442,8 +442,8 @@ class _RendererRow extends StatelessWidget {
     // one has nothing to serve — but the renderer playback is already on is a
     // perfectly good thing to configure.
     final canConfigure = connected;
-    final name = _displayName(renderer, isSelf: isSelf);
-    final detail = _detailFor(renderer, isSelf: isSelf);
+    final name = rendererDisplayName(renderer, isSelf: isSelf);
+    final detail = rendererDetail(renderer, isSelf: isSelf);
 
     return Semantics(
       // One output plays at a time; say so rather than leaving a screen reader

@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/presentation_schema.dart' show ModuleSpec;
 import '../../providers/connection_settings_provider.dart';
+import '../../providers/renderer_host_provider.dart'
+    show rendererIdentityProvider;
+import '../../providers/renderer_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../theme/app_theme.dart';
+import '../renderer_switcher.dart' show rendererDisplayName;
 import '../settings_controls/settings_card.dart';
 import '../settings_controls/warning_note.dart';
 import 'onboarding_fields.dart';
@@ -26,17 +30,31 @@ class OnboardingReviewStep extends ConsumerWidget {
       return s.isEmpty ? fallback : s;
     }
 
-    // Audio device: prefer the live option label over the raw ALSA id.
-    final deviceValue = effectiveString(
-      'base_config.output.alsa.device',
-      'System default',
-    );
-    var deviceLabel = deviceValue;
-    for (final o
-        in state.optionsFor('base_config.output.alsa.device') ?? const []) {
-      if (o.value == deviceValue) {
-        deviceLabel = o.label;
-        break;
+    // Audio output: the selected renderer on a renderer-era server; the
+    // ALSA option label (over the raw id) on an older one.
+    final renderers = ref.watch(rendererListProvider);
+    final ownId = ref.watch(rendererIdentityProvider).value?.rendererId;
+    final activeRenderer = renderers.active;
+    String deviceLabel;
+    if (renderers.supported) {
+      deviceLabel = activeRenderer == null
+          ? 'None connected'
+          : rendererDisplayName(
+              activeRenderer,
+              isSelf: activeRenderer.rendererId == ownId,
+            );
+    } else {
+      final deviceValue = effectiveString(
+        'base_config.output.alsa.device',
+        'System default',
+      );
+      deviceLabel = deviceValue;
+      for (final o
+          in state.optionsFor('base_config.output.alsa.device') ?? const []) {
+        if (o.value == deviceValue) {
+          deviceLabel = o.label;
+          break;
+        }
       }
     }
 
@@ -105,6 +123,14 @@ class OnboardingReviewStep extends ConsumerWidget {
             _SummaryRow(label: 'AcoustID', value: acoustidOn ? 'On' : 'Off'),
           ],
         ),
+        if (renderers.supported && activeRenderer == null)
+          const WarningNote(
+            severity: WarningNoteSeverity.warning,
+            message:
+                'No outputs connected — nothing can play yet. Install the '
+                'Kalinka renderer on the machine wired to your speakers, '
+                'or open the web player in a browser.',
+          ),
         if (folders.isEmpty)
           const WarningNote(
             severity: WarningNoteSeverity.warning,
