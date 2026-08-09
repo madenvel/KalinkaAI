@@ -15,22 +15,21 @@ import '../widgets/discovery_screen.dart';
 import '../widgets/kalinka_button.dart';
 import '../widgets/onboarding/onboarding_fields.dart';
 import '../widgets/onboarding/onboarding_step_scaffold.dart';
-import '../widgets/onboarding/step_features.dart';
 import '../widgets/onboarding/step_music_sources.dart';
 import '../widgets/onboarding/step_review.dart';
-import '../widgets/onboarding/step_server_sound.dart';
-import '../widgets/onboarding/step_volume_power.dart';
+import '../widgets/onboarding/step_smart_search.dart';
+import '../widgets/onboarding/step_sound.dart';
 import '../widgets/restart_overlay.dart';
 
 /// First-run setup wizard (OOBE).
 ///
-/// Six steps: discover & connect → server & sound → music sources →
-/// device control → features → review & restart. The connection is held
-/// in memory only and config changes are merely staged until the final
-/// step, so killing the app mid-setup restarts the wizard from the
-/// beginning; backgrounding keeps the current step (widget state stays
-/// alive). On success the server connection is persisted, the
-/// `oobeComplete` flag is set, and the wizard pops back to the play queue.
+/// Five steps: find server → add music → smart search (optional) → sound →
+/// finish. The connection is held in memory only and config changes are
+/// merely staged until the final step, so killing the app mid-setup
+/// restarts the wizard from the beginning; backgrounding keeps the current
+/// step (widget state stays alive). On success the server connection is
+/// persisted, the `oobeComplete` flag is set, and the wizard pops back to
+/// the play queue.
 ///
 /// Whether the *server* is set up is its own config flag
 /// (`base_config.server.oobe_complete`): the wizard reads it after
@@ -48,7 +47,14 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  static const _stepCount = 6;
+  static const _stepCount = 5;
+  static const _stepLabels = [
+    'SERVER',
+    'MUSIC',
+    'SMART SEARCH',
+    'SOUND',
+    'FINISH',
+  ];
 
   late int _step = widget.startAtSetup ? 1 : 0;
 
@@ -213,48 +219,57 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       );
     }
 
+    final settings = ref.watch(settingsProvider);
+
     final (title, subtitle, body, nextLabel) = switch (_step) {
       1 => (
-        'Server & output',
-        'Name your server and pick where the music comes out.',
-        const OnboardingServerSoundStep() as Widget,
-        'Continue',
-      ),
-      2 => (
-        'Music sources',
-        'Choose what feeds your library.',
+        'Add music',
+        'Choose what feeds your library. One ready source is enough to '
+            'get going.',
         const OnboardingMusicSourcesStep() as Widget,
         'Continue',
       ),
-      3 => (
-        'Volume & power',
-        'Choose what sets the volume where the music plays — the output '
-            'itself, or an amplifier it feeds.',
-        const OnboardingVolumePowerStep() as Widget,
-        'Continue',
+      2 => (
+        'Smart search',
+        'Search by describing the music, not naming it. Skip freely — '
+            'the same switches live in Settings.',
+        const OnboardingSmartSearchStep() as Widget,
+        settings.schema != null && anySmartSearchEnabled(settings)
+            ? 'Continue'
+            : 'Not now',
       ),
-      4 => (
-        'Smart features',
-        'Optional extras — everything can be changed later in Settings.',
-        const OnboardingFeaturesStep() as Widget,
+      3 => (
+        'Sound',
+        'Pick where the music plays, what controls volume and power — '
+            'then check it by ear.',
+        const OnboardingSoundStep() as Widget,
         'Continue',
       ),
       _ => (
         'Almost there',
-        'Check your choices, then restart the server to apply them.',
-        const OnboardingReviewStep() as Widget,
-        'Finish setup & restart',
+        'Check your choices; starting restarts the server to apply them.',
+        OnboardingReviewStep(onEdit: (step) => setState(() => _step = step))
+            as Widget,
+        'Start listening',
       ),
     };
+
+    // The Add-music gate: the wizard's one hard requirement. Only enforced
+    // once the schema is up so a load failure can't strand the step.
+    final nextEnabled =
+        _step != 1 || settings.schema == null || anySourceConfigured(settings);
 
     return OnboardingStepScaffold(
       stepNumber: _step + 1,
       stepCount: _stepCount,
+      stepLabels: _stepLabels,
+      optional: _step == 2,
       title: title,
       subtitle: subtitle,
       onBack: _step > _firstStep ? () => setState(() => _step--) : null,
       onNext: _step == _stepCount - 1 ? _finish : () => setState(() => _step++),
       nextLabel: nextLabel,
+      nextEnabled: nextEnabled,
       children: [_wrapSettingsState(body)],
     );
   }

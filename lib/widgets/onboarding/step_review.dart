@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data_model/presentation_schema.dart' show ModuleSpec;
 import '../../providers/connection_settings_provider.dart';
 import '../../providers/renderer_host_provider.dart'
     show rendererIdentityProvider;
@@ -12,65 +11,88 @@ import '../settings_controls/settings_card.dart';
 import '../settings_controls/warning_note.dart';
 import 'onboarding_fields.dart';
 import 'onboarding_step_scaffold.dart';
-import 'step_features.dart';
 
-/// Wizard step: read-only summary of every choice, ahead of the final
-/// apply-and-restart.
+/// Wizard step: the setup at a glance, ahead of the final apply-and-restart.
+///
+/// Every row is derived from the same schema state the steps stage into, so
+/// the summary cannot drift from the flow; rows carry a Change link back to
+/// their step via [onEdit]. The server name rides here as the one optional
+/// server-side touch — the server already has a default name.
 class OnboardingReviewStep extends ConsumerWidget {
-  const OnboardingReviewStep({super.key});
+  /// Jumps the wizard to a step (1 = music, 2 = smart search, 3 = sound).
+  final void Function(int step)? onEdit;
+
+  const OnboardingReviewStep({super.key, this.onEdit});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(settingsProvider);
     final connection = ref.watch(connectionSettingsProvider);
-
-    String effectiveString(String path, String fallback) {
-      final v = state.getEffective(path);
-      final s = v?.toString().trim() ?? '';
-      return s.isEmpty ? fallback : s;
-    }
-
-    // Audio output: the selected renderer on a renderer-era server; the
-    // ALSA option label (over the raw id) on an older one.
     final renderers = ref.watch(rendererListProvider);
     final ownId = ref.watch(rendererIdentityProvider).value?.rendererId;
+
+    final modules = schemaModulesOfKind(state.schema, 'input_module');
+    final enabledModules = [
+      for (final m in modules)
+        if (inputModuleEnabled(state, m)) m,
+    ];
+    final notReady = [
+      for (final m in enabledModules)
+        if (!moduleConfigured(state, m)) m,
+    ];
+
+    final sourcesValue = enabledModules.isEmpty
+        ? 'None'
+        : enabledModules
+              .map(
+                (m) => moduleConfigured(state, m)
+                    ? '${m.title} · Ready'
+                    : '${m.title} · Needs setup',
+              )
+              .join('\n');
+
+    final smartCandidates = smartSearchCandidates(state);
+    final smartValue = smartCandidates.isEmpty
+        ? 'Not available'
+        : smartCandidates
+              .map(
+                (c) =>
+                    '${c.$1.title} · '
+                    '${(state.getEffective(c.$2.path) ?? c.$2.defaultValue) == true ? 'On' : 'Off'}',
+              )
+              .join('\n');
+
     final activeRenderer = renderers.active;
-    String deviceLabel;
+    String outputValue;
     if (renderers.supported) {
-      deviceLabel = activeRenderer == null
+      outputValue = activeRenderer == null
           ? 'None connected'
           : rendererDisplayName(
               activeRenderer,
               isSelf: activeRenderer.rendererId == ownId,
             );
     } else {
-      final deviceValue = effectiveString(
-        'base_config.output.alsa.device',
-        'System default',
-      );
-      deviceLabel = deviceValue;
+      // Pre-renderer server: the ALSA option label, over the raw id.
+      final deviceValue =
+          state
+              .getEffective('base_config.output.alsa.device')
+              ?.toString()
+              .trim() ??
+          '';
+      outputValue = deviceValue.isEmpty ? 'System default' : deviceValue;
       for (final o
           in state.optionsFor('base_config.output.alsa.device') ?? const []) {
         if (o.value == deviceValue) {
-          deviceLabel = o.label;
+          outputValue = o.label;
           break;
         }
       }
     }
 
-    final folders =
-        (state.getEffective('input_modules.localfiles.music_folders') as List?)
-            ?.map((e) => e.toString())
-            .where((f) => f.trim().isNotEmpty)
-            .toList() ??
-        const <String>[];
-
-    // Volume & power choice: the first enabled device plugin, else the
-    // built-in renderer default (plain "None" on a server without it).
-    ModuleSpec? controlledDevice;
+    String? volumeControlTitle;
     for (final m in setupDeviceModules(state.schema)) {
       if (state.getEffective('devices.${m.id}.enabled') == true) {
-        controlledDevice = m;
+        volumeControlTitle = m.title;
         break;
       }
     }
@@ -78,49 +100,60 @@ class OnboardingReviewStep extends ConsumerWidget {
       state.schema,
       'device',
     ).any((m) => m.id == kRendererVolumeModuleId);
-    var deviceControlValue = hasRendererModule
-        ? 'Kalinka Renderer default'
-        : 'None';
-    if (controlledDevice != null) {
-      final zone = effectiveString(
-        'devices.${controlledDevice.id}.zone_name',
-        '',
-      );
-      deviceControlValue = zone.isEmpty
-          ? controlledDevice.title
-          : '${controlledDevice.title} · $zone';
-    }
+    final volumeValue =
+        volumeControlTitle ??
+        (hasRendererModule ? 'Kalinka Renderer default' : 'None');
 
-    final aiSearchOn =
-        state.getEffective(OnboardingFeaturesStep.aiSearchPath) == true;
-    final acoustidOn =
-        state.getEffective(OnboardingFeaturesStep.acoustidEnabledPath) == true;
-    final acoustidKey = effectiveString(
-      OnboardingFeaturesStep.acoustidKeyPath,
-      '',
-    );
+    final serviceName = state
+        .getEffective('base_config.server.service_name')
+        ?.toString()
+        .trim();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
+        const OnboardingSectionLabel('Server'),
+        const SettingsCard(
+          children: [
+            OnboardingFieldRow(
+              path: 'base_config.server.service_name',
+              label: 'Server name',
+              help:
+                  'Optional — how this server shows up on your network. '
+                  'It already has a perfectly good default.',
+            ),
+          ],
+        ),
         const OnboardingSectionLabel('Your setup'),
         SettingsCard(
           children: [
             _SummaryRow(
               label: 'Server',
               value:
-                  '${effectiveString('base_config.server.service_name', connection.name)}'
+                  '${(serviceName?.isNotEmpty ?? false) ? serviceName! : connection.name}'
                   ' · ${connection.host}:${connection.port}',
             ),
-            _SummaryRow(label: 'Audio output', value: deviceLabel),
             _SummaryRow(
-              label: 'Music folders',
-              value: folders.isEmpty ? 'None yet' : folders.join('\n'),
+              label: 'Music sources',
+              value: sourcesValue,
+              onChange: onEdit == null ? null : () => onEdit!(1),
             ),
-            _SummaryRow(label: 'Volume & power', value: deviceControlValue),
-            _SummaryRow(label: 'AI search', value: aiSearchOn ? 'On' : 'Off'),
-            _SummaryRow(label: 'AcoustID', value: acoustidOn ? 'On' : 'Off'),
+            _SummaryRow(
+              label: 'Smart search',
+              value: smartValue,
+              onChange: onEdit == null ? null : () => onEdit!(2),
+            ),
+            _SummaryRow(
+              label: 'Audio output',
+              value: outputValue,
+              onChange: onEdit == null ? null : () => onEdit!(3),
+            ),
+            _SummaryRow(
+              label: 'Volume & power',
+              value: volumeValue,
+              onChange: onEdit == null ? null : () => onEdit!(3),
+            ),
           ],
         ),
         if (renderers.supported && activeRenderer == null)
@@ -131,25 +164,19 @@ class OnboardingReviewStep extends ConsumerWidget {
                 'Kalinka renderer on the machine wired to your speakers, '
                 'or open the web player in a browser.',
           ),
-        if (folders.isEmpty)
-          const WarningNote(
+        for (final m in notReady)
+          WarningNote(
             severity: WarningNoteSeverity.warning,
             message:
-                'No music folders configured — the library will be '
-                'empty. Go back to add folders, or add them later in '
-                'Settings.',
-          ),
-        if (acoustidOn && acoustidKey.isEmpty)
-          const WarningNote(
-            severity: WarningNoteSeverity.warning,
-            message:
-                'AcoustID is on but has no API key — fingerprinting '
-                'won’t run until one is set.',
+                '${m.title} still needs '
+                '${moduleMissingFields(state, m).join(' and ')} — it '
+                'won’t work until that is set.',
           ),
         const OnboardingNote(
-          'Finishing saves these settings and restarts the server so '
-          'they take effect — that takes about half a minute. The app '
-          'reconnects automatically and drops you on the play queue.',
+          'Starting saves these settings and restarts the server so they '
+          'take effect — that takes about half a minute. Library indexing '
+          'and any Smart Search analysis run in the background afterwards; '
+          'the app reconnects by itself and drops you on the play queue.',
         ),
       ],
     );
@@ -159,8 +186,9 @@ class OnboardingReviewStep extends ConsumerWidget {
 class _SummaryRow extends StatelessWidget {
   final String label;
   final String value;
+  final VoidCallback? onChange;
 
-  const _SummaryRow({required this.label, required this.value});
+  const _SummaryRow({required this.label, required this.value, this.onChange});
 
   @override
   Widget build(BuildContext context) {
@@ -187,6 +215,24 @@ class _SummaryRow extends StatelessWidget {
               ),
             ),
           ),
+          if (onChange != null) ...[
+            const SizedBox(width: 12),
+            Semantics(
+              label: 'Change $label',
+              button: true,
+              child: GestureDetector(
+                onTap: onChange,
+                behavior: HitTestBehavior.opaque,
+                child: Text(
+                  'Change',
+                  style: KalinkaTextStyles.trayRowSublabel.copyWith(
+                    fontSize: KalinkaTypography.baseSize + 2,
+                    color: KalinkaColors.accentTint,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
