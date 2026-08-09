@@ -147,6 +147,12 @@ abstract class KalinkaPlayerProxy {
     Map<String, String> changes,
   );
 
+  /// Delegate [rendererId]'s volume and power to device module [module] via
+  /// `PUT /renderer/{id}/volume-control`; null hands control back to the
+  /// renderer itself. The module must be loaded on the server, so a freshly
+  /// enabled one can only be attached after the restart that loads it.
+  Future<void> setRendererVolumeControl(String rendererId, String? module);
+
   /// Pin playback to [rendererId] via `PUT /renderer/active`; pass null to
   /// hand selection back to the server (first connected renderer wins).
   ///
@@ -826,6 +832,22 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
       );
       return RendererConfigResult.fromJson(
         (response.data as Map).cast<String, dynamic>(),
+      );
+    } on DioException catch (e) {
+      throw RendererConfigException(_configFailure(e));
+    }
+  }
+
+  @override
+  Future<void> setRendererVolumeControl(
+    String rendererId,
+    String? module,
+  ) async {
+    try {
+      await client.put(
+        '/renderer/$rendererId/volume-control',
+        options: Options(contentType: Headers.jsonContentType),
+        data: jsonEncode({'module': module}),
       );
     } on DioException catch (e) {
       throw RendererConfigException(_configFailure(e));

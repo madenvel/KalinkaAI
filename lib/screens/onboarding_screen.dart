@@ -1,18 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data_model/presentation_schema.dart' show ModuleSpec;
 import '../providers/connection_settings_provider.dart';
+import '../providers/kalinka_player_api_provider.dart';
 import '../providers/onboarding_provider.dart';
+import '../providers/renderer_provider.dart';
 import '../providers/restart_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/discovery_screen.dart';
 import '../widgets/kalinka_button.dart';
+import '../widgets/onboarding/onboarding_fields.dart';
 import '../widgets/onboarding/onboarding_step_scaffold.dart';
-import '../widgets/onboarding/step_device_control.dart';
 import '../widgets/onboarding/step_features.dart';
 import '../widgets/onboarding/step_music_sources.dart';
 import '../widgets/onboarding/step_review.dart';
 import '../widgets/onboarding/step_server_sound.dart';
+import '../widgets/onboarding/step_volume_power.dart';
 import '../widgets/restart_overlay.dart';
 
 /// First-run setup wizard (OOBE).
@@ -53,6 +60,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // completes once the connection and the first-run flag are written.
   Future<void>? _commitFuture;
 
+  // Captured at finish from the Volume & power step, applied after the
+  // restart: the device module the wizard's output is handed to (null =
+  // the renderer keeps control), and which output that is.
+  bool _attachPrepared = false;
+  String? _attachModuleId;
+  String _attachModuleTitle = '';
+  String? _attachRendererId;
+
   Future<void> _onConnected() async {
     // The discovery step keeps its "connecting" state up while this runs.
     await ref.read(settingsProvider.notifier).loadConfig();
@@ -74,6 +89,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     ref
         .read(settingsProvider.notifier)
         .stageChange(OnboardingStatusNotifier.serverOobeFlagPath, true);
+
+    // The Volume & power choice can't be applied yet — a freshly enabled
+    // module only loads with the restart — so capture it here and hand the
+    // output over once the server is back.
+    final settings = ref.read(settingsProvider);
+    ModuleSpec? chosen;
+    for (final m in setupDeviceModules(settings.schema)) {
+      if (settings.getEffective('devices.${m.id}.enabled') == true) {
+        chosen = m;
+        break;
+      }
+    }
+    final renderers = ref.read(rendererListProvider);
+    _attachPrepared = renderers.supported;
+    _attachModuleId = chosen?.id;
+    _attachModuleTitle = chosen?.title ?? '';
+    _attachRendererId = renderers.active?.rendererId;
+
     setState(() => _restartOverlayOpen = true);
     ref.read(restartProvider.notifier).executeRestart();
   }
@@ -93,6 +126,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         .read(connectionSettingsProvider.notifier)
         .setDevice(name, connection.host, connection.port);
     await ref.read(onboardingStatusProvider.notifier).markOobeComplete();
+
+    // Detached on purpose: the wizard pops right after this commit, and the
+    // attach outlives it (the module loads and the renderer redials on its
+    // own schedule). Everything it needs is captured up front.
+    if (_attachPrepared) {
+      _attachPrepared = false;
+      unawaited(
+        _attachVolumeControl(
+          api: ref.read(kalinkaProxyProvider),
+          toasts: ref.read(toastProvider.notifier),
+          moduleId: _attachModuleId,
+          moduleTitle: _attachModuleTitle,
+          rendererId: _attachRendererId,
+        ),
+      );
+    }
   }
 
   Future<void> _onRestartDismissed() async {
@@ -178,10 +227,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         'Continue',
       ),
       3 => (
-        'Amplifier control',
-        'Let Kalinka switch your amplifier or receiver on and off with '
-            'the music.',
-        const OnboardingDeviceControlStep() as Widget,
+        'Volume & power',
+        'Choose what sets the volume where the music plays — the output '
+            'itself, or an amplifier it feeds.',
+        const OnboardingVolumePowerStep() as Widget,
         'Continue',
       ),
       4 => (
@@ -265,5 +314,54 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       );
     }
     return child;
+  }
+}
+
+/// Hands the wizard's output to the chosen device module — or back to the
+/// renderer itself — once the restarted server is up.
+///
+/// The mapping is per renderer and the server refuses it until the module is
+/// loaded, which only happens with the restart; the renderer also has to
+/// redial the restarted server. So this retries for a while and reports a
+/// failed hand-over as a toast — the mapping can always be set later from
+/// the output's settings. Clearing (null [moduleId]) fails silently: it only
+/// matters on a wizard re-run, and the default is what it resets to.
+Future<void> _attachVolumeControl({
+  required KalinkaPlayerProxy api,
+  required ToastNotifier toasts,
+  required String? moduleId,
+  required String moduleTitle,
+  required String? rendererId,
+}) async {
+  const attempts = 10;
+  for (var i = 0; i < attempts; i++) {
+    if (i > 0) await Future<void>.delayed(const Duration(seconds: 3));
+    try {
+      var target = rendererId;
+      if (target == null) {
+        // No output was connected while the wizard ran — take the one
+        // playback would use now.
+        for (final r in await api.listRenderers()) {
+          if (r.active) {
+            target = r.rendererId;
+            break;
+          }
+        }
+        if (target == null) continue;
+      }
+      await api.setRendererVolumeControl(target, moduleId);
+      return;
+    } on RenderersUnsupportedException {
+      return; // Older server — nothing to attach.
+    } catch (_) {
+      // Server still coming back or renderer not redialled yet — try again.
+    }
+  }
+  if (moduleId != null) {
+    toasts.show(
+      'Couldn’t hand volume control to $moduleTitle — set it in the '
+      'output’s settings.',
+      isError: true,
+    );
   }
 }
