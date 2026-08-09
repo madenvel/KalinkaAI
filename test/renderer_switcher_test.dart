@@ -278,10 +278,10 @@ void main() {
     expect(find.byIcon(Icons.cast), findsNothing);
   });
 
-  testWidgets('the playbar badge says whether an output is live', (
+  testWidgets('the playbar cast icon is crossed only with no live output', (
     tester,
   ) async {
-    // With Living Room active and connected: green dot, so no cross.
+    // With Living Room active and connected the icon carries no ornament.
     final api = _FakeApi();
     await tester.pumpWidget(wrap(api));
     await tester.pumpAndSettle();
@@ -292,7 +292,7 @@ void main() {
     expect(find.byIcon(Icons.cast), findsOneWidget);
     expect(inButton, findsNothing);
 
-    // Nothing active: the dot gives way to the grey cross.
+    // Nothing active: the grey cross appears.
     api.renderers = [
       for (final r in api.renderers) r.copyWith(active: false, selected: false),
     ];

@@ -81,9 +81,8 @@ class RendererSwitcherButton extends ConsumerWidget {
   }
 }
 
-/// Cast icon with a corner state badge: a green dot while an output is
-/// active, a grey cross while none is — the one fact worth a glance at the
-/// playbar, since the picker is a tap away for everything else.
+/// Cast icon, badged with a grey cross only when sound has nowhere to go —
+/// the normal state is unremarkable and gets no ornament.
 class _CastGlyph extends StatelessWidget {
   final double size;
   final bool live;
@@ -92,30 +91,27 @@ class _CastGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final icon = Icon(
+      Icons.cast,
+      size: size,
+      color: KalinkaColors.textSecondary,
+    );
+    if (live) return icon;
     return SizedBox(
       width: size + 4,
       height: size + 2,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Icon(Icons.cast, size: size, color: KalinkaColors.textSecondary),
-          Positioned(
+          icon,
+          const Positioned(
             right: 0,
             bottom: 0,
-            child: live
-                ? Container(
-                    width: 7,
-                    height: 7,
-                    decoration: const BoxDecoration(
-                      color: KalinkaColors.statusOnline,
-                      shape: BoxShape.circle,
-                    ),
-                  )
-                : const Icon(
-                    Icons.close,
-                    size: 10,
-                    color: KalinkaColors.statusOffline,
-                  ),
+            child: Icon(
+              Icons.close,
+              size: 10,
+              color: KalinkaColors.statusOffline,
+            ),
           ),
         ],
       ),
