@@ -106,23 +106,10 @@ List<FieldSpec> setupModuleFields(PresentationSchema? schema, ModuleSpec m) {
   ]);
 }
 
-/// The server's own setup questions — tagged fields under `base_config.`.
-/// Untagged schema: the service name, the one thing the old wizard asked.
-List<FieldSpec> serverSetupFields(SettingsState state) {
-  final schema = state.schema;
-  if (schema == null) return const [];
-  if (!schemaHasSetupTags(schema)) {
-    final f = findSchemaField(schema, 'base_config.server.service_name');
-    return [if (f != null && !f.readonly) f];
-  }
-  return _setupOrdered([
-    for (final f in schema.expertFields)
-      if (f.setup != Setup.hidden &&
-          !f.readonly &&
-          f.path.startsWith('base_config.'))
-        f,
-  ]);
-}
+// The server's own `base_config` setup tags are deliberately not asked here:
+// every one of them has a working default (the service name today), and a
+// whole wizard step for renaming a server that already named itself read as
+// setup work the user had to do. They live in Settings.
 
 /// A required answer exists: a non-blank string, or a list with at least
 /// one non-blank entry. The server guarantees a required field defaults to
