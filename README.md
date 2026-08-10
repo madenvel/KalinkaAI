@@ -47,6 +47,8 @@ The app is only half the system — you also need the server running.
 
 - **[Initial setup guide](docs/initial-setup.md)** — installing the server,
   pointing it at your music collection, and connecting the app.
+- **[First-run setup](docs/first-run-setup.md)** — what the setup wizard
+  asks for, step by step, in the app and in the browser.
 - **[App manual](docs/app-manual.md)** — illustrated tour: the setup
   wizard, the server chip and settings, music folders, AI search and
   queueing.

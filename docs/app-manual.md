@@ -18,10 +18,12 @@ If nothing shows up, the phone and the server are probably not on the same
 network (or the router blocks multicast/mDNS) — use **Enter Address
 Manually** at the bottom and type `<server-ip>:8000`.
 
-The wizard then walks you through the first-run essentials — server name
-and audio output, music folders, amplifier control and optional smart
-features — and finishes by restarting the server. Everything it sets can
-be changed later in **Server settings** (sections 3–4).
+The wizard then walks you through the first-run essentials — your music
+sources, the folders to scan, smart search, the audio output, an amplifier
+or receiver, and a sound test — and finishes by restarting the server. Each
+step is explained in the [first-run setup guide](first-run-setup.md).
+Everything it sets can be changed later in **Server settings**
+(sections 3–4).
 
 ## 2. The main screen
 

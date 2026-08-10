@@ -70,8 +70,9 @@ by other users (`ls -l`), and fix with `chmod -R o+rX <mount>/music` if not.
 
 ## 3. Connect the app and finish configuration
 
-(Illustrated walkthrough with screenshots: see the
-[app manual](app-manual.md).)
+(Step-by-step walkthrough of the wizard: see the
+[first-run setup guide](first-run-setup.md). Illustrated tour of the app
+itself: the [app manual](app-manual.md).)
 
 1. Install the Kalinka app
    ([releases](https://github.com/madenvel/KalinkaAI/releases)) on a phone
@@ -79,19 +80,17 @@ by other users (`ls -l`), and fix with `chmod -R o+rX <mount>/music` if not.
 2. On first launch the setup wizard scans the network and lists every
    Kalinka server it finds — pick yours and tap **Connect**. (No server
    found? See [Troubleshooting](#troubleshooting).)
-3. The wizard walks you through the rest of the first-run configuration:
-   - **Service name** — how the server appears in network discovery
-     (useful when you run more than one).
-   - **Audio output** — pick the ALSA device connected to your amplifier.
-   - **Music folders** — the default `/srv/kalinka/music` is already
-     set; add (or replace it with) your own path if your collection
-     lives elsewhere, e.g. a USB/NAS mount.
-   - **Amplifier control** — auto power on/off for supported external
-     devices (e.g. Yamaha MusicCast).
+3. The wizard walks you through the rest of the first-run configuration in
+   seven steps: your music sources and their settings (including the
+   **Music folders** to scan and **AI search**), the **audio output** to
+   play through, an **amplifier or receiver** to hand volume and power to,
+   and a **sound test** to confirm it all works. It finishes by restarting
+   the server so the settings take effect.
 4. To change any of this later: tap the **server chip** (top-right, with
    the green status dot) → **Server settings**. Music folders live in
    the **Input Modules** tab under **Local files**; advanced options are
-   behind the **EXPERT** toggle (top-right).
+   behind the **EXPERT** toggle (top-right). Audio outputs are behind the
+   cast icon in the player.
 
 The indexer picks up the folder within the scan interval (15 minutes by
 default) and additionally watches for file changes; a freshly added
