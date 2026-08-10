@@ -1,0 +1,6 @@
+- Choose where the music plays: the cast icon lists the outputs on your network and moves playback to the one you pick
+- Every output has its own settings and sound test, applied without a restart
+- Volume and power can go to an amplifier or receiver, per output
+- First-run setup rebuilt around outputs, asking only what each source needs
+- Rescan for servers from the discovery screen
+- Fixed an intermittent crash on startup and when reconnecting

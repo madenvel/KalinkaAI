@@ -4,6 +4,39 @@ Curated, user-facing notes per release. Add a `## <version>` section (matching
 the `pubspec.yaml` semver, no build suffix) before tagging — the release
 pipeline pulls the matching section into the GitHub Release body.
 
+## 0.6.0
+
+### Added
+- Choose where the music plays. The cast icon in the mini player and in Now
+  Playing lists the outputs on your network — a machine wired to your DAC,
+  another room, this device — and moves playback to the one you pick. Each
+  output has its own settings behind a gear, applied without a restart.
+- Play through the browser. Open the web player and it offers itself as an
+  output, listed as "This browser".
+- Test the sound from the output's own settings, and from the setup wizard,
+  without restarting anything.
+- Hand volume and power to an amplifier or receiver, per output, so the
+  hardware you actually listen through takes the volume commands.
+- Rescan for servers from the discovery screen instead of restarting the app
+  when one doesn't show up.
+
+Outputs appear once the server supports them; against an older server the app
+behaves exactly as it did before.
+
+### Changed
+- First-run setup is rebuilt around outputs and asks less: the questions come
+  from the server, so each source and device asks only for what it needs. The
+  server-name step is gone.
+- The phone Now Playing header puts minimise on the left and the output on
+  the right, and the output reads as one control — icon, state and name.
+- The guided tour now runs on tablets too, and points out the output switcher.
+- A search that never answers now gives up after ten seconds and says so,
+  instead of spinning.
+
+### Fixed
+- An intermittent crash on startup and when reconnecting.
+- The restart progress screen no longer stretches across a wide window.
+
 ## 0.5.2
 
 ### Added
