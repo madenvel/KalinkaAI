@@ -29,11 +29,16 @@ class NowPlayingContent extends ConsumerStatefulWidget {
   /// Close callback, used when [showOverlayHeader] is true.
   final VoidCallback? onClose;
 
+  /// Marks the output switcher for the first-run tour. Used by the tablet
+  /// layout, where this header carries the only switcher on screen.
+  final Key? outputSwitcherKey;
+
   const NowPlayingContent({
     super.key,
     this.isTablet = false,
     this.showOverlayHeader = false,
     this.onClose,
+    this.outputSwitcherKey,
   });
 
   @override
@@ -359,7 +364,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                 style: KalinkaTextStyles.nowPlayingLabel,
               ),
             ),
-            const RendererSwitcherDropdown(),
+            RendererSwitcherDropdown(key: widget.outputSwitcherKey),
           ],
         ),
       );
