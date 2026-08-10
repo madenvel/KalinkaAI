@@ -28,8 +28,7 @@ class OnboardingMusicSourcesStep extends ConsumerWidget {
           children: [for (final m in modules) _SourceRow(module: m)],
         ),
         const OnboardingNote(
-          'Local files is the library on your server and is always on. '
-          'Streaming sources can join or leave any time in Settings.',
+          'Local files is the library on your server, so it is always on.',
         ),
       ],
     );

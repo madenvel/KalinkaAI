@@ -106,9 +106,8 @@ class _OnboardingOutputStepState extends ConsumerState<OnboardingOutputStep> {
       mainAxisSize: MainAxisSize.min,
       children: [
         const OnboardingNote(
-          'Pick where the music comes out. The gear holds that output’s '
-          'own settings — its playback device, volume behaviour — applied '
-          'straight away, no restart. More outputs can join any time.',
+          'The gear holds that output’s own settings — its playback '
+          'device, volume behaviour — applied straight away, no restart.',
         ),
         SettingsCard(
           children: [
