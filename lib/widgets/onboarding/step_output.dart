@@ -136,6 +136,11 @@ class _OnboardingOutputStepState extends ConsumerState<OnboardingOutputStep> {
 }
 
 /// One output: radio mark, name and detail, gear into its own settings.
+///
+/// Built the way the player's output picker builds its rows: the whole row
+/// carries the hover, the gear takes its own circular one on top, and both
+/// use ink rather than a bare gesture — a row that reacts to nothing under
+/// the pointer doesn't read as choosable.
 class _OutputRow extends StatelessWidget {
   final String name;
   final String detail;
@@ -158,62 +163,129 @@ class _OutputRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: connected && !selected ? onTap : null,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        color: selected ? KalinkaColors.surfaceElevated : Colors.transparent,
-        padding: const EdgeInsets.fromLTRB(16, 7, 6, 7),
+    final canChoose = connected && !selected;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      color: selected ? KalinkaColors.surfaceElevated : Colors.transparent,
+      child: Material(
+        color: Colors.transparent,
         child: Opacity(
           opacity: connected ? 1.0 : 0.45,
-          child: Row(
+          child: Stack(
             children: [
-              RadioMark(selected: selected),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: KalinkaTextStyles.trayRowLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (detail.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        detail,
-                        style: KalinkaTextStyles.trayRowSublabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
+              // Full-bleed and beneath the content, so hovering the name
+              // lights the whole row. The gear is painted over it and takes
+              // its own hits first, keeping its highlight a circle.
+              Positioned.fill(
+                child: InkWell(
+                  onTap: canChoose ? onTap : null,
+                  // Selected and offline rows aren't targets; without this
+                  // they would still light up under the pointer.
+                  hoverColor: canChoose ? null : Colors.transparent,
                 ),
               ),
-              // Settings live on the renderer, so an offline one has nothing
-              // to serve — the gear follows the row's enablement.
-              if (onSettings != null)
-                Semantics(
-                  label: 'Output settings',
-                  button: true,
-                  child: GestureDetector(
-                    onTap: connected ? onSettings : null,
-                    behavior: HitTestBehavior.opaque,
-                    child: const SizedBox(
-                      width: 42,
-                      height: 42,
-                      child: Icon(
-                        Icons.settings_outlined,
-                        size: 18,
-                        color: KalinkaColors.textSecondary,
+              Row(
+                children: [
+                  Expanded(
+                    // Text hit-tests itself for selection, which would keep
+                    // the hover off the InkWell below. Nothing here is a
+                    // target anyway.
+                    child: IgnorePointer(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 11, 8, 11),
+                        child: Row(
+                          children: [
+                            RadioMark(selected: selected),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    name,
+                                    style: KalinkaTextStyles.trayRowLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (detail.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      detail,
+                                      style: KalinkaTextStyles.trayRowSublabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  // Settings live on the renderer, so an offline one has
+                  // nothing to serve — the gear follows the row's enablement.
+                  if (onSettings != null) ...[
+                    // Two targets in one row: the rule is what says so.
+                    Container(
+                      width: 1,
+                      height: 26,
+                      color: KalinkaColors.borderSubtle,
+                    ),
+                    _GearButton(
+                      name: name,
+                      onTap: connected ? onSettings : null,
+                    ),
+                  ],
+                ],
+              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The row's second target: opens that output's own settings.
+class _GearButton extends StatelessWidget {
+  final String name;
+  final VoidCallback? onTap;
+
+  const _GearButton({required this.name, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '$name settings',
+      button: true,
+      enabled: onTap != null,
+      child: Tooltip(
+        message: 'Output settings',
+        excludeFromSemantics: true,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTap,
+              customBorder: const CircleBorder(),
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: Icon(
+                  Icons.settings_outlined,
+                  size: 19,
+                  color: onTap == null
+                      ? KalinkaColors.textMuted
+                      : KalinkaColors.textSecondary,
+                ),
+              ),
+            ),
           ),
         ),
       ),
