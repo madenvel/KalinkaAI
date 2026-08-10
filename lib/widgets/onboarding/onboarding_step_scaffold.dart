@@ -22,9 +22,6 @@ class OnboardingStepScaffold extends StatelessWidget {
   /// as one line on narrow screens rather than wrapped.
   final List<String> stepLabels;
 
-  /// Small pill next to the step counter — 'OPTIONAL', 'RECOMMENDED'.
-  final String? tag;
-
   /// Gates Continue without hiding it; the step says what's missing.
   final bool nextEnabled;
 
@@ -39,7 +36,6 @@ class OnboardingStepScaffold extends StatelessWidget {
     this.onNext,
     this.nextLabel = 'Continue',
     this.stepLabels = const [],
-    this.tag,
     this.nextEnabled = true,
   });
 
@@ -57,32 +53,9 @@ class OnboardingStepScaffold extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          'STEP $stepNumber OF $stepCount',
-                          style: KalinkaTextStyles.sectionHeaderMuted,
-                        ),
-                        const Spacer(),
-                        if (tag != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: KalinkaColors.borderDefault,
-                              ),
-                            ),
-                            child: Text(
-                              tag!,
-                              style: KalinkaTextStyles.sectionHeaderMuted
-                                  .copyWith(color: KalinkaColors.textMuted),
-                            ),
-                          ),
-                      ],
+                    Text(
+                      'STEP $stepNumber OF $stepCount',
+                      style: KalinkaTextStyles.sectionHeaderMuted,
                     ),
                     if (stepLabels.isNotEmpty) ...[
                       const SizedBox(height: 10),
