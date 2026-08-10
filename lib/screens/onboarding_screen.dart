@@ -283,9 +283,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
       4 => (
         'Amplifier or receiver',
-        'Let an amplifier own volume and power, or leave it with the '
-            'output. Keeping the default is fine — you can come back to '
-            'this in Settings.',
+        'Hand volume and power to an amplifier the music plays into, or '
+            'leave them with the output. You can change this later.',
         const OnboardingAmpControlStep() as Widget,
         'Continue',
       ),
