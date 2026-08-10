@@ -15,6 +15,22 @@ import 'discovery_types.dart';
 
 final _logger = Logger();
 
+/// How long to wait for every A/AAAA record of a service — a multi-homed
+/// server answers with one per interface, so we cannot stop at the first.
+const _addressLookupTimeout = Duration(seconds: 1);
+
+/// Budget for the health check that decides whether an address is reachable.
+const _probeTimeout = Duration(seconds: 1);
+
+const _unreachableLatencyMs = 9999;
+
+/// How long to keep listening for service announcements.
+const _announcementWindow = Duration(seconds: 4);
+
+/// Backstop for the whole scan: the announcement window plus room for one
+/// last service to resolve within it.
+const _scanTimeout = Duration(seconds: 7);
+
 // `multicast_dns` keeps its own copies of these private.
 final _mDnsGroupIPv4 = InternetAddress('224.0.0.251');
 final _mDnsGroupIPv6 = InternetAddress('FF02::FB');
@@ -85,14 +101,30 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
     // the scan window would otherwise list the same server repeatedly.
     final resolvedTargets = <String>{};
     bool minDurationElapsed = false;
+    // Resolutions run concurrently, and a slow one (an unreachable address
+    // costs a full probe timeout) must not be finalized away by a faster
+    // neighbour, nor by the announcement window closing around it.
+    bool announcementsDone = false;
+    int pendingResolutions = 0;
+
+    // Everything announced has been resolved and there is nothing left to wait
+    // for. Servers keep re-announcing, so finishing early would list whichever
+    // ones happened to answer first.
+    void finalizeWhenSettled() {
+      if (minDurationElapsed && announcementsDone && pendingResolutions == 0) {
+        _finalizeScan(foundServers);
+      }
+    }
 
     // Enforce minimum 1.2 second scan duration for visual stability
     _minDurationTimer = Timer(const Duration(milliseconds: 1200), () {
       minDurationElapsed = true;
+      finalizeWhenSettled();
     });
 
-    // Timeout: stop scanning after 5 seconds regardless
-    _timeoutTimer = Timer(const Duration(seconds: 5), () {
+    // Timeout: stop scanning regardless. Sits past the announcement window so
+    // a service announced at the end of it still gets its resolution.
+    _timeoutTimer = Timer(_scanTimeout, () {
       if (state.isScanning) {
         _finalizeScan(foundServers);
       }
@@ -135,17 +167,24 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
       _ptrSubscription = _client!
           .lookup<PtrResourceRecord>(
             ResourceRecordQuery.serverPointer(serviceType),
-            timeout: const Duration(seconds: 4),
+            timeout: _announcementWindow,
           )
           .listen(
             (ptr) async {
-              await _resolveService(ptr, foundServers, resolvedTargets);
-              if (minDurationElapsed) {
-                _finalizeScan(foundServers);
+              pendingResolutions++;
+              try {
+                await _resolveService(ptr, foundServers, resolvedTargets);
+              } finally {
+                pendingResolutions--;
               }
+              finalizeWhenSettled();
             },
             onError: (Object e) {
               _logger.e('mDNS discovery error', error: e);
+            },
+            onDone: () {
+              announcementsDone = true;
+              finalizeWhenSettled();
             },
           );
     } catch (e) {
@@ -171,7 +210,9 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
     // Service name from the PTR domain (strip the service type suffix)
     final name = ptr.domainName.split('.').first;
 
-    String? host;
+    // A multi-homed server answers with one A record per interface; only the
+    // ones on a network we share are reachable.
+    final candidates = <String>[];
     int port = 0;
     String? version;
 
@@ -184,25 +225,25 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
       if (!resolvedTargets.add('${srv.target}:${srv.port}')) return;
       port = srv.port;
 
-      // IPv4 address
+      // IPv4 addresses
       await for (final IPAddressResourceRecord ip
           in client.lookup<IPAddressResourceRecord>(
         ResourceRecordQuery.addressIPv4(srv.target),
-        timeout: const Duration(seconds: 2),
+        timeout: _addressLookupTimeout,
       )) {
-        host = ip.address.address;
-        break;
+        final address = ip.address.address;
+        if (!candidates.contains(address)) candidates.add(address);
       }
 
       // Fallback to IPv6 if no IPv4 found
-      if (host == null) {
+      if (candidates.isEmpty) {
         await for (final IPAddressResourceRecord ip
             in client.lookup<IPAddressResourceRecord>(
           ResourceRecordQuery.addressIPv6(srv.target),
-          timeout: const Duration(seconds: 2),
+          timeout: _addressLookupTimeout,
         )) {
-          host = ip.address.address;
-          break;
+          final address = ip.address.address;
+          if (!candidates.contains(address)) candidates.add(address);
         }
       }
       break;
@@ -221,20 +262,33 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
       break;
     }
 
-    if (host != null && port > 0) {
-      final latency = await _measureLatency(host, port);
-      foundServers.add(DiscoveredServer(
-        name: name,
-        host: host,
-        port: port,
-        latencyMs: latency,
-        version: version,
-      ));
+    if (candidates.isEmpty || port <= 0) return;
+
+    // Probe every advertised address at once and keep the fastest that answers,
+    // so an interface we cannot route to never becomes the listed entry.
+    final probes = await Future.wait([
+      for (final candidate in candidates) _measureLatency(candidate, port),
+    ]);
+    var best = 0;
+    for (var i = 1; i < probes.length; i++) {
+      if (probes[i] < probes[best]) best = i;
     }
+
+    foundServers.add(DiscoveredServer(
+      name: name,
+      host: candidates[best],
+      port: port,
+      latencyMs: probes[best],
+      version: version,
+    ));
   }
 
   void _finalizeScan(List<DiscoveredServer> servers) {
     if (!state.isScanning) return;
+    _minDurationTimer?.cancel();
+    _minDurationTimer = null;
+    _timeoutTimer?.cancel();
+    _timeoutTimer = null;
     // Sort by latency (best first)
     servers.sort((a, b) => a.latencyMs.compareTo(b.latencyMs));
     state = DiscoveryState(isScanning: false, servers: List.of(servers));
@@ -242,14 +296,17 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
   }
 
   /// Measure latency to a server with a quick HTTP health check.
+  ///
+  /// Doubles as the reachability test: an address on a network we cannot route
+  /// to times out and scores [_unreachableLatencyMs].
   Future<int> _measureLatency(String host, int port) async {
     try {
       final dio = Dio(
         BaseOptions(
           // Uri() brackets IPv6 hosts (the SRV lookup can resolve one).
           baseUrl: Uri(scheme: 'http', host: host, port: port).toString(),
-          connectTimeout: const Duration(seconds: 2),
-          receiveTimeout: const Duration(seconds: 2),
+          connectTimeout: _probeTimeout,
+          receiveTimeout: _probeTimeout,
         ),
       );
       final stopwatch = Stopwatch()..start();
@@ -258,7 +315,7 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
       dio.close();
       return stopwatch.elapsedMilliseconds;
     } catch (e) {
-      return 9999;
+      return _unreachableLatencyMs;
     }
   }
 
