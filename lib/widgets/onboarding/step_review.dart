@@ -98,7 +98,7 @@ class OnboardingReviewStep extends ConsumerWidget {
     ).any((m) => m.id == kRendererVolumeModuleId);
     final volumeValue =
         volumeControlTitle ??
-        (hasRendererModule ? 'Kalinka Renderer default' : 'None');
+        (hasRendererModule ? kDefaultVolumeControlLabel : 'None');
 
     final serviceName = state
         .getEffective('base_config.server.service_name')

@@ -31,6 +31,15 @@ List<ModuleSpec> schemaModulesOfKind(PresentationSchema? schema, String kind) {
 /// every output.
 const kRendererVolumeModuleId = 'kalinka-renderer';
 
+/// What "no external amplifier" is called wherever the wizard names it.
+///
+/// Not the module's own title: the output list one step earlier names
+/// renderers `Kalinka Renderer on <host>`, so calling this choice "Kalinka
+/// Renderer default" read as another output rather than a volume-control
+/// choice. Named once here because it appears on the amplifier step twice
+/// and again in the review.
+const kDefaultVolumeControlLabel = 'Default volume control';
+
 /// Device plugins the wizard may offer: real controllable devices only —
 /// the developer stub and the built-in renderer volume module stay out.
 List<ModuleSpec> setupDeviceModules(PresentationSchema? schema) => [

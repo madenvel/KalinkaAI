@@ -66,7 +66,7 @@ class OnboardingAmpControlStep extends ConsumerWidget {
         : setupModuleFields(state.schema, selected);
 
     final defaultTitle = hasRendererModule
-        ? 'Kalinka Renderer default'
+        ? kDefaultVolumeControlLabel
         : 'None';
     final defaultSubtitle = hasRendererModule
         ? 'The output applies volume itself — nothing else is controlled.'
@@ -127,12 +127,12 @@ class OnboardingAmpControlStep extends ConsumerWidget {
             ),
             _EffectiveRow(
               label: 'Volume & power',
-              value: selected?.title ?? 'The output itself',
+              value: selected?.title ?? kDefaultVolumeControlLabel,
             ),
             _EffectiveRow(
               label: 'Output volume',
               value: selected == null
-                  ? 'Its own control'
+                  ? 'Set on the output itself'
                   : 'Fixed at full — ${selected.title} sets the level',
             ),
           ],
