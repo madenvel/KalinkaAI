@@ -40,11 +40,18 @@ const kRendererVolumeModuleId = 'kalinka-renderer';
 /// and again in the review.
 const kDefaultVolumeControlLabel = 'Default volume control';
 
-/// Device plugins the wizard may offer: real controllable devices only —
-/// the developer stub and the built-in renderer volume module stay out.
+/// Device plugins the wizard offers as amplifier control: every device
+/// module the server loaded, bar the built-in renderer volume module —
+/// that one *is* the default choice, and offering it twice would let the
+/// user disable the thing that carries volume for every output.
+///
+/// Everything else the server has loaded belongs here even if it looks like
+/// a stub: hiding a module the wizard still writes `enabled` around left it
+/// switched on server-side while the step claimed nothing was controlling
+/// volume.
 List<ModuleSpec> setupDeviceModules(PresentationSchema? schema) => [
   for (final m in schemaModulesOfKind(schema, 'device'))
-    if (m.id != 'dummydevice' && m.id != kRendererVolumeModuleId) m,
+    if (m.id != kRendererVolumeModuleId) m,
 ];
 
 /// Boolean field paths that mean "download a model and analyse". The setup

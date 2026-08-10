@@ -101,6 +101,11 @@ class OnboardingAmpControlStep extends ConsumerWidget {
               ),
           ],
         ),
+        const OnboardingNote(
+          'Only device plugins installed on your server appear here. If '
+          'yours is missing, install it on the server, restart the server, '
+          'and run setup again to pick it up.',
+        ),
         if (selected != null) ...[
           if (selectedFields.isNotEmpty) ...[
             OnboardingSectionLabel('${selected.title} options'),
