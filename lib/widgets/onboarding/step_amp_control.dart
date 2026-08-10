@@ -69,12 +69,8 @@ class OnboardingAmpControlStep extends ConsumerWidget {
         ? kDefaultVolumeControlLabel
         : 'None';
     final defaultSubtitle = hasRendererModule
-        ? 'The output applies volume itself — nothing else is controlled.'
-        : choices.isEmpty
-        ? 'No controllable devices were found — Kalinka plays straight '
-              'to the audio output.'
-        : 'Kalinka plays straight to the audio output — nothing else '
-              'is controlled.';
+        ? 'The output sets its own volume.'
+        : 'Kalinka plays straight to the audio output.';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -93,39 +89,29 @@ class OnboardingAmpControlStep extends ConsumerWidget {
             for (final m in choices)
               _ChoiceRow(
                 title: m.title,
-                // The plugin's own words when it has any — the help on its
-                // `enabled` field is the only per-device description the
-                // schema carries. Most ship none, hence the fallback.
-                subtitle:
-                    moduleEnabledField(m)?.help ??
-                    'An amplifier or receiver the music plays into — its '
-                        'volume and power take over.',
+                // Only the plugin's own words — the help on its `enabled`
+                // field, the one per-device description the schema carries.
+                // A stock sentence repeated under every device said nothing
+                // the deck hadn't already said, three lines at a time.
+                subtitle: moduleEnabledField(m)?.help,
                 selected: selected == m,
                 onTap: () => select(m),
               ),
           ],
         ),
+        // One line, not two paragraphs: what the list holds is evident from
+        // the list, and what the choice does is spelled out by the summary
+        // card below — restating it here only pushed that card off screen.
         const OnboardingNote(
-          'Every device plugin installed on your server is listed, switched '
-          'on or not — picking one here switches it on. Nothing to add now '
-          'if yours isn’t here: install its package on the server later and '
-          'it appears in Settings, ready to attach to this output.',
+          'Missing your amplifier? Install its plugin on the server later '
+          '— it shows up in Settings.',
         ),
-        if (selected != null) ...[
-          if (selectedFields.isNotEmpty) ...[
-            OnboardingSectionLabel('${selected.title} options'),
-            SettingsCard(
-              children: [
-                for (final f in selectedFields)
-                  OnboardingFieldRow(path: f.path),
-              ],
-            ),
-          ],
-          OnboardingNote(
-            'Kalinka finds compatible devices on your network by itself — '
-            'set an address only if yours isn’t found (in Settings). '
-            '${outputName != null ? '“$outputName” hands' : 'The output playing now hands'} '
-            'volume and power to ${selected.title} when setup finishes.',
+        if (selected != null && selectedFields.isNotEmpty) ...[
+          OnboardingSectionLabel('${selected.title} options'),
+          SettingsCard(
+            children: [
+              for (final f in selectedFields) OnboardingFieldRow(path: f.path),
+            ],
           ),
         ],
         const OnboardingSectionLabel('Your sound setup'),
@@ -154,14 +140,17 @@ class OnboardingAmpControlStep extends ConsumerWidget {
 
 class _ChoiceRow extends StatelessWidget {
   final String title;
-  final String subtitle;
+
+  /// Null for a device that describes itself nowhere — the name is then the
+  /// whole row, which is all most amplifiers need.
+  final String? subtitle;
   final bool selected;
   final bool enabled;
   final VoidCallback onTap;
 
   const _ChoiceRow({
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     required this.selected,
     this.enabled = true,
     required this.onTap,
@@ -187,8 +176,10 @@ class _ChoiceRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: KalinkaTextStyles.trayRowLabel),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: KalinkaTextStyles.trayRowSublabel),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(subtitle!, style: KalinkaTextStyles.trayRowSublabel),
+                    ],
                   ],
                 ),
               ),
