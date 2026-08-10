@@ -97,131 +97,146 @@ class _RestartOverlayState extends ConsumerState<RestartOverlay>
         child: Container(
           color: const Color(0xFF0A0A0D).withValues(alpha: 0.93),
           child: SafeArea(
-            child: Center(
-              // The scrim covers everything, but the timeline shouldn't: on a
-              // wide window its rows and progress bar stretched the full width
-              // and the eye had to travel between the dot and its label. Half
-              // the width, centred, once there is a window wide enough to
-              // bother — the panel-hosted copy in settings is usually narrower
-              // than that and keeps its full width.
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final width = constraints.maxWidth >= kKalinkaTabletBreakpoint
-                      ? constraints.maxWidth / 2
-                      : constraints.maxWidth;
-                  return SizedBox(
-                    width: width,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Icon with crossfade
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: Container(
-                              key: ValueKey(restartState.isDone),
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: restartState.isDone
-                                    ? KalinkaColors.statusOnline.withValues(
-                                        alpha: 0.14,
-                                      )
-                                    : KalinkaColors.surfaceRaised,
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: restartState.isDone
-                                      ? KalinkaColors.statusOnline.withValues(
-                                          alpha: 0.25,
+            // The scrim covers everything, but the timeline shouldn't: on a
+            // wide window its rows and progress bar stretched the full width
+            // and the eye had to travel between the dot and its label. Same
+            // 5:10:5 split the discovery screen uses, gated on our own width
+            // so the panel-hosted copy in settings isn't squeezed twice.
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final wide = constraints.maxWidth >= kKalinkaTabletBreakpoint;
+                return Row(
+                  children: [
+                    if (wide)
+                      const Flexible(
+                        flex: 5,
+                        child: SizedBox(width: double.infinity),
+                      ),
+                    Flexible(
+                      flex: 10,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Icon with crossfade
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                child: Container(
+                                  key: ValueKey(restartState.isDone),
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: restartState.isDone
+                                        ? KalinkaColors.statusOnline.withValues(
+                                            alpha: 0.14,
+                                          )
+                                        : KalinkaColors.surfaceRaised,
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(
+                                      color: restartState.isDone
+                                          ? KalinkaColors.statusOnline
+                                                .withValues(alpha: 0.25)
+                                          : KalinkaColors.borderDefault,
+                                    ),
+                                  ),
+                                  child: restartState.isDone
+                                      ? const Icon(
+                                          Icons.check_rounded,
+                                          size: 28,
+                                          color: KalinkaColors.statusOnline,
                                         )
-                                      : KalinkaColors.borderDefault,
+                                      : RotationTransition(
+                                          turns: _spinController,
+                                          child: const Icon(
+                                            Icons.autorenew_rounded,
+                                            size: 28,
+                                            color: KalinkaColors.textSecondary,
+                                          ),
+                                        ),
                                 ),
                               ),
-                              child: restartState.isDone
-                                  ? const Icon(
-                                      Icons.check_rounded,
-                                      size: 28,
-                                      color: KalinkaColors.statusOnline,
-                                    )
-                                  : RotationTransition(
-                                      turns: _spinController,
-                                      child: const Icon(
-                                        Icons.autorenew_rounded,
-                                        size: 28,
-                                        color: KalinkaColors.textSecondary,
-                                      ),
+                              const SizedBox(height: 24),
+                              // Title
+                              Text(
+                                restartState.isDone
+                                    ? 'Restart complete'
+                                    : 'Restarting server',
+                                style: KalinkaTextStyles.dialogTitle,
+                              ),
+                              const SizedBox(height: 6),
+                              // Subtitle
+                              Text(
+                                restartState.isDone
+                                    ? 'All changes applied.'
+                                    : 'Applying staged changes\u2026',
+                                style: KalinkaTextStyles.trayRowSublabel
+                                    .copyWith(
+                                      fontSize: KalinkaTypography.baseSize + 1,
+                                      color: KalinkaColors.textSecondary,
                                     ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          // Title
-                          Text(
-                            restartState.isDone
-                                ? 'Restart complete'
-                                : 'Restarting server',
-                            style: KalinkaTextStyles.dialogTitle,
-                          ),
-                          const SizedBox(height: 6),
-                          // Subtitle
-                          Text(
-                            restartState.isDone
-                                ? 'All changes applied.'
-                                : 'Applying staged changes\u2026',
-                            style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                              fontSize: KalinkaTypography.baseSize + 1,
-                              color: KalinkaColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 28),
-                          // Progress bar
-                          _buildProgressBar(restartState),
-                          const SizedBox(height: 24),
-                          // Timeline steps
-                          ..._buildSteps(restartState),
-                          if (restartState.error != null) ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              restartState.error!,
-                              textAlign: TextAlign.center,
-                              style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                                color: KalinkaColors.statusOffline,
                               ),
-                            ),
-                          ],
-                          const SizedBox(height: 24),
-                          // Dismiss note
-                          Text(
-                            'You can leave this screen.',
-                            style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                              color: KalinkaColors.textSecondary,
-                              fontSize: KalinkaTypography.baseSize + 0,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          GestureDetector(
-                            onTap: () {
-                              _autoDismissTimer?.cancel();
-                              ref.read(restartProvider.notifier).dismiss();
-                              _fadeController.reverse().then((_) {
-                                if (mounted) widget.onDismiss();
-                              });
-                            },
-                            child: Text(
-                              'Dismiss',
-                              style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                                color: KalinkaColors.textSecondary,
-                                decoration: TextDecoration.underline,
-                                decorationColor: KalinkaColors.textSecondary,
+                              const SizedBox(height: 28),
+                              // Progress bar
+                              _buildProgressBar(restartState),
+                              const SizedBox(height: 24),
+                              // Timeline steps
+                              ..._buildSteps(restartState),
+                              if (restartState.error != null) ...[
+                                const SizedBox(height: 16),
+                                Text(
+                                  restartState.error!,
+                                  textAlign: TextAlign.center,
+                                  style: KalinkaTextStyles.trayRowSublabel
+                                      .copyWith(
+                                        color: KalinkaColors.statusOffline,
+                                      ),
+                                ),
+                              ],
+                              const SizedBox(height: 24),
+                              // Dismiss note
+                              Text(
+                                'You can leave this screen.',
+                                style: KalinkaTextStyles.trayRowSublabel
+                                    .copyWith(
+                                      color: KalinkaColors.textSecondary,
+                                      fontSize: KalinkaTypography.baseSize + 0,
+                                    ),
                               ),
-                            ),
+                              const SizedBox(height: 16),
+                              GestureDetector(
+                                onTap: () {
+                                  _autoDismissTimer?.cancel();
+                                  ref.read(restartProvider.notifier).dismiss();
+                                  _fadeController.reverse().then((_) {
+                                    if (mounted) widget.onDismiss();
+                                  });
+                                },
+                                child: Text(
+                                  'Dismiss',
+                                  style: KalinkaTextStyles.trayRowSublabel
+                                      .copyWith(
+                                        color: KalinkaColors.textSecondary,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor:
+                                            KalinkaColors.textSecondary,
+                                      ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  );
-                },
-              ),
+                    if (wide)
+                      const Flexible(
+                        flex: 5,
+                        child: SizedBox(width: double.infinity),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
         ),
