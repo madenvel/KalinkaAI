@@ -216,9 +216,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           if (widget.allowCancel)
-            GestureDetector(
+            _HoverLink(
+              label: 'Cancel',
+              style: KalinkaTextStyles.cancelButton,
               onTap: _animateClose,
-              child: Text('Cancel', style: KalinkaTextStyles.cancelButton),
             ),
         ],
       ),
@@ -465,19 +466,15 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
             ),
           ),
           // Manual entry link
-          GestureDetector(
-            onTap: () => setState(() => _showManualEntry = true),
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: Text(
-                'Enter Address Manually',
-                style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                  fontSize: KalinkaTypography.baseSize + 2,
-                  color: KalinkaColors.textSecondary,
-                  decoration: TextDecoration.underline,
-                  decorationColor: KalinkaColors.textSecondary,
-                ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: _HoverLink(
+              label: 'Enter Address Manually',
+              style: KalinkaTextStyles.trayRowSublabel.copyWith(
+                fontSize: KalinkaTypography.baseSize + 2,
+                decoration: TextDecoration.underline,
               ),
+              onTap: () => setState(() => _showManualEntry = true),
             ),
           ),
         ],
@@ -789,6 +786,70 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Text link that answers the pointer: brightens and lifts onto a faint
+/// surface under the mouse, and shows the click cursor. Without it "Cancel"
+/// and "Enter Address Manually" read as captions rather than controls.
+class _HoverLink extends StatefulWidget {
+  final String label;
+  final TextStyle style;
+  final VoidCallback onTap;
+
+  const _HoverLink({
+    required this.label,
+    required this.style,
+    required this.onTap,
+  });
+
+  @override
+  State<_HoverLink> createState() => _HoverLinkState();
+}
+
+class _HoverLinkState extends State<_HoverLink> {
+  bool _hovered = false;
+
+  void _setHover(bool value) {
+    if (value != _hovered) setState(() => _hovered = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _hovered
+        ? KalinkaColors.textPrimary
+        : KalinkaColors.textSecondary;
+
+    return Semantics(
+      label: widget.label,
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => _setHover(true),
+        onExit: (_) => _setHover(false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: _hovered
+                  ? KalinkaColors.surfaceElevated
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              widget.label,
+              style: widget.style.copyWith(
+                color: color,
+                decorationColor: color,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

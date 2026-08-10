@@ -44,6 +44,10 @@ class _CoachMarksOverlayState extends State<CoachMarksOverlay> {
   @override
   void initState() {
     super.initState();
+    _scheduleResolve();
+  }
+
+  void _scheduleResolve() {
     WidgetsBinding.instance.addPostFrameCallback((_) => _resolveRect());
   }
 
@@ -67,6 +71,12 @@ class _CoachMarksOverlayState extends State<CoachMarksOverlay> {
       );
       rect = topLeft & targetBox.size;
     }
+    // A target that renders nothing — the output switcher on a server with no
+    // renderers — resolves to a zero-size box. Spotlighting that would ring an
+    // empty patch of screen, so treat it as absent and centre the card.
+    if (rect != null && (rect.width < 4 || rect.height < 4)) rect = null;
+
+    if (rect == _targetRect && overlayHeight == _overlayHeight) return;
     setState(() {
       _targetRect = rect;
       _overlayHeight = overlayHeight;
@@ -82,7 +92,7 @@ class _CoachMarksOverlayState extends State<CoachMarksOverlay> {
       _index++;
       _targetRect = null;
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _resolveRect());
+    _scheduleResolve();
   }
 
   @override
@@ -90,17 +100,29 @@ class _CoachMarksOverlayState extends State<CoachMarksOverlay> {
     final stop = widget.stops[_index];
     final isLast = _index == widget.stops.length - 1;
 
-    return GestureDetector(
-      onTap: _next,
-      behavior: HitTestBehavior.opaque,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: CustomPaint(painter: _SpotlightPainter(cutout: _targetRect)),
+    // The spotlight is a screen-space rectangle, so anything that moves the
+    // target invalidates it. Resizing across the tablet breakpoint moves this
+    // tour's targets furthest — the output switcher changes which widget it
+    // even is — so re-measure whenever our own size changes, after the frame
+    // that laid the new tree out.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _scheduleResolve();
+        return GestureDetector(
+          onTap: _next,
+          behavior: HitTestBehavior.opaque,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _SpotlightPainter(cutout: _targetRect),
+                ),
+              ),
+              _buildTipCard(stop, isLast),
+            ],
           ),
-          _buildTipCard(stop, isLast),
-        ],
-      ),
+        );
+      },
     );
   }
 

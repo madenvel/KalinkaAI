@@ -37,7 +37,12 @@ const Duration kMiniPlayerHideDuration = Duration(milliseconds: 260);
 class MiniPlayer extends ConsumerStatefulWidget {
   final VoidCallback? onTap;
 
-  const MiniPlayer({super.key, this.onTap});
+  /// Marks the output switcher for the first-run tour. Lives here on phone;
+  /// the tablet layout has no mini-player and keys its Now Playing header
+  /// switcher instead.
+  final Key? outputSwitcherKey;
+
+  const MiniPlayer({super.key, this.onTap, this.outputSwitcherKey});
 
   @override
   ConsumerState<MiniPlayer> createState() => _MiniPlayerState();
@@ -422,7 +427,8 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
               // button: the swipe recognizer must not steal its taps.
               IgnorePointer(
                 ignoring: isOffline,
-                child: const RendererSwitcherButton(
+                child: RendererSwitcherButton(
+                  key: widget.outputSwitcherKey,
                   hitDiameter: 40,
                   iconSize: 20,
                 ),

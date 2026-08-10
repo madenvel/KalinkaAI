@@ -50,6 +50,11 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     with SingleTickerProviderStateMixin {
   final _searchDockKey = GlobalKey();
   final _connectionDotKey = GlobalKey();
+  // The output switcher moves house across the breakpoint — mini-player on
+  // phone, Now Playing header on tablet — and the two are different widgets.
+  // One key serves both: the layouts are mutually exclusive, so only ever one
+  // is mounted, and a resize re-parents the key to the other.
+  final _outputSwitcherKey = GlobalKey();
 
   // Drives the mini-player sliding down out of view while the search entry
   // overlay is up (0 = shown, 1 = hidden). The keyboard is held back until
@@ -512,15 +517,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     final searchOpen = ref.watch(searchSessionProvider.select((s) => s.isOpen));
     final rendererSettings = ref.watch(rendererSettingsRouteProvider);
     final connectionState = ref.watch(connectionStateProvider);
-
-    // One-time UI tour: first time the queue is visible with a live
-    // connection (right after the setup wizard, or after upgrading).
-    final onboarding = ref.watch(onboardingStatusProvider);
-    final showCoachMarks =
-        onboarding.oobeComplete &&
-        !onboarding.coachMarksShown &&
-        connectionState == ConnectionStatus.connected &&
-        !searchOpen;
+    final showCoachMarks = _showCoachMarks;
 
     return PopScope(
       canPop: !searchOpen && !_settingsOpen && rendererSettings == null,
@@ -625,7 +622,10 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                   alignment: AlignmentDirectional.bottomStart,
                   child: SlideTransition(
                     position: _miniPlayerSlide,
-                    child: MiniPlayer(onTap: _showExpandedPlayer),
+                    child: MiniPlayer(
+                      onTap: _showExpandedPlayer,
+                      outputSwitcherKey: _outputSwitcherKey,
+                    ),
                   ),
                 ),
               ],
@@ -668,33 +668,56 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
           if (rendererSettings != null)
             Positioned.fill(child: _buildRendererSettings(rendererSettings)),
           // One-time first-run tour
-          if (showCoachMarks)
-            Positioned.fill(
-              child: CoachMarksOverlay(
-                stops: [
-                  CoachMarkStop(
-                    targetKey: _searchDockKey,
-                    title: 'Ask for music',
-                    body:
-                        'Tap here to open search and ask in plain language — '
-                        'like “mellow late-night jazz”. Results stage below; '
-                        'nothing plays until you add it.',
-                  ),
-                  CoachMarkStop(
-                    targetKey: _connectionDotKey,
-                    title: 'Your server lives here',
-                    body:
-                        'The green dot shows you’re connected. Tap it '
-                        'for server status, settings, and switching '
-                        'servers.',
-                  ),
-                ],
-                onDismiss: () => ref
-                    .read(onboardingStatusProvider.notifier)
-                    .markCoachMarksShown(),
-              ),
-            ),
+          if (showCoachMarks) _buildCoachMarks(),
         ],
+      ),
+    );
+  }
+
+  /// Whether the one-time tour should run: first time the queue is visible
+  /// with a live connection (right after the setup wizard, or an upgrade).
+  bool get _showCoachMarks {
+    final onboarding = ref.watch(onboardingStatusProvider);
+    return onboarding.oobeComplete &&
+        !onboarding.coachMarksShown &&
+        ref.watch(connectionStateProvider) == ConnectionStatus.connected &&
+        !ref.watch(searchSessionProvider.select((s) => s.isOpen));
+  }
+
+  /// The tour itself. Shared by both layouts — the stops are the same three
+  /// controls; only where they sit differs, which the keys take care of.
+  Widget _buildCoachMarks() {
+    return Positioned.fill(
+      child: CoachMarksOverlay(
+        stops: [
+          CoachMarkStop(
+            targetKey: _searchDockKey,
+            title: 'Find music',
+            body:
+                'Search and browse from here — by name, or by describing '
+                'what you want, like “mellow late-night jazz”, when smart '
+                'search is on. Results stage below; nothing plays until '
+                'you add it.',
+          ),
+          CoachMarkStop(
+            targetKey: _outputSwitcherKey,
+            title: 'Choose where it plays',
+            body:
+                'The cast icon switches between the outputs on your '
+                'network — a speaker, another machine, this device. Its '
+                'gear opens that output’s own settings.',
+          ),
+          CoachMarkStop(
+            targetKey: _connectionDotKey,
+            title: 'Your server lives here',
+            body:
+                'The green dot shows you’re connected. Tap it '
+                'for server status, settings, and switching '
+                'servers.',
+          ),
+        ],
+        onDismiss: () =>
+            ref.read(onboardingStatusProvider.notifier).markCoachMarksShown(),
       ),
     );
   }
@@ -760,8 +783,11 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                             maintainState: true,
                             maintainAnimation: true,
                             maintainSize: true,
-                            child: const SafeArea(
-                              child: NowPlayingContent(isTablet: true),
+                            child: SafeArea(
+                              child: NowPlayingContent(
+                                isTablet: true,
+                                outputSwitcherKey: _outputSwitcherKey,
+                              ),
                             ),
                           ),
                           // Settings screen overlay (left panel only). ClipRect
@@ -825,6 +851,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                                       onServerChipTap: () => setState(
                                         () => _serverSheetOpen = true,
                                       ),
+                                      connectionKey: _connectionDotKey,
                                     ),
                                     // Search signals connection via its header
                                     // dot — no banner while it is up.
@@ -895,6 +922,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                                                         ),
                                                   ),
                                                   SearchDock(
+                                                    buttonKey: _searchDockKey,
                                                     bottomSafeArea: true,
                                                     onTap: () => ref
                                                         .read(
@@ -956,6 +984,9 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
               ),
             ),
           ),
+          // The same one-time tour as the phone. It used to be phone-only, so
+          // anyone who first ran the app on a wide window never saw it.
+          if (_showCoachMarks) _buildCoachMarks(),
         ],
       ),
     );
