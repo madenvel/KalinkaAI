@@ -8,6 +8,7 @@ import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/playback_failure_provider.dart';
+import '../providers/renderer_provider.dart';
 import '../providers/renderer_settings_route_provider.dart';
 import '../providers/search_session_provider.dart';
 import '../providers/settings_provider.dart';
@@ -684,9 +685,15 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
         !ref.watch(searchSessionProvider.select((s) => s.isOpen));
   }
 
-  /// The tour itself. Shared by both layouts — the stops are the same three
-  /// controls; only where they sit differs, which the keys take care of.
+  /// The tour itself. Shared by both layouts — only where the controls sit
+  /// differs, which the keys take care of.
   Widget _buildCoachMarks() {
+    // A server without renderers hides the output switcher, and a stop with
+    // no target on screen shows as a centred card describing a control the
+    // user hasn't got.
+    final hasOutputSwitcher = ref.watch(
+      rendererListProvider.select((s) => s.hasRenderers),
+    );
     return Positioned.fill(
       child: CoachMarksOverlay(
         stops: [
@@ -699,14 +706,15 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                 'search is on. Results stage below; nothing plays until '
                 'you add it.',
           ),
-          CoachMarkStop(
-            targetKey: _outputSwitcherKey,
-            title: 'Choose where it plays',
-            body:
-                'The cast icon switches between the outputs on your '
-                'network — a speaker, another machine, this device. Its '
-                'gear opens that output’s own settings.',
-          ),
+          if (hasOutputSwitcher)
+            CoachMarkStop(
+              targetKey: _outputSwitcherKey,
+              title: 'Choose where it plays',
+              body:
+                  'The cast icon switches between the outputs on your '
+                  'network — a speaker, another machine, this device. Its '
+                  'gear opens that output’s own settings.',
+            ),
           CoachMarkStop(
             targetKey: _connectionDotKey,
             title: 'Your server lives here',
