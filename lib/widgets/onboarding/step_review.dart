@@ -16,13 +16,20 @@ import 'onboarding_step_scaffold.dart';
 ///
 /// Every row is derived from the same schema state the steps stage into, so
 /// the summary cannot drift from the flow; rows carry a Change link back to
-/// their step via [onEdit]. The server name rides here as the one optional
-/// server-side touch — the server already has a default name.
+/// their step via [onEdit].
 class OnboardingReviewStep extends ConsumerWidget {
-  /// Jumps the wizard to a step (1 = music, 2 = smart search, 3 = sound).
+  /// Jumps the wizard to a step (1 = server config, 2 = sources,
+  /// 3 = source setup, 4 = output, 5 = amplifier control, 6 = sound test).
   final void Function(int step)? onEdit;
 
-  const OnboardingReviewStep({super.key, this.onEdit});
+  /// Whether a sound test was run this session — the test step reports it.
+  final bool soundTested;
+
+  const OnboardingReviewStep({
+    super.key,
+    this.onEdit,
+    this.soundTested = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -48,17 +55,6 @@ class OnboardingReviewStep extends ConsumerWidget {
                 (m) => moduleConfigured(state, m)
                     ? '${m.title} · Ready'
                     : '${m.title} · Needs setup',
-              )
-              .join('\n');
-
-    final smartCandidates = smartSearchCandidates(state);
-    final smartValue = smartCandidates.isEmpty
-        ? 'Not available'
-        : smartCandidates
-              .map(
-                (c) =>
-                    '${c.$1.title} · '
-                    '${(state.getEffective(c.$2.path) ?? c.$2.defaultValue) == true ? 'On' : 'Off'}',
               )
               .join('\n');
 
@@ -109,22 +105,13 @@ class OnboardingReviewStep extends ConsumerWidget {
         ?.toString()
         .trim();
 
+    void Function()? edit(int step) =>
+        onEdit == null ? null : () => onEdit!(step);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const OnboardingSectionLabel('Server'),
-        const SettingsCard(
-          children: [
-            OnboardingFieldRow(
-              path: 'base_config.server.service_name',
-              label: 'Server name',
-              help:
-                  'Optional — how this server shows up on your network. '
-                  'It already has a perfectly good default.',
-            ),
-          ],
-        ),
         const OnboardingSectionLabel('Your setup'),
         SettingsCard(
           children: [
@@ -133,26 +120,27 @@ class OnboardingReviewStep extends ConsumerWidget {
               value:
                   '${(serviceName?.isNotEmpty ?? false) ? serviceName! : connection.name}'
                   ' · ${connection.host}:${connection.port}',
+              onChange: edit(1),
             ),
             _SummaryRow(
               label: 'Music sources',
               value: sourcesValue,
-              onChange: onEdit == null ? null : () => onEdit!(1),
-            ),
-            _SummaryRow(
-              label: 'Smart search',
-              value: smartValue,
-              onChange: onEdit == null ? null : () => onEdit!(2),
+              onChange: edit(notReady.isEmpty ? 2 : 3),
             ),
             _SummaryRow(
               label: 'Audio output',
               value: outputValue,
-              onChange: onEdit == null ? null : () => onEdit!(3),
+              onChange: edit(4),
             ),
             _SummaryRow(
               label: 'Volume & power',
               value: volumeValue,
-              onChange: onEdit == null ? null : () => onEdit!(3),
+              onChange: edit(5),
+            ),
+            _SummaryRow(
+              label: 'Sound test',
+              value: soundTested ? 'Played' : 'Skipped',
+              onChange: edit(6),
             ),
           ],
         ),
@@ -172,10 +160,17 @@ class OnboardingReviewStep extends ConsumerWidget {
                 '${moduleMissingFields(state, m).join(' and ')} — it '
                 'won’t work until that is set.',
           ),
+        if (!soundTested && renderers.supported && activeRenderer != null)
+          const WarningNote(
+            severity: WarningNoteSeverity.warning,
+            message:
+                'Sound was never tested. If nothing plays later, open the '
+                'output’s settings from the output picker and test there.',
+          ),
         const OnboardingNote(
           'Starting saves these settings and restarts the server so they '
           'take effect — that takes about half a minute. Library indexing '
-          'and any Smart Search analysis run in the background afterwards; '
+          'and any smart-search analysis run in the background afterwards; '
           'the app reconnects by itself and drops you on the play queue.',
         ),
       ],
