@@ -10,12 +10,16 @@ At the end the wizard saves everything and restarts the server, which takes abou
 
 ## Step 1 — Find your server (app only)
 
+<img src="images/setup/1-find-server.png" width="320">
+
 The app looks for Kalinka servers on your network and lists what it finds, with each server's address, response time and version. Tap the one you want, then tap **Connect**.
 
 - **Rescan** — searches again. Use it if your server is missing; servers that just started up sometimes need a second look.
 - **Enter Address Manually** — type `<server-ip>:8000` yourself. Use this when your network blocks discovery (mDNS), for example on guest or isolated Wi-Fi.
 
 ## Step 2 — Music sources
+
+<img src="images/setup/2-music-sources.png" width="320">
 
 Choose what fills your library. You need at least one source.
 
@@ -25,6 +29,8 @@ Choose what fills your library. You need at least one source.
 Other sources appear here too if their plugins are installed on the server. You can always add or remove sources later in Settings.
 
 ## Step 3 — Set up your sources
+
+<img src="images/setup/3-source-setup.png" width="320">
 
 Each source you enabled asks only for what it needs.
 
@@ -50,6 +56,8 @@ Each source you enabled asks only for what it needs.
 
 ## Step 4 — Audio output
 
+<img src="images/setup/4-audio-output.png" width="320">
+
 Pick where the music comes out. Each entry is a Kalinka renderer — the part that actually plays sound — named after the machine it runs on, for example *Kalinka Renderer on raspberrypi*.
 
 The **gear** next to an output opens that output's own settings: which sound device it uses, the audio format, how it handles volume. These apply immediately and do not need a restart.
@@ -59,6 +67,8 @@ If the list is empty, nothing can play yet. Install the Kalinka renderer on the 
 You can switch outputs at any time later from the cast icon in the player.
 
 ## Step 5 — Amplifier or receiver
+
+<img src="images/setup/5-amplifier.png" width="320">
 
 This decides what handles volume and power.
 
@@ -70,6 +80,10 @@ Only devices whose plugins are installed on the server appear here. If yours is 
 ## Step 6 — Test sound
 
 **Do not skip this one.** It is the quickest way to find out whether your audio settings actually work, before you finish setup.
+
+| The step | Playing the tones |
+|:---:|:---:|
+| <img src="images/setup/6-test-sound.png" width="300"> | <img src="images/setup/6-test-sound-tones.png" width="300"> |
 
 Press **Play test sound**. A small window opens with **LEFT** and **RIGHT** buttons. Press each one: you should hear a short tone from that speaker only.
 
@@ -84,6 +98,8 @@ If something is wrong, the test offers that output's settings — device, format
 If you would rather not test now, the button at the bottom says **Skip for now**, and you can run the same test later from the output picker.
 
 ## Step 7 — Almost there
+
+<img src="images/setup/7-finish.png" width="320">
 
 The last step lists everything you chose: server, music sources, audio output, volume and power, and whether the sound test played. Each row has a **Change** link that takes you back to that step.
 
