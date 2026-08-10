@@ -1,28 +1,16 @@
 import 'package:flutter/material.dart';
-import '../../data_model/data_model.dart' show RendererInfo;
-import '../../screens/renderer_settings_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
 
 /// Bits the three sound-related wizard steps (output, amplifier control,
 /// speaker test) share.
 
-/// Push a renderer's own settings page over the wizard. Route mode: the
-/// panel pops itself.
-void openRendererSettings(
-  BuildContext context,
-  RendererInfo renderer,
-  String name,
-) {
-  Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => RendererSettingsScreen(
-        rendererId: renderer.rendererId,
-        rendererName: name,
-      ),
-    ),
-  );
-}
+/// Asks the wizard to open one output's own settings. The panel is hosted
+/// by [OnboardingScreen] over its own Stack rather than pushed as a route:
+/// it is a [SlideInPanel], which animates itself in and expects a host that
+/// supplies the Material its fields need.
+typedef OpenRendererSettings =
+    void Function(String rendererId, String rendererName);
 
 /// The wizard's radio bullet.
 class RadioMark extends StatelessWidget {

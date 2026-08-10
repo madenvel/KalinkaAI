@@ -72,7 +72,9 @@ class _RendererSettingsScreenState
     return SlideInPanel(
       onClose: widget.onClose,
       onCoverageChanged: widget.onCoverageChanged,
-      child: Container(
+      // Material, not a plain Container: the page's text fields and ink need
+      // one, and a host that isn't a Scaffold — a bare route — supplies none.
+      child: Material(
         color: KalinkaColors.background,
         child: SafeArea(
           child: Column(
