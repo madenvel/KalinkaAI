@@ -22,8 +22,8 @@ class OnboardingStepScaffold extends StatelessWidget {
   /// as one line on narrow screens rather than wrapped.
   final List<String> stepLabels;
 
-  /// Marks the step as skippable — an OPTIONAL tag joins the header.
-  final bool optional;
+  /// Small pill next to the step counter — 'OPTIONAL', 'RECOMMENDED'.
+  final String? tag;
 
   /// Gates Continue without hiding it; the step says what's missing.
   final bool nextEnabled;
@@ -39,7 +39,7 @@ class OnboardingStepScaffold extends StatelessWidget {
     this.onNext,
     this.nextLabel = 'Continue',
     this.stepLabels = const [],
-    this.optional = false,
+    this.tag,
     this.nextEnabled = true,
   });
 
@@ -64,7 +64,7 @@ class OnboardingStepScaffold extends StatelessWidget {
                           style: KalinkaTextStyles.sectionHeaderMuted,
                         ),
                         const Spacer(),
-                        if (optional)
+                        if (tag != null)
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -77,7 +77,7 @@ class OnboardingStepScaffold extends StatelessWidget {
                               ),
                             ),
                             child: Text(
-                              'OPTIONAL',
+                              tag!,
                               style: KalinkaTextStyles.sectionHeaderMuted
                                   .copyWith(color: KalinkaColors.textMuted),
                             ),

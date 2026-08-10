@@ -15,21 +15,26 @@ import '../widgets/discovery_screen.dart';
 import '../widgets/kalinka_button.dart';
 import '../widgets/onboarding/onboarding_fields.dart';
 import '../widgets/onboarding/onboarding_step_scaffold.dart';
+import '../widgets/onboarding/step_amp_control.dart';
 import '../widgets/onboarding/step_music_sources.dart';
+import '../widgets/onboarding/step_output.dart';
 import '../widgets/onboarding/step_review.dart';
-import '../widgets/onboarding/step_smart_search.dart';
-import '../widgets/onboarding/step_sound.dart';
+import '../widgets/onboarding/step_server_config.dart';
+import '../widgets/onboarding/step_source_setup.dart';
+import '../widgets/onboarding/step_test_sound.dart';
 import '../widgets/restart_overlay.dart';
 
 /// First-run setup wizard (OOBE).
 ///
-/// Five steps: find server → add music → smart search (optional) → sound →
-/// finish. The connection is held in memory only and config changes are
-/// merely staged until the final step, so killing the app mid-setup
-/// restarts the wizard from the beginning; backgrounding keeps the current
-/// step (widget state stays alive). On success the server connection is
-/// persisted, the `oobeComplete` flag is set, and the wizard pops back to
-/// the play queue.
+/// Eight steps: find server → configure server (optional) → choose sources
+/// → set up sources → choose output → amplifier control (optional) → test
+/// sound (recommended) → review & start. The questions the config steps ask
+/// come from the server's `setup` tags (see [Setup]); the connection is
+/// held in memory only and config changes are merely staged until the final
+/// step, so killing the app mid-setup restarts the wizard from the
+/// beginning; backgrounding keeps the current step (widget state stays
+/// alive). On success the server connection is persisted, the
+/// `oobeComplete` flag is set, and the wizard pops back to the play queue.
 ///
 /// Whether the *server* is set up is its own config flag
 /// (`base_config.server.oobe_complete`): the wizard reads it after
@@ -47,14 +52,21 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  static const _stepCount = 5;
+  static const _stepCount = 8;
   static const _stepLabels = [
     'SERVER',
-    'MUSIC',
-    'SMART SEARCH',
-    'SOUND',
+    'BASICS',
+    'SOURCES',
+    'SETUP',
+    'OUTPUT',
+    'CONTROL',
+    'TEST',
     'FINISH',
   ];
+
+  /// Whether a sound test ran this session — flips the test step's Next
+  /// from "Skip for now" to "Continue" and feeds the review row.
+  bool _soundTested = false;
 
   late int _step = widget.startAtSetup ? 1 : 0;
 
@@ -221,49 +233,79 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     final settings = ref.watch(settingsProvider);
 
-    final (title, subtitle, body, nextLabel) = switch (_step) {
+    final (title, subtitle, body, nextLabel, tag) = switch (_step) {
       1 => (
-        'Add music',
-        'Choose what feeds your library. One ready source is enough to '
-            'get going.',
-        const OnboardingMusicSourcesStep() as Widget,
+        'Your server',
+        'A name and a few basics — the defaults are all fine.',
+        const OnboardingServerConfigStep() as Widget,
         'Continue',
+        'OPTIONAL',
       ),
       2 => (
-        'Smart search',
-        'Search by describing the music, not naming it. Skip freely — '
-            'the same switches live in Settings.',
-        const OnboardingSmartSearchStep() as Widget,
-        settings.schema != null && anySmartSearchEnabled(settings)
-            ? 'Continue'
-            : 'Not now',
+        'Music sources',
+        'Choose what feeds your library — at least one.',
+        const OnboardingMusicSourcesStep() as Widget,
+        'Continue',
+        null,
       ),
       3 => (
-        'Sound',
-        'Pick where the music plays, what controls volume and power — '
-            'then check it by ear.',
-        const OnboardingSoundStep() as Widget,
+        'Set up your sources',
+        'Each source asks only for what it needs; the rest lives in '
+            'Settings.',
+        const OnboardingSourceSetupStep() as Widget,
         'Continue',
+        null,
+      ),
+      4 => (
+        'Audio output',
+        'Pick where the music comes out.',
+        const OnboardingOutputStep() as Widget,
+        'Continue',
+        null,
+      ),
+      5 => (
+        'Amplifier or receiver',
+        'Let an amplifier own volume and power — or leave it with the '
+            'output.',
+        const OnboardingAmpControlStep() as Widget,
+        'Continue',
+        'OPTIONAL',
+      ),
+      6 => (
+        'Test sound',
+        'Hear it before you commit — a short tone through the output '
+            'you picked.',
+        OnboardingTestSoundStep(
+              onTested: () => setState(() => _soundTested = true),
+            )
+            as Widget,
+        _soundTested ? 'Continue' : 'Skip for now',
+        'RECOMMENDED',
       ),
       _ => (
         'Almost there',
         'Check your choices; starting restarts the server to apply them.',
-        OnboardingReviewStep(onEdit: (step) => setState(() => _step = step))
+        OnboardingReviewStep(
+              soundTested: _soundTested,
+              onEdit: (step) => setState(() => _step = step),
+            )
             as Widget,
         'Start listening',
+        null,
       ),
     };
 
-    // The Add-music gate: the wizard's one hard requirement. Only enforced
-    // once the schema is up so a load failure can't strand the step.
+    // The source-setup gate: the wizard's one hard requirement — at least
+    // one ready source. Only enforced once the schema is up so a load
+    // failure can't strand the step.
     final nextEnabled =
-        _step != 1 || settings.schema == null || anySourceConfigured(settings);
+        _step != 3 || settings.schema == null || anySourceConfigured(settings);
 
     return OnboardingStepScaffold(
       stepNumber: _step + 1,
       stepCount: _stepCount,
       stepLabels: _stepLabels,
-      optional: _step == 2,
+      tag: tag,
       title: title,
       subtitle: subtitle,
       onBack: _step > _firstStep ? () => setState(() => _step--) : null,

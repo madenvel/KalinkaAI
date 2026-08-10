@@ -27,6 +27,27 @@ enum Importance {
   };
 }
 
+/// Whether a field belongs in first-run setup, per the server's tag.
+///
+/// `required` means the owning module cannot work until the user supplies a
+/// value — the server guarantees such a field defaults to its type's empty
+/// value, so "still empty" *is* "not answered yet". `prompt` has a working
+/// default but is worth asking about during setup. Everything else (and any
+/// unknown or missing tag, including whole schemas from older servers) is
+/// `hidden` and never appears in the wizard. Independent of [Importance]:
+/// a `prompt` field may be expert-tier.
+enum Setup {
+  required,
+  prompt,
+  hidden;
+
+  static Setup fromName(String? s) => switch (s) {
+    'required' => Setup.required,
+    'prompt' => Setup.prompt,
+    _ => Setup.hidden,
+  };
+}
+
 enum Severity {
   info,
   warning,
@@ -87,7 +108,11 @@ class OptionSpec {
   final String label;
   final String? description;
 
-  const OptionSpec({required this.value, required this.label, this.description});
+  const OptionSpec({
+    required this.value,
+    required this.label,
+    this.description,
+  });
 
   factory OptionSpec.fromJson(Map<String, dynamic> j) => OptionSpec(
     value: j['value'] as String,
@@ -159,6 +184,7 @@ class FieldSpec {
   // UI can choose to poll for changes vs. assume stability.
   final bool dynamic_;
   final Importance importance;
+  final Setup setup;
   final List<String>? enumValues;
   final Constraints? constraints;
 
@@ -172,6 +198,7 @@ class FieldSpec {
     this.readonly = false,
     this.dynamic_ = false,
     this.importance = Importance.simple,
+    this.setup = Setup.hidden,
     this.enumValues,
     this.constraints,
   });
@@ -186,9 +213,12 @@ class FieldSpec {
     readonly: j['readonly'] as bool? ?? false,
     dynamic_: j['dynamic'] as bool? ?? false,
     importance: Importance.fromName(j['importance'] as String?),
+    setup: Setup.fromName(j['setup'] as String?),
     enumValues: (j['enum_values'] as List?)?.map((e) => e.toString()).toList(),
     constraints: j['constraints'] is Map
-        ? Constraints.fromJson((j['constraints'] as Map).cast<String, dynamic>())
+        ? Constraints.fromJson(
+            (j['constraints'] as Map).cast<String, dynamic>(),
+          )
         : null,
   );
 }

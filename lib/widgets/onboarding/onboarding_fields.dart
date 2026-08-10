@@ -38,9 +38,10 @@ List<ModuleSpec> setupDeviceModules(PresentationSchema? schema) => [
     if (m.id != 'dummydevice' && m.id != kRendererVolumeModuleId) m,
 ];
 
-/// Boolean field paths that mark a module as Smart Search capable. The
-/// schema doesn't tag capabilities yet, so this suffix set is the one piece
-/// of app-side convention: Jamendo's mood search and localfiles' embedder.
+/// Boolean field paths that mean "download a model and analyse". The setup
+/// tag says *when to ask*, not what saying yes costs, so this suffix set
+/// stays the one app-side convention — it hangs a resource warning off the
+/// toggle on the source-setup step.
 const kSmartSearchFieldSuffixes = ['.ai_search_enabled', '.embedder.enabled'];
 
 /// The module's `enabled` field, if it has one.
@@ -60,80 +61,96 @@ bool inputModuleEnabled(SettingsState state, ModuleSpec m) {
   return (state.getEffective(f.path) ?? f.defaultValue ?? false) == true;
 }
 
-/// The module's Smart Search toggle, wherever the schema keeps it — a
-/// top-level field (Jamendo) or inside a section (localfiles' embedder).
-FieldSpec? smartSearchFieldOf(ModuleSpec m) {
-  bool matches(FieldSpec f) =>
-      kSmartSearchFieldSuffixes.any((s) => f.path.endsWith(s));
-  for (final f in m.fields) {
-    if (matches(f)) return f;
-  }
-  FieldSpec? walk(List<SectionSpec> sections) {
-    for (final s in sections) {
-      for (final f in s.fields) {
-        if (matches(f)) return f;
-      }
-      final nested = walk(s.sections);
-      if (nested != null) return nested;
-    }
-    return null;
-  }
+/// Whether the connected server tags fields for setup at all. Older servers
+/// don't — every field parses as hidden — and the wizard falls back to its
+/// old tier-based rules rather than asking nothing.
+bool schemaHasSetupTags(PresentationSchema? schema) =>
+    schema?.expertFields.any((f) => f.setup != Setup.hidden) ?? false;
 
-  return walk(m.sections);
+/// The dotted-path root that names a module's config subtree.
+String moduleRoot(ModuleSpec m) =>
+    '${m.kind == 'device' ? 'devices' : 'input_modules'}.${m.id}.';
+
+/// Required questions first, then prompts; path order within each group
+/// (expertFields comes sorted by path).
+List<FieldSpec> _setupOrdered(Iterable<FieldSpec> fields) {
+  final list = fields.toList();
+  return [
+    for (final f in list)
+      if (f.setup == Setup.required) f,
+    for (final f in list)
+      if (f.setup != Setup.required) f,
+  ];
 }
 
-/// The card fields for a module during setup: its top-level simple fields
-/// (the schema serves only the simple tier here) minus the enable flag and
-/// the Smart Search toggle, which get their own controls.
-List<FieldSpec> setupModuleFields(ModuleSpec m) => [
-  for (final f in m.fields)
-    if (!f.readonly &&
-        !f.path.endsWith('.enabled') &&
-        !kSmartSearchFieldSuffixes.any((s) => f.path.endsWith(s)))
-      f,
-];
+/// The wizard's questions for one module: every field the server tagged for
+/// setup under the module's root — both tiers, `expertFields` is the index —
+/// minus the module's own enable flag, required first. On an untagged
+/// (older) schema, the module's top-level simple fields, as before.
+List<FieldSpec> setupModuleFields(PresentationSchema? schema, ModuleSpec m) {
+  if (schema == null) return const [];
+  if (!schemaHasSetupTags(schema)) {
+    return [
+      for (final f in m.fields)
+        if (!f.readonly && !f.path.endsWith('.enabled')) f,
+    ];
+  }
+  final root = moduleRoot(m);
+  return _setupOrdered([
+    for (final f in schema.expertFields)
+      if (f.setup != Setup.hidden &&
+          !f.readonly &&
+          f.path.startsWith(root) &&
+          f.path != '${root}enabled')
+        f,
+  ]);
+}
 
-/// A field the module cannot work without: credentials (password widgets)
-/// and folder lists must be non-empty. Everything else has a usable default.
-bool _fieldSatisfied(SettingsState state, FieldSpec f) {
-  final value = state.getEffective(f.path) ?? f.defaultValue;
-  if (f.widget == WidgetKind.password) {
-    return value != null && value.toString().trim().isNotEmpty;
+/// The server's own setup questions — tagged fields under `base_config.`.
+/// Untagged schema: the service name, the one thing the old wizard asked.
+List<FieldSpec> serverSetupFields(SettingsState state) {
+  final schema = state.schema;
+  if (schema == null) return const [];
+  if (!schemaHasSetupTags(schema)) {
+    final f = findSchemaField(schema, 'base_config.server.service_name');
+    return [if (f != null && !f.readonly) f];
   }
-  if (f.widget == WidgetKind.folderList || f.widget == WidgetKind.listEditor) {
-    return value is List && value.any((e) => e.toString().trim().isNotEmpty);
-  }
+  return _setupOrdered([
+    for (final f in schema.expertFields)
+      if (f.setup != Setup.hidden &&
+          !f.readonly &&
+          f.path.startsWith('base_config.'))
+        f,
+  ]);
+}
+
+/// A required answer exists: a non-blank string, or a list with at least
+/// one non-blank entry. The server guarantees a required field defaults to
+/// its type's empty value, so "still empty" is "not answered yet".
+bool _answered(SettingsState state, FieldSpec f) {
+  final value = state.getEffective(f.path);
+  if (value == null) return false;
+  if (value is String) return value.trim().isNotEmpty;
+  if (value is List) return value.any((e) => e.toString().trim().isNotEmpty);
   return true;
 }
 
-/// The fields keeping an enabled module from being ready, by label.
+/// The required questions keeping an enabled module from being ready,
+/// by label. Prompt fields never gate.
 List<String> moduleMissingFields(SettingsState state, ModuleSpec m) => [
-  for (final f in setupModuleFields(m))
-    if (!_fieldSatisfied(state, f)) f.label,
+  for (final f in setupModuleFields(state.schema, m))
+    if (f.setup == Setup.required && !_answered(state, f)) f.label,
 ];
 
-/// A source counts once it is on and nothing required is missing.
+/// A source counts once it is on and every required question is answered.
 bool moduleConfigured(SettingsState state, ModuleSpec m) =>
     inputModuleEnabled(state, m) && moduleMissingFields(state, m).isEmpty;
 
-/// The Add-music gate: at least one source ready to feed the library.
+/// The source-setup gate: at least one source ready to feed the library.
 bool anySourceConfigured(SettingsState state) => schemaModulesOfKind(
   state.schema,
   'input_module',
 ).any((m) => moduleConfigured(state, m));
-
-/// Modules whose Smart Search toggle should be offered: enabled sources
-/// that declare one.
-List<(ModuleSpec, FieldSpec)> smartSearchCandidates(SettingsState state) => [
-  for (final m in schemaModulesOfKind(state.schema, 'input_module'))
-    if (inputModuleEnabled(state, m))
-      if (smartSearchFieldOf(m) case final f?) (m, f),
-];
-
-/// Whether any offered Smart Search toggle is currently on.
-bool anySmartSearchEnabled(SettingsState state) => smartSearchCandidates(
-  state,
-).any((c) => (state.getEffective(c.$2.path) ?? c.$2.defaultValue) == true);
 
 /// Renders a single backend config field inside the setup wizard, bound to
 /// the shared settings staging flow ([SettingsNotifier.stageChange]).
