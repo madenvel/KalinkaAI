@@ -23,7 +23,10 @@ import 'sound_widgets.dart';
 /// here instead. A missing output warns rather than traps: setup can
 /// finish and the output can join later.
 class OnboardingOutputStep extends ConsumerStatefulWidget {
-  const OnboardingOutputStep({super.key});
+  /// Opens one output's own settings, hosted by the wizard.
+  final OpenRendererSettings? onOpenSettings;
+
+  const OnboardingOutputStep({super.key, this.onOpenSettings});
 
   @override
   ConsumerState<OnboardingOutputStep> createState() =>
@@ -119,11 +122,12 @@ class _OnboardingOutputStepState extends ConsumerState<OnboardingOutputStep> {
                   KalinkaHaptics.lightImpact();
                   ref.read(rendererListProvider.notifier).select(r.rendererId);
                 },
-                onSettings: () => openRendererSettings(
-                  context,
-                  r,
-                  rendererDisplayName(r, isSelf: r.rendererId == ownId),
-                ),
+                onSettings: widget.onOpenSettings == null
+                    ? null
+                    : () => widget.onOpenSettings!(
+                        r.rendererId,
+                        rendererDisplayName(r, isSelf: r.rendererId == ownId),
+                      ),
               ),
           ],
         ),
@@ -139,7 +143,10 @@ class _OutputRow extends StatelessWidget {
   final bool selected;
   final bool connected;
   final VoidCallback onTap;
-  final VoidCallback onSettings;
+
+  /// Null when the host offers no settings panel — the gear is then hidden
+  /// rather than dead.
+  final VoidCallback? onSettings;
 
   const _OutputRow({
     required this.name,
@@ -147,7 +154,7 @@ class _OutputRow extends StatelessWidget {
     required this.selected,
     required this.connected,
     required this.onTap,
-    required this.onSettings,
+    this.onSettings,
   });
 
   @override
@@ -189,23 +196,24 @@ class _OutputRow extends StatelessWidget {
               ),
               // Settings live on the renderer, so an offline one has nothing
               // to serve — the gear follows the row's enablement.
-              Semantics(
-                label: 'Output settings',
-                button: true,
-                child: GestureDetector(
-                  onTap: connected ? onSettings : null,
-                  behavior: HitTestBehavior.opaque,
-                  child: const SizedBox(
-                    width: 42,
-                    height: 42,
-                    child: Icon(
-                      Icons.settings_outlined,
-                      size: 18,
-                      color: KalinkaColors.textSecondary,
+              if (onSettings != null)
+                Semantics(
+                  label: 'Output settings',
+                  button: true,
+                  child: GestureDetector(
+                    onTap: connected ? onSettings : null,
+                    behavior: HitTestBehavior.opaque,
+                    child: const SizedBox(
+                      width: 42,
+                      height: 42,
+                      child: Icon(
+                        Icons.settings_outlined,
+                        size: 18,
+                        color: KalinkaColors.textSecondary,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

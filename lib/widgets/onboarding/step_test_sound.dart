@@ -28,7 +28,14 @@ class OnboardingTestSoundStep extends ConsumerWidget {
   /// the step be skipped and the review can report it.
   final VoidCallback? onTested;
 
-  const OnboardingTestSoundStep({super.key, this.onTested});
+  /// Opens the tested output's own settings, hosted by the wizard.
+  final OpenRendererSettings? onOpenSettings;
+
+  const OnboardingTestSoundStep({
+    super.key,
+    this.onTested,
+    this.onOpenSettings,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -76,11 +83,11 @@ class OnboardingTestSoundStep extends ConsumerWidget {
                                     ?.toString(),
                                 rendererId: active?.rendererId,
                               ),
-                          onOpenSettings: active == null
+                          onOpenSettings:
+                              active == null || onOpenSettings == null
                               ? null
-                              : () => openRendererSettings(
-                                  context,
-                                  active,
+                              : () => onOpenSettings!(
+                                  active.rendererId,
                                   activeName ?? 'Output',
                                 ),
                         ),

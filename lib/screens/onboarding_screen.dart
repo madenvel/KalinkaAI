@@ -23,6 +23,7 @@ import '../widgets/onboarding/step_server_config.dart';
 import '../widgets/onboarding/step_source_setup.dart';
 import '../widgets/onboarding/step_test_sound.dart';
 import '../widgets/restart_overlay.dart';
+import 'renderer_settings_screen.dart';
 
 /// First-run setup wizard (OOBE).
 ///
@@ -67,6 +68,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   /// Whether a sound test ran this session — flips the test step's Next
   /// from "Skip for now" to "Continue" and feeds the review row.
   bool _soundTested = false;
+
+  /// The output whose settings panel is up, if any. Hosted here rather than
+  /// pushed as a route: the panel is a [SlideInPanel], which animates itself
+  /// in over its host and needs the Material a Scaffold provides.
+  ({String id, String name})? _outputSettings;
+
+  void _openOutputSettings(String rendererId, String rendererName) =>
+      setState(() => _outputSettings = (id: rendererId, name: rendererName));
 
   late int _step = widget.startAtSetup ? 1 : 0;
 
@@ -191,7 +200,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         // System back walks one step backwards; never leaves the wizard.
-        if (_step > _firstStep && !_restartOverlayOpen) {
+        // The settings panel registers its own PopScope and closes itself on
+        // the same press, so stepping back here too would consume one press
+        // for two moves.
+        if (_step > _firstStep &&
+            !_restartOverlayOpen &&
+            _outputSettings == null) {
           setState(() => _step--);
         }
       },
@@ -207,6 +221,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 child: _buildStep(),
               ),
             ),
+            if (_outputSettings case final settings?)
+              Positioned.fill(
+                child: RendererSettingsScreen(
+                  // Keyed by renderer so opening another one rebuilds rather
+                  // than reusing the previous renderer's page.
+                  key: ValueKey(settings.id),
+                  rendererId: settings.id,
+                  rendererName: settings.name,
+                  onClose: () => setState(() => _outputSettings = null),
+                ),
+              ),
             if (_restartOverlayOpen)
               Positioned.fill(
                 child: RestartOverlay(onDismiss: _onRestartDismissed),
@@ -259,7 +284,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       4 => (
         'Audio output',
         'Pick where the music comes out.',
-        const OnboardingOutputStep() as Widget,
+        OnboardingOutputStep(onOpenSettings: _openOutputSettings) as Widget,
         'Continue',
         null,
       ),
@@ -277,6 +302,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             'you picked.',
         OnboardingTestSoundStep(
               onTested: () => setState(() => _soundTested = true),
+              onOpenSettings: _openOutputSettings,
             )
             as Widget,
         _soundTested ? 'Continue' : 'Skip for now',
