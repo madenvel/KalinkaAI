@@ -18,8 +18,8 @@ import 'onboarding_step_scaffold.dart';
 /// the summary cannot drift from the flow; rows carry a Change link back to
 /// their step via [onEdit].
 class OnboardingReviewStep extends ConsumerWidget {
-  /// Jumps the wizard to a step (1 = server config, 2 = sources,
-  /// 3 = source setup, 4 = output, 5 = amplifier control, 6 = sound test).
+  /// Jumps the wizard to a step (1 = sources, 2 = source setup, 3 = output,
+  /// 4 = amplifier control, 5 = sound test).
   final void Function(int step)? onEdit;
 
   /// Whether a sound test was run this session — the test step reports it.
@@ -115,32 +115,33 @@ class OnboardingReviewStep extends ConsumerWidget {
         const OnboardingSectionLabel('Your setup'),
         SettingsCard(
           children: [
+            // No Change link: the server is the one thing the wizard can't
+            // revisit — switching it would restart setup from discovery.
             _SummaryRow(
               label: 'Server',
               value:
                   '${(serviceName?.isNotEmpty ?? false) ? serviceName! : connection.name}'
                   ' · ${connection.host}:${connection.port}',
-              onChange: edit(1),
             ),
             _SummaryRow(
               label: 'Music sources',
               value: sourcesValue,
-              onChange: edit(notReady.isEmpty ? 2 : 3),
+              onChange: edit(notReady.isEmpty ? 1 : 2),
             ),
             _SummaryRow(
               label: 'Audio output',
               value: outputValue,
-              onChange: edit(4),
+              onChange: edit(3),
             ),
             _SummaryRow(
               label: 'Volume & power',
               value: volumeValue,
-              onChange: edit(5),
+              onChange: edit(4),
             ),
             _SummaryRow(
               label: 'Sound test',
               value: soundTested ? 'Played' : 'Skipped',
-              onChange: edit(6),
+              onChange: edit(5),
             ),
           ],
         ),
@@ -212,23 +213,66 @@ class _SummaryRow extends StatelessWidget {
           ),
           if (onChange != null) ...[
             const SizedBox(width: 12),
-            Semantics(
-              label: 'Change $label',
-              button: true,
-              child: GestureDetector(
-                onTap: onChange,
-                behavior: HitTestBehavior.opaque,
-                child: Text(
-                  'Change',
-                  style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                    fontSize: KalinkaTypography.baseSize + 2,
-                    color: KalinkaColors.accentTint,
-                  ),
-                ),
-              ),
-            ),
+            _ChangeLink(label: label, onTap: onChange!),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// "Change" affordance: plain accent text at rest, a tinted pill under the
+/// pointer — without it the word reads as a caption rather than a control.
+class _ChangeLink extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _ChangeLink({required this.label, required this.onTap});
+
+  @override
+  State<_ChangeLink> createState() => _ChangeLinkState();
+}
+
+class _ChangeLinkState extends State<_ChangeLink> {
+  bool _hovered = false;
+
+  void _setHover(bool value) {
+    if (value != _hovered) setState(() => _hovered = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Change ${widget.label}',
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => _setHover(true),
+        onExit: (_) => _setHover(false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: _hovered ? KalinkaColors.accentSubtle : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _hovered
+                    ? KalinkaColors.accentBorder
+                    : Colors.transparent,
+              ),
+            ),
+            child: Text(
+              'Change',
+              style: KalinkaTextStyles.trayRowSublabel.copyWith(
+                fontSize: KalinkaTypography.baseSize + 2,
+                color: KalinkaColors.accentTint,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

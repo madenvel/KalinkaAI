@@ -19,7 +19,6 @@ import '../widgets/onboarding/step_amp_control.dart';
 import '../widgets/onboarding/step_music_sources.dart';
 import '../widgets/onboarding/step_output.dart';
 import '../widgets/onboarding/step_review.dart';
-import '../widgets/onboarding/step_server_config.dart';
 import '../widgets/onboarding/step_source_setup.dart';
 import '../widgets/onboarding/step_test_sound.dart';
 import '../widgets/restart_overlay.dart';
@@ -27,9 +26,9 @@ import 'renderer_settings_screen.dart';
 
 /// First-run setup wizard (OOBE).
 ///
-/// Eight steps: find server → configure server (optional) → choose sources
-/// → set up sources → choose output → amplifier control (optional) → test
-/// sound (recommended) → review & start. The questions the config steps ask
+/// Seven steps: find server → choose sources → set up sources → choose
+/// output → amplifier control (optional) → test sound (recommended) →
+/// review & start. The questions the config steps ask
 /// come from the server's `setup` tags (see [Setup]); the connection is
 /// held in memory only and config changes are merely staged until the final
 /// step, so killing the app mid-setup restarts the wizard from the
@@ -53,10 +52,9 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  static const _stepCount = 8;
+  static const _stepCount = 7;
   static const _stepLabels = [
     'SERVER',
-    'BASICS',
     'SOURCES',
     'SETUP',
     'OUTPUT',
@@ -260,20 +258,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     final (title, subtitle, body, nextLabel, tag) = switch (_step) {
       1 => (
-        'Your server',
-        'A name and a few basics — the defaults are all fine.',
-        const OnboardingServerConfigStep() as Widget,
-        'Continue',
-        'OPTIONAL',
-      ),
-      2 => (
         'Music sources',
         'Choose what feeds your library — at least one.',
         const OnboardingMusicSourcesStep() as Widget,
         'Continue',
         null,
       ),
-      3 => (
+      2 => (
         'Set up your sources',
         'Each source asks only for what it needs; the rest lives in '
             'Settings.',
@@ -281,14 +272,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         'Continue',
         null,
       ),
-      4 => (
+      3 => (
         'Audio output',
         'Pick where the music comes out.',
         OnboardingOutputStep(onOpenSettings: _openOutputSettings) as Widget,
         'Continue',
         null,
       ),
-      5 => (
+      4 => (
         'Amplifier or receiver',
         'Let an amplifier own volume and power — or leave it with the '
             'output.',
@@ -296,7 +287,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         'Continue',
         'OPTIONAL',
       ),
-      6 => (
+      5 => (
         'Test sound',
         'Hear it before you commit — a short tone through the output '
             'you picked.',
@@ -325,7 +316,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     // one ready source. Only enforced once the schema is up so a load
     // failure can't strand the step.
     final nextEnabled =
-        _step != 3 || settings.schema == null || anySourceConfigured(settings);
+        _step != 2 || settings.schema == null || anySourceConfigured(settings);
 
     return OnboardingStepScaffold(
       stepNumber: _step + 1,
