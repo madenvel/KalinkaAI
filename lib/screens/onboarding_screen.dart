@@ -27,8 +27,9 @@ import 'renderer_settings_screen.dart';
 /// First-run setup wizard (OOBE).
 ///
 /// Seven steps: find server → choose sources → set up sources → choose
-/// output → amplifier control (optional) → test sound (recommended) →
-/// review & start. The questions the config steps ask
+/// output → amplifier control → test sound → review & start. Only the
+/// source setup gates progress; the rest say in their own copy what
+/// leaving them alone means. The questions the config steps ask
 /// come from the server's `setup` tags (see [Setup]); the connection is
 /// held in memory only and config changes are merely staged until the final
 /// step, so killing the app mid-setup restarts the wizard from the
@@ -256,13 +257,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     final settings = ref.watch(settingsProvider);
 
-    final (title, subtitle, body, nextLabel, tag) = switch (_step) {
+    // No OPTIONAL/RECOMMENDED badges: a step that says plainly what happens
+    // if you leave it alone tells the user more than a label does.
+    final (title, subtitle, body, nextLabel) = switch (_step) {
       1 => (
         'Music sources',
-        'Choose what feeds your library — at least one.',
+        'Choose what feeds your library — at least one. More can be '
+            'connected later in Settings.',
         const OnboardingMusicSourcesStep() as Widget,
         'Continue',
-        null,
       ),
       2 => (
         'Set up your sources',
@@ -270,34 +273,32 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             'Settings.',
         const OnboardingSourceSetupStep() as Widget,
         'Continue',
-        null,
       ),
       3 => (
         'Audio output',
-        'Pick where the music comes out.',
+        'Pick where the music comes out. You can switch outputs any time '
+            'from the player.',
         OnboardingOutputStep(onOpenSettings: _openOutputSettings) as Widget,
         'Continue',
-        null,
       ),
       4 => (
         'Amplifier or receiver',
-        'Let an amplifier own volume and power — or leave it with the '
-            'output.',
+        'Let an amplifier own volume and power, or leave it with the '
+            'output. Keeping the default is fine — you can come back to '
+            'this in Settings.',
         const OnboardingAmpControlStep() as Widget,
         'Continue',
-        'OPTIONAL',
       ),
       5 => (
         'Test sound',
-        'Hear it before you commit — a short tone through the output '
-            'you picked.',
+        'A short tone through the output you picked. You can skip it and '
+            'come back from the output picker if the sound doesn’t work.',
         OnboardingTestSoundStep(
               onTested: () => setState(() => _soundTested = true),
               onOpenSettings: _openOutputSettings,
             )
             as Widget,
         _soundTested ? 'Continue' : 'Skip for now',
-        'RECOMMENDED',
       ),
       _ => (
         'Almost there',
@@ -308,7 +309,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             )
             as Widget,
         'Start listening',
-        null,
       ),
     };
 
@@ -322,7 +322,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       stepNumber: _step + 1,
       stepCount: _stepCount,
       stepLabels: _stepLabels,
-      tag: tag,
       title: title,
       subtitle: subtitle,
       onBack: _step > _firstStep ? () => setState(() => _step--) : null,
