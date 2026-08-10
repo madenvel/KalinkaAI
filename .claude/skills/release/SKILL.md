@@ -39,7 +39,7 @@ GitHub Releases — nothing is built locally.
    *before* pushing.
    ```bash
    git add pubspec.yaml CHANGELOG.md fastlane/metadata/android/en-US/changelogs/<build>.txt
-   git commit -m "Bump version to <newsemver>"   # add Co-Authored-By trailer
+   git commit -m "Bump version to <newsemver>"   # no trailer, see CONTRIBUTING.md
    git tag -a v<newsemver> -m "Kalinka <newsemver>"
    git push origin main && git push origin v<newsemver>
    ```
