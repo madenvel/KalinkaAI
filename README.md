@@ -60,7 +60,7 @@ Visual assets are not open-source in this repository and require prior author
 permission for use.
 
 Permission contact:
-Dmitry Savin <envelsavinds@gmail.com>
+MadEnvel <support@kalinkaplayer.com>
 
 ## Distribution
 - Open-source/community builds: You can distribute the code under Apache 2.0, but replace visual assets with your own assets unless you have explicit author permission.
