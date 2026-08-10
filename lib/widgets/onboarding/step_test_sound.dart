@@ -121,8 +121,7 @@ class OnboardingTestSoundStep extends ConsumerWidget {
           const OnboardingNote(
             'If the tone comes out wrong, the test offers this output’s '
             'settings — device, format, volume mode — applied and '
-            're-testable on the spot. Skipping is fine; nothing here is '
-            'locked in.',
+            're-testable on the spot.',
           ),
       ],
     );

@@ -69,9 +69,12 @@ class OnboardingStepScaffold extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         subtitle!,
+                        // Same size as [OnboardingNote]: the deck and the
+                        // body copy are one voice, and a deck that reads
+                        // smaller than the paragraph under it looks demoted.
                         style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                          fontSize: KalinkaTypography.baseSize + 2,
-                          height: 1.5,
+                          fontSize: KalinkaTypography.baseSize + 3,
+                          height: 1.55,
                         ),
                       ),
                     ],
@@ -212,7 +215,9 @@ class OnboardingNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+      // Bottom margin matches the section label's, so a note introducing a
+      // card sits off it by the same gap a heading would.
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
       child: Text(
         text,
         style: KalinkaTextStyles.trayRowSublabel.copyWith(
