@@ -93,9 +93,13 @@ class OnboardingAmpControlStep extends ConsumerWidget {
             for (final m in choices)
               _ChoiceRow(
                 title: m.title,
+                // The plugin's own words when it has any — the help on its
+                // `enabled` field is the only per-device description the
+                // schema carries. Most ship none, hence the fallback.
                 subtitle:
+                    moduleEnabledField(m)?.help ??
                     'An amplifier or receiver the music plays into — its '
-                    'volume and power take over.',
+                        'volume and power take over.',
                 selected: selected == m,
                 onTap: () => select(m),
               ),
