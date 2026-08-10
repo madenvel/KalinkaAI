@@ -47,12 +47,25 @@ class _CoachMarksOverlayState extends State<CoachMarksOverlay> {
     _scheduleResolve();
   }
 
+  /// The stops are derived from live state — the output switcher only exists
+  /// on a server that has renderers — so the list can shrink mid-tour and
+  /// strand the index past its end.
+  @override
+  void didUpdateWidget(covariant CoachMarksOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_index >= widget.stops.length && widget.stops.isNotEmpty) {
+      _index = widget.stops.length - 1;
+      _targetRect = null;
+    }
+    _scheduleResolve();
+  }
+
   void _scheduleResolve() {
     WidgetsBinding.instance.addPostFrameCallback((_) => _resolveRect());
   }
 
   void _resolveRect() {
-    if (!mounted) return;
+    if (!mounted || _index >= widget.stops.length) return;
     final targetContext = widget.stops[_index].targetKey.currentContext;
     final targetBox = targetContext?.findRenderObject() as RenderBox?;
     final overlayBox = context.findRenderObject() as RenderBox?;
@@ -71,9 +84,10 @@ class _CoachMarksOverlayState extends State<CoachMarksOverlay> {
       );
       rect = topLeft & targetBox.size;
     }
-    // A target that renders nothing — the output switcher on a server with no
-    // renderers — resolves to a zero-size box. Spotlighting that would ring an
-    // empty patch of screen, so treat it as absent and centre the card.
+    // A target that renders nothing resolves to a zero-size box; spotlighting
+    // that would ring an empty patch of screen, so treat it as absent and
+    // centre the card. Stops whose control is genuinely gone are better left
+    // out of the list — a centred card still describes a missing control.
     if (rect != null && (rect.width < 4 || rect.height < 4)) rect = null;
 
     if (rect == _targetRect && overlayHeight == _overlayHeight) return;
@@ -97,8 +111,9 @@ class _CoachMarksOverlayState extends State<CoachMarksOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final stop = widget.stops[_index];
-    final isLast = _index == widget.stops.length - 1;
+    if (widget.stops.isEmpty) return const SizedBox.shrink();
+    final stop = widget.stops[_index.clamp(0, widget.stops.length - 1)];
+    final isLast = _index >= widget.stops.length - 1;
 
     // The spotlight is a screen-space rectangle, so anything that moves the
     // target invalidates it. Resizing across the tablet breakpoint moves this
