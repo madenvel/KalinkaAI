@@ -676,7 +676,11 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
 
   /// Whether the one-time tour should run: first time the queue is visible
   /// with a live connection (right after the setup wizard, or an upgrade).
+  /// Never in the browser — there the local first-run flag is set from the
+  /// seeded connection, so the tour would greet every new browser, whether
+  /// or not the server has been set up.
   bool get _showCoachMarks {
+    if (kIsWeb) return false;
     final onboarding = ref.watch(onboardingStatusProvider);
     return onboarding.oobeComplete &&
         !onboarding.coachMarksShown &&
