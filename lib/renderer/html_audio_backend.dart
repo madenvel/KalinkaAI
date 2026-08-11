@@ -20,6 +20,12 @@ class HtmlAudioBackend implements RendererAudioBackend {
   /// silently lost, so a start offset holds play() until the duration is in.
   int? _pendingOffsetMs;
 
+  /// Bumped by every command that interrupts a load in flight. play() then
+  /// rejects with AbortError for a request we ourselves replaced — our own
+  /// doing, not a failure, and reporting it would mask the real error that
+  /// prompted the interruption.
+  int _attempt = 0;
+
   HtmlAudioBackend() {
     _element.preload = 'auto';
     _listen('playing', (_) => _events.add(const BackendPlaying()));
@@ -80,6 +86,7 @@ class HtmlAudioBackend implements RendererAudioBackend {
 
   @override
   void play({required String uri, required int startOffsetMs}) {
+    _attempt++;
     _element.src = uri;
     if (startOffsetMs > 0) {
       _pendingOffsetMs = startOffsetMs;
@@ -91,13 +98,17 @@ class HtmlAudioBackend implements RendererAudioBackend {
   }
 
   @override
-  void pause() => _element.pause();
+  void pause() {
+    _attempt++;
+    _element.pause();
+  }
 
   @override
   void resume() => _play();
 
   @override
   void stop() {
+    _attempt++;
     _pendingOffsetMs = null;
     _element.pause();
     _element.removeAttribute('src');
@@ -118,11 +129,15 @@ class HtmlAudioBackend implements RendererAudioBackend {
   /// most importantly the autoplay policy, until the user has interacted
   /// with the page.
   void _play() {
+    final attempt = _attempt;
     _element.play().toDart.then(
       (_) {},
-      onError: (Object e) => _events.add(
-        BackendFailed(BackendErrorKind.internal, 'playback refused: $e'),
-      ),
+      onError: (Object e) {
+        if (attempt != _attempt) return;
+        _events.add(
+          BackendFailed(BackendErrorKind.internal, 'playback refused: $e'),
+        );
+      },
     );
   }
 
