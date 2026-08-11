@@ -13,7 +13,7 @@ enum _TestPhase { left, right, done }
 /// [TestToneUnsupportedException] tells the dialog the server is too old.
 typedef ToneRequest = Future<void> Function(String channel);
 
-/// Speaker test popup: lights up the left speaker for 2 seconds, then the
+/// Speaker test popup: lights up the left speaker for 3 seconds, then the
 /// right, asking for a tone on the matching channel at the start of each
 /// segment. The visual sequence runs even when the server can't play tones
 /// yet (endpoint added in a newer server release) — a note explains that no
@@ -47,7 +47,7 @@ class SpeakerTestDialog extends ConsumerStatefulWidget {
 
 class _SpeakerTestDialogState extends ConsumerState<SpeakerTestDialog>
     with SingleTickerProviderStateMixin {
-  static const _segment = Duration(seconds: 2);
+  static const _segment = Duration(seconds: 3);
 
   _TestPhase _phase = _TestPhase.left;
   bool _unsupported = false;

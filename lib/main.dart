@@ -7,6 +7,7 @@ import 'screens/music_player_screen.dart';
 import 'theme/app_theme.dart';
 import 'providers/connection_settings_provider.dart';
 import 'providers/onboarding_provider.dart';
+import 'providers/renderer_host_provider.dart';
 import 'providers/web_origin.dart';
 
 /// Dev-only (web): `host:port` of a CORS-enabled proxy to use instead of the
@@ -46,7 +47,10 @@ void main() async {
       );
     }
     if (origin != null) {
-      await prefs.setString(ConnectionSettingsNotifier.sharedPrefName, 'Kalinka');
+      await prefs.setString(
+        ConnectionSettingsNotifier.sharedPrefName,
+        'Kalinka',
+      );
       await prefs.setString(
         ConnectionSettingsNotifier.sharedPrefHost,
         origin.host,
@@ -70,11 +74,12 @@ void main() async {
   );
 }
 
-class KalinkaApp extends StatelessWidget {
+class KalinkaApp extends ConsumerWidget {
   const KalinkaApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(rendererHostProvider);
     return MaterialApp(
       title: 'Kalinka',
       theme: AppTheme.dark(),
