@@ -29,9 +29,9 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
 
   // Web is served by the server itself (same origin as its API): seed the
-  // connection from the origin and mark first-run done — the browser has no
-  // mDNS to discover with and nothing else local to set up. Server-side
-  // setup still runs: MusicPlayerScreen opens the wizard past discovery when
+  // connection from the origin and mark first-run done — there is no mDNS in
+  // the browser and nothing local left to ask about. That does not skip
+  // setup: MusicPlayerScreen still runs the wizard, minus discovery, when
   // the server reports itself unconfigured.
   if (kIsWeb) {
     var origin = webServingOrigin();
