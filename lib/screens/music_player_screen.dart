@@ -117,19 +117,20 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
       end: const Offset(0, 1),
     ).animate(curved);
 
-    // Every connection — at launch or via discovery — checks whether the
-    // server itself still needs setup (see _checkServerNeedsSetup).
-    if (!kIsWeb) {
-      ref.listenManual(connectionStateProvider, (_, next) {
-        if (next == ConnectionStatus.connected) {
-          _checkServerNeedsSetup();
-        }
-      });
-    }
+    // Every connection — at launch, via discovery, or seeded from the
+    // serving origin on web — checks whether the server itself still needs
+    // setup (see _checkServerNeedsSetup). On web this is the only route into
+    // the wizard, and it starts past discovery.
+    ref.listenManual(connectionStateProvider, (_, next) {
+      if (next == ConnectionStatus.connected) {
+        _checkServerNeedsSetup();
+      }
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Web seeds its connection from the serving origin (main.dart) and has
-      // no working wizard or mDNS discovery — never open either.
+      // Web has its connection already (main.dart) and no mDNS: neither the
+      // launch-time wizard nor discovery applies — the check above is its
+      // only way into setup.
       if (kIsWeb) return;
       // First launch: run the setup wizard. The provider marks pre-wizard
       // installs (server already stored) as complete on its own, so they
