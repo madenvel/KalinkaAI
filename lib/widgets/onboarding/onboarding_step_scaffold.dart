@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../kalinka_button.dart';
 
+/// Width cap for the wizard's content column, shared by the steps and the
+/// output-settings panel: half the window on a tablet — the same split the
+/// discovery screen uses — 600 below the breakpoint.
+double onboardingContentMaxWidth(double available) =>
+    available >= kKalinkaTabletBreakpoint ? available / 2 : 600;
+
 /// Shared chrome for wizard steps after the discovery step: progress
 /// header, display-font title, scrollable body, Back/Continue footer.
 ///
@@ -42,78 +48,82 @@ class OnboardingStepScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'STEP $stepNumber OF $stepCount',
-                      style: KalinkaTextStyles.sectionHeaderMuted,
-                    ),
-                    if (stepLabels.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      _buildStepper(),
-                    ],
-                    const SizedBox(height: 8),
-                    _buildProgressBar(),
-                    const SizedBox(height: 20),
-                    Text(title, style: KalinkaTextStyles.dialogTitle),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 6),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: onboardingContentMaxWidth(constraints.maxWidth),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        subtitle!,
-                        // Same size as [OnboardingNote]: the deck and the
-                        // body copy are one voice, and a deck that reads
-                        // smaller than the paragraph under it looks demoted.
-                        style: KalinkaTextStyles.trayRowSublabel.copyWith(
-                          fontSize: KalinkaTypography.baseSize + 3,
-                          height: 1.55,
+                        'STEP $stepNumber OF $stepCount',
+                        style: KalinkaTextStyles.sectionHeaderMuted,
+                      ),
+                      if (stepLabels.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        _buildStepper(),
+                      ],
+                      const SizedBox(height: 8),
+                      _buildProgressBar(),
+                      const SizedBox(height: 20),
+                      Text(title, style: KalinkaTextStyles.dialogTitle),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          subtitle!,
+                          // Same size as [OnboardingNote]: the deck and the
+                          // body copy are one voice, and a deck that reads
+                          // smaller than the paragraph under it looks demoted.
+                          style: KalinkaTextStyles.trayRowSublabel.copyWith(
+                            fontSize: KalinkaTypography.baseSize + 3,
+                            height: 1.55,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.only(top: 16, bottom: 24),
+                    children: children,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: Row(
+                    children: [
+                      if (onBack != null) ...[
+                        KalinkaButton(
+                          label: 'Back',
+                          variant: KalinkaButtonVariant.neutral,
+                          size: KalinkaButtonSize.normal,
+                          onTap: onBack,
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: KalinkaButton(
+                          label: nextLabel,
+                          variant: KalinkaButtonVariant.accent,
+                          size: KalinkaButtonSize.normal,
+                          fullWidth: true,
+                          enabled: nextEnabled && onNext != null,
+                          onTap: nextEnabled ? onNext : null,
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(top: 16, bottom: 24),
-                  children: children,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Row(
-                  children: [
-                    if (onBack != null) ...[
-                      KalinkaButton(
-                        label: 'Back',
-                        variant: KalinkaButtonVariant.neutral,
-                        size: KalinkaButtonSize.normal,
-                        onTap: onBack,
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    Expanded(
-                      child: KalinkaButton(
-                        label: nextLabel,
-                        variant: KalinkaButtonVariant.accent,
-                        size: KalinkaButtonSize.normal,
-                        fullWidth: true,
-                        enabled: nextEnabled && onNext != null,
-                        onTap: nextEnabled ? onNext : null,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -229,6 +229,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   key: ValueKey(settings.id),
                   rendererId: settings.id,
                   rendererName: settings.name,
+                  // Same content column as the steps.
+                  maxContentWidth: onboardingContentMaxWidth(
+                    MediaQuery.sizeOf(context).width,
+                  ),
                   onClose: () => setState(() => _outputSettings = null),
                 ),
               ),
