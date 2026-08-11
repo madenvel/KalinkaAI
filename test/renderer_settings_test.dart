@@ -720,12 +720,12 @@ void main() {
       expect(api.tones, ['left']);
       expect(api.toneRendererId, rendererId);
 
-      // The right channel follows two seconds later.
-      await tester.pump(const Duration(seconds: 2));
+      // The right channel follows three seconds later.
+      await tester.pump(const Duration(seconds: 3));
       expect(api.tones, ['left', 'right']);
 
       // Never pumpAndSettle here: the dialog's speaker pulse repeats forever.
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 3));
       expect(find.text('Play again'), findsOneWidget, reason: 'run finished');
       await tester.tap(find.text('Close'));
       await tester.pump(const Duration(milliseconds: 400));
