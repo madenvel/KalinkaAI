@@ -29,8 +29,9 @@ import '../widgets/restart_overlay.dart';
 /// (`base_config.server.oobe_complete`): the wizard reads it after
 /// connecting and skips straight to the app when another client already
 /// completed setup. With [startAtSetup] the discovery step is skipped
-/// instead — for an already-connected (stored) server that reports the
-/// flag false, e.g. an existing install pointing at a fresh server.
+/// instead — for an already-connected server that reports the flag false:
+/// an existing install pointing at a fresh server, or the web UI, whose
+/// connection always comes from the origin serving the page.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key, this.startAtSetup = false});
 
