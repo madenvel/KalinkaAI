@@ -11,6 +11,7 @@ import 'package:dio/dio.dart' show Dio, BaseOptions;
 import 'package:logger/logger.dart' show Logger;
 import 'package:multicast_dns/multicast_dns.dart';
 
+import 'discovery_grouping.dart';
 import 'discovery_types.dart';
 
 final _logger = Logger();
@@ -96,10 +97,12 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
     await stopScan();
     state = const DiscoveryState(isScanning: true);
 
-    final foundServers = <DiscoveredServer>[];
-    // SRV target host:port pairs already resolved — re-announcements within
-    // the scan window would otherwise list the same server repeatedly.
-    final resolvedTargets = <String>{};
+    // Instances resolve one at a time; grouped per Core when the scan
+    // finalizes.
+    final foundInstances = <ResolvedInstance>[];
+    // Instance names already resolved — re-announcements within the scan
+    // window would otherwise list the same instance repeatedly.
+    final resolvedInstances = <String>{};
     bool minDurationElapsed = false;
     // Resolutions run concurrently, and a slow one (an unreachable address
     // costs a full probe timeout) must not be finalized away by a faster
@@ -112,7 +115,7 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
     // ones happened to answer first.
     void finalizeWhenSettled() {
       if (minDurationElapsed && announcementsDone && pendingResolutions == 0) {
-        _finalizeScan(foundServers);
+        _finalizeScan(foundInstances);
       }
     }
 
@@ -126,39 +129,40 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
     // a service announced at the end of it still gets its resolution.
     _timeoutTimer = Timer(_scanTimeout, () {
       if (state.isScanning) {
-        _finalizeScan(foundServers);
+        _finalizeScan(foundInstances);
       }
     });
 
     try {
       _client = MDnsClient(
-        rawDatagramSocketFactory: (
-          dynamic host,
-          int port, {
-          bool reuseAddress = false,
-          bool reusePort = false,
-          int ttl = 1,
-        }) async {
-          try {
-            return await RawDatagramSocket.bind(
-              host,
-              port,
-              reuseAddress: reuseAddress,
-              // Windows has no SO_REUSEPORT; asking logs a native error per bind.
-              reusePort: reusePort && !Platform.isWindows,
-              ttl: ttl,
-            );
-          } catch (_) {
-            // SO_REUSEPORT is not supported on some Android kernels — retry without it.
-            return RawDatagramSocket.bind(
-              host,
-              port,
-              reuseAddress: reuseAddress,
-              reusePort: false,
-              ttl: ttl,
-            );
-          }
-        },
+        rawDatagramSocketFactory:
+            (
+              dynamic host,
+              int port, {
+              bool reuseAddress = false,
+              bool reusePort = false,
+              int ttl = 1,
+            }) async {
+              try {
+                return await RawDatagramSocket.bind(
+                  host,
+                  port,
+                  reuseAddress: reuseAddress,
+                  // Windows has no SO_REUSEPORT; asking logs a native error per bind.
+                  reusePort: reusePort && !Platform.isWindows,
+                  ttl: ttl,
+                );
+              } catch (_) {
+                // SO_REUSEPORT is not supported on some Android kernels — retry without it.
+                return RawDatagramSocket.bind(
+                  host,
+                  port,
+                  reuseAddress: reuseAddress,
+                  reusePort: false,
+                  ttl: ttl,
+                );
+              }
+            },
       );
       await _client!.start(interfacesFactory: _multicastCapableInterfaces);
 
@@ -173,7 +177,7 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
             (ptr) async {
               pendingResolutions++;
               try {
-                await _resolveService(ptr, foundServers, resolvedTargets);
+                await _resolveService(ptr, foundInstances, resolvedInstances);
               } finally {
                 pendingResolutions--;
               }
@@ -193,7 +197,7 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
       _timeoutTimer?.cancel();
       state = DiscoveryState(
         isScanning: false,
-        servers: foundServers,
+        servers: groupResolvedInstances(foundInstances),
         error: e.toString(),
       );
     }
@@ -201,8 +205,8 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
 
   Future<void> _resolveService(
     PtrResourceRecord ptr,
-    List<DiscoveredServer> foundServers,
-    Set<String> resolvedTargets,
+    List<ResolvedInstance> foundInstances,
+    Set<String> resolvedInstances,
   ) async {
     final client = _client;
     if (client == null) return;
@@ -215,22 +219,25 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
     final candidates = <String>[];
     int port = 0;
     String? version;
+    String? serverId;
+    String? displayName;
 
     // SRV record gives host and port
     await for (final SrvResourceRecord srv in client.lookup<SrvResourceRecord>(
       ResourceRecordQuery.service(ptr.domainName),
       timeout: const Duration(seconds: 2),
     )) {
-      // One machine per list entry.
-      if (!resolvedTargets.add('${srv.target}:${srv.port}')) return;
+      // One resolution per instance; a new-style Core's other interfaces are
+      // separate instances and must each keep their address for grouping.
+      if (!resolvedInstances.add(ptr.domainName)) return;
       port = srv.port;
 
       // IPv4 addresses
       await for (final IPAddressResourceRecord ip
           in client.lookup<IPAddressResourceRecord>(
-        ResourceRecordQuery.addressIPv4(srv.target),
-        timeout: _addressLookupTimeout,
-      )) {
+            ResourceRecordQuery.addressIPv4(srv.target),
+            timeout: _addressLookupTimeout,
+          )) {
         final address = ip.address.address;
         if (!candidates.contains(address)) candidates.add(address);
       }
@@ -239,9 +246,9 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
       if (candidates.isEmpty) {
         await for (final IPAddressResourceRecord ip
             in client.lookup<IPAddressResourceRecord>(
-          ResourceRecordQuery.addressIPv6(srv.target),
-          timeout: _addressLookupTimeout,
-        )) {
+              ResourceRecordQuery.addressIPv6(srv.target),
+              timeout: _addressLookupTimeout,
+            )) {
           final address = ip.address.address;
           if (!candidates.contains(address)) candidates.add(address);
         }
@@ -249,7 +256,7 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
       break;
     }
 
-    // TXT record for server_version
+    // TXT record: server_version plus the identity keys grouping runs on.
     await for (final TxtResourceRecord txt in client.lookup<TxtResourceRecord>(
       ResourceRecordQuery.text(ptr.domainName),
       timeout: const Duration(seconds: 2),
@@ -257,6 +264,10 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
       for (final entry in txt.text.split('\n')) {
         if (entry.startsWith('server_version=')) {
           version = entry.substring('server_version='.length);
+        } else if (entry.startsWith('server_id=')) {
+          serverId = entry.substring('server_id='.length);
+        } else if (entry.startsWith('display_name=')) {
+          displayName = entry.substring('display_name='.length);
         }
       }
       break;
@@ -264,34 +275,41 @@ class IoDiscoveryNotifier extends DiscoveryNotifier {
 
     if (candidates.isEmpty || port <= 0) return;
 
-    // Probe every advertised address at once and keep the fastest that answers,
-    // so an interface we cannot route to never becomes the listed entry.
+    // Probe every advertised address at once, so an interface we cannot
+    // route to never becomes the listed entry.
     final probes = await Future.wait([
       for (final candidate in candidates) _measureLatency(candidate, port),
     ]);
-    var best = 0;
-    for (var i = 1; i < probes.length; i++) {
-      if (probes[i] < probes[best]) best = i;
-    }
 
-    foundServers.add(DiscoveredServer(
-      name: name,
-      host: candidates[best],
-      port: port,
-      latencyMs: probes[best],
-      version: version,
-    ));
+    foundInstances.add(
+      ResolvedInstance(
+        instanceName: ptr.domainName,
+        label: name,
+        endpoints: [
+          for (var i = 0; i < candidates.length; i++)
+            ServerEndpoint(
+              host: candidates[i],
+              port: port,
+              latencyMs: probes[i],
+            ),
+        ],
+        version: version,
+        serverId: serverId,
+        displayName: displayName,
+      ),
+    );
   }
 
-  void _finalizeScan(List<DiscoveredServer> servers) {
+  void _finalizeScan(List<ResolvedInstance> instances) {
     if (!state.isScanning) return;
     _minDurationTimer?.cancel();
     _minDurationTimer = null;
     _timeoutTimer?.cancel();
     _timeoutTimer = null;
-    // Sort by latency (best first)
-    servers.sort((a, b) => a.latencyMs.compareTo(b.latencyMs));
-    state = DiscoveryState(isScanning: false, servers: List.of(servers));
+    state = DiscoveryState(
+      isScanning: false,
+      servers: groupResolvedInstances(instances),
+    );
     _cleanupDiscovery();
   }
 
