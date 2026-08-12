@@ -1,12 +1,12 @@
-// The app-hosted renderer against the wire protocol, mirroring the semantics
-// of the server repo's tests/sim_renderer.py: who advances the queue, FINISHED
-// vs STOPPED, which states carry a valid position, session-scoped volume.
+// App-hosted renderer protocol behavior.
 
 import 'dart:async';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kalinka/generated/kalinka/renderer/v1/renderer.pb.dart' as pb;
+import 'package:kalinka/providers/renderer_host_provider.dart';
 import 'package:kalinka/renderer/renderer_backend.dart';
 import 'package:kalinka/renderer/renderer_connection.dart';
 import 'package:kalinka/renderer/renderer_engine.dart';
@@ -24,13 +24,19 @@ class FakeBackend implements RendererAudioBackend {
 
   String? uri;
   double? volume;
+  int generation = 0;
 
   @override
   Stream<BackendEvent> get events => _events.stream;
 
   @override
-  void play({required String uri, required int startOffsetMs}) {
+  void play({
+    required String uri,
+    required int startOffsetMs,
+    required int generation,
+  }) {
     this.uri = uri;
+    this.generation = generation;
     isPaused = false;
     calls.add('play $uri@$startOffsetMs');
   }
@@ -66,6 +72,34 @@ class FakeBackend implements RendererAudioBackend {
   void dispose() => _events.close();
 
   void emit(BackendEvent event) => _events.add(event);
+
+  void playing([int? forGeneration]) =>
+      emit(BackendPlaying(forGeneration ?? generation));
+  void stalled([int? forGeneration]) =>
+      emit(BackendStalled(forGeneration ?? generation));
+  void paused([int? forGeneration]) =>
+      emit(BackendPaused(forGeneration ?? generation));
+  void ended([int? forGeneration]) =>
+      emit(BackendEnded(forGeneration ?? generation));
+  void failed(BackendErrorKind kind, String message, [int? forGeneration]) =>
+      emit(BackendFailed(forGeneration ?? generation, kind, message));
+  void format({
+    int sampleRateHz = 48000,
+    int channels = 2,
+    int bitsPerSample = 32,
+    String sampleFormat = 'FLOAT32',
+    int durationMs = 300000,
+    int? forGeneration,
+  }) => emit(
+    BackendAudioFormat(
+      forGeneration ?? generation,
+      sampleRateHz: sampleRateHz,
+      channels: channels,
+      bitsPerSample: bitsPerSample,
+      sampleFormat: sampleFormat,
+      durationMs: durationMs,
+    ),
+  );
 }
 
 const identity = RendererIdentity(
@@ -76,23 +110,31 @@ const identity = RendererIdentity(
   os: 'web',
 );
 
-/// Engine + one connection over in-memory sync streams: everything a test
-/// injects or asserts happens in the same event-loop turn.
 class Harness {
   final backend = FakeBackend();
   late final engine = RendererEngine(backend);
   final sent = <pb.Envelope>[];
-  final _incoming = StreamController<dynamic>(sync: true);
-  late final RendererConnection connection;
+  StreamController<dynamic> _incoming = StreamController<dynamic>(sync: true);
+  late RendererConnection connection;
   int _inId = 0;
 
   Harness() {
-    connection = RendererConnection(
-      incoming: _incoming.stream,
-      send: (frame) => sent.add(pb.Envelope.fromBuffer(frame)),
-      engine: engine,
-      identity: identity,
-    );
+    connection = _connect();
+  }
+
+  RendererConnection _connect() => RendererConnection(
+    incoming: _incoming.stream,
+    send: (frame) => sent.add(pb.Envelope.fromBuffer(frame)),
+    engine: engine,
+    identity: identity,
+  );
+
+  void dropLink() => connection.disconnect();
+
+  void reconnect() {
+    dropLink();
+    _incoming = StreamController<dynamic>(sync: true);
+    connection = _connect();
   }
 
   void deliver(pb.Envelope envelope) {
@@ -107,10 +149,12 @@ class Harness {
     String sessionId, {
     String volumeMode = '',
     int? volumePercent,
+    bool delegated = false,
   }) {
     final open = pb.SessionOpen()
       ..sessionId = sessionId
-      ..volumeMode = volumeMode;
+      ..volumeMode = volumeMode
+      ..volumeControlDelegated = delegated;
     if (volumePercent != null) open.volumePercent = volumePercent;
     deliver(pb.Envelope()..sessionOpen = open);
   }
@@ -141,17 +185,15 @@ class Harness {
     ..sourceToken = token
     ..startOffsetMs = Int64(offset);
 
-  /// Sent envelopes after the handshake Hello.
   List<pb.Envelope> get replies => sent.sublist(1);
 
   pb.Envelope get last => sent.last;
 
-  /// Starts a session with a source already playing — the common fixture.
   void playing(String token) {
     welcome();
     openSession('s1');
     setSource(token);
-    backend.emit(const BackendPlaying());
+    backend.playing();
     sent.clear();
     backend.calls.clear();
   }
@@ -182,6 +224,33 @@ void main() {
     );
   });
 
+  test('playback and config traffic are gated until Welcome', () {
+    final h = Harness();
+    h.openSession('s1');
+    expect(h.last.sessionOpenResult.accepted, isFalse);
+    expect(
+      h.last.sessionOpenResult.error,
+      pb.SessionOpenResult_Error.ERROR_INTERNAL,
+    );
+    expect(h.engine.activeSessionId, isEmpty);
+
+    h.sent.clear();
+    h.command(pb.Command()..pause = pb.Pause());
+    expect(h.last.commandRejected.sessionId, 's1');
+    expect(h.backend.calls, isEmpty);
+
+    h.sent.clear();
+    h.deliver(pb.Envelope()..configRequest = pb.ConfigRequest());
+    expect(h.sent, isEmpty);
+
+    h.welcome();
+    h.openSession('s1');
+    expect(
+      h.last.stateSnapshot.playbackState,
+      pb.PlaybackState.PLAYBACK_STATE_STOPPED,
+    );
+  });
+
   test('session open is accepted, then the snapshot follows', () {
     final h = Harness();
     h.welcome();
@@ -198,7 +267,7 @@ void main() {
       pb.PlaybackState.PLAYBACK_STATE_STOPPED,
     );
     expect(snapshot.stateSnapshot.positionValid, isFalse);
-    expect(snapshot.stateSnapshot.volume.current, 100);
+    expect(snapshot.stateSnapshot.volume.current, 30);
     expect(
       snapshot.stateSnapshot.volume.backend,
       pb.VolumeBackend.VOLUME_BACKEND_SOFTWARE,
@@ -224,7 +293,7 @@ void main() {
     h.openSession('s1');
     h.sent.clear();
     h.setSource('t1', uri: 'http://media/a', offset: 1500);
-    expect(h.backend.calls, ['play http://media/a@1500']);
+    expect(h.backend.calls, ['volume 0.3', 'play http://media/a@1500']);
     expect(h.sent[0].sourceChanged.sourceToken, 't1');
     expect(h.sent[0].sourceChanged.hasPreviousSourceToken(), isFalse);
     final preparing = h.sent[1].playbackStateChanged;
@@ -233,7 +302,7 @@ void main() {
     expect(preparing.positionValid, isFalse);
 
     h.backend.positionMs = 1500;
-    h.backend.emit(const BackendPlaying());
+    h.backend.playing();
     final playing = h.last.playbackStateChanged;
     expect(playing.state, pb.PlaybackState.PLAYBACK_STATE_PLAYING);
     expect(playing.positionValid, isTrue);
@@ -248,7 +317,7 @@ void main() {
     expect(h.sent.first.sourceChanged.previousSourceToken, 't1');
     // t2 is gone: when t3 ends, playback finishes.
     h.sent.clear();
-    h.backend.emit(const BackendEnded());
+    h.backend.ended();
     expect(
       h.last.playbackStateChanged.state,
       pb.PlaybackState.PLAYBACK_STATE_FINISHED,
@@ -261,7 +330,7 @@ void main() {
     h.openSession('s1');
     h.sent.clear();
     h.enqueue('t1');
-    expect(h.backend.calls, ['play http://media/b@0']);
+    expect(h.backend.calls, ['volume 0.3', 'play http://media/b@0']);
     expect(h.sent.first.sourceChanged.sourceToken, 't1');
   });
 
@@ -269,14 +338,14 @@ void main() {
     final h = Harness()..playing('t1');
     h.enqueue('t2');
     expect(h.sent, isEmpty); // queued silently, behind the current source
-    h.backend.emit(const BackendEnded());
+    h.backend.ended();
     final changed = h.sent.first.sourceChanged;
     expect(changed.sourceToken, 't2');
     expect(changed.previousSourceToken, 't1');
-    h.backend.emit(const BackendPlaying());
+    h.backend.playing();
 
     h.sent.clear();
-    h.backend.emit(const BackendEnded());
+    h.backend.ended();
     final finished = h.last.playbackStateChanged;
     expect(finished.state, pb.PlaybackState.PLAYBACK_STATE_FINISHED);
     expect(finished.sourceToken, 't2');
@@ -308,7 +377,7 @@ void main() {
       pb.Command()..removeSource = (pb.RemoveSource()..sourceToken = 't2'),
     );
     expect(h.sent, isEmpty);
-    h.backend.emit(const BackendEnded());
+    h.backend.ended();
     expect(
       h.last.playbackStateChanged.state,
       pb.PlaybackState.PLAYBACK_STATE_FINISHED,
@@ -357,7 +426,7 @@ void main() {
     expect(preparing.state, pb.PlaybackState.PLAYBACK_STATE_PREPARING);
     expect(preparing.positionMs.toInt(), 5000);
     h.backend.positionMs = 5000;
-    h.backend.emit(const BackendPlaying());
+    h.backend.playing();
     expect(
       h.last.playbackStateChanged.state,
       pb.PlaybackState.PLAYBACK_STATE_PLAYING,
@@ -368,7 +437,7 @@ void main() {
     final h = Harness()..playing('t1');
     h.command(pb.Command()..pause = pb.Pause());
     h.command(pb.Command()..seek = (pb.Seek()..positionMs = Int64(5000)));
-    h.backend.emit(const BackendPaused());
+    h.backend.paused();
     expect(
       h.last.playbackStateChanged.state,
       pb.PlaybackState.PLAYBACK_STATE_PAUSED,
@@ -377,12 +446,12 @@ void main() {
 
   test('a stall while playing reports preparing, recovery playing', () {
     final h = Harness()..playing('t1');
-    h.backend.emit(const BackendStalled());
+    h.backend.stalled();
     expect(
       h.last.playbackStateChanged.state,
       pb.PlaybackState.PLAYBACK_STATE_PREPARING,
     );
-    h.backend.emit(const BackendPlaying());
+    h.backend.playing();
     expect(
       h.last.playbackStateChanged.state,
       pb.PlaybackState.PLAYBACK_STATE_PLAYING,
@@ -399,10 +468,15 @@ void main() {
     expect(volume.max, 100);
   });
 
-  test('a fixed-volume session pins the level for its lifetime', () {
+  test('a delegated fixed-volume session pins the exact level', () {
     final h = Harness();
     h.welcome();
-    h.openSession('s1', volumeMode: 'fixed', volumePercent: 55);
+    h.openSession(
+      's1',
+      volumeMode: 'fixed',
+      volumePercent: 55,
+      delegated: true,
+    );
     expect(h.backend.volume, 0.55);
     expect(h.last.stateSnapshot.volume.supported, isFalse);
 
@@ -410,11 +484,43 @@ void main() {
     expect(h.backend.volume, 0.55);
     expect(h.last.volumeChanged.volume.current, 55);
 
-    // Undone when the session ends: the next user gets the old level back.
+    // The mode is session-scoped, but level changes remain for the next user.
     h.deliver(
       pb.Envelope()..sessionClose = (pb.SessionClose()..sessionId = 's1'),
     );
-    expect(h.backend.volume, 1.0);
+    expect(h.backend.volume, 0.55);
+  });
+
+  test(
+    'direct output ignores fallback volume and never raises a quiet level',
+    () {
+      final h = Harness();
+      h.welcome();
+      h.openSession('s1');
+      h.command(pb.Command()..setVolume = (pb.SetVolume()..percent = 10));
+      h.deliver(
+        pb.Envelope()..sessionClose = (pb.SessionClose()..sessionId = 's1'),
+      );
+      h.openSession('s2', volumePercent: 30);
+      expect(h.backend.volume, 0.1);
+      expect(h.last.stateSnapshot.volume.current, 10);
+    },
+  );
+
+  test('unsafe or unsupported session volume policies are refused', () {
+    final h = Harness();
+    h.welcome();
+    h.openSession('s1', volumeMode: 'fixed', volumePercent: 100);
+    expect(h.last.sessionOpenResult.accepted, isFalse);
+    expect(
+      h.last.sessionOpenResult.error,
+      pb.SessionOpenResult_Error.ERROR_INTERNAL,
+    );
+    expect(h.engine.activeSessionId, isEmpty);
+
+    h.openSession('s2', volumeMode: 'software', delegated: true);
+    expect(h.last.sessionOpenResult.accepted, isFalse);
+    expect(h.engine.activeSessionId, isEmpty);
   });
 
   test('session close stops playback and acks', () {
@@ -438,26 +544,113 @@ void main() {
     expect(rejected.command, pb.ControlKind.CONTROL_KIND_PAUSE);
   });
 
+  test(
+    'another Core cannot command or receive state for the owner session',
+    () {
+      final h = Harness()..playing('t1');
+      final incoming = StreamController<dynamic>(sync: true);
+      final strangerSent = <pb.Envelope>[];
+      final stranger = RendererConnection(
+        incoming: incoming.stream,
+        send: (frame) => strangerSent.add(pb.Envelope.fromBuffer(frame)),
+        engine: h.engine,
+        identity: identity,
+      );
+      incoming.add(
+        (pb.Envelope()
+              ..messageId = Int64.ONE
+              ..welcome = (pb.Welcome()..serverId = 'core-2'))
+            .writeToBuffer(),
+      );
+      strangerSent.clear();
+
+      incoming.add(
+        (pb.Envelope()
+              ..messageId = Int64(2)
+              ..sessionId = 's1'
+              ..command = (pb.Command()..pause = pb.Pause()))
+            .writeToBuffer(),
+      );
+      expect(h.backend.calls, isEmpty);
+      expect(strangerSent.single.commandRejected.sessionId, 's1');
+      expect(h.sent, isEmpty);
+
+      strangerSent.clear();
+      h.backend.stalled();
+      expect(
+        h.sent.single.playbackStateChanged.state,
+        pb.PlaybackState.PLAYBACK_STATE_PREPARING,
+      );
+      expect(strangerSent, isEmpty);
+      stranger.close();
+    },
+  );
+
   test('a broken stream reports an error naming the source', () {
     final h = Harness()..playing('t1');
-    h.backend.emit(const BackendFailed(BackendErrorKind.network, 'http error'));
+    h.backend.failed(BackendErrorKind.network, 'http error');
     final state = h.last.playbackStateChanged;
     expect(state.state, pb.PlaybackState.PLAYBACK_STATE_ERROR);
     expect(state.sourceToken, 't1');
     expect(state.positionValid, isFalse);
     expect(state.error.source, pb.ErrorSource.ERROR_SOURCE_HTTP_STREAM);
     expect(state.error.message, 'http error');
+    expect(state.error.sourceToken, 't1');
+
+    h.command(pb.Command()..requestSnapshot = pb.RequestSnapshot());
+    final snapshot = h.last.stateSnapshot;
+    expect(snapshot.playbackState, pb.PlaybackState.PLAYBACK_STATE_ERROR);
+    expect(snapshot.error.message, 'http error');
+    expect(snapshot.error.sourceToken, 't1');
   });
 
   test('an autoplay refusal surfaces as a renderer-internal error', () {
     final h = Harness()..playing('t1');
-    h.backend.emit(
-      const BackendFailed(BackendErrorKind.internal, 'playback refused'),
-    );
+    h.backend.failed(BackendErrorKind.internal, 'playback refused');
     expect(
       h.last.playbackStateChanged.error.source,
       pb.ErrorSource.ERROR_SOURCE_RENDERER_INTERNAL,
     );
+  });
+
+  test('late events from a displaced source are ignored by generation', () {
+    final h = Harness()..playing('t1');
+    final oldGeneration = h.backend.generation;
+    h.setSource('t2');
+    h.sent.clear();
+    h.backend.calls.clear();
+
+    h.backend.failed(BackendErrorKind.network, 'late failure', oldGeneration);
+    h.backend.ended(oldGeneration);
+    expect(h.sent, isEmpty);
+    expect(h.backend.calls, isEmpty);
+
+    h.command(pb.Command()..requestSnapshot = pb.RequestSnapshot());
+    expect(h.last.stateSnapshot.currentSource.sourceToken, 't2');
+    expect(
+      h.last.stateSnapshot.playbackState,
+      pb.PlaybackState.PLAYBACK_STATE_PREPARING,
+    );
+  });
+
+  test('audio metadata emits format and is retained in snapshots', () {
+    final h = Harness()..playing('t1');
+    h.backend.format(
+      sampleRateHz: 48000,
+      channels: 2,
+      bitsPerSample: 32,
+      durationMs: 123456,
+    );
+    final changed = h.last.audioFormatChanged;
+    expect(changed.sourceToken, 't1');
+    expect(changed.format.sampleRateHz, 48000);
+    expect(changed.format.channels, 2);
+    expect(changed.format.bitsPerSample, 32);
+    expect(changed.format.streamKind, pb.StreamKind.STREAM_KIND_FRAMES);
+    expect(changed.format.streamSizeUnits.toInt(), 5925888);
+
+    h.command(pb.Command()..requestSnapshot = pb.RequestSnapshot());
+    expect(h.last.stateSnapshot.format.streamSizeUnits.toInt(), 5925888);
   });
 
   test('request_snapshot describes source, queue and position', () {
@@ -506,10 +699,113 @@ void main() {
     expect(h.engine.activeSessionId, isEmpty);
   });
 
+  test('route replacement is unclean; renderer shutdown says Goodbye', () {
+    final replaced = Harness();
+    replaced.welcome();
+    replaced.sent.clear();
+    replaced.connection.disconnect();
+    expect(replaced.sent, isEmpty);
+
+    final shutdown = Harness();
+    shutdown.welcome();
+    shutdown.sent.clear();
+    shutdown.connection.close();
+    expect(
+      shutdown.sent.single.goodbye.reason,
+      pb.Goodbye_Reason.REASON_SHUTDOWN,
+    );
+  });
+
+  group('session ownership across reconnects', () {
+    test('a link drop leaves playback running', () {
+      fakeAsync((async) {
+        final h = Harness()..playing('t1');
+        h.dropLink();
+        expect(h.backend.calls, isNot(contains('stop')));
+        expect(h.engine.activeSessionId, 's1');
+        async.elapse(const Duration(minutes: 2));
+      });
+    });
+
+    test('the owner returning within the grace keeps the session', () {
+      fakeAsync((async) {
+        final h = Harness()..playing('t1');
+        h.reconnect();
+        async.elapse(const Duration(seconds: 30));
+        h.welcome(serverId: 'core-1');
+        async.elapse(const Duration(minutes: 5));
+        expect(h.backend.calls, isNot(contains('stop')));
+        expect(h.engine.activeSessionId, 's1');
+        expect(h.engine.sessionOwnerServerId, 'core-1');
+      });
+    });
+
+    test('an owner that stays away past the grace loses the session', () {
+      fakeAsync((async) {
+        final h = Harness()..playing('t1');
+        h.dropLink();
+        async.elapse(const Duration(seconds: 59));
+        expect(h.backend.calls, isNot(contains('stop')));
+        async.elapse(const Duration(seconds: 2));
+        expect(h.backend.calls, contains('stop'));
+        expect(h.engine.activeSessionId, isEmpty);
+      });
+    });
+
+    test('a different Core cannot adopt the session', () {
+      fakeAsync((async) {
+        final h = Harness()..playing('t1');
+        h.reconnect();
+        h.welcome(serverId: 'core-2');
+        h.openSession('s2');
+        final result = h.last.sessionOpenResult;
+        expect(result.accepted, isFalse);
+        expect(result.error, pb.SessionOpenResult_Error.ERROR_BUSY);
+        expect(result.ownerServerId, 'core-1');
+        expect(h.backend.calls, isNot(contains('stop')));
+        async.elapse(const Duration(seconds: 61));
+        expect(h.backend.calls, contains('stop'));
+        expect(h.engine.activeSessionId, isEmpty);
+      });
+    });
+
+    test('the owner\'s session id replayed by another Core is refused', () {
+      fakeAsync((async) {
+        final h = Harness()..playing('t1');
+        h.reconnect();
+        h.welcome(serverId: 'core-2');
+        h.openSession('s1');
+        expect(h.last.sessionOpenResult.accepted, isFalse);
+        expect(h.engine.sessionOwnerServerId, 'core-1');
+        async.elapse(const Duration(minutes: 2));
+      });
+    });
+
+    test('a close from a Core that is not the owner changes nothing', () {
+      fakeAsync((async) {
+        final h = Harness()..playing('t1');
+        h.reconnect();
+        h.welcome(serverId: 'core-2');
+        h.deliver(
+          pb.Envelope()..sessionClose = (pb.SessionClose()..sessionId = 's1'),
+        );
+        expect(h.backend.calls, isNot(contains('stop')));
+        expect(h.engine.activeSessionId, 's1');
+        async.elapse(const Duration(minutes: 2));
+      });
+    });
+
+    test('a retried open by the owner returns the running session', () {
+      final h = Harness()..playing('t1');
+      h.openSession('s1');
+      expect(h.sent.first.sessionOpenResult.accepted, isTrue);
+      expect(h.backend.calls, isNot(contains('stop')));
+      expect(h.engine.activeSessionId, 's1');
+    });
+  });
+
   test('a reconnect hello reports the running session for reconciliation', () {
     final h = Harness()..playing('t1');
-    // The first socket dies; playback carries on. A fresh connection on the
-    // same engine must tell the server what it is still running.
     final sent = <pb.Envelope>[];
     RendererConnection(
       incoming: const Stream<dynamic>.empty(),
@@ -520,5 +816,81 @@ void main() {
     final hello = sent.single.hello;
     expect(hello.activeSessionId, 's1');
     expect(hello.sessionOwnerServerId, 'core-1');
+  });
+
+  test(
+    'renderer socket backoff retries independently and resets on Welcome',
+    () {
+      fakeAsync((async) {
+        var retries = 0;
+        final backoff = RendererReconnectBackoff(() => retries++);
+        for (final delay in [1, 2, 4, 8, 16, 30, 30, 30]) {
+          final before = retries;
+          backoff.failed();
+          async.elapse(
+            Duration(seconds: delay) - const Duration(milliseconds: 1),
+          );
+          expect(retries, before);
+          async.elapse(const Duration(milliseconds: 1));
+          expect(retries, before + 1);
+        }
+
+        backoff.connected();
+        backoff.failed();
+        async.elapse(const Duration(seconds: 1));
+        expect(retries, 9);
+
+        backoff.giveUp();
+        backoff.failed();
+        async.elapse(const Duration(minutes: 1));
+        expect(retries, 9);
+        backoff.dispose();
+      });
+    },
+  );
+
+  test('an unexpected renderer socket close requests one retry', () async {
+    final backend = FakeBackend();
+    final engine = RendererEngine(backend);
+    final incoming = StreamController<dynamic>(sync: true);
+    final disconnects = <RendererDisconnectKind>[];
+    final connection = RendererConnection(
+      incoming: incoming.stream,
+      send: (_) {},
+      engine: engine,
+      identity: identity,
+      onDisconnected: disconnects.add,
+    );
+
+    await incoming.close();
+    expect(disconnects, [RendererDisconnectKind.retryable]);
+    connection.close();
+    expect(disconnects, hasLength(1));
+    engine.dispose();
+  });
+
+  test('a terminal Goodbye suppresses renderer reconnects', () {
+    final backend = FakeBackend();
+    final engine = RendererEngine(backend);
+    final incoming = StreamController<dynamic>(sync: true);
+    final disconnects = <RendererDisconnectKind>[];
+    RendererConnection(
+      incoming: incoming.stream,
+      send: (_) {},
+      engine: engine,
+      identity: identity,
+      onDisconnected: disconnects.add,
+    );
+
+    incoming.add(
+      (pb.Envelope()
+            ..goodbye = (pb.Goodbye()
+              ..reason = pb.Goodbye_Reason.REASON_VERSION_UNSUPPORTED))
+          .writeToBuffer(),
+    );
+
+    expect(disconnects, [RendererDisconnectKind.terminal]);
+    incoming.close();
+    engine.dispose();
   });
 }

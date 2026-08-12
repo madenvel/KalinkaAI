@@ -1,10 +1,4 @@
-/// One WebSocket's worth of renderer protocol: Hello/Welcome, envelope
-/// framing and message ids, command routing into the engine, and the config
-/// plane (this renderer has no settings yet, so it answers with an empty
-/// schema — promptly, because the server's request times out in seconds).
-///
-/// The connection is disposable; RendererEngine carries playback and the
-/// session across reconnects.
+/// Renderer protocol handling for one WebSocket connection.
 library;
 
 import 'dart:async';
@@ -23,27 +17,38 @@ const _protocolVersion = 1;
 /// Nothing configurable yet; bumped when the schema grows a first field.
 const _configVersion = '1';
 
+enum RendererDisconnectKind { retryable, terminal }
+
 class RendererConnection {
   final void Function(List<int> frame) _send;
   final RendererEngine _engine;
+  final void Function()? _onWelcomed;
+  final void Function(RendererDisconnectKind kind)? _onDisconnected;
   late final StreamSubscription<dynamic> _incomingSub;
-  late final StreamSubscription<pb.Envelope> _engineSub;
+  late final StreamSubscription<RendererOutbound> _engineSub;
 
   int _outId = 0;
   String _serverId = '';
+  bool _welcomed = false;
   bool _closed = false;
+  bool _disconnectNotified = false;
 
   RendererConnection({
     required Stream<dynamic> incoming,
     required this._send,
     required RendererEngine engine,
     required RendererIdentity identity,
+    this._onWelcomed,
+    this._onDisconnected,
   }) : _engine = engine {
-    _engineSub = engine.messages.listen(_dispatch);
+    _engineSub = engine.messages.listen(_dispatchOutbound);
     _incomingSub = incoming.listen(
       _onFrame,
-      onError: (Object e) => _logger.w('Renderer socket error: $e'),
-      onDone: () => _closed = true,
+      onError: (Object e) {
+        _logger.w('Renderer socket error: $e');
+        _finish(RendererDisconnectKind.retryable);
+      },
+      onDone: () => _finish(RendererDisconnectKind.retryable),
     );
     _dispatch(
       pb.Envelope()
@@ -66,16 +71,37 @@ class RendererConnection {
   /// away instead of holding an offline entry; best effort, the socket may
   /// already be gone.
   void close() {
-    try {
-      _dispatch(
-        pb.Envelope()
-          ..goodbye = (pb.Goodbye()
-            ..reason = pb.Goodbye_Reason.REASON_SHUTDOWN),
-      );
-    } catch (_) {}
+    if (_closed) return;
+    if (_welcomed) {
+      try {
+        _dispatch(
+          pb.Envelope()
+            ..goodbye = (pb.Goodbye()
+              ..reason = pb.Goodbye_Reason.REASON_SHUTDOWN),
+        );
+      } catch (_) {}
+    }
+    _finish(null);
+  }
+
+  /// Close a route without sending renderer-shutdown Goodbye.
+  void disconnect() => _finish(null);
+
+  void _finish(RendererDisconnectKind? kind) {
+    if (_closed) return;
     _closed = true;
+    _welcomed = false;
+    _engine.detachConnection(this);
     _incomingSub.cancel();
     _engineSub.cancel();
+    if (kind != null && !_disconnectNotified) {
+      _disconnectNotified = true;
+      _onDisconnected?.call(kind);
+    }
+  }
+
+  void _dispatchOutbound(RendererOutbound outbound) {
+    if (identical(outbound.connection, this)) _dispatch(outbound.envelope);
   }
 
   /// Stamp the per-connection message id and put [envelope] on the wire.
@@ -94,21 +120,62 @@ class RendererConnection {
       _logger.w('Dropping unparseable renderer message: $e');
       return;
     }
-    switch (envelope.whichPayload()) {
+    final payload = envelope.whichPayload();
+    if (!_welcomed &&
+        payload != pb.Envelope_Payload.welcome &&
+        payload != pb.Envelope_Payload.goodbye) {
+      if (payload == pb.Envelope_Payload.sessionOpen) {
+        _dispatch(
+          pb.Envelope()
+            ..sessionOpenResult = (pb.SessionOpenResult()
+              ..sessionId = envelope.sessionOpen.sessionId
+              ..accepted = false
+              ..error = pb.SessionOpenResult_Error.ERROR_INTERNAL
+              ..detail = 'session opened before the handshake completed'),
+        );
+      } else if (payload == pb.Envelope_Payload.command) {
+        _engine.handleCommand(
+          connection: this,
+          requesterServerId: '',
+          sessionId: envelope.sessionId,
+          command: envelope.command,
+        );
+      }
+      return;
+    }
+    switch (payload) {
       case pb.Envelope_Payload.welcome:
+        if (_welcomed) {
+          _logger.w('Ignoring a second Welcome on one renderer connection');
+          return;
+        }
+        _welcomed = true;
         _serverId = envelope.welcome.serverId;
+        _engine.attachConnection(this, _serverId);
+        _onWelcomed?.call();
       case pb.Envelope_Payload.sessionOpen:
         final open = envelope.sessionOpen;
         _engine.openSession(
+          connection: this,
           sessionId: open.sessionId,
           ownerServerId: _serverId,
           volumeMode: open.volumeMode,
           volumePercent: open.hasVolumePercent() ? open.volumePercent : null,
+          volumeControlDelegated: open.volumeControlDelegated,
         );
       case pb.Envelope_Payload.sessionClose:
-        _engine.closeSession(envelope.sessionClose.sessionId);
+        _engine.closeSession(
+          envelope.sessionClose.sessionId,
+          connection: this,
+          requesterServerId: _serverId,
+        );
       case pb.Envelope_Payload.command:
-        _engine.handleCommand(envelope.sessionId, envelope.command);
+        _engine.handleCommand(
+          connection: this,
+          requesterServerId: _serverId,
+          sessionId: envelope.sessionId,
+          command: envelope.command,
+        );
       case pb.Envelope_Payload.configRequest:
         _dispatch(
           pb.Envelope()
@@ -132,12 +199,21 @@ class RendererConnection {
             ..configResult = result,
         );
       case pb.Envelope_Payload.goodbye:
-        _closed = true;
-        if (envelope.goodbye.reason == pb.Goodbye_Reason.REASON_REPLACED) {
+        final reason = envelope.goodbye.reason;
+        if (reason == pb.Goodbye_Reason.REASON_REPLACED) {
           // Another instance (a second tab) took this renderer over; playing
           // on here would leave audio nobody controls.
           _engine.abandonSession();
         }
+        final terminal =
+            reason == pb.Goodbye_Reason.REASON_VERSION_UNSUPPORTED ||
+            reason == pb.Goodbye_Reason.REASON_REPLACED ||
+            reason == pb.Goodbye_Reason.REASON_REJECTED;
+        _finish(
+          terminal
+              ? RendererDisconnectKind.terminal
+              : RendererDisconnectKind.retryable,
+        );
       default:
         break;
     }

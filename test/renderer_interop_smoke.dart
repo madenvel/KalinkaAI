@@ -29,7 +29,11 @@ class SilentBackend implements RendererAudioBackend {
   @override
   bool get isPaused => false;
   @override
-  void play({required String uri, required int startOffsetMs}) {}
+  void play({
+    required String uri,
+    required int startOffsetMs,
+    required int generation,
+  }) {}
   @override
   void pause() {}
   @override
@@ -48,7 +52,9 @@ Future<void> main(List<String> args) async {
   final endpoint = args.isEmpty ? '127.0.0.1:8000' : args.first;
   final rendererId = 'smoke-${DateTime.now().millisecondsSinceEpoch}';
   final engine = RendererEngine(SilentBackend());
-  final channel = WebSocketChannel.connect(Uri.parse('ws://$endpoint/renderer/ws'));
+  final channel = WebSocketChannel.connect(
+    Uri.parse('ws://$endpoint/renderer/ws'),
+  );
   await channel.ready;
   final connection = RendererConnection(
     incoming: channel.stream,
@@ -67,8 +73,9 @@ Future<void> main(List<String> args) async {
   var seen = false;
   for (var attempt = 0; attempt < 20 && !seen; attempt++) {
     await Future<void>.delayed(const Duration(milliseconds: 250));
-    final request =
-        await http.getUrl(Uri.parse('http://$endpoint/renderer/list'));
+    final request = await http.getUrl(
+      Uri.parse('http://$endpoint/renderer/list'),
+    );
     final response = await request.close();
     final body = jsonDecode(await response.transform(utf8.decoder).join());
     for (final renderer in (body['renderers'] as List? ?? const [])) {

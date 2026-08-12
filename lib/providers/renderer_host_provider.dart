@@ -3,6 +3,8 @@
 /// `/renderer/ws`, making this device an output the server can play through.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -17,22 +19,12 @@ import 'websocket_provider.dart';
 
 const String sharedPrefRendererId = 'Kalinka.rendererId';
 
-/// Playback and the session live here, for the whole app run — a WebSocket
-/// drop must not silence the music, so the engine outlives connections.
+/// Outlives WebSocket connections so the owning Core can reclaim its session.
 final rendererEngineProvider = Provider<RendererEngine?>((ref) {
   final backend = createRendererBackend();
   if (backend == null) return null;
   final engine = RendererEngine(backend);
   ref.onDispose(engine.dispose);
-  // A session belongs to the server that opened it. Moving the app to a
-  // different server would leave that playback running with nobody able to
-  // stop it, so end it here; a drop of the same server keeps playing.
-  ref.listen(connectionSettingsProvider, (previous, next) {
-    if (previous != null &&
-        (previous.host != next.host || previous.port != next.port)) {
-      engine.abandonSession();
-    }
-  });
   return engine;
 });
 
@@ -55,34 +47,109 @@ final rendererIdentityProvider = FutureProvider<RendererIdentity>((ref) async {
 
 final rendererWebSocketProvider = webSocketProvider('/renderer/ws');
 
-/// One protocol connection per live socket; watch from the app root. Gated on
-/// the server actually speaking `/renderer/*`, which rendererListProvider
-/// already probes. Rebuilt by the shared retry epoch on reconnects; a page
-/// unload or a server switch says Goodbye so the server drops the entry
-/// instead of holding an offline row.
+/// Reconnect policy for `/renderer/ws`, independent of the UI socket.
+class RendererReconnectBackoff {
+  static const _delays = [
+    Duration(seconds: 1),
+    Duration(seconds: 2),
+    Duration(seconds: 4),
+    Duration(seconds: 8),
+    Duration(seconds: 16),
+    Duration(seconds: 30),
+  ];
+
+  final void Function() _retry;
+  Timer? _timer;
+  int _attempt = 0;
+  bool _terminal = false;
+
+  RendererReconnectBackoff(this._retry);
+
+  void connected() {
+    _timer?.cancel();
+    _timer = null;
+    _attempt = 0;
+  }
+
+  void failed() {
+    if (_terminal || _timer != null) return;
+    final index = _attempt < _delays.length ? _attempt : _delays.length - 1;
+    _attempt++;
+    _timer = Timer(_delays[index], () {
+      _timer = null;
+      if (!_terminal) _retry();
+    });
+  }
+
+  void giveUp() {
+    _terminal = true;
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void dispose() {
+    _timer?.cancel();
+    _timer = null;
+  }
+}
+
+final rendererReconnectBackoffProvider = Provider<RendererReconnectBackoff>((
+  ref,
+) {
+  // Terminal rejection applies only to the current endpoint.
+  ref.watch(
+    connectionSettingsProvider.select(
+      (settings) => (settings.host, settings.port),
+    ),
+  );
+  final backoff = RendererReconnectBackoff(() {
+    if (ref.mounted) {
+      ref.read(rendererSocketRetryEpochProvider.notifier).increment();
+    }
+  });
+  ref.onDispose(backoff.dispose);
+  return backoff;
+});
+
+/// Maintains one renderer protocol connection to the selected Core.
 final rendererHostProvider = Provider<void>((ref) {
   final engine = ref.watch(rendererEngineProvider);
   if (engine == null) return;
+  final reconnect = ref.watch(rendererReconnectBackoffProvider);
   if (!ref.watch(rendererListProvider.select((s) => s.supported))) return;
   final identity = ref.watch(rendererIdentityProvider).value;
   if (identity == null) return;
   // Only a settled AsyncData holds a live socket; while loading or errored,
   // `value` would replay the previous — closed — channel.
-  final channel = switch (ref.watch(rendererWebSocketProvider)) {
+  final socket = ref.watch(rendererWebSocketProvider);
+  final channel = switch (socket) {
     AsyncData(:final value) => value,
     _ => null,
   };
-  if (channel == null) return;
+  if (channel == null) {
+    if (socket case AsyncError()) reconnect.failed();
+    return;
+  }
 
   final connection = RendererConnection(
     incoming: channel.stream,
     send: channel.sink.add,
     engine: engine,
     identity: identity,
+    onWelcomed: reconnect.connected,
+    onDisconnected: (kind) {
+      switch (kind) {
+        case RendererDisconnectKind.retryable:
+          reconnect.failed();
+        case RendererDisconnectKind.terminal:
+          reconnect.giveUp();
+      }
+    },
   );
   final unregisterPageHide = onPageHide(connection.close);
   ref.onDispose(() {
     unregisterPageHide();
-    connection.close();
+    // Provider rebuilds may be route changes; only page unload is shutdown.
+    connection.disconnect();
   });
 });
