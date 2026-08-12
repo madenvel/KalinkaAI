@@ -1,11 +1,33 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// One address a server can be reached at, with its probe result.
+class ServerEndpoint {
+  final String host;
+  final int port;
+  final int latencyMs;
+
+  const ServerEndpoint({
+    required this.host,
+    required this.port,
+    required this.latencyMs,
+  });
+}
+
 class DiscoveredServer {
   final String name;
+
+  /// The fastest reachable endpoint; the one connecting uses.
   final String host;
   final int port;
   final int latencyMs;
   final String? version;
+
+  /// The Core's stable identity (TXT server_id); null on older servers.
+  final String? serverId;
+
+  /// Every advertised address, best first; the losers are failover
+  /// candidates rather than noise.
+  final List<ServerEndpoint> endpoints;
 
   const DiscoveredServer({
     required this.name,
@@ -13,7 +35,13 @@ class DiscoveredServer {
     required this.port,
     this.latencyMs = 0,
     this.version,
+    this.serverId,
+    this.endpoints = const [],
   });
+
+  /// Whether [candidate] is the listed [host] or any alternate endpoint.
+  bool reachableAt(String candidate) =>
+      host == candidate || endpoints.any((e) => e.host == candidate);
 
   /// Signal strength 0-3 derived from latency.
   int get signalStrength {

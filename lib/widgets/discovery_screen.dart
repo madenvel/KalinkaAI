@@ -370,15 +370,20 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
     );
   }
 
+  /// Any of the server's endpoints may be the connected address — grouping
+  /// lists a multi-homed Core under its fastest one, not necessarily ours.
+  bool _isCurrent(DiscoveredServer server) {
+    final current = widget.currentServerHost;
+    return current != null && server.reachableAt(current);
+  }
+
   Widget _buildServerList(DiscoveryState discoveryState) {
     final servers = discoveryState.servers;
     final serverCount = servers.length;
 
     // Auto-select first non-current server if nothing selected yet
     if (_selectedIndex == null) {
-      final firstIdx = servers.indexWhere(
-        (s) => s.host != widget.currentServerHost,
-      );
+      final firstIdx = servers.indexWhere((s) => !_isCurrent(s));
       if (firstIdx >= 0) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) setState(() => _selectedIndex = firstIdx);
@@ -429,11 +434,8 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen>
                   _buildServerRow(
                     servers[i],
                     i,
-                    _selectedIndex == i &&
-                        (widget.currentServerHost == null ||
-                            servers[i].host != widget.currentServerHost),
-                    widget.currentServerHost != null &&
-                        servers[i].host == widget.currentServerHost,
+                    _selectedIndex == i && !_isCurrent(servers[i]),
+                    _isCurrent(servers[i]),
                   ),
                 ],
               ],
