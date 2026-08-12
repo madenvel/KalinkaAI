@@ -1,0 +1,4 @@
+- Servers on several networks list once, under their own name, connected over the fastest route
+- Browser playback rides out brief connection drops; orphaned playback stops on its own
+- Web player runs the first-run setup wizard
+- Quick skips no longer mark the interrupted track as failed

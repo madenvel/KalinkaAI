@@ -8,6 +8,21 @@ Do not hard-wrap the notes: GitHub renders a newline inside a release body as
 a line break, so a wrapped sentence arrives broken. One line per bullet or
 paragraph, however long; blank lines separate paragraphs.
 
+## 0.6.1
+
+### Added
+- The web player now runs the same first-run setup wizard as the app, minus the server-discovery step the browser doesn't need.
+
+### Changed
+- A server on several networks now shows up once in discovery, under its own name instead of once per network interface, and the app connects over the fastest reachable route. Older servers list exactly as before.
+- Playback through the browser output now rides out brief connection drops and server address changes: the server picks its session back up when it returns, and playback left without a server stops on its own after a minute instead of running unattended.
+
+### Fixed
+- Skipping tracks quickly in the browser no longer marks the interrupted track as failed.
+- The guided tour no longer starts in the web player.
+- The "This browser" output no longer disappears while the setup wizard is running.
+- Setup wizard steps share the same half-width column on tablets instead of each picking its own width.
+
 ## 0.6.0
 
 ### Added
