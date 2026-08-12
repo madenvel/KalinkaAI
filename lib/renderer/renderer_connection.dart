@@ -159,9 +159,7 @@ class RendererConnection {
           connection: this,
           sessionId: open.sessionId,
           ownerServerId: _serverId,
-          volumeMode: open.volumeMode,
-          volumePercent: open.hasVolumePercent() ? open.volumePercent : null,
-          volumeControlDelegated: open.volumeControlDelegated,
+          forceFixedOutput: open.forceFixedOutput,
         );
       case pb.Envelope_Payload.sessionClose:
         _engine.closeSession(

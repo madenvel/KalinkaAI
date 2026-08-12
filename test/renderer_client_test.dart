@@ -145,17 +145,10 @@ class Harness {
   void welcome({String serverId = 'core-1'}) =>
       deliver(pb.Envelope()..welcome = (pb.Welcome()..serverId = serverId));
 
-  void openSession(
-    String sessionId, {
-    String volumeMode = '',
-    int? volumePercent,
-    bool delegated = false,
-  }) {
+  void openSession(String sessionId, {bool forceFixedOutput = false}) {
     final open = pb.SessionOpen()
       ..sessionId = sessionId
-      ..volumeMode = volumeMode
-      ..volumeControlDelegated = delegated;
-    if (volumePercent != null) open.volumePercent = volumePercent;
+      ..forceFixedOutput = forceFixedOutput;
     deliver(pb.Envelope()..sessionOpen = open);
   }
 
@@ -267,7 +260,7 @@ void main() {
       pb.PlaybackState.PLAYBACK_STATE_STOPPED,
     );
     expect(snapshot.stateSnapshot.positionValid, isFalse);
-    expect(snapshot.stateSnapshot.volume.current, 30);
+    expect(snapshot.stateSnapshot.volume.current, 100);
     expect(
       snapshot.stateSnapshot.volume.backend,
       pb.VolumeBackend.VOLUME_BACKEND_SOFTWARE,
@@ -293,7 +286,7 @@ void main() {
     h.openSession('s1');
     h.sent.clear();
     h.setSource('t1', uri: 'http://media/a', offset: 1500);
-    expect(h.backend.calls, ['volume 0.3', 'play http://media/a@1500']);
+    expect(h.backend.calls, ['play http://media/a@1500']);
     expect(h.sent[0].sourceChanged.sourceToken, 't1');
     expect(h.sent[0].sourceChanged.hasPreviousSourceToken(), isFalse);
     final preparing = h.sent[1].playbackStateChanged;
@@ -330,7 +323,7 @@ void main() {
     h.openSession('s1');
     h.sent.clear();
     h.enqueue('t1');
-    expect(h.backend.calls, ['volume 0.3', 'play http://media/b@0']);
+    expect(h.backend.calls, ['play http://media/b@0']);
     expect(h.sent.first.sourceChanged.sourceToken, 't1');
   });
 
@@ -468,59 +461,61 @@ void main() {
     expect(volume.max, 100);
   });
 
-  test('a delegated fixed-volume session pins the exact level', () {
+  test('forced fixed output uses unity and restores the previous level', () {
     final h = Harness();
     h.welcome();
-    h.openSession(
-      's1',
-      volumeMode: 'fixed',
-      volumePercent: 55,
-      delegated: true,
-    );
-    expect(h.backend.volume, 0.55);
-    expect(h.last.stateSnapshot.volume.supported, isFalse);
-
-    h.command(pb.Command()..setVolume = (pb.SetVolume()..percent = 80));
-    expect(h.backend.volume, 0.55);
-    expect(h.last.volumeChanged.volume.current, 55);
-
-    // The mode is session-scoped, but level changes remain for the next user.
+    h.openSession('s1');
+    h.command(pb.Command()..setVolume = (pb.SetVolume()..percent = 20));
     h.deliver(
       pb.Envelope()..sessionClose = (pb.SessionClose()..sessionId = 's1'),
     );
-    expect(h.backend.volume, 0.55);
+    expect(h.backend.volume, 0.2);
+
+    h.openSession('s2', forceFixedOutput: true);
+    expect(h.backend.volume, 1);
+    final fixedVolume = h.last.stateSnapshot.volume;
+    expect(fixedVolume.supported, isFalse);
+    expect(fixedVolume.current, 100);
+    expect(fixedVolume.backend, pb.VolumeBackend.VOLUME_BACKEND_NONE);
+
+    h.command(
+      pb.Command()..setVolume = (pb.SetVolume()..percent = 80),
+      sessionId: 's2',
+    );
+    expect(h.backend.volume, 1);
+    expect(h.last.volumeChanged.volume.current, 100);
+
+    h.deliver(
+      pb.Envelope()..sessionClose = (pb.SessionClose()..sessionId = 's2'),
+    );
+    expect(h.backend.volume, 0.2);
+
+    h.openSession('s3');
+    final restoredVolume = h.last.stateSnapshot.volume;
+    expect(restoredVolume.supported, isTrue);
+    expect(restoredVolume.current, 20);
+    expect(restoredVolume.backend, pb.VolumeBackend.VOLUME_BACKEND_SOFTWARE);
   });
 
-  test(
-    'direct output ignores fallback volume and never raises a quiet level',
-    () {
-      final h = Harness();
-      h.welcome();
-      h.openSession('s1');
-      h.command(pb.Command()..setVolume = (pb.SetVolume()..percent = 10));
-      h.deliver(
-        pb.Envelope()..sessionClose = (pb.SessionClose()..sessionId = 's1'),
-      );
-      h.openSession('s2', volumePercent: 30);
-      expect(h.backend.volume, 0.1);
-      expect(h.last.stateSnapshot.volume.current, 10);
-    },
-  );
-
-  test('unsafe or unsupported session volume policies are refused', () {
+  test('renderer-owned sessions leave browser software gain unchanged', () {
     final h = Harness();
     h.welcome();
-    h.openSession('s1', volumeMode: 'fixed', volumePercent: 100);
-    expect(h.last.sessionOpenResult.accepted, isFalse);
-    expect(
-      h.last.sessionOpenResult.error,
-      pb.SessionOpenResult_Error.ERROR_INTERNAL,
-    );
-    expect(h.engine.activeSessionId, isEmpty);
+    h.openSession('s1');
+    expect(h.backend.volume, isNull);
+    expect(h.last.stateSnapshot.volume.current, 100);
 
-    h.openSession('s2', volumeMode: 'software', delegated: true);
-    expect(h.last.sessionOpenResult.accepted, isFalse);
-    expect(h.engine.activeSessionId, isEmpty);
+    h.command(pb.Command()..setVolume = (pb.SetVolume()..percent = 70));
+    h.deliver(
+      pb.Envelope()..sessionClose = (pb.SessionClose()..sessionId = 's1'),
+    );
+    h.openSession('s2');
+    expect(h.backend.volume, 0.7);
+    expect(h.last.stateSnapshot.volume.current, 70);
+  });
+
+  test('force_fixed_output uses SessionOpen field 2', () {
+    final open = pb.SessionOpen(forceFixedOutput: true);
+    expect(open.writeToBuffer(), <int>[16, 1]);
   });
 
   test('session close stops playback and acks', () {

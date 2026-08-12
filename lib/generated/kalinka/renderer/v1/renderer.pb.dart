@@ -1523,16 +1523,11 @@ class Welcome extends $pb.GeneratedMessage {
 class SessionOpen extends $pb.GeneratedMessage {
   factory SessionOpen({
     $core.String? sessionId,
-    $core.String? volumeMode,
-    $core.int? volumePercent,
-    $core.bool? volumeControlDelegated,
+    $core.bool? forceFixedOutput,
   }) {
     final result = create();
     if (sessionId != null) result.sessionId = sessionId;
-    if (volumeMode != null) result.volumeMode = volumeMode;
-    if (volumePercent != null) result.volumePercent = volumePercent;
-    if (volumeControlDelegated != null)
-      result.volumeControlDelegated = volumeControlDelegated;
+    if (forceFixedOutput != null) result.forceFixedOutput = forceFixedOutput;
     return result;
   }
 
@@ -1551,10 +1546,7 @@ class SessionOpen extends $pb.GeneratedMessage {
           const $pb.PackageName(_omitMessageNames ? '' : 'kalinka.renderer.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'sessionId')
-    ..aOS(2, _omitFieldNames ? '' : 'volumeMode')
-    ..aI(3, _omitFieldNames ? '' : 'volumePercent',
-        fieldType: $pb.PbFieldType.OU3)
-    ..aOB(4, _omitFieldNames ? '' : 'volumeControlDelegated')
+    ..aOB(2, _omitFieldNames ? '' : 'forceFixedOutput')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1585,45 +1577,23 @@ class SessionOpen extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearSessionId() => $_clearField(1);
 
-  /// Volume policy applied before this session can play. The mode override is
-  /// undone when the session ends; level changes remain as the current level.
-  /// Nothing here is written to the renderer's configuration: a Core that fixes
-  /// volume because an amp downstream owns it must not leave the renderer fixed
-  /// for whoever uses it next.
+  /// Core routes volume to a downstream device for this session. Temporarily
+  /// force the renderer to fixed unity output: its selected ALSA playback mixer
+  /// at 100% when one exists, software gain at unity, renderer volume commands
+  /// disabled, and no session-start ceiling.
+  /// Restore the renderer's configured output.volume_mode when the session ends.
   ///
-  /// Empty mode = leave the renderer's own setting alone. Otherwise one of the
-  /// output.volume_mode values: "auto", "hardware", "software", "fixed".
+  /// False leaves output.volume_mode entirely renderer-owned. A renderer that is
+  /// persistently configured as fixed therefore also supports an amplifier with
+  /// only a physical volume knob; no Core-side device module is required.
   @$pb.TagNumber(2)
-  $core.String get volumeMode => $_getSZ(1);
+  $core.bool get forceFixedOutput => $_getBF(1);
   @$pb.TagNumber(2)
-  set volumeMode($core.String value) => $_setString(1, value);
+  set forceFixedOutput($core.bool value) => $_setBool(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasVolumeMode() => $_has(1);
+  $core.bool hasForceFixedOutput() => $_has(1);
   @$pb.TagNumber(2)
-  void clearVolumeMode() => $_clearField(2);
-
-  /// Exact level for delegated output. A current renderer ignores it for direct
-  /// output and applies its local ceiling instead; Cores still send a direct
-  /// value as a safe fallback for older renderers.
-  @$pb.TagNumber(3)
-  $core.int get volumePercent => $_getIZ(2);
-  @$pb.TagNumber(3)
-  set volumePercent($core.int value) => $_setUnsignedInt32(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasVolumePercent() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearVolumePercent() => $_clearField(3);
-
-  /// True when a downstream device owns volume. The renderer then skips its
-  /// safe-start ceiling and runs the session at the requested fixed level.
-  @$pb.TagNumber(4)
-  $core.bool get volumeControlDelegated => $_getBF(3);
-  @$pb.TagNumber(4)
-  set volumeControlDelegated($core.bool value) => $_setBool(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasVolumeControlDelegated() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearVolumeControlDelegated() => $_clearField(4);
+  void clearForceFixedOutput() => $_clearField(2);
 }
 
 class SessionOpenResult extends $pb.GeneratedMessage {
