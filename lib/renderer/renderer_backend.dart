@@ -1,8 +1,4 @@
-/// The audio half of the app-hosted renderer: plays one source at a time.
-///
-/// Queue semantics (what a set_source displaces, when the next queued source
-/// starts) are protocol behaviour and live in RendererEngine; a backend only
-/// loads, plays and reports. Implementations: HtmlAudioBackend on web.
+/// Audio backend for one source at a time. Queue behavior lives in the engine.
 library;
 
 import 'dart:async';
@@ -11,7 +7,11 @@ abstract interface class RendererAudioBackend {
   /// Load [uri] and start playing it, replacing whatever was loaded.
   /// [startOffsetMs] begins the source partway in; positions reported stay
   /// absolute in the stream.
-  void play({required String uri, required int startOffsetMs});
+  void play({
+    required String uri,
+    required int startOffsetMs,
+    required int generation,
+  });
 
   void pause();
 
@@ -37,33 +37,55 @@ abstract interface class RendererAudioBackend {
 enum BackendErrorKind { network, decode, internal }
 
 sealed class BackendEvent {
-  const BackendEvent();
+  /// Identifies the [play] call this event belongs to. Events from a replaced
+  /// media element can arrive late; the engine must ignore an old generation.
+  final int generation;
+
+  const BackendEvent(this.generation);
 }
 
 /// Audio is audibly progressing (initial start, after a stall or a seek).
 class BackendPlaying extends BackendEvent {
-  const BackendPlaying();
+  const BackendPlaying(super.generation);
 }
 
 /// Playback halted to buffer; a [BackendPlaying] follows when it recovers.
 class BackendStalled extends BackendEvent {
-  const BackendStalled();
+  const BackendStalled(super.generation);
 }
 
 /// Paused outside the protocol — browser media keys, or a seek that settled
 /// while paused. The engine's own pause command does not need this.
 class BackendPaused extends BackendEvent {
-  const BackendPaused();
+  const BackendPaused(super.generation);
 }
 
 /// The loaded source ran to its end.
 class BackendEnded extends BackendEvent {
-  const BackendEnded();
+  const BackendEnded(super.generation);
 }
 
-/// The loaded source cannot play (on).
+/// Browser output format and source duration.
+class BackendAudioFormat extends BackendEvent {
+  final int sampleRateHz;
+  final int channels;
+  final int bitsPerSample;
+  final String sampleFormat;
+  final int durationMs;
+
+  const BackendAudioFormat(
+    super.generation, {
+    required this.sampleRateHz,
+    required this.channels,
+    required this.bitsPerSample,
+    required this.sampleFormat,
+    required this.durationMs,
+  });
+}
+
+/// The loaded source cannot play.
 class BackendFailed extends BackendEvent {
   final BackendErrorKind kind;
   final String message;
-  const BackendFailed(this.kind, this.message);
+  const BackendFailed(super.generation, this.kind, this.message);
 }

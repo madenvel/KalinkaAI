@@ -1525,11 +1525,14 @@ class SessionOpen extends $pb.GeneratedMessage {
     $core.String? sessionId,
     $core.String? volumeMode,
     $core.int? volumePercent,
+    $core.bool? volumeControlDelegated,
   }) {
     final result = create();
     if (sessionId != null) result.sessionId = sessionId;
     if (volumeMode != null) result.volumeMode = volumeMode;
     if (volumePercent != null) result.volumePercent = volumePercent;
+    if (volumeControlDelegated != null)
+      result.volumeControlDelegated = volumeControlDelegated;
     return result;
   }
 
@@ -1551,6 +1554,7 @@ class SessionOpen extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'volumeMode')
     ..aI(3, _omitFieldNames ? '' : 'volumePercent',
         fieldType: $pb.PbFieldType.OU3)
+    ..aOB(4, _omitFieldNames ? '' : 'volumeControlDelegated')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1581,10 +1585,11 @@ class SessionOpen extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearSessionId() => $_clearField(1);
 
-  /// Volume policy for the life of this session, undone when it ends. Nothing
-  /// here is written to the renderer's configuration: a Core that fixes volume
-  /// because an amp downstream owns it must not leave the renderer fixed for
-  /// whoever uses it next.
+  /// Volume policy applied before this session can play. The mode override is
+  /// undone when the session ends; level changes remain as the current level.
+  /// Nothing here is written to the renderer's configuration: a Core that fixes
+  /// volume because an amp downstream owns it must not leave the renderer fixed
+  /// for whoever uses it next.
   ///
   /// Empty mode = leave the renderer's own setting alone. Otherwise one of the
   /// output.volume_mode values: "auto", "hardware", "software", "fixed".
@@ -1597,8 +1602,9 @@ class SessionOpen extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearVolumeMode() => $_clearField(2);
 
-  /// Level to set when the session opens; absent leaves the current one. With
-  /// "fixed" this is the level the renderer stays at.
+  /// Exact level for delegated output. A current renderer ignores it for direct
+  /// output and applies its local ceiling instead; Cores still send a direct
+  /// value as a safe fallback for older renderers.
   @$pb.TagNumber(3)
   $core.int get volumePercent => $_getIZ(2);
   @$pb.TagNumber(3)
@@ -1607,6 +1613,17 @@ class SessionOpen extends $pb.GeneratedMessage {
   $core.bool hasVolumePercent() => $_has(2);
   @$pb.TagNumber(3)
   void clearVolumePercent() => $_clearField(3);
+
+  /// True when a downstream device owns volume. The renderer then skips its
+  /// safe-start ceiling and runs the session at the requested fixed level.
+  @$pb.TagNumber(4)
+  $core.bool get volumeControlDelegated => $_getBF(3);
+  @$pb.TagNumber(4)
+  set volumeControlDelegated($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasVolumeControlDelegated() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearVolumeControlDelegated() => $_clearField(4);
 }
 
 class SessionOpenResult extends $pb.GeneratedMessage {

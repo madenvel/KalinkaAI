@@ -10,6 +10,19 @@ import 'package:logger/logger.dart';
 
 final logger = Logger();
 
+/// Forces a new renderer socket without changing global connection state.
+final rendererSocketRetryEpochProvider =
+    NotifierProvider<RendererSocketRetryEpochNotifier, int>(
+      RendererSocketRetryEpochNotifier.new,
+    );
+
+class RendererSocketRetryEpochNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void increment() => state++;
+}
+
 /// Heartbeat interval for the event sockets. Dart sends a WebSocket ping on
 /// this cadence and closes the socket if the peer stops answering, so a
 /// connection killed while backgrounded (machine sleep, NAT/idle timeout)
@@ -53,15 +66,17 @@ final webSocketProvider = FutureProvider.family<WebSocketChannel, String>((
     throw StateError('unreachable');
   }
 
-  // Rebuild this provider each time connection_state_provider schedules a
-  // retry. Without this, the rapid autoDispose dispose+recreate loop driven
-  // by wire_event_provider rebuilds would bypass the 5-second timer.
-  ref.watch(retryEpochProvider);
+  // Renderer retries are independent and may stop after a terminal Goodbye.
+  final isRenderer = path == '/renderer/ws';
+  if (isRenderer) {
+    ref.watch(rendererSocketRetryEpochProvider);
+  } else {
+    ref.watch(retryEpochProvider);
+  }
 
-  // While offline (30 s escalation reached), hang until a manual retry
-  // increments the epoch and rebuilds this provider.
+  // UI-owned sockets pause after the global reconnect escalation.
   final currentStatus = ref.read(connectionStateProvider);
-  if (currentStatus == ConnectionStatus.offline) {
+  if (!isRenderer && currentStatus == ConnectionStatus.offline) {
     await Completer<void>().future; // never completes until rebuilt
     throw StateError('unreachable');
   }
