@@ -13,9 +13,11 @@ import 'renderer_backend.dart';
 class _Session {
   final String id;
   final String ownerServerId;
-  bool fixedVolume = false;
+  final int? volumeToRestore;
 
-  _Session(this.id, this.ownerServerId);
+  _Session(this.id, this.ownerServerId, {this.volumeToRestore});
+
+  bool get forceFixedOutput => volumeToRestore != null;
 }
 
 /// An envelope addressed to one connection.
@@ -31,9 +33,6 @@ class RendererEngine {
 
   /// How long a session survives without a route to its owner.
   final Duration ownerGrace;
-
-  /// Direct output is capped, but never raised, when a session opens.
-  final int safeStartVolumePercent;
 
   late final StreamSubscription<BackendEvent> _backendSub;
   // Sync: a reply must hit the wire in the order the protocol promises
@@ -56,15 +55,7 @@ class RendererEngine {
   RendererEngine(
     this._backend, {
     this.ownerGrace = const Duration(seconds: 60),
-    this.safeStartVolumePercent = 30,
   }) {
-    if (safeStartVolumePercent < 0 || safeStartVolumePercent > 100) {
-      throw ArgumentError.value(
-        safeStartVolumePercent,
-        'safeStartVolumePercent',
-        'must be between 0 and 100',
-      );
-    }
     _backendSub = _backend.events.listen(_onBackendEvent);
   }
 
@@ -114,9 +105,7 @@ class RendererEngine {
     required Object connection,
     required String sessionId,
     required String ownerServerId,
-    String volumeMode = '',
-    int? volumePercent,
-    bool volumeControlDelegated = false,
+    bool forceFixedOutput = false,
   }) {
     final existing = _session;
     // A repeated open is idempotent only for the owner.
@@ -151,25 +140,12 @@ class RendererEngine {
       return;
     }
 
-    final session = _Session(sessionId, ownerServerId);
-    final volumeError = _beginSessionVolume(
-      session,
-      volumeMode: volumeMode,
-      volumePercent: volumePercent,
-      delegated: volumeControlDelegated,
+    final session = _Session(
+      sessionId,
+      ownerServerId,
+      volumeToRestore: forceFixedOutput ? _volumePercent : null,
     );
-    if (volumeError != null) {
-      _emitTo(
-        connection,
-        pb.Envelope()
-          ..sessionOpenResult = (pb.SessionOpenResult()
-            ..sessionId = sessionId
-            ..accepted = false
-            ..error = pb.SessionOpenResult_Error.ERROR_INTERNAL
-            ..detail = volumeError),
-      );
-      return;
-    }
+    if (forceFixedOutput) _applyVolume(100);
 
     _session = session;
     _attached.add(connection);
@@ -212,6 +188,7 @@ class RendererEngine {
   }
 
   void _endSession() {
+    final volumeToRestore = _session?.volumeToRestore;
     _session = null;
     _graceTimer?.cancel();
     _graceTimer = null;
@@ -222,6 +199,7 @@ class RendererEngine {
     _format = null;
     _lastError = null;
     _backend.stop();
+    if (volumeToRestore != null) _applyVolume(volumeToRestore);
     _lastState = pb.PlaybackState.PLAYBACK_STATE_STOPPED;
   }
 
@@ -296,7 +274,7 @@ class RendererEngine {
           _emitState(pb.PlaybackState.PLAYBACK_STATE_STOPPED, null);
         }
       case pb.Command_Op.setVolume:
-        if (!session.fixedVolume) {
+        if (!session.forceFixedOutput) {
           _applyVolume(command.setVolume.percent.clamp(0, 100));
         }
         // Restated even when fixed, so the server never holds a level the
@@ -492,47 +470,18 @@ class RendererEngine {
     _messages.add(RendererOutbound(target, envelope));
   }
 
-  String? _beginSessionVolume(
-    _Session session, {
-    required String volumeMode,
-    required int? volumePercent,
-    required bool delegated,
-  }) {
-    const supportedModes = {'', 'auto', 'software', 'fixed'};
-    if (!supportedModes.contains(volumeMode)) {
-      return volumeMode == 'hardware'
-          ? 'hardware volume control is unavailable in a browser'
-          : 'unsupported volume mode "$volumeMode"';
-    }
-    if (delegated) {
-      if (volumeMode != 'fixed') {
-        return 'delegated volume control requires fixed output';
-      }
-      _applyVolume((volumePercent ?? 100).clamp(0, 100));
-      session.fixedVolume = true;
-      return null;
-    }
-    if (volumeMode == 'fixed') {
-      return 'safe starting volume cannot be enforced with fixed output';
-    }
-    // Direct output ignores the compatibility fallback and only lowers an
-    // unsafe current level.
-    if (_volumePercent > safeStartVolumePercent) {
-      _applyVolume(safeStartVolumePercent);
-    }
-    return null;
-  }
-
   void _applyVolume(int percent) {
     _volumePercent = percent;
     _backend.setVolume(percent / 100);
   }
 
   pb.VolumeState _volumeState() => pb.VolumeState()
-    ..supported = !(_session?.fixedVolume ?? false)
+    ..supported = !(_session?.forceFixedOutput ?? false)
     ..current = _volumePercent
     ..max = 100
-    ..backend = pb.VolumeBackend.VOLUME_BACKEND_SOFTWARE;
+    ..backend = (_session?.forceFixedOutput ?? false)
+        ? pb.VolumeBackend.VOLUME_BACKEND_NONE
+        : pb.VolumeBackend.VOLUME_BACKEND_SOFTWARE;
 
   static Int64 _now() => Int64(DateTime.now().millisecondsSinceEpoch);
 
