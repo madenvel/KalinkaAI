@@ -147,6 +147,28 @@ void main() {
     expect(servers.single.endpoints, hasLength(1));
   });
 
+  test('metadata missing on one member is taken from another', () {
+    final servers = groupResolvedInstances([
+      instance(
+        'eth0',
+        host: '192.168.1.20',
+        serverId: serverId,
+        displayName: null,
+        version: null,
+      ),
+      instance(
+        'wlan0',
+        host: '10.20.0.15',
+        serverId: serverId,
+        displayName: 'My Kalinka Service',
+      ),
+    ]);
+
+    final server = servers.single;
+    expect(server.name, 'My Kalinka Service');
+    expect(server.version, '1.2.0');
+  });
+
   test('an instance without a display_name falls back to its label', () {
     final servers = groupResolvedInstances([
       instance('eth0', host: '192.168.1.20', serverId: serverId),

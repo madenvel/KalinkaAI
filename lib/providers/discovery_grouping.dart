@@ -61,18 +61,17 @@ List<DiscoveredServer> groupResolvedInstances(
     if (endpoints.isEmpty) continue;
     endpoints.sort((a, b) => a.latencyMs.compareTo(b.latencyMs));
 
-    final first = members.first;
-    final displayName = first.displayName;
+    // A member may have resolved with a partial TXT record; any member's
+    // value is as good as another's, so take the first that is filled.
+    final displayName = _firstValue(members.map((m) => m.displayName));
     servers.add(
       DiscoveredServer(
-        name: (displayName == null || displayName.isEmpty)
-            ? first.label
-            : displayName,
+        name: displayName ?? members.first.label,
         host: endpoints.first.host,
         port: endpoints.first.port,
         latencyMs: endpoints.first.latencyMs,
-        version: first.version,
-        serverId: first.serverId,
+        version: _firstValue(members.map((m) => m.version)),
+        serverId: _firstValue(members.map((m) => m.serverId)),
         endpoints: endpoints,
       ),
     );
@@ -80,3 +79,6 @@ List<DiscoveredServer> groupResolvedInstances(
   servers.sort((a, b) => a.latencyMs.compareTo(b.latencyMs));
   return servers;
 }
+
+String? _firstValue(Iterable<String?> values) =>
+    values.firstWhere((v) => v != null && v.isNotEmpty, orElse: () => null);
