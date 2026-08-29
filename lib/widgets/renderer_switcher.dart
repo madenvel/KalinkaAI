@@ -206,8 +206,8 @@ Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
   final toast = ref.read(toastProvider.notifier);
   final route = ref.read(rendererSettingsRouteProvider.notifier);
   final navigator = Navigator.of(context);
-  // The list has no push channel — re-read it as the sheet opens so a
-  // renderer that came or went since the last fetch shows up.
+  // Servers with the renderer events keep the list fresh over the queue
+  // socket; this re-read is the fallback for ones that predate them.
   notifier.refresh();
   final choice = await showKalinkaBottomSheet<RendererPickerChoice>(
     context: context,
@@ -247,10 +247,7 @@ class RendererPickerContent extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _PickerHeader(
-          loading: state.loading,
-          onRefresh: ref.read(rendererListProvider.notifier).refresh,
-        ),
+        const _PickerHeader(),
         if (renderers.isEmpty)
           _EmptyNote(loading: state.loading)
         else
@@ -286,71 +283,16 @@ class RendererPickerContent extends ConsumerWidget {
   }
 }
 
-/// Sheet title plus a re-read control. Renderers announce themselves to the
-/// server, so there is nothing to scan for from here — refresh is the only
-/// honest action.
+/// Sheet title. The list keeps itself current over the queue socket, so the
+/// header offers nothing to press.
 class _PickerHeader extends StatelessWidget {
-  final bool loading;
-  final VoidCallback onRefresh;
-
-  const _PickerHeader({required this.loading, required this.onRefresh});
+  const _PickerHeader();
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      // Right inset is what puts this glyph on the same vertical line as the
-      // rows' gears (row margin 8 + border 1 + half of a 48 target).
       padding: const EdgeInsets.fromLTRB(20, 14, 13, 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text('PLAY ON', style: KalinkaTextStyles.sectionHeaderMuted),
-          ),
-          Semantics(
-            label: 'Refresh outputs',
-            button: true,
-            enabled: !loading,
-            child: Tooltip(
-              message: 'Refresh',
-              excludeFromSemantics: true,
-              child: Material(
-                color: Colors.transparent,
-                shape: const CircleBorder(),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: loading
-                      ? null
-                      : () {
-                          KalinkaHaptics.selectionClick();
-                          onRefresh();
-                        },
-                  child: SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: Center(
-                      child: loading
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                                color: KalinkaColors.textMuted,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.refresh,
-                              size: 18,
-                              color: KalinkaColors.textSecondary,
-                            ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: Text('PLAY ON', style: KalinkaTextStyles.sectionHeaderMuted),
     );
   }
 }

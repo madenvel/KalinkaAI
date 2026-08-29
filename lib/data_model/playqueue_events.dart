@@ -30,11 +30,24 @@ class PlayQueueState {
   final PlaybackMode playbackMode;
   final int seq;
 
+  /// Renderer topology as the replay reported it. Null on a server that
+  /// predates the renderer events — distinct from [], which is a server
+  /// saying "no renderers".
+  @JsonKey(includeToJson: false)
+  final List<RendererInfo>? renderers;
+  @JsonKey(includeToJson: false)
+  final String? currentRendererId;
+  @JsonKey(includeToJson: false)
+  final String? selectedRendererId;
+
   const PlayQueueState({
     required this.playbackState,
     required this.trackList,
     required this.playbackMode,
     required this.seq,
+    this.renderers,
+    this.currentRendererId,
+    this.selectedRendererId,
   });
 
   static final PlayQueueState empty = PlayQueueState(
@@ -54,6 +67,9 @@ class PlayQueueState {
     trackList: trackList ?? this.trackList,
     playbackMode: playbackMode ?? this.playbackMode,
     seq: seq,
+    renderers: renderers,
+    currentRendererId: currentRendererId,
+    selectedRendererId: selectedRendererId,
   );
 
   /// Apply an event to produce a new state (immutable pattern).
@@ -136,6 +152,31 @@ class PlayQueueState {
       case PlaybackErrorEvent():
         // Ignore - no state change.
         return this;
+      case RenderersChangedEvent(:final renderers, :final seq):
+        return PlayQueueState(
+          playbackState: playbackState,
+          trackList: trackList,
+          playbackMode: playbackMode,
+          seq: seq,
+          renderers: renderers,
+          currentRendererId: currentRendererId,
+          selectedRendererId: selectedRendererId,
+        );
+      case CurrentRendererChangedEvent(
+        :final rendererId,
+        :final selectedRendererId,
+        :final seq,
+      ):
+        // Not copyWith: a null id here means "nothing", not "keep".
+        return PlayQueueState(
+          playbackState: playbackState,
+          trackList: trackList,
+          playbackMode: playbackMode,
+          seq: seq,
+          renderers: renderers,
+          currentRendererId: rendererId,
+          selectedRendererId: selectedRendererId,
+        );
       case ReplayPlayQueueEvent(:final state, :final serverTimeNs, :final seq):
         final nextPlaybackState =
             state.playbackState.copyWith(state.playbackState)
@@ -149,6 +190,9 @@ class PlayQueueState {
           trackList: state.trackList,
           playbackMode: state.playbackMode,
           seq: seq,
+          renderers: state.renderers,
+          currentRendererId: state.currentRendererId,
+          selectedRendererId: state.selectedRendererId,
         );
     }
   }
@@ -250,7 +294,9 @@ enum PlayQueueEventType {
   tracksRemoved,
   trackUnavailable,
   playbackError,
-  playbackModeChanged;
+  playbackModeChanged,
+  renderersChanged,
+  currentRendererChanged;
 
   String toJson() => _$PlayQueueEventTypeEnumMap[this]!;
 
@@ -309,6 +355,19 @@ sealed class PlayQueueEvent with _$PlayQueueEvent {
     required int serverTimeNs,
     required int seq,
   }) = ReplayPlayQueueEvent;
+
+  /// Full renderer snapshot; rows carry no current/selected marker — that is
+  /// [CurrentRendererChangedEvent]'s fact alone.
+  const factory PlayQueueEvent.renderersChanged({
+    required List<RendererInfo> renderers,
+    required int seq,
+  }) = RenderersChangedEvent;
+
+  const factory PlayQueueEvent.currentRendererChanged({
+    String? rendererId,
+    String? selectedRendererId,
+    required int seq,
+  }) = CurrentRendererChangedEvent;
 
   factory PlayQueueEvent.fromJson(Map<String, dynamic> json) {
     final eventTypeStr = json['event_type'] as String;
@@ -385,6 +444,20 @@ sealed class PlayQueueEvent with _$PlayQueueEvent {
             'Unknown state_type for replay_event: ${json['state_type']}',
           );
         }
+      case 'renderers_changed':
+        return PlayQueueEvent.renderersChanged(
+          renderers: [
+            for (final r in (json['renderers'] ?? const []) as List)
+              RendererInfo.fromJson(Map<String, dynamic>.from(r as Map)),
+          ],
+          seq: seq,
+        );
+      case 'current_renderer_changed':
+        return PlayQueueEvent.currentRendererChanged(
+          rendererId: json['renderer_id'] as String?,
+          selectedRendererId: json['selected_renderer_id'] as String?,
+          seq: seq,
+        );
       default:
         throw ArgumentError('Unknown event_type: $eventTypeStr');
     }

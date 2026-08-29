@@ -18,6 +18,11 @@ PlayQueueState _$PlayQueueStateFromJson(Map<String, dynamic> json) =>
         json['playback_mode'] as Map<String, dynamic>,
       ),
       seq: (json['seq'] as num).toInt(),
+      renderers: (json['renderers'] as List<dynamic>?)
+          ?.map((e) => RendererInfo.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      currentRendererId: json['current_renderer_id'] as String?,
+      selectedRendererId: json['selected_renderer_id'] as String?,
     );
 
 Map<String, dynamic> _$PlayQueueStateToJson(PlayQueueState instance) =>
@@ -36,4 +41,6 @@ const _$PlayQueueEventTypeEnumMap = {
   PlayQueueEventType.trackUnavailable: 'track_unavailable',
   PlayQueueEventType.playbackError: 'playback_error',
   PlayQueueEventType.playbackModeChanged: 'playback_mode_changed',
+  PlayQueueEventType.renderersChanged: 'renderers_changed',
+  PlayQueueEventType.currentRendererChanged: 'current_renderer_changed',
 };

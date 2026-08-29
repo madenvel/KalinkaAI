@@ -1,15 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data_model/data_model.dart' show RendererInfo;
+import '../data_model/playqueue_events.dart';
 import 'connection_settings_provider.dart';
 import 'connection_state_provider.dart';
 import 'kalinka_player_api_provider.dart';
+import 'wire_event_provider.dart';
 
 /// Renderers the server knows about, plus which one playback runs on.
 ///
-/// There is no push channel for this — `/renderer/list` is polled on connect
-/// and re-read whenever the picker opens, which is the only moment a stale
-/// list would be visible.
+/// Kept current by the queue socket: the replay reports the topology with the
+/// queue state and renderers_changed / current_renderer_changed push every
+/// change. `/renderer/list` remains as the fallback for servers that predate
+/// the events — polled on connect and when the picker opens.
 class RendererListState {
   final List<RendererInfo> renderers;
 
@@ -59,8 +62,14 @@ class RendererListState {
 }
 
 class RendererListNotifier extends Notifier<RendererListState> {
-  /// Bumped per fetch so a slow response can't overwrite a newer one.
+  /// Bumped per fetch and per pushed event so a slow response can't overwrite
+  /// a newer picture.
   int _generation = 0;
+
+  /// Last pushed (active, selected) pair; rows arrive unflagged, the marker
+  /// is a separate fact.
+  String? _currentId;
+  String? _selectedId;
 
   @override
   RendererListState build() {
@@ -73,6 +82,8 @@ class RendererListNotifier extends Notifier<RendererListState> {
           // Server unset — drop the previous server's renderers instead of
           // offering them against the next one.
           _generation++;
+          _currentId = null;
+          _selectedId = null;
           state = const RendererListState();
         case ConnectionStatus.connecting:
         case ConnectionStatus.reconnecting:
@@ -80,11 +91,49 @@ class RendererListNotifier extends Notifier<RendererListState> {
           break;
       }
     });
+    ref.listen(playQueueEventBusProvider, (previous, next) {
+      next.whenData(_onEvent);
+    });
     if (ref.read(connectionStateProvider) == ConnectionStatus.connected) {
       Future.microtask(refresh);
     }
     return const RendererListState();
   }
+
+  void _onEvent(PlayQueueEvent event) {
+    switch (event) {
+      case RenderersChangedEvent(:final renderers):
+        _generation++;
+        state = RendererListState(renderers: _flagged(renderers), loaded: true);
+      case CurrentRendererChangedEvent(:final rendererId, :final selectedRendererId):
+        _generation++;
+        _currentId = rendererId;
+        _selectedId = selectedRendererId;
+        state = state.copyWith(
+          renderers: _flagged(state.renderers),
+          loading: false,
+        );
+      case ReplayPlayQueueEvent(state: final replay):
+        // Null renderers = a server from before the events; the REST poll
+        // stays the source there.
+        final rows = replay.renderers;
+        if (rows == null) return;
+        _generation++;
+        _currentId = replay.currentRendererId;
+        _selectedId = replay.selectedRendererId;
+        state = RendererListState(renderers: _flagged(rows), loaded: true);
+      default:
+        break;
+    }
+  }
+
+  List<RendererInfo> _flagged(List<RendererInfo> rows) => [
+    for (final r in rows)
+      r.copyWith(
+        active: r.rendererId == _currentId,
+        selected: r.rendererId == _selectedId,
+      ),
+  ];
 
   /// True once this response no longer owns the state — a newer fetch started,
   /// or the container went away while the request was in flight.
@@ -99,6 +148,16 @@ class RendererListNotifier extends Notifier<RendererListState> {
     try {
       final renderers = await ref.read(kalinkaProxyProvider).listRenderers();
       if (_stale(generation)) return;
+      // REST rows carry the flags; keep the pushed-event bookkeeping in step
+      // so a later current-only event reflags this list correctly.
+      _currentId = renderers
+          .where((r) => r.active)
+          .map((r) => r.rendererId)
+          .firstOrNull;
+      _selectedId = renderers
+          .where((r) => r.selected)
+          .map((r) => r.rendererId)
+          .firstOrNull;
       state = RendererListState(renderers: renderers, loaded: true);
     } on RenderersUnsupportedException {
       if (_stale(generation)) return;
