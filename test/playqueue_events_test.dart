@@ -18,7 +18,11 @@ void main() {
       ]);
 
       final next = state.apply(
-        const PlayQueueEvent.trackUnavailable(index: 1, unavailable: true, seq: 1),
+        const PlayQueueEvent.trackUnavailable(
+          index: 1,
+          unavailable: true,
+          seq: 1,
+        ),
         0,
       );
 
@@ -33,7 +37,11 @@ void main() {
       ]);
 
       final next = state.apply(
-        const PlayQueueEvent.trackUnavailable(index: 0, unavailable: false, seq: 1),
+        const PlayQueueEvent.trackUnavailable(
+          index: 0,
+          unavailable: false,
+          seq: 1,
+        ),
         0,
       );
 
@@ -44,7 +52,11 @@ void main() {
       final state = _stateWith([Track(id: 'a', title: 'A', duration: 10)]);
 
       final next = state.apply(
-        const PlayQueueEvent.trackUnavailable(index: 5, unavailable: true, seq: 1),
+        const PlayQueueEvent.trackUnavailable(
+          index: 5,
+          unavailable: true,
+          seq: 1,
+        ),
         0,
       );
 
