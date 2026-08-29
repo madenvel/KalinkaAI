@@ -687,11 +687,10 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   /// The tour itself. Shared by both layouts — only where the controls sit
   /// differs, which the keys take care of.
   Widget _buildCoachMarks() {
-    // A server without renderers hides the output switcher, and a stop with
-    // no target on screen shows as a centred card describing a control the
-    // user hasn't got.
+    // Mirror the switcher's own visibility rule: a stop with no target on
+    // screen shows as a centred card describing a control the user hasn't got.
     final hasOutputSwitcher = ref.watch(
-      rendererListProvider.select((s) => s.hasRenderers),
+      rendererListProvider.select((s) => s.switcherVisible),
     );
     return Positioned.fill(
       child: CoachMarksOverlay(

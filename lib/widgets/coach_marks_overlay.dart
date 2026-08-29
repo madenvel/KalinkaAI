@@ -48,8 +48,8 @@ class _CoachMarksOverlayState extends State<CoachMarksOverlay> {
   }
 
   /// The stops are derived from live state — the output switcher only exists
-  /// on a server that has renderers — so the list can shrink mid-tour and
-  /// strand the index past its end.
+  /// once a server with /renderer/* support has served a list — so the list
+  /// can shrink mid-tour and strand the index past its end.
   @override
   void didUpdateWidget(covariant CoachMarksOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);

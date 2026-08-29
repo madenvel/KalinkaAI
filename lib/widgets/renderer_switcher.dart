@@ -13,6 +13,10 @@ import '../utils/haptics.dart';
 import 'kalinka_bottom_sheet.dart';
 import 'transport_button.dart';
 
+/// One string for the chrome (tooltips, labels) and the sheet's empty note,
+/// so the copy cannot drift between them.
+const _noRendererLabel = 'No renderer available';
+
 /// What a row in the picker was asked to do.
 enum RendererPickerIntent { play, configure }
 
@@ -32,9 +36,9 @@ class RendererPickerChoice {
 /// Icon button that opens the renderer picker — the list of playback endpoints
 /// the server knows about, with the one playback is running on marked.
 ///
-/// Renders nothing while the server reports no renderers (or predates the
-/// `/renderer/*` endpoints), so it stays out of the way on a plain
-/// single-output setup.
+/// Renders nothing until a list has been read (and never on a server that
+/// predates the `/renderer/*` endpoints). A loaded-but-empty list still shows
+/// the crossed icon: playback is going to fail, and the sheet says why.
 class RendererSwitcherButton extends ConsumerWidget {
   final double hitDiameter;
   final double iconSize;
@@ -47,28 +51,30 @@ class RendererSwitcherButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final visible = ref.watch(
-      rendererListProvider.select((s) => s.hasRenderers),
+    // One record select: structural == keeps rebuilds scoped to these facets.
+    final (visible, empty, playingOn, outputLive) = ref.watch(
+      rendererListProvider.select(
+        (s) => (
+          s.switcherVisible,
+          s.renderers.isEmpty,
+          // The button is too small for a name, so the current output goes in
+          // the label instead — otherwise nothing says where sound is going.
+          s.active?.friendlyName,
+          // Live = sound has somewhere to go: an output chosen and reachable.
+          s.active?.isConnected ?? false,
+        ),
+      ),
     );
     if (!visible) return const SizedBox.shrink();
 
-    // The button is too small for a name, so the current output goes in the
-    // label instead — otherwise nothing tells you where sound is going.
-    final playingOn = ref.watch(
-      rendererListProvider.select((s) => s.active?.friendlyName),
-    );
-    // Live = sound has somewhere to go: an output is chosen and reachable.
-    final outputLive = ref.watch(
-      rendererListProvider.select((s) => s.active?.isConnected ?? false),
-    );
-
+    final idleLabel = empty ? _noRendererLabel : 'Choose output';
     return Semantics(
       label: playingOn == null || playingOn.isEmpty
-          ? 'Choose output'
+          ? idleLabel
           : 'Output: $playingOn',
       button: true,
       child: Tooltip(
-        message: 'Choose output',
+        message: idleLabel,
         excludeFromSemantics: true,
         child: TransportButton(
           hitDiameter: hitDiameter,
@@ -91,28 +97,25 @@ class _CastGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = Icon(
-      Icons.cast,
-      size: size,
-      color: KalinkaColors.textSecondary,
-    );
-    if (live) return icon;
+    // Constant footprint in both states, or the row twitches on live flips.
     return SizedBox(
       width: size + 4,
       height: size + 2,
       child: Stack(
         clipBehavior: Clip.none,
+        alignment: Alignment.center,
         children: [
-          icon,
-          const Positioned(
-            right: 0,
-            bottom: 0,
-            child: Icon(
-              Icons.close,
-              size: 10,
-              color: KalinkaColors.statusOffline,
+          Icon(Icons.cast, size: size, color: KalinkaColors.textSecondary),
+          if (!live)
+            const Positioned(
+              right: 0,
+              bottom: 0,
+              child: Icon(
+                Icons.close,
+                size: 10,
+                color: KalinkaColors.statusOffline,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -121,7 +124,7 @@ class _CastGlyph extends StatelessWidget {
 
 /// Renderer switch for the Now Playing header: the current output by name,
 /// with a chevron saying a menu drops from it. Same picker as the playbar
-/// button, same self-hiding on a single-output setup.
+/// button, same crossed-icon empty state when the server has no renderers.
 class RendererSwitcherDropdown extends ConsumerWidget {
   /// Longer names are ellipsised; the header has a centred label to respect.
   final double maxNameWidth;
@@ -130,22 +133,29 @@ class RendererSwitcherDropdown extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final visible = ref.watch(
-      rendererListProvider.select((s) => s.hasRenderers),
+    final (visible, empty, outputLive) = ref.watch(
+      rendererListProvider.select(
+        (s) => (
+          s.switcherVisible,
+          s.renderers.isEmpty,
+          s.active?.isConnected ?? false,
+        ),
+      ),
     );
     if (!visible) return const SizedBox.shrink();
 
     final active = ref.watch(rendererListProvider.select((s) => s.active));
     final ownId = ref.watch(rendererIdentityProvider).value?.rendererId;
+    final idleLabel = empty ? _noRendererLabel : 'Choose output';
     final name = active == null
-        ? 'Choose output'
+        ? idleLabel
         : rendererDisplayName(active, isSelf: active.rendererId == ownId);
 
     return Semantics(
-      label: active == null ? 'Choose output' : 'Output: $name',
+      label: active == null ? name : 'Output: $name',
       button: true,
       child: Tooltip(
-        message: 'Choose output',
+        message: idleLabel,
         excludeFromSemantics: true,
         child: Material(
           color: Colors.transparent,
@@ -161,14 +171,13 @@ class RendererSwitcherDropdown extends ConsumerWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.cast,
-                    size: 18,
-                    color: KalinkaColors.textSecondary,
-                  ),
+                  _CastGlyph(size: 18, live: outputLive),
                   const SizedBox(width: 7),
                   ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: maxNameWidth),
+                    // The empty-state message must never ellipsise; names may.
+                    constraints: BoxConstraints(
+                      maxWidth: empty ? 200 : maxNameWidth,
+                    ),
                     child: Text(
                       name,
                       style: KalinkaTextStyles.trayRowSublabel,
@@ -359,7 +368,7 @@ class _EmptyNote extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            loading ? 'Looking for outputs…' : 'No outputs available',
+            loading ? 'Looking for outputs…' : _noRendererLabel,
             style: KalinkaTextStyles.trayRowLabel,
           ),
           if (!loading) ...[

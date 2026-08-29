@@ -20,10 +20,16 @@ class RendererListState {
   /// switcher hidden and stops the provider retrying against a 404.
   final bool supported;
 
+  /// True once a list has actually been read from this server. Distinguishes
+  /// "no renderer available" from "not asked yet" (startup, server switch),
+  /// which must not flash the failure state.
+  final bool loaded;
+
   const RendererListState({
     this.renderers = const [],
     this.loading = false,
     this.supported = true,
+    this.loaded = false,
   });
 
   /// The renderer playback is on, or null when nothing is connected.
@@ -34,17 +40,21 @@ class RendererListState {
     return null;
   }
 
-  /// Whether the renderer switcher has anything to show.
-  bool get hasRenderers => supported && renderers.isNotEmpty;
+  /// Whether the switcher widgets have anything trustworthy to show — the
+  /// server speaks `/renderer/*` and a list has been read. An empty list
+  /// still shows: that is the crossed-icon "no renderer available" state.
+  bool get switcherVisible => supported && loaded;
 
   RendererListState copyWith({
     List<RendererInfo>? renderers,
     bool? loading,
     bool? supported,
+    bool? loaded,
   }) => RendererListState(
     renderers: renderers ?? this.renderers,
     loading: loading ?? this.loading,
     supported: supported ?? this.supported,
+    loaded: loaded ?? this.loaded,
   );
 }
 
@@ -89,7 +99,7 @@ class RendererListNotifier extends Notifier<RendererListState> {
     try {
       final renderers = await ref.read(kalinkaProxyProvider).listRenderers();
       if (_stale(generation)) return;
-      state = RendererListState(renderers: renderers);
+      state = RendererListState(renderers: renderers, loaded: true);
     } on RenderersUnsupportedException {
       if (_stale(generation)) return;
       state = const RendererListState(supported: false);

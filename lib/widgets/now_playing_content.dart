@@ -323,9 +323,10 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
             const SizedBox(height: 12),
             // Minimise on the left, output switch on the right, NOW PLAYING
             // centred. A Stack, not a spaceBetween Row: the switcher hides
-            // itself when the server has no renderers, and the label must
-            // stay centred either way. The switcher stays icon-only here —
-            // a phone header hasn't the width the tablet's name enjoys.
+            // itself until a renderer list is read (and always on servers
+            // without /renderer/*), and the label must stay centred either
+            // way. The switcher stays icon-only here — a phone header hasn't
+            // the width the tablet's name enjoys.
             Stack(
               alignment: Alignment.center,
               children: [

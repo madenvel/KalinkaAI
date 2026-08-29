@@ -194,7 +194,13 @@ void main() {
       'Kalinka Renderer on raspberrypi',
     ]);
     expect(state.active?.rendererId, 'r-living');
-    expect(state.hasRenderers, isTrue);
+    expect(state.switcherVisible, isTrue);
+  });
+
+  test('the switcher stays hidden until a list is actually read', () {
+    // Startup / server-switch default: nothing fetched yet, so the crossed
+    // "no renderer" state must not flash.
+    expect(const RendererListState().switcherVisible, isFalse);
   });
 
   test('a server without /renderer/* hides the switcher', () async {
@@ -205,7 +211,7 @@ void main() {
 
     final state = container.read(rendererListProvider);
     expect(state.supported, isFalse);
-    expect(state.hasRenderers, isFalse);
+    expect(state.switcherVisible, isFalse);
   });
 
   test('select() PUTs the renderer id and moves the active marker', () async {
@@ -270,12 +276,52 @@ void main() {
     ),
   );
 
-  testWidgets('no renderers → nothing is rendered', (tester) async {
+  testWidgets('no renderers → crossed icon, sheet says so', (tester) async {
     final api = _FakeApi()..renderers = const [];
     await tester.pumpWidget(wrap(api));
     await tester.pumpAndSettle();
 
+    final inButton = find.descendant(
+      of: find.byType(RendererSwitcherButton),
+      matching: find.byIcon(Icons.close),
+    );
+    expect(find.byIcon(Icons.cast), findsOneWidget);
+    expect(inButton, findsOneWidget);
+    expect(find.byTooltip('No renderer available'), findsOneWidget);
+
+    await tester.tap(find.byType(RendererSwitcherButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No renderer available'), findsOneWidget);
+  });
+
+  testWidgets('the dropdown names the empty state', (tester) async {
+    final api = _FakeApi()..renderers = const [];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: overrides(api),
+        child: const MaterialApp(
+          home: Scaffold(body: Center(child: RendererSwitcherDropdown())),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No renderer available'), findsOneWidget);
+    final inDropdown = find.descendant(
+      of: find.byType(RendererSwitcherDropdown),
+      matching: find.byIcon(Icons.close),
+    );
+    expect(inDropdown, findsOneWidget);
+  });
+
+  testWidgets('a server without /renderer/* renders nothing', (tester) async {
+    final api = _FakeApi(unsupported: true);
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
     expect(find.byIcon(Icons.cast), findsNothing);
+    expect(find.byTooltip('No renderer available'), findsNothing);
   });
 
   testWidgets('the playbar cast icon is crossed only with no live output', (
