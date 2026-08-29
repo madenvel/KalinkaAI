@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kalinka/data_model/data_model.dart';
+import 'package:kalinka/data_model/playqueue_events.dart';
 import 'package:kalinka/data_model/renderer_config.dart';
 import 'package:kalinka/providers/connection_settings_provider.dart';
 import 'package:kalinka/providers/connection_state_provider.dart';
@@ -13,6 +15,7 @@ import 'package:kalinka/providers/kalinka_player_api_provider.dart';
 import 'package:kalinka/providers/renderer_host_provider.dart';
 import 'package:kalinka/providers/renderer_provider.dart';
 import 'package:kalinka/providers/renderer_settings_route_provider.dart';
+import 'package:kalinka/providers/wire_event_provider.dart';
 import 'package:kalinka/renderer/renderer_identity.dart';
 import 'package:kalinka/screens/renderer_settings_screen.dart';
 import 'package:kalinka/widgets/renderer_switcher.dart';
@@ -135,18 +138,25 @@ void main() {
   overrides(
     KalinkaPlayerProxy api, {
     ConnectionStatus status = ConnectionStatus.connected,
+    Stream<PlayQueueEvent>? events,
   }) => [
     sharedPrefsProvider.overrideWithValue(prefs),
     kalinkaProxyProvider.overrideWithValue(api),
     connectionStateProvider.overrideWith(() => _FakeConnectionNotifier(status)),
+    // The notifier subscribes to the queue socket; tests feed it directly
+    // instead of letting the provider chain dial a real websocket.
+    playQueueEventBusProvider.overrideWith(
+      (ref) => events ?? const Stream<PlayQueueEvent>.empty(),
+    ),
   ];
 
   ProviderContainer makeContainer(
     KalinkaPlayerProxy api, {
     ConnectionStatus status = ConnectionStatus.connected,
+    Stream<PlayQueueEvent>? events,
   }) {
     final container = ProviderContainer(
-      overrides: overrides(api, status: status),
+      overrides: overrides(api, status: status, events: events),
     );
     addTearDown(container.dispose);
     return container;
@@ -249,8 +259,9 @@ void main() {
   /// Mirrors how MusicPlayerScreen hosts the renderer settings panel: an
   /// overlay driven by the route provider, not a pushed route — that is what
   /// lets the tablet layout put it in the left panel.
-  Widget wrap(KalinkaPlayerProxy api) => ProviderScope(
-    overrides: overrides(api),
+  Widget wrap(KalinkaPlayerProxy api, {Stream<PlayQueueEvent>? events}) =>
+      ProviderScope(
+    overrides: overrides(api, events: events),
     child: MaterialApp(
       home: Scaffold(
         body: Stack(
@@ -441,21 +452,123 @@ void main() {
     expect(find.text('Browser'), findsOneWidget);
   });
 
-  testWidgets('refresh re-reads the list without closing the sheet', (
+  test('pushed events drive the list and the current marker', () async {
+    final events = StreamController<PlayQueueEvent>();
+    addTearDown(events.close);
+    final container = makeContainer(
+      _FakeApi(),
+      status: ConnectionStatus.offline, // no REST fetch; events are the source
+      events: events.stream,
+    );
+    final sub = container.listen(rendererListProvider, (_, _) {});
+    addTearDown(sub.close);
+
+    events.add(
+      PlayQueueEvent.renderersChanged(
+        renderers: const [
+          RendererInfo(rendererId: 'r-a', friendlyName: 'A', status: 'connected'),
+          RendererInfo(rendererId: 'r-b', friendlyName: 'B', status: 'connected'),
+        ],
+        seq: 1,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    var state = container.read(rendererListProvider);
+    expect(state.loaded, isTrue);
+    expect(state.renderers.map((r) => r.rendererId), ['r-a', 'r-b']);
+    expect(state.active, isNull, reason: 'rows arrive unflagged');
+
+    events.add(
+      PlayQueueEvent.currentRendererChanged(rendererId: 'r-b', seq: 2),
+    );
+    await Future<void>.delayed(Duration.zero);
+    state = container.read(rendererListProvider);
+    expect(state.active?.rendererId, 'r-b');
+  });
+
+  test('the replay seeds the list; a pre-events replay defers to REST', () async {
+    final events = StreamController<PlayQueueEvent>();
+    addTearDown(events.close);
+    final container = makeContainer(
+      _FakeApi(),
+      status: ConnectionStatus.offline,
+      events: events.stream,
+    );
+    final sub = container.listen(rendererListProvider, (_, _) {});
+    addTearDown(sub.close);
+
+    PlayQueueState replayState({List<RendererInfo>? renderers}) =>
+        PlayQueueState(
+          playbackState: PlaybackState.empty,
+          trackList: const [],
+          playbackMode: PlaybackMode.empty,
+          seq: 1,
+          renderers: renderers,
+          currentRendererId: renderers == null ? null : 'r-a',
+        );
+
+    events.add(
+      PlayQueueEvent.replayEvent(
+        state: replayState(
+          renderers: const [
+            RendererInfo(
+              rendererId: 'r-a',
+              friendlyName: 'A',
+              status: 'connected',
+            ),
+          ],
+        ),
+        serverTimeNs: 0,
+        seq: 1,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    var state = container.read(rendererListProvider);
+    expect(state.loaded, isTrue);
+    expect(state.active?.rendererId, 'r-a');
+
+    // A replay with no renderers field (old server) must not wipe anything.
+    events.add(
+      PlayQueueEvent.replayEvent(
+        state: replayState(renderers: null),
+        serverTimeNs: 0,
+        seq: 2,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    state = container.read(rendererListProvider);
+    expect(state.renderers, hasLength(1));
+  });
+
+  testWidgets('a pushed renderers event updates the open sheet', (
     tester,
   ) async {
+    // What replaced the refresh button: the sheet follows the queue socket.
+    final events = StreamController<PlayQueueEvent>();
+    addTearDown(events.close);
     final api = _FakeApi();
-    await tester.pumpWidget(wrap(api));
+    await tester.pumpWidget(wrap(api, events: events.stream));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
-    final callsBefore = api.listCalls;
+    expect(find.text('Attic'), findsNothing);
 
-    await tester.tap(find.bySemanticsLabel('Refresh outputs'));
+    events.add(
+      PlayQueueEvent.renderersChanged(
+        renderers: const [
+          RendererInfo(
+            rendererId: 'r-attic',
+            friendlyName: 'Attic',
+            status: 'connected',
+          ),
+        ],
+        seq: 1,
+      ),
+    );
     await tester.pumpAndSettle();
 
-    expect(api.listCalls, callsBefore + 1);
+    expect(find.text('Attic'), findsOneWidget);
     expect(find.text('PLAY ON'), findsOneWidget, reason: 'sheet stays open');
   });
 

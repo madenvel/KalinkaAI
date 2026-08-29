@@ -78,4 +78,70 @@ void main() {
       expect((event as TrackUnavailableEvent).index, 3);
     });
   });
+
+  group('renderer topology events', () {
+    test('parses renderers_changed with unflagged rows', () {
+      final event = PlayQueueEvent.fromJson({
+        'event_type': 'renderers_changed',
+        'renderers': [
+          {
+            'renderer_id': 'r-1',
+            'friendly_name': 'Kitchen',
+            'status': 'connected',
+            'platform': {'hostname': 'pi', 'audio_backend': 'alsa'},
+          },
+        ],
+        'seq': 4,
+      });
+
+      expect(event, isA<RenderersChangedEvent>());
+      final changed = event as RenderersChangedEvent;
+      expect(changed.renderers.single.rendererId, 'r-1');
+      expect(changed.renderers.single.active, isFalse);
+      expect(changed.seq, 4);
+    });
+
+    test('parses current_renderer_changed, nulls meaning nothing', () {
+      final event = PlayQueueEvent.fromJson({
+        'event_type': 'current_renderer_changed',
+        'renderer_id': null,
+        'selected_renderer_id': 'r-2',
+        'seq': 5,
+      });
+
+      expect(event, isA<CurrentRendererChangedEvent>());
+      final current = event as CurrentRendererChangedEvent;
+      expect(current.rendererId, isNull);
+      expect(current.selectedRendererId, 'r-2');
+    });
+
+    test('replay state carries the topology; absent keys stay null', () {
+      final withTopology = PlayQueueState.fromJson({
+        'playback_state': {'state': 'STOPPED'},
+        'track_list': [],
+        'playback_mode': {
+          'shuffle': false,
+          'repeat_single': false,
+          'repeat_all': false,
+        },
+        'seq': 1,
+        'renderers': [],
+        'current_renderer_id': 'r-1',
+      });
+      expect(withTopology.renderers, isEmpty);
+      expect(withTopology.currentRendererId, 'r-1');
+
+      final preEvents = PlayQueueState.fromJson({
+        'playback_state': {'state': 'STOPPED'},
+        'track_list': [],
+        'playback_mode': {
+          'shuffle': false,
+          'repeat_single': false,
+          'repeat_all': false,
+        },
+        'seq': 1,
+      });
+      expect(preEvents.renderers, isNull);
+    });
+  });
 }
