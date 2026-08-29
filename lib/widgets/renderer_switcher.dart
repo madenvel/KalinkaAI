@@ -291,7 +291,7 @@ class _PickerHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 13, 6),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
       child: Text('PLAY ON', style: KalinkaTextStyles.sectionHeaderMuted),
     );
   }

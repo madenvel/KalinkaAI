@@ -261,31 +261,32 @@ void main() {
   /// lets the tablet layout put it in the left panel.
   Widget wrap(KalinkaPlayerProxy api, {Stream<PlayQueueEvent>? events}) =>
       ProviderScope(
-    overrides: overrides(api, events: events),
-    child: MaterialApp(
-      home: Scaffold(
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            const Center(child: RendererSwitcherButton()),
-            Consumer(
-              builder: (context, ref, _) {
-                final route = ref.watch(rendererSettingsRouteProvider);
-                if (route == null) return const SizedBox.shrink();
-                return RendererSettingsScreen(
-                  key: ValueKey(route.rendererId),
-                  rendererId: route.rendererId,
-                  rendererName: route.rendererName,
-                  onClose: () =>
-                      ref.read(rendererSettingsRouteProvider.notifier).close(),
-                );
-              },
+        overrides: overrides(api, events: events),
+        child: MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              fit: StackFit.expand,
+              children: [
+                const Center(child: RendererSwitcherButton()),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final route = ref.watch(rendererSettingsRouteProvider);
+                    if (route == null) return const SizedBox.shrink();
+                    return RendererSettingsScreen(
+                      key: ValueKey(route.rendererId),
+                      rendererId: route.rendererId,
+                      rendererName: route.rendererName,
+                      onClose: () => ref
+                          .read(rendererSettingsRouteProvider.notifier)
+                          .close(),
+                    );
+                  },
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
-    ),
-  );
+      );
 
   testWidgets('no renderers → crossed icon, sheet says so', (tester) async {
     final api = _FakeApi()..renderers = const [];
@@ -466,8 +467,16 @@ void main() {
     events.add(
       PlayQueueEvent.renderersChanged(
         renderers: const [
-          RendererInfo(rendererId: 'r-a', friendlyName: 'A', status: 'connected'),
-          RendererInfo(rendererId: 'r-b', friendlyName: 'B', status: 'connected'),
+          RendererInfo(
+            rendererId: 'r-a',
+            friendlyName: 'A',
+            status: 'connected',
+          ),
+          RendererInfo(
+            rendererId: 'r-b',
+            friendlyName: 'B',
+            status: 'connected',
+          ),
         ],
         seq: 1,
       ),
@@ -486,59 +495,62 @@ void main() {
     expect(state.active?.rendererId, 'r-b');
   });
 
-  test('the replay seeds the list; a pre-events replay defers to REST', () async {
-    final events = StreamController<PlayQueueEvent>();
-    addTearDown(events.close);
-    final container = makeContainer(
-      _FakeApi(),
-      status: ConnectionStatus.offline,
-      events: events.stream,
-    );
-    final sub = container.listen(rendererListProvider, (_, _) {});
-    addTearDown(sub.close);
+  test(
+    'the replay seeds the list; a pre-events replay defers to REST',
+    () async {
+      final events = StreamController<PlayQueueEvent>();
+      addTearDown(events.close);
+      final container = makeContainer(
+        _FakeApi(),
+        status: ConnectionStatus.offline,
+        events: events.stream,
+      );
+      final sub = container.listen(rendererListProvider, (_, _) {});
+      addTearDown(sub.close);
 
-    PlayQueueState replayState({List<RendererInfo>? renderers}) =>
-        PlayQueueState(
-          playbackState: PlaybackState.empty,
-          trackList: const [],
-          playbackMode: PlaybackMode.empty,
+      PlayQueueState replayState({List<RendererInfo>? renderers}) =>
+          PlayQueueState(
+            playbackState: PlaybackState.empty,
+            trackList: const [],
+            playbackMode: PlaybackMode.empty,
+            seq: 1,
+            renderers: renderers,
+            currentRendererId: renderers == null ? null : 'r-a',
+          );
+
+      events.add(
+        PlayQueueEvent.replayEvent(
+          state: replayState(
+            renderers: const [
+              RendererInfo(
+                rendererId: 'r-a',
+                friendlyName: 'A',
+                status: 'connected',
+              ),
+            ],
+          ),
+          serverTimeNs: 0,
           seq: 1,
-          renderers: renderers,
-          currentRendererId: renderers == null ? null : 'r-a',
-        );
-
-    events.add(
-      PlayQueueEvent.replayEvent(
-        state: replayState(
-          renderers: const [
-            RendererInfo(
-              rendererId: 'r-a',
-              friendlyName: 'A',
-              status: 'connected',
-            ),
-          ],
         ),
-        serverTimeNs: 0,
-        seq: 1,
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
-    var state = container.read(rendererListProvider);
-    expect(state.loaded, isTrue);
-    expect(state.active?.rendererId, 'r-a');
+      );
+      await Future<void>.delayed(Duration.zero);
+      var state = container.read(rendererListProvider);
+      expect(state.loaded, isTrue);
+      expect(state.active?.rendererId, 'r-a');
 
-    // A replay with no renderers field (old server) must not wipe anything.
-    events.add(
-      PlayQueueEvent.replayEvent(
-        state: replayState(renderers: null),
-        serverTimeNs: 0,
-        seq: 2,
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
-    state = container.read(rendererListProvider);
-    expect(state.renderers, hasLength(1));
-  });
+      // A replay with no renderers field (old server) must not wipe anything.
+      events.add(
+        PlayQueueEvent.replayEvent(
+          state: replayState(renderers: null),
+          serverTimeNs: 0,
+          seq: 2,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      state = container.read(rendererListProvider);
+      expect(state.renderers, hasLength(1));
+    },
+  );
 
   testWidgets('a pushed renderers event updates the open sheet', (
     tester,

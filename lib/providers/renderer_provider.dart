@@ -105,7 +105,10 @@ class RendererListNotifier extends Notifier<RendererListState> {
       case RenderersChangedEvent(:final renderers):
         _generation++;
         state = RendererListState(renderers: _flagged(renderers), loaded: true);
-      case CurrentRendererChangedEvent(:final rendererId, :final selectedRendererId):
+      case CurrentRendererChangedEvent(
+        :final rendererId,
+        :final selectedRendererId,
+      ):
         _generation++;
         _currentId = rendererId;
         _selectedId = selectedRendererId;
