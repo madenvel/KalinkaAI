@@ -1,0 +1,2 @@
+- Output list updates live as outputs join or leave the network; the picker's refresh button is gone
+- With no output available the cast icon shows a crossed badge instead of disappearing

@@ -8,6 +8,12 @@ Do not hard-wrap the notes: GitHub renders a newline inside a release body as
 a line break, so a wrapped sentence arrives broken. One line per bullet or
 paragraph, however long; blank lines separate paragraphs.
 
+## 0.7.0
+
+### Changed
+- The output list now follows the server live: outputs joining or leaving the network appear and disappear immediately, even while the picker sheet is open, so the picker's refresh button is gone. Against an older server the list still loads on connect and when the picker opens, exactly as before.
+- When no output is available the cast icon stays on screen with a crossed badge and the picker says so outright, instead of the switcher silently disappearing while playback fails.
+
 ## 0.6.1
 
 ### Added
