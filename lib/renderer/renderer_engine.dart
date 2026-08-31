@@ -46,7 +46,8 @@ class RendererEngine {
   pb.Source? _current;
   final List<pb.Source> _queued = [];
   pb.PlaybackState _lastState = pb.PlaybackState.PLAYBACK_STATE_STOPPED;
-  pb.AudioFormat? _format;
+  pb.AudioFormat? _deviceFormat;
+  int? _durationMs;
   pb.ErrorInfo? _lastError;
   int _nextGeneration = 0;
   int? _activeGeneration;
@@ -196,7 +197,8 @@ class RendererEngine {
     _queued.clear();
     _current = null;
     _activeGeneration = null;
-    _format = null;
+    _deviceFormat = null;
+    _durationMs = null;
     _lastError = null;
     _backend.stop();
     if (volumeToRestore != null) _applyVolume(volumeToRestore);
@@ -241,7 +243,8 @@ class RendererEngine {
         if (_current != null) {
           _current = null;
           _activeGeneration = null;
-          _format = null;
+          _deviceFormat = null;
+          _durationMs = null;
           _lastError = null;
           _backend.stop();
           _emitState(pb.PlaybackState.PLAYBACK_STATE_FINISHED, null);
@@ -267,7 +270,8 @@ class RendererEngine {
         final hadCurrent = _current != null;
         _current = null;
         _activeGeneration = null;
-        _format = null;
+        _deviceFormat = null;
+        _durationMs = null;
         _lastError = null;
         _backend.stop();
         if (hadCurrent) {
@@ -305,7 +309,8 @@ class RendererEngine {
         _start(_queued.removeAt(0), previousToken: token);
       } else {
         _activeGeneration = null;
-        _format = null;
+        _deviceFormat = null;
+        _durationMs = null;
         _lastError = null;
         _backend.stop();
         _emitState(pb.PlaybackState.PLAYBACK_STATE_FINISHED, token);
@@ -318,7 +323,8 @@ class RendererEngine {
   void _start(pb.Source source, {String? previousToken}) {
     final previous = previousToken ?? _current?.sourceToken;
     _current = source;
-    _format = null;
+    _deviceFormat = null;
+    _durationMs = null;
     _lastError = null;
     final generation = ++_nextGeneration;
     _activeGeneration = generation;
@@ -360,7 +366,7 @@ class RendererEngine {
             _lastState != pb.PlaybackState.PLAYBACK_STATE_PAUSED) {
           _emitState(pb.PlaybackState.PLAYBACK_STATE_PAUSED, token);
         }
-      case BackendAudioFormat(
+      case BackendDeviceFormat(
         :final sampleRateHz,
         :final channels,
         :final bitsPerSample,
@@ -368,13 +374,12 @@ class RendererEngine {
         :final durationMs,
       ):
         if (token == null || sampleRateHz <= 0 || durationMs < 0) return;
-        final format = pb.AudioFormat()
+        _deviceFormat = pb.AudioFormat()
           ..sampleRateHz = sampleRateHz
           ..channels = channels
           ..bitsPerSample = bitsPerSample
-          ..sampleFormat = sampleFormat
-          ..durationMs = Int64(durationMs);
-        _format = format;
+          ..sampleFormat = sampleFormat;
+        _durationMs = durationMs;
         // No message of its own any more, so restate the state it belongs to.
         // Never an error state: replaying one would restate the failure.
         if (_lastState != pb.PlaybackState.PLAYBACK_STATE_UNSPECIFIED &&
@@ -425,8 +430,10 @@ class RendererEngine {
           state == pb.PlaybackState.PLAYBACK_STATE_PAUSED
       ..atUnixMs = _now();
     if (token != null) message.sourceToken = token;
-    final format = _format;
-    if (format != null) message.format = format;
+    final deviceFormat = _deviceFormat;
+    if (deviceFormat != null) message.deviceFormat = deviceFormat;
+    final durationMs = _durationMs;
+    if (durationMs != null) message.durationMs = Int64(durationMs);
     _emitSession(pb.Envelope()..playbackStateChanged = message);
   }
 
@@ -451,8 +458,10 @@ class RendererEngine {
       ..queuedSourceTokens.addAll([for (final s in _queued) s.sourceToken]);
     final current = _current;
     if (current != null) snapshot.currentSource = current;
-    final format = _format;
-    if (format != null) snapshot.format = format;
+    final deviceFormat = _deviceFormat;
+    if (deviceFormat != null) snapshot.deviceFormat = deviceFormat;
+    final durationMs = _durationMs;
+    if (durationMs != null) snapshot.durationMs = Int64(durationMs);
     final error = _lastError;
     if (error != null) snapshot.error = error;
     _emitSession(pb.Envelope()..stateSnapshot = snapshot, target: target);

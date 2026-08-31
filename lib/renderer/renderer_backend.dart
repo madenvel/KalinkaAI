@@ -65,15 +65,17 @@ class BackendEnded extends BackendEvent {
   const BackendEnded(super.generation);
 }
 
-/// Browser output format and source duration.
-class BackendAudioFormat extends BackendEvent {
+/// What the browser's own output runs at, and how long the source runs.
+/// HTMLMediaElement never exposes the format it decoded, so a browser
+/// renderer has a device format to report and no stream format.
+class BackendDeviceFormat extends BackendEvent {
   final int sampleRateHz;
   final int channels;
   final int bitsPerSample;
   final String sampleFormat;
   final int durationMs;
 
-  const BackendAudioFormat(
+  const BackendDeviceFormat(
     super.generation, {
     required this.sampleRateHz,
     required this.channels,
