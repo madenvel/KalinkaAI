@@ -12,7 +12,7 @@ import 'renderer_identity.dart';
 
 final _logger = Logger();
 
-const _protocolVersion = 1;
+const _protocolVersion = 2;
 
 /// Nothing configurable yet; bumped when the schema grows a first field.
 const _configVersion = '1';

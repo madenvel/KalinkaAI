@@ -193,12 +193,12 @@ class Harness {
 }
 
 void main() {
-  test('hello leads, carries identity and protocol version 1', () {
+  test('hello leads, carries identity and protocol version 2', () {
     final h = Harness();
     final hello = h.sent.first.hello;
     expect(h.sent.first.messageId.toInt(), 1);
-    expect(hello.protocolVersions.min, 1);
-    expect(hello.protocolVersions.max, 1);
+    expect(hello.protocolVersions.min, 2);
+    expect(hello.protocolVersions.max, 2);
     expect(hello.rendererId, 'r-1');
     expect(hello.instanceId, 'i-1');
     expect(hello.friendlyName, 'Chrome on Linux');
@@ -641,11 +641,11 @@ void main() {
     expect(changed.format.sampleRateHz, 48000);
     expect(changed.format.channels, 2);
     expect(changed.format.bitsPerSample, 32);
-    expect(changed.format.streamKind, pb.StreamKind.STREAM_KIND_FRAMES);
-    expect(changed.format.streamSizeUnits.toInt(), 5925888);
+    // Reported as it is, with no sample rate to divide back out.
+    expect(changed.format.durationMs.toInt(), 123456);
 
     h.command(pb.Command()..requestSnapshot = pb.RequestSnapshot());
-    expect(h.last.stateSnapshot.format.streamSizeUnits.toInt(), 5925888);
+    expect(h.last.stateSnapshot.format.durationMs.toInt(), 123456);
   });
 
   test('request_snapshot describes source, queue and position', () {

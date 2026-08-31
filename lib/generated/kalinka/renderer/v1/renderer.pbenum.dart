@@ -103,28 +103,6 @@ class ErrorSource extends $pb.ProtobufEnum {
   const ErrorSource._(super.value, super.name);
 }
 
-class StreamKind extends $pb.ProtobufEnum {
-  static const StreamKind STREAM_KIND_UNSPECIFIED =
-      StreamKind._(0, _omitEnumNames ? '' : 'STREAM_KIND_UNSPECIFIED');
-  static const StreamKind STREAM_KIND_BYTES =
-      StreamKind._(1, _omitEnumNames ? '' : 'STREAM_KIND_BYTES');
-  static const StreamKind STREAM_KIND_FRAMES =
-      StreamKind._(2, _omitEnumNames ? '' : 'STREAM_KIND_FRAMES');
-
-  static const $core.List<StreamKind> values = <StreamKind>[
-    STREAM_KIND_UNSPECIFIED,
-    STREAM_KIND_BYTES,
-    STREAM_KIND_FRAMES,
-  ];
-
-  static final $core.List<StreamKind?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 2);
-  static StreamKind? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const StreamKind._(super.value, super.name);
-}
-
 class VolumeBackend extends $pb.ProtobufEnum {
   static const VolumeBackend VOLUME_BACKEND_UNSPECIFIED =
       VolumeBackend._(0, _omitEnumNames ? '' : 'VOLUME_BACKEND_UNSPECIFIED');

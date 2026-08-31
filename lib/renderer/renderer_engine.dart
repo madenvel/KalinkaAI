@@ -373,8 +373,7 @@ class RendererEngine {
           ..channels = channels
           ..bitsPerSample = bitsPerSample
           ..sampleFormat = sampleFormat
-          ..streamKind = pb.StreamKind.STREAM_KIND_FRAMES
-          ..streamSizeUnits = Int64((durationMs * sampleRateHz / 1000).round());
+          ..durationMs = Int64(durationMs);
         _format = format;
         _emitSession(
           pb.Envelope()

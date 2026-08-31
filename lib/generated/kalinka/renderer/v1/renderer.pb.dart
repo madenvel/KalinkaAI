@@ -682,16 +682,14 @@ class AudioFormat extends $pb.GeneratedMessage {
     $core.int? channels,
     $core.int? bitsPerSample,
     $core.String? sampleFormat,
-    StreamKind? streamKind,
-    $fixnum.Int64? streamSizeUnits,
+    $fixnum.Int64? durationMs,
   }) {
     final result = create();
     if (sampleRateHz != null) result.sampleRateHz = sampleRateHz;
     if (channels != null) result.channels = channels;
     if (bitsPerSample != null) result.bitsPerSample = bitsPerSample;
     if (sampleFormat != null) result.sampleFormat = sampleFormat;
-    if (streamKind != null) result.streamKind = streamKind;
-    if (streamSizeUnits != null) result.streamSizeUnits = streamSizeUnits;
+    if (durationMs != null) result.durationMs = durationMs;
     return result;
   }
 
@@ -715,10 +713,8 @@ class AudioFormat extends $pb.GeneratedMessage {
     ..aI(3, _omitFieldNames ? '' : 'bitsPerSample',
         fieldType: $pb.PbFieldType.OU3)
     ..aOS(4, _omitFieldNames ? '' : 'sampleFormat')
-    ..aE<StreamKind>(5, _omitFieldNames ? '' : 'streamKind',
-        enumValues: StreamKind.values)
     ..a<$fixnum.Int64>(
-        6, _omitFieldNames ? '' : 'streamSizeUnits', $pb.PbFieldType.OU6,
+        7, _omitFieldNames ? '' : 'durationMs', $pb.PbFieldType.OU6,
         defaultOrMaker: $fixnum.Int64.ZERO)
     ..hasRequiredFields = false;
 
@@ -777,23 +773,16 @@ class AudioFormat extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearSampleFormat() => $_clearField(4);
 
-  @$pb.TagNumber(5)
-  StreamKind get streamKind => $_getN(4);
-  @$pb.TagNumber(5)
-  set streamKind(StreamKind value) => $_setField(5, value);
-  @$pb.TagNumber(5)
-  $core.bool hasStreamKind() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearStreamKind() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $fixnum.Int64 get streamSizeUnits => $_getI64(5);
-  @$pb.TagNumber(6)
-  set streamSizeUnits($fixnum.Int64 value) => $_setInt64(5, value);
-  @$pb.TagNumber(6)
-  $core.bool hasStreamSizeUnits() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearStreamSizeUnits() => $_clearField(6);
+  /// Absent when the renderer cannot tell — an MP3 with no Xing header, a live
+  /// stream. Absent is not zero: unknown length is not a track that has ended.
+  @$pb.TagNumber(7)
+  $fixnum.Int64 get durationMs => $_getI64(4);
+  @$pb.TagNumber(7)
+  set durationMs($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDurationMs() => $_has(4);
+  @$pb.TagNumber(7)
+  void clearDurationMs() => $_clearField(7);
 }
 
 class Source extends $pb.GeneratedMessage {

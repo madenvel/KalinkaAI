@@ -27,8 +27,8 @@ class HtmlAudioBackend implements RendererAudioBackend {
 
   HtmlAudioBackend() {
     try {
-      // HTMLMediaElement has duration but not decoded format; use the browser
-      // output timebase so Core can derive duration.
+      // HTMLMediaElement exposes duration but not the decoded format, so the
+      // format reported here is the browser's own output, not the file's.
       _formatContext = web.AudioContext();
     } catch (_) {
       _formatContext = null;
