@@ -46,7 +46,7 @@ class RendererEngine {
   pb.Source? _current;
   final List<pb.Source> _queued = [];
   pb.PlaybackState _lastState = pb.PlaybackState.PLAYBACK_STATE_STOPPED;
-  pb.AudioFormat? _deviceFormat;
+  pb.DeviceInfo? _deviceInfo;
   int? _durationMs;
   pb.ErrorInfo? _lastError;
   int _nextGeneration = 0;
@@ -197,7 +197,7 @@ class RendererEngine {
     _queued.clear();
     _current = null;
     _activeGeneration = null;
-    _deviceFormat = null;
+    _deviceInfo = null;
     _durationMs = null;
     _lastError = null;
     _backend.stop();
@@ -243,7 +243,7 @@ class RendererEngine {
         if (_current != null) {
           _current = null;
           _activeGeneration = null;
-          _deviceFormat = null;
+          _deviceInfo = null;
           _durationMs = null;
           _lastError = null;
           _backend.stop();
@@ -270,7 +270,7 @@ class RendererEngine {
         final hadCurrent = _current != null;
         _current = null;
         _activeGeneration = null;
-        _deviceFormat = null;
+        _deviceInfo = null;
         _durationMs = null;
         _lastError = null;
         _backend.stop();
@@ -309,7 +309,7 @@ class RendererEngine {
         _start(_queued.removeAt(0), previousToken: token);
       } else {
         _activeGeneration = null;
-        _deviceFormat = null;
+        _deviceInfo = null;
         _durationMs = null;
         _lastError = null;
         _backend.stop();
@@ -323,7 +323,7 @@ class RendererEngine {
   void _start(pb.Source source, {String? previousToken}) {
     final previous = previousToken ?? _current?.sourceToken;
     _current = source;
-    _deviceFormat = null;
+    _deviceInfo = null;
     _durationMs = null;
     _lastError = null;
     final generation = ++_nextGeneration;
@@ -374,11 +374,15 @@ class RendererEngine {
         :final durationMs,
       ):
         if (token == null || sampleRateHz <= 0 || durationMs < 0) return;
-        _deviceFormat = pb.AudioFormat()
-          ..sampleRateHz = sampleRateHz
-          ..channels = channels
-          ..bitsPerSample = bitsPerSample
-          ..sampleFormat = sampleFormat;
+        _deviceInfo = pb.DeviceInfo()
+          ..format = (pb.AudioFormat()
+            ..sampleRateHz = sampleRateHz
+            ..channels = channels
+            ..bitsPerSample = bitsPerSample
+            ..sampleFormat = sampleFormat)
+          // Web Audio resamples to the context rate and mixes with every
+          // other tab; nothing here is ever the card on its own.
+          ..access = pb.DeviceAccess.DEVICE_ACCESS_SHARED;
         _durationMs = durationMs;
         // No message of its own any more, so restate the state it belongs to.
         // Never an error state: replaying one would restate the failure.
@@ -430,8 +434,8 @@ class RendererEngine {
           state == pb.PlaybackState.PLAYBACK_STATE_PAUSED
       ..atUnixMs = _now();
     if (token != null) message.sourceToken = token;
-    final deviceFormat = _deviceFormat;
-    if (deviceFormat != null) message.deviceFormat = deviceFormat;
+    final deviceInfo = _deviceInfo;
+    if (deviceInfo != null) message.deviceInfo = deviceInfo;
     final durationMs = _durationMs;
     if (durationMs != null) message.durationMs = Int64(durationMs);
     _emitSession(pb.Envelope()..playbackStateChanged = message);
@@ -458,8 +462,8 @@ class RendererEngine {
       ..queuedSourceTokens.addAll([for (final s in _queued) s.sourceToken]);
     final current = _current;
     if (current != null) snapshot.currentSource = current;
-    final deviceFormat = _deviceFormat;
-    if (deviceFormat != null) snapshot.deviceFormat = deviceFormat;
+    final deviceInfo = _deviceInfo;
+    if (deviceInfo != null) snapshot.deviceInfo = deviceInfo;
     final durationMs = _durationMs;
     if (durationMs != null) snapshot.durationMs = Int64(durationMs);
     final error = _lastError;

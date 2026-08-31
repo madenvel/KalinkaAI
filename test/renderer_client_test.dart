@@ -639,9 +639,11 @@ void main() {
     final changed = h.last.playbackStateChanged;
     expect(changed.state, pb.PlaybackState.PLAYBACK_STATE_PLAYING);
     expect(changed.sourceToken, 't1');
-    expect(changed.deviceFormat.sampleRateHz, 48000);
-    expect(changed.deviceFormat.channels, 2);
-    expect(changed.deviceFormat.bitsPerSample, 32);
+    expect(changed.deviceInfo.format.sampleRateHz, 48000);
+    expect(changed.deviceInfo.format.channels, 2);
+    expect(changed.deviceInfo.format.bitsPerSample, 32);
+    // Web Audio is never the card on its own.
+    expect(changed.deviceInfo.access, pb.DeviceAccess.DEVICE_ACCESS_SHARED);
     // HTMLMediaElement never says what it decoded, so there is no stream
     // format to claim — the 48 kHz above is the browser's, not the file's.
     expect(changed.hasFormat(), isFalse);
@@ -654,10 +656,10 @@ void main() {
       h.last.playbackStateChanged.state,
       pb.PlaybackState.PLAYBACK_STATE_PAUSED,
     );
-    expect(h.last.playbackStateChanged.deviceFormat.sampleRateHz, 48000);
+    expect(h.last.playbackStateChanged.deviceInfo.format.sampleRateHz, 48000);
 
     h.command(pb.Command()..requestSnapshot = pb.RequestSnapshot());
-    expect(h.last.stateSnapshot.deviceFormat.sampleRateHz, 48000);
+    expect(h.last.stateSnapshot.deviceInfo.format.sampleRateHz, 48000);
     expect(h.last.stateSnapshot.durationMs.toInt(), 123456);
   });
 
