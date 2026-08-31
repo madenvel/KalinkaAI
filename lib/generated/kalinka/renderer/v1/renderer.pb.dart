@@ -748,6 +748,77 @@ class AudioFormat extends $pb.GeneratedMessage {
   void clearSampleFormat() => $_clearField(4);
 }
 
+/// The output side of playback: what the device runs at, and how it is held.
+class DeviceInfo extends $pb.GeneratedMessage {
+  factory DeviceInfo({
+    AudioFormat? format,
+    DeviceAccess? access,
+  }) {
+    final result = create();
+    if (format != null) result.format = format;
+    if (access != null) result.access = access;
+    return result;
+  }
+
+  DeviceInfo._();
+
+  factory DeviceInfo.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeviceInfo.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeviceInfo',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'kalinka.renderer.v1'),
+      createEmptyInstance: create)
+    ..aOM<AudioFormat>(1, _omitFieldNames ? '' : 'format',
+        subBuilder: AudioFormat.create)
+    ..aE<DeviceAccess>(2, _omitFieldNames ? '' : 'access',
+        enumValues: DeviceAccess.values)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeviceInfo clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeviceInfo copyWith(void Function(DeviceInfo) updates) =>
+      super.copyWith((message) => updates(message as DeviceInfo)) as DeviceInfo;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeviceInfo create() => DeviceInfo._();
+  @$core.override
+  DeviceInfo createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeviceInfo getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeviceInfo>(create);
+  static DeviceInfo? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  AudioFormat get format => $_getN(0);
+  @$pb.TagNumber(1)
+  set format(AudioFormat value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasFormat() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearFormat() => $_clearField(1);
+  @$pb.TagNumber(1)
+  AudioFormat ensureFormat() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  DeviceAccess get access => $_getN(1);
+  @$pb.TagNumber(2)
+  set access(DeviceAccess value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasAccess() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAccess() => $_clearField(2);
+}
+
 class Source extends $pb.GeneratedMessage {
   factory Source({
     $core.String? uri,
@@ -1028,7 +1099,7 @@ class StateSnapshot extends $pb.GeneratedMessage {
     $core.String? selectedDeviceId,
     ErrorInfo? error,
     $core.Iterable<$core.String>? queuedSourceTokens,
-    AudioFormat? deviceFormat,
+    DeviceInfo? deviceInfo,
     $fixnum.Int64? durationMs,
   }) {
     final result = create();
@@ -1043,7 +1114,7 @@ class StateSnapshot extends $pb.GeneratedMessage {
     if (error != null) result.error = error;
     if (queuedSourceTokens != null)
       result.queuedSourceTokens.addAll(queuedSourceTokens);
-    if (deviceFormat != null) result.deviceFormat = deviceFormat;
+    if (deviceInfo != null) result.deviceInfo = deviceInfo;
     if (durationMs != null) result.durationMs = durationMs;
     return result;
   }
@@ -1079,8 +1150,8 @@ class StateSnapshot extends $pb.GeneratedMessage {
     ..aOM<ErrorInfo>(10, _omitFieldNames ? '' : 'error',
         subBuilder: ErrorInfo.create)
     ..pPS(11, _omitFieldNames ? '' : 'queuedSourceTokens')
-    ..aOM<AudioFormat>(13, _omitFieldNames ? '' : 'deviceFormat',
-        subBuilder: AudioFormat.create)
+    ..aOM<DeviceInfo>(13, _omitFieldNames ? '' : 'deviceInfo',
+        subBuilder: DeviceInfo.create)
     ..a<$fixnum.Int64>(
         14, _omitFieldNames ? '' : 'durationMs', $pb.PbFieldType.OU6,
         defaultOrMaker: $fixnum.Int64.ZERO)
@@ -1202,17 +1273,17 @@ class StateSnapshot extends $pb.GeneratedMessage {
   @$pb.TagNumber(11)
   $pb.PbList<$core.String> get queuedSourceTokens => $_getList(9);
 
-  /// What the output device is open at; see PlaybackStateChanged.device_format.
+  /// The output side; see PlaybackStateChanged.device_info.
   @$pb.TagNumber(13)
-  AudioFormat get deviceFormat => $_getN(10);
+  DeviceInfo get deviceInfo => $_getN(10);
   @$pb.TagNumber(13)
-  set deviceFormat(AudioFormat value) => $_setField(13, value);
+  set deviceInfo(DeviceInfo value) => $_setField(13, value);
   @$pb.TagNumber(13)
-  $core.bool hasDeviceFormat() => $_has(10);
+  $core.bool hasDeviceInfo() => $_has(10);
   @$pb.TagNumber(13)
-  void clearDeviceFormat() => $_clearField(13);
+  void clearDeviceInfo() => $_clearField(13);
   @$pb.TagNumber(13)
-  AudioFormat ensureDeviceFormat() => $_ensure(10);
+  DeviceInfo ensureDeviceInfo() => $_ensure(10);
 
   /// See PlaybackStateChanged.duration_ms.
   @$pb.TagNumber(14)
@@ -2655,7 +2726,7 @@ class PlaybackStateChanged extends $pb.GeneratedMessage {
     $fixnum.Int64? atUnixMs,
     ErrorInfo? error,
     AudioFormat? format,
-    AudioFormat? deviceFormat,
+    DeviceInfo? deviceInfo,
     $fixnum.Int64? durationMs,
   }) {
     final result = create();
@@ -2666,7 +2737,7 @@ class PlaybackStateChanged extends $pb.GeneratedMessage {
     if (atUnixMs != null) result.atUnixMs = atUnixMs;
     if (error != null) result.error = error;
     if (format != null) result.format = format;
-    if (deviceFormat != null) result.deviceFormat = deviceFormat;
+    if (deviceInfo != null) result.deviceInfo = deviceInfo;
     if (durationMs != null) result.durationMs = durationMs;
     return result;
   }
@@ -2697,8 +2768,8 @@ class PlaybackStateChanged extends $pb.GeneratedMessage {
         subBuilder: ErrorInfo.create)
     ..aOM<AudioFormat>(7, _omitFieldNames ? '' : 'format',
         subBuilder: AudioFormat.create)
-    ..aOM<AudioFormat>(8, _omitFieldNames ? '' : 'deviceFormat',
-        subBuilder: AudioFormat.create)
+    ..aOM<DeviceInfo>(8, _omitFieldNames ? '' : 'deviceInfo',
+        subBuilder: DeviceInfo.create)
     ..a<$fixnum.Int64>(
         9, _omitFieldNames ? '' : 'durationMs', $pb.PbFieldType.OU6,
         defaultOrMaker: $fixnum.Int64.ZERO)
@@ -2796,20 +2867,19 @@ class PlaybackStateChanged extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   AudioFormat ensureFormat() => $_ensure(6);
 
-  /// What the output device was opened at, against `format` above for what
-  /// came out of the decoder. Comparing the two is how a Core tells whether
-  /// playback is bit-perfect: a device may resample or widen the sample
-  /// format. Absent when none is open, or on a renderer that cannot ask.
+  /// The output side, against `format` above for what the decoder produced.
+  /// Answering "is this bit-perfect" takes both of them and the volume state;
+  /// no one of the three settles it. Absent when no device is open.
   @$pb.TagNumber(8)
-  AudioFormat get deviceFormat => $_getN(7);
+  DeviceInfo get deviceInfo => $_getN(7);
   @$pb.TagNumber(8)
-  set deviceFormat(AudioFormat value) => $_setField(8, value);
+  set deviceInfo(DeviceInfo value) => $_setField(8, value);
   @$pb.TagNumber(8)
-  $core.bool hasDeviceFormat() => $_has(7);
+  $core.bool hasDeviceInfo() => $_has(7);
   @$pb.TagNumber(8)
-  void clearDeviceFormat() => $_clearField(8);
+  void clearDeviceInfo() => $_clearField(8);
   @$pb.TagNumber(8)
-  AudioFormat ensureDeviceFormat() => $_ensure(7);
+  DeviceInfo ensureDeviceInfo() => $_ensure(7);
 
   /// How long the stream runs. On the state rather than in a format, so a
   /// renderer that can name neither format still reports it. Absent when

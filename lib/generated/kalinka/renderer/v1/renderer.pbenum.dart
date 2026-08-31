@@ -103,6 +103,31 @@ class ErrorSource extends $pb.ProtobufEnum {
   const ErrorSource._(super.value, super.name);
 }
 
+/// How the renderer holds the output device. A renderer can only say what it
+/// opened: SHARED is not proof that anything alters the samples, only that
+/// nothing rules it out.
+class DeviceAccess extends $pb.ProtobufEnum {
+  static const DeviceAccess DEVICE_ACCESS_UNSPECIFIED =
+      DeviceAccess._(0, _omitEnumNames ? '' : 'DEVICE_ACCESS_UNSPECIFIED');
+  static const DeviceAccess DEVICE_ACCESS_EXCLUSIVE =
+      DeviceAccess._(1, _omitEnumNames ? '' : 'DEVICE_ACCESS_EXCLUSIVE');
+  static const DeviceAccess DEVICE_ACCESS_SHARED =
+      DeviceAccess._(2, _omitEnumNames ? '' : 'DEVICE_ACCESS_SHARED');
+
+  static const $core.List<DeviceAccess> values = <DeviceAccess>[
+    DEVICE_ACCESS_UNSPECIFIED,
+    DEVICE_ACCESS_EXCLUSIVE,
+    DEVICE_ACCESS_SHARED,
+  ];
+
+  static final $core.List<DeviceAccess?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static DeviceAccess? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const DeviceAccess._(super.value, super.name);
+}
+
 class VolumeBackend extends $pb.ProtobufEnum {
   static const VolumeBackend VOLUME_BACKEND_UNSPECIFIED =
       VolumeBackend._(0, _omitEnumNames ? '' : 'VOLUME_BACKEND_UNSPECIFIED');
