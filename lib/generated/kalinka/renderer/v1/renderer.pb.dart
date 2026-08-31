@@ -661,14 +661,12 @@ class AudioFormat extends $pb.GeneratedMessage {
     $core.int? channels,
     $core.int? bitsPerSample,
     $core.String? sampleFormat,
-    $fixnum.Int64? durationMs,
   }) {
     final result = create();
     if (sampleRateHz != null) result.sampleRateHz = sampleRateHz;
     if (channels != null) result.channels = channels;
     if (bitsPerSample != null) result.bitsPerSample = bitsPerSample;
     if (sampleFormat != null) result.sampleFormat = sampleFormat;
-    if (durationMs != null) result.durationMs = durationMs;
     return result;
   }
 
@@ -692,9 +690,6 @@ class AudioFormat extends $pb.GeneratedMessage {
     ..aI(3, _omitFieldNames ? '' : 'bitsPerSample',
         fieldType: $pb.PbFieldType.OU3)
     ..aOS(4, _omitFieldNames ? '' : 'sampleFormat')
-    ..a<$fixnum.Int64>(
-        7, _omitFieldNames ? '' : 'durationMs', $pb.PbFieldType.OU6,
-        defaultOrMaker: $fixnum.Int64.ZERO)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -751,17 +746,6 @@ class AudioFormat extends $pb.GeneratedMessage {
   $core.bool hasSampleFormat() => $_has(3);
   @$pb.TagNumber(4)
   void clearSampleFormat() => $_clearField(4);
-
-  /// Absent when the renderer cannot tell — an MP3 with no Xing header, a live
-  /// stream. Absent is not zero: unknown length is not a track that has ended.
-  @$pb.TagNumber(7)
-  $fixnum.Int64 get durationMs => $_getI64(4);
-  @$pb.TagNumber(7)
-  set durationMs($fixnum.Int64 value) => $_setInt64(4, value);
-  @$pb.TagNumber(7)
-  $core.bool hasDurationMs() => $_has(4);
-  @$pb.TagNumber(7)
-  void clearDurationMs() => $_clearField(7);
 }
 
 class Source extends $pb.GeneratedMessage {
@@ -1044,6 +1028,8 @@ class StateSnapshot extends $pb.GeneratedMessage {
     $core.String? selectedDeviceId,
     ErrorInfo? error,
     $core.Iterable<$core.String>? queuedSourceTokens,
+    AudioFormat? deviceFormat,
+    $fixnum.Int64? durationMs,
   }) {
     final result = create();
     if (playbackState != null) result.playbackState = playbackState;
@@ -1057,6 +1043,8 @@ class StateSnapshot extends $pb.GeneratedMessage {
     if (error != null) result.error = error;
     if (queuedSourceTokens != null)
       result.queuedSourceTokens.addAll(queuedSourceTokens);
+    if (deviceFormat != null) result.deviceFormat = deviceFormat;
+    if (durationMs != null) result.durationMs = durationMs;
     return result;
   }
 
@@ -1091,6 +1079,11 @@ class StateSnapshot extends $pb.GeneratedMessage {
     ..aOM<ErrorInfo>(10, _omitFieldNames ? '' : 'error',
         subBuilder: ErrorInfo.create)
     ..pPS(11, _omitFieldNames ? '' : 'queuedSourceTokens')
+    ..aOM<AudioFormat>(13, _omitFieldNames ? '' : 'deviceFormat',
+        subBuilder: AudioFormat.create)
+    ..a<$fixnum.Int64>(
+        14, _omitFieldNames ? '' : 'durationMs', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1208,6 +1201,28 @@ class StateSnapshot extends $pb.GeneratedMessage {
   /// Prefetched sources not yet playing, in switch order.
   @$pb.TagNumber(11)
   $pb.PbList<$core.String> get queuedSourceTokens => $_getList(9);
+
+  /// What the output device is open at; see PlaybackStateChanged.device_format.
+  @$pb.TagNumber(13)
+  AudioFormat get deviceFormat => $_getN(10);
+  @$pb.TagNumber(13)
+  set deviceFormat(AudioFormat value) => $_setField(13, value);
+  @$pb.TagNumber(13)
+  $core.bool hasDeviceFormat() => $_has(10);
+  @$pb.TagNumber(13)
+  void clearDeviceFormat() => $_clearField(13);
+  @$pb.TagNumber(13)
+  AudioFormat ensureDeviceFormat() => $_ensure(10);
+
+  /// See PlaybackStateChanged.duration_ms.
+  @$pb.TagNumber(14)
+  $fixnum.Int64 get durationMs => $_getI64(11);
+  @$pb.TagNumber(14)
+  set durationMs($fixnum.Int64 value) => $_setInt64(11, value);
+  @$pb.TagNumber(14)
+  $core.bool hasDurationMs() => $_has(11);
+  @$pb.TagNumber(14)
+  void clearDurationMs() => $_clearField(14);
 }
 
 /// First message on every new connection; registers the renderer with the Core.
@@ -2640,6 +2655,8 @@ class PlaybackStateChanged extends $pb.GeneratedMessage {
     $fixnum.Int64? atUnixMs,
     ErrorInfo? error,
     AudioFormat? format,
+    AudioFormat? deviceFormat,
+    $fixnum.Int64? durationMs,
   }) {
     final result = create();
     if (state != null) result.state = state;
@@ -2649,6 +2666,8 @@ class PlaybackStateChanged extends $pb.GeneratedMessage {
     if (atUnixMs != null) result.atUnixMs = atUnixMs;
     if (error != null) result.error = error;
     if (format != null) result.format = format;
+    if (deviceFormat != null) result.deviceFormat = deviceFormat;
+    if (durationMs != null) result.durationMs = durationMs;
     return result;
   }
 
@@ -2678,6 +2697,11 @@ class PlaybackStateChanged extends $pb.GeneratedMessage {
         subBuilder: ErrorInfo.create)
     ..aOM<AudioFormat>(7, _omitFieldNames ? '' : 'format',
         subBuilder: AudioFormat.create)
+    ..aOM<AudioFormat>(8, _omitFieldNames ? '' : 'deviceFormat',
+        subBuilder: AudioFormat.create)
+    ..a<$fixnum.Int64>(
+        9, _omitFieldNames ? '' : 'durationMs', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2758,8 +2782,9 @@ class PlaybackStateChanged extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   ErrorInfo ensureError() => $_ensure(5);
 
-  /// Restated every time, so a Core replaces rather than merges: absent means
-  /// nothing is decoded, never that the format is unchanged.
+  /// What the renderer decoded out of the stream. Restated every time, so a
+  /// Core replaces rather than merges: absent means nothing is decoded, never
+  /// that the format is unchanged.
   @$pb.TagNumber(7)
   AudioFormat get format => $_getN(6);
   @$pb.TagNumber(7)
@@ -2770,6 +2795,33 @@ class PlaybackStateChanged extends $pb.GeneratedMessage {
   void clearFormat() => $_clearField(7);
   @$pb.TagNumber(7)
   AudioFormat ensureFormat() => $_ensure(6);
+
+  /// What the output device was opened at, against `format` above for what
+  /// came out of the decoder. Comparing the two is how a Core tells whether
+  /// playback is bit-perfect: a device may resample or widen the sample
+  /// format. Absent when none is open, or on a renderer that cannot ask.
+  @$pb.TagNumber(8)
+  AudioFormat get deviceFormat => $_getN(7);
+  @$pb.TagNumber(8)
+  set deviceFormat(AudioFormat value) => $_setField(8, value);
+  @$pb.TagNumber(8)
+  $core.bool hasDeviceFormat() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearDeviceFormat() => $_clearField(8);
+  @$pb.TagNumber(8)
+  AudioFormat ensureDeviceFormat() => $_ensure(7);
+
+  /// How long the stream runs. On the state rather than in a format, so a
+  /// renderer that can name neither format still reports it. Absent when
+  /// unknown, which is not zero: unknown length is not a track that ended.
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get durationMs => $_getI64(8);
+  @$pb.TagNumber(9)
+  set durationMs($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasDurationMs() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearDurationMs() => $_clearField(9);
 }
 
 /// Emitted on AudioGraphNodeState::SOURCE_CHANGED — the gapless crossover.

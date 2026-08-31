@@ -91,7 +91,7 @@ class FakeBackend implements RendererAudioBackend {
     int durationMs = 300000,
     int? forGeneration,
   }) => emit(
-    BackendAudioFormat(
+    BackendDeviceFormat(
       forGeneration ?? generation,
       sampleRateHz: sampleRateHz,
       channels: channels,
@@ -628,7 +628,7 @@ void main() {
     );
   });
 
-  test('audio metadata rides on the playback state and stays there', () {
+  test('the browser reports its own output as the device format', () {
     final h = Harness()..playing('t1');
     h.backend.format(
       sampleRateHz: 48000,
@@ -639,22 +639,26 @@ void main() {
     final changed = h.last.playbackStateChanged;
     expect(changed.state, pb.PlaybackState.PLAYBACK_STATE_PLAYING);
     expect(changed.sourceToken, 't1');
-    expect(changed.format.sampleRateHz, 48000);
-    expect(changed.format.channels, 2);
-    expect(changed.format.bitsPerSample, 32);
+    expect(changed.deviceFormat.sampleRateHz, 48000);
+    expect(changed.deviceFormat.channels, 2);
+    expect(changed.deviceFormat.bitsPerSample, 32);
+    // HTMLMediaElement never says what it decoded, so there is no stream
+    // format to claim — the 48 kHz above is the browser's, not the file's.
+    expect(changed.hasFormat(), isFalse);
     // Reported as it is, with no sample rate to divide back out.
-    expect(changed.format.durationMs.toInt(), 123456);
+    expect(changed.durationMs.toInt(), 123456);
 
-    // Every later state restates it, so a Core never has to remember one.
+    // Every later state restates them, so a Core never has to remember one.
     h.backend.paused();
     expect(
       h.last.playbackStateChanged.state,
       pb.PlaybackState.PLAYBACK_STATE_PAUSED,
     );
-    expect(h.last.playbackStateChanged.format.sampleRateHz, 48000);
+    expect(h.last.playbackStateChanged.deviceFormat.sampleRateHz, 48000);
 
     h.command(pb.Command()..requestSnapshot = pb.RequestSnapshot());
-    expect(h.last.stateSnapshot.format.durationMs.toInt(), 123456);
+    expect(h.last.stateSnapshot.deviceFormat.sampleRateHz, 48000);
+    expect(h.last.stateSnapshot.durationMs.toInt(), 123456);
   });
 
   test('request_snapshot describes source, queue and position', () {

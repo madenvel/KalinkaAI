@@ -69,7 +69,7 @@ class HtmlAudioBackend implements RendererAudioBackend {
         final sampleRate = context?.sampleRate.round() ?? 48000;
         final channels = context?.destination.channelCount ?? 2;
         _events.add(
-          BackendAudioFormat(
+          BackendDeviceFormat(
             generation,
             sampleRateHz: sampleRate,
             channels: channels,
