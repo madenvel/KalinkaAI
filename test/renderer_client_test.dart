@@ -628,7 +628,7 @@ void main() {
     );
   });
 
-  test('audio metadata emits format and is retained in snapshots', () {
+  test('audio metadata rides on the playback state and stays there', () {
     final h = Harness()..playing('t1');
     h.backend.format(
       sampleRateHz: 48000,
@@ -636,13 +636,22 @@ void main() {
       bitsPerSample: 32,
       durationMs: 123456,
     );
-    final changed = h.last.audioFormatChanged;
+    final changed = h.last.playbackStateChanged;
+    expect(changed.state, pb.PlaybackState.PLAYBACK_STATE_PLAYING);
     expect(changed.sourceToken, 't1');
     expect(changed.format.sampleRateHz, 48000);
     expect(changed.format.channels, 2);
     expect(changed.format.bitsPerSample, 32);
     // Reported as it is, with no sample rate to divide back out.
     expect(changed.format.durationMs.toInt(), 123456);
+
+    // Every later state restates it, so a Core never has to remember one.
+    h.backend.paused();
+    expect(
+      h.last.playbackStateChanged.state,
+      pb.PlaybackState.PLAYBACK_STATE_PAUSED,
+    );
+    expect(h.last.playbackStateChanged.format.sampleRateHz, 48000);
 
     h.command(pb.Command()..requestSnapshot = pb.RequestSnapshot());
     expect(h.last.stateSnapshot.format.durationMs.toInt(), 123456);

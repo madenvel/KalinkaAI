@@ -26,7 +26,6 @@ enum Envelope_Payload {
   stateSnapshot,
   playbackStateChanged,
   sourceChanged,
-  audioFormatChanged,
   volumeChanged,
   playbackError,
   commandRejected,
@@ -53,7 +52,6 @@ class Envelope extends $pb.GeneratedMessage {
     StateSnapshot? stateSnapshot,
     PlaybackStateChanged? playbackStateChanged,
     SourceChanged? sourceChanged,
-    AudioFormatChanged? audioFormatChanged,
     VolumeChanged? volumeChanged,
     PlaybackError? playbackError,
     CommandRejected? commandRejected,
@@ -78,8 +76,6 @@ class Envelope extends $pb.GeneratedMessage {
     if (playbackStateChanged != null)
       result.playbackStateChanged = playbackStateChanged;
     if (sourceChanged != null) result.sourceChanged = sourceChanged;
-    if (audioFormatChanged != null)
-      result.audioFormatChanged = audioFormatChanged;
     if (volumeChanged != null) result.volumeChanged = volumeChanged;
     if (playbackError != null) result.playbackError = playbackError;
     if (commandRejected != null) result.commandRejected = commandRejected;
@@ -111,7 +107,6 @@ class Envelope extends $pb.GeneratedMessage {
     1001: Envelope_Payload.stateSnapshot,
     1002: Envelope_Payload.playbackStateChanged,
     1003: Envelope_Payload.sourceChanged,
-    1004: Envelope_Payload.audioFormatChanged,
     1005: Envelope_Payload.volumeChanged,
     1008: Envelope_Payload.playbackError,
     1009: Envelope_Payload.commandRejected,
@@ -138,7 +133,6 @@ class Envelope extends $pb.GeneratedMessage {
       1001,
       1002,
       1003,
-      1004,
       1005,
       1008,
       1009,
@@ -169,8 +163,6 @@ class Envelope extends $pb.GeneratedMessage {
         subBuilder: PlaybackStateChanged.create)
     ..aOM<SourceChanged>(1003, _omitFieldNames ? '' : 'sourceChanged',
         subBuilder: SourceChanged.create)
-    ..aOM<AudioFormatChanged>(1004, _omitFieldNames ? '' : 'audioFormatChanged',
-        subBuilder: AudioFormatChanged.create)
     ..aOM<VolumeChanged>(1005, _omitFieldNames ? '' : 'volumeChanged',
         subBuilder: VolumeChanged.create)
     ..aOM<PlaybackError>(1008, _omitFieldNames ? '' : 'playbackError',
@@ -223,7 +215,6 @@ class Envelope extends $pb.GeneratedMessage {
   @$pb.TagNumber(1001)
   @$pb.TagNumber(1002)
   @$pb.TagNumber(1003)
-  @$pb.TagNumber(1004)
   @$pb.TagNumber(1005)
   @$pb.TagNumber(1008)
   @$pb.TagNumber(1009)
@@ -243,7 +234,6 @@ class Envelope extends $pb.GeneratedMessage {
   @$pb.TagNumber(1001)
   @$pb.TagNumber(1002)
   @$pb.TagNumber(1003)
-  @$pb.TagNumber(1004)
   @$pb.TagNumber(1005)
   @$pb.TagNumber(1008)
   @$pb.TagNumber(1009)
@@ -339,172 +329,161 @@ class Envelope extends $pb.GeneratedMessage {
   @$pb.TagNumber(1003)
   SourceChanged ensureSourceChanged() => $_ensure(6);
 
-  @$pb.TagNumber(1004)
-  AudioFormatChanged get audioFormatChanged => $_getN(7);
-  @$pb.TagNumber(1004)
-  set audioFormatChanged(AudioFormatChanged value) => $_setField(1004, value);
-  @$pb.TagNumber(1004)
-  $core.bool hasAudioFormatChanged() => $_has(7);
-  @$pb.TagNumber(1004)
-  void clearAudioFormatChanged() => $_clearField(1004);
-  @$pb.TagNumber(1004)
-  AudioFormatChanged ensureAudioFormatChanged() => $_ensure(7);
-
   @$pb.TagNumber(1005)
-  VolumeChanged get volumeChanged => $_getN(8);
+  VolumeChanged get volumeChanged => $_getN(7);
   @$pb.TagNumber(1005)
   set volumeChanged(VolumeChanged value) => $_setField(1005, value);
   @$pb.TagNumber(1005)
-  $core.bool hasVolumeChanged() => $_has(8);
+  $core.bool hasVolumeChanged() => $_has(7);
   @$pb.TagNumber(1005)
   void clearVolumeChanged() => $_clearField(1005);
   @$pb.TagNumber(1005)
-  VolumeChanged ensureVolumeChanged() => $_ensure(8);
+  VolumeChanged ensureVolumeChanged() => $_ensure(7);
 
   @$pb.TagNumber(1008)
-  PlaybackError get playbackError => $_getN(9);
+  PlaybackError get playbackError => $_getN(8);
   @$pb.TagNumber(1008)
   set playbackError(PlaybackError value) => $_setField(1008, value);
   @$pb.TagNumber(1008)
-  $core.bool hasPlaybackError() => $_has(9);
+  $core.bool hasPlaybackError() => $_has(8);
   @$pb.TagNumber(1008)
   void clearPlaybackError() => $_clearField(1008);
   @$pb.TagNumber(1008)
-  PlaybackError ensurePlaybackError() => $_ensure(9);
+  PlaybackError ensurePlaybackError() => $_ensure(8);
 
   @$pb.TagNumber(1009)
-  CommandRejected get commandRejected => $_getN(10);
+  CommandRejected get commandRejected => $_getN(9);
   @$pb.TagNumber(1009)
   set commandRejected(CommandRejected value) => $_setField(1009, value);
   @$pb.TagNumber(1009)
-  $core.bool hasCommandRejected() => $_has(10);
+  $core.bool hasCommandRejected() => $_has(9);
   @$pb.TagNumber(1009)
   void clearCommandRejected() => $_clearField(1009);
   @$pb.TagNumber(1009)
-  CommandRejected ensureCommandRejected() => $_ensure(10);
+  CommandRejected ensureCommandRejected() => $_ensure(9);
 
   @$pb.TagNumber(1012)
-  SessionOpenResult get sessionOpenResult => $_getN(11);
+  SessionOpenResult get sessionOpenResult => $_getN(10);
   @$pb.TagNumber(1012)
   set sessionOpenResult(SessionOpenResult value) => $_setField(1012, value);
   @$pb.TagNumber(1012)
-  $core.bool hasSessionOpenResult() => $_has(11);
+  $core.bool hasSessionOpenResult() => $_has(10);
   @$pb.TagNumber(1012)
   void clearSessionOpenResult() => $_clearField(1012);
   @$pb.TagNumber(1012)
-  SessionOpenResult ensureSessionOpenResult() => $_ensure(11);
+  SessionOpenResult ensureSessionOpenResult() => $_ensure(10);
 
   @$pb.TagNumber(1014)
-  SessionClosed get sessionClosed => $_getN(12);
+  SessionClosed get sessionClosed => $_getN(11);
   @$pb.TagNumber(1014)
   set sessionClosed(SessionClosed value) => $_setField(1014, value);
   @$pb.TagNumber(1014)
-  $core.bool hasSessionClosed() => $_has(12);
+  $core.bool hasSessionClosed() => $_has(11);
   @$pb.TagNumber(1014)
   void clearSessionClosed() => $_clearField(1014);
   @$pb.TagNumber(1014)
-  SessionClosed ensureSessionClosed() => $_ensure(12);
+  SessionClosed ensureSessionClosed() => $_ensure(11);
 
   @$pb.TagNumber(1015)
-  ConfigSnapshot get configSnapshot => $_getN(13);
+  ConfigSnapshot get configSnapshot => $_getN(12);
   @$pb.TagNumber(1015)
   set configSnapshot(ConfigSnapshot value) => $_setField(1015, value);
   @$pb.TagNumber(1015)
-  $core.bool hasConfigSnapshot() => $_has(13);
+  $core.bool hasConfigSnapshot() => $_has(12);
   @$pb.TagNumber(1015)
   void clearConfigSnapshot() => $_clearField(1015);
   @$pb.TagNumber(1015)
-  ConfigSnapshot ensureConfigSnapshot() => $_ensure(13);
+  ConfigSnapshot ensureConfigSnapshot() => $_ensure(12);
 
   @$pb.TagNumber(1016)
-  ConfigResult get configResult => $_getN(14);
+  ConfigResult get configResult => $_getN(13);
   @$pb.TagNumber(1016)
   set configResult(ConfigResult value) => $_setField(1016, value);
   @$pb.TagNumber(1016)
-  $core.bool hasConfigResult() => $_has(14);
+  $core.bool hasConfigResult() => $_has(13);
   @$pb.TagNumber(1016)
   void clearConfigResult() => $_clearField(1016);
   @$pb.TagNumber(1016)
-  ConfigResult ensureConfigResult() => $_ensure(14);
+  ConfigResult ensureConfigResult() => $_ensure(13);
 
   /// core -> renderer: 2000-2999
   @$pb.TagNumber(2000)
-  Welcome get welcome => $_getN(15);
+  Welcome get welcome => $_getN(14);
   @$pb.TagNumber(2000)
   set welcome(Welcome value) => $_setField(2000, value);
   @$pb.TagNumber(2000)
-  $core.bool hasWelcome() => $_has(15);
+  $core.bool hasWelcome() => $_has(14);
   @$pb.TagNumber(2000)
   void clearWelcome() => $_clearField(2000);
   @$pb.TagNumber(2000)
-  Welcome ensureWelcome() => $_ensure(15);
+  Welcome ensureWelcome() => $_ensure(14);
 
   @$pb.TagNumber(2001)
-  Command get command => $_getN(16);
+  Command get command => $_getN(15);
   @$pb.TagNumber(2001)
   set command(Command value) => $_setField(2001, value);
   @$pb.TagNumber(2001)
-  $core.bool hasCommand() => $_has(16);
+  $core.bool hasCommand() => $_has(15);
   @$pb.TagNumber(2001)
   void clearCommand() => $_clearField(2001);
   @$pb.TagNumber(2001)
-  Command ensureCommand() => $_ensure(16);
+  Command ensureCommand() => $_ensure(15);
 
   @$pb.TagNumber(2003)
-  SessionOpen get sessionOpen => $_getN(17);
+  SessionOpen get sessionOpen => $_getN(16);
   @$pb.TagNumber(2003)
   set sessionOpen(SessionOpen value) => $_setField(2003, value);
   @$pb.TagNumber(2003)
-  $core.bool hasSessionOpen() => $_has(17);
+  $core.bool hasSessionOpen() => $_has(16);
   @$pb.TagNumber(2003)
   void clearSessionOpen() => $_clearField(2003);
   @$pb.TagNumber(2003)
-  SessionOpen ensureSessionOpen() => $_ensure(17);
+  SessionOpen ensureSessionOpen() => $_ensure(16);
 
   @$pb.TagNumber(2004)
-  SessionClose get sessionClose => $_getN(18);
+  SessionClose get sessionClose => $_getN(17);
   @$pb.TagNumber(2004)
   set sessionClose(SessionClose value) => $_setField(2004, value);
   @$pb.TagNumber(2004)
-  $core.bool hasSessionClose() => $_has(18);
+  $core.bool hasSessionClose() => $_has(17);
   @$pb.TagNumber(2004)
   void clearSessionClose() => $_clearField(2004);
   @$pb.TagNumber(2004)
-  SessionClose ensureSessionClose() => $_ensure(18);
+  SessionClose ensureSessionClose() => $_ensure(17);
 
   @$pb.TagNumber(2005)
-  ConfigRequest get configRequest => $_getN(19);
+  ConfigRequest get configRequest => $_getN(18);
   @$pb.TagNumber(2005)
   set configRequest(ConfigRequest value) => $_setField(2005, value);
   @$pb.TagNumber(2005)
-  $core.bool hasConfigRequest() => $_has(19);
+  $core.bool hasConfigRequest() => $_has(18);
   @$pb.TagNumber(2005)
   void clearConfigRequest() => $_clearField(2005);
   @$pb.TagNumber(2005)
-  ConfigRequest ensureConfigRequest() => $_ensure(19);
+  ConfigRequest ensureConfigRequest() => $_ensure(18);
 
   @$pb.TagNumber(2006)
-  ConfigUpdate get configUpdate => $_getN(20);
+  ConfigUpdate get configUpdate => $_getN(19);
   @$pb.TagNumber(2006)
   set configUpdate(ConfigUpdate value) => $_setField(2006, value);
   @$pb.TagNumber(2006)
-  $core.bool hasConfigUpdate() => $_has(20);
+  $core.bool hasConfigUpdate() => $_has(19);
   @$pb.TagNumber(2006)
   void clearConfigUpdate() => $_clearField(2006);
   @$pb.TagNumber(2006)
-  ConfigUpdate ensureConfigUpdate() => $_ensure(20);
+  ConfigUpdate ensureConfigUpdate() => $_ensure(19);
 
   /// either direction
   @$pb.TagNumber(3000)
-  Goodbye get goodbye => $_getN(21);
+  Goodbye get goodbye => $_getN(20);
   @$pb.TagNumber(3000)
   set goodbye(Goodbye value) => $_setField(3000, value);
   @$pb.TagNumber(3000)
-  $core.bool hasGoodbye() => $_has(21);
+  $core.bool hasGoodbye() => $_has(20);
   @$pb.TagNumber(3000)
   void clearGoodbye() => $_clearField(3000);
   @$pb.TagNumber(3000)
-  Goodbye ensureGoodbye() => $_ensure(21);
+  Goodbye ensureGoodbye() => $_ensure(20);
 }
 
 class ProtocolVersionRange extends $pb.GeneratedMessage {
@@ -2660,6 +2639,7 @@ class PlaybackStateChanged extends $pb.GeneratedMessage {
     $core.String? sourceToken,
     $fixnum.Int64? atUnixMs,
     ErrorInfo? error,
+    AudioFormat? format,
   }) {
     final result = create();
     if (state != null) result.state = state;
@@ -2668,6 +2648,7 @@ class PlaybackStateChanged extends $pb.GeneratedMessage {
     if (sourceToken != null) result.sourceToken = sourceToken;
     if (atUnixMs != null) result.atUnixMs = atUnixMs;
     if (error != null) result.error = error;
+    if (format != null) result.format = format;
     return result;
   }
 
@@ -2695,6 +2676,8 @@ class PlaybackStateChanged extends $pb.GeneratedMessage {
     ..aInt64(5, _omitFieldNames ? '' : 'atUnixMs')
     ..aOM<ErrorInfo>(6, _omitFieldNames ? '' : 'error',
         subBuilder: ErrorInfo.create)
+    ..aOM<AudioFormat>(7, _omitFieldNames ? '' : 'format',
+        subBuilder: AudioFormat.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2774,6 +2757,19 @@ class PlaybackStateChanged extends $pb.GeneratedMessage {
   void clearError() => $_clearField(6);
   @$pb.TagNumber(6)
   ErrorInfo ensureError() => $_ensure(5);
+
+  /// Restated every time, so a Core replaces rather than merges: absent means
+  /// nothing is decoded, never that the format is unchanged.
+  @$pb.TagNumber(7)
+  AudioFormat get format => $_getN(6);
+  @$pb.TagNumber(7)
+  set format(AudioFormat value) => $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasFormat() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearFormat() => $_clearField(7);
+  @$pb.TagNumber(7)
+  AudioFormat ensureFormat() => $_ensure(6);
 }
 
 /// Emitted on AudioGraphNodeState::SOURCE_CHANGED — the gapless crossover.
@@ -2855,76 +2851,6 @@ class SourceChanged extends $pb.GeneratedMessage {
   $core.bool hasAtUnixMs() => $_has(2);
   @$pb.TagNumber(3)
   void clearAtUnixMs() => $_clearField(3);
-}
-
-class AudioFormatChanged extends $pb.GeneratedMessage {
-  factory AudioFormatChanged({
-    $core.String? sourceToken,
-    AudioFormat? format,
-  }) {
-    final result = create();
-    if (sourceToken != null) result.sourceToken = sourceToken;
-    if (format != null) result.format = format;
-    return result;
-  }
-
-  AudioFormatChanged._();
-
-  factory AudioFormatChanged.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory AudioFormatChanged.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'AudioFormatChanged',
-      package:
-          const $pb.PackageName(_omitMessageNames ? '' : 'kalinka.renderer.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'sourceToken')
-    ..aOM<AudioFormat>(2, _omitFieldNames ? '' : 'format',
-        subBuilder: AudioFormat.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  AudioFormatChanged clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  AudioFormatChanged copyWith(void Function(AudioFormatChanged) updates) =>
-      super.copyWith((message) => updates(message as AudioFormatChanged))
-          as AudioFormatChanged;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static AudioFormatChanged create() => AudioFormatChanged._();
-  @$core.override
-  AudioFormatChanged createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static AudioFormatChanged getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<AudioFormatChanged>(create);
-  static AudioFormatChanged? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get sourceToken => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set sourceToken($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasSourceToken() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearSourceToken() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  AudioFormat get format => $_getN(1);
-  @$pb.TagNumber(2)
-  set format(AudioFormat value) => $_setField(2, value);
-  @$pb.TagNumber(2)
-  $core.bool hasFormat() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearFormat() => $_clearField(2);
-  @$pb.TagNumber(2)
-  AudioFormat ensureFormat() => $_ensure(1);
 }
 
 class VolumeChanged extends $pb.GeneratedMessage {

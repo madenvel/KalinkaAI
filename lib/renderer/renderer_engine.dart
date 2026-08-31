@@ -375,12 +375,12 @@ class RendererEngine {
           ..sampleFormat = sampleFormat
           ..durationMs = Int64(durationMs);
         _format = format;
-        _emitSession(
-          pb.Envelope()
-            ..audioFormatChanged = (pb.AudioFormatChanged()
-              ..sourceToken = token
-              ..format = format),
-        );
+        // No message of its own any more, so restate the state it belongs to.
+        // Never an error state: replaying one would restate the failure.
+        if (_lastState != pb.PlaybackState.PLAYBACK_STATE_UNSPECIFIED &&
+            _lastState != pb.PlaybackState.PLAYBACK_STATE_ERROR) {
+          _emitState(_lastState, token);
+        }
       case BackendEnded():
         if (token == null) return;
         if (_queued.isNotEmpty) {
@@ -425,6 +425,8 @@ class RendererEngine {
           state == pb.PlaybackState.PLAYBACK_STATE_PAUSED
       ..atUnixMs = _now();
     if (token != null) message.sourceToken = token;
+    final format = _format;
+    if (format != null) message.format = format;
     _emitSession(pb.Envelope()..playbackStateChanged = message);
   }
 
