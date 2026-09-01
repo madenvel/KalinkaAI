@@ -63,20 +63,22 @@ class HtmlAudioBackend implements RendererAudioBackend {
       }
     });
     _listen(element, 'loadedmetadata', (_) {
-      final duration = element.duration;
-      if (duration.isFinite && duration >= 0) {
-        final context = _formatContext;
-        final sampleRate = context?.sampleRate.round() ?? 48000;
-        final channels = context?.destination.channelCount ?? 2;
+      final context = _formatContext;
+      if (context != null) {
         _events.add(
           BackendDeviceFormat(
             generation,
-            sampleRateHz: sampleRate,
-            channels: channels,
+            sampleRateHz: context.sampleRate.round(),
+            channels: context.destination.channelCount,
             bitsPerSample: 32,
             sampleFormat: 'FLOAT32',
-            durationMs: (duration * 1000).round(),
           ),
+        );
+      }
+      final duration = element.duration;
+      if (duration.isFinite && duration >= 0) {
+        _events.add(
+          BackendDuration(generation, durationMs: (duration * 1000).round()),
         );
       }
       final offset = _pendingOffsetMs;

@@ -88,7 +88,6 @@ class FakeBackend implements RendererAudioBackend {
     int channels = 2,
     int bitsPerSample = 32,
     String sampleFormat = 'FLOAT32',
-    int durationMs = 300000,
     int? forGeneration,
   }) => emit(
     BackendDeviceFormat(
@@ -97,9 +96,10 @@ class FakeBackend implements RendererAudioBackend {
       channels: channels,
       bitsPerSample: bitsPerSample,
       sampleFormat: sampleFormat,
-      durationMs: durationMs,
     ),
   );
+  void duration({int durationMs = 300000, int? forGeneration}) =>
+      emit(BackendDuration(forGeneration ?? generation, durationMs: durationMs));
 }
 
 const identity = RendererIdentity(
@@ -630,12 +630,8 @@ void main() {
 
   test('the browser reports its own output as the device format', () {
     final h = Harness()..playing('t1');
-    h.backend.format(
-      sampleRateHz: 48000,
-      channels: 2,
-      bitsPerSample: 32,
-      durationMs: 123456,
-    );
+    h.backend.format(sampleRateHz: 48000, channels: 2, bitsPerSample: 32);
+    h.backend.duration(durationMs: 123456);
     final changed = h.last.playbackStateChanged;
     expect(changed.state, pb.PlaybackState.PLAYBACK_STATE_PLAYING);
     expect(changed.sourceToken, 't1');
@@ -648,7 +644,7 @@ void main() {
     // format to claim — the 48 kHz above is the browser's, not the file's.
     expect(changed.hasFormat(), isFalse);
     // Reported as it is, with no sample rate to divide back out.
-    expect(changed.durationMs.toInt(), 123456);
+    expect(h.last.playbackStateChanged.durationMs.toInt(), 123456);
 
     // Every later state restates them, so a Core never has to remember one.
     h.backend.paused();
@@ -661,6 +657,16 @@ void main() {
     h.command(pb.Command()..requestSnapshot = pb.RequestSnapshot());
     expect(h.last.stateSnapshot.deviceInfo.format.sampleRateHz, 48000);
     expect(h.last.stateSnapshot.durationMs.toInt(), 123456);
+  });
+
+  test('a stream of unknown length still reports the device', () {
+    final h = Harness()..playing('t1');
+    h.backend.format(sampleRateHz: 44100, channels: 2, bitsPerSample: 32);
+
+    final changed = h.last.playbackStateChanged;
+    expect(changed.deviceInfo.format.sampleRateHz, 44100);
+    // A live stream never learns its length; the device is known regardless.
+    expect(changed.hasDurationMs(), isFalse);
   });
 
   test('request_snapshot describes source, queue and position', () {
