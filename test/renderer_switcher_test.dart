@@ -399,6 +399,37 @@ void main() {
     expect(find.text('ALSA'), findsOneWidget);
   });
 
+  testWidgets('a renderer the server cannot talk to is shown but not usable', (
+    tester,
+  ) async {
+    // It is listed precisely so it can be reached and upgraded; tapping it
+    // would send playback somewhere it provably cannot arrive.
+    final api = _FakeApi();
+    api.renderers = [
+      RendererInfo.fromJson(const {
+        'renderer_id': 'r-old',
+        'friendly_name': 'Attic',
+        'status': 'connected',
+        'kind': 'native',
+        'compatible': false,
+        'platform': {'hostname': 'attic-pi', 'audio_backend': 'alsa'},
+      }),
+      ...api.renderers,
+    ];
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.cast));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Attic'), findsOneWidget);
+    expect(find.text('Needs upgrade · attic-pi · ALSA'), findsOneWidget);
+
+    await tester.tap(find.text('Attic'));
+    await tester.pumpAndSettle();
+    expect(api.selected, isEmpty, reason: 'playback must not be sent there');
+  });
+
   testWidgets('the app\'s own renderer is named "This browser"', (
     tester,
   ) async {

@@ -1556,6 +1556,11 @@ class RendererInfo {
   /// `native` for a device renderer, `web` for a browser one.
   final String kind;
 
+  /// False when the server speaks no protocol version this renderer does. It
+  /// stays listed — that listing is the handle on it — but it cannot play or
+  /// be configured until one side is upgraded.
+  final bool compatible;
+
   const RendererInfo({
     required this.rendererId,
     required this.friendlyName,
@@ -1565,6 +1570,7 @@ class RendererInfo {
     this.hostname = '',
     this.audioBackend = '',
     this.kind = '',
+    this.compatible = true,
   });
 
   bool get isConnected => status == 'connected';
@@ -1578,6 +1584,7 @@ class RendererInfo {
         hostname: hostname,
         audioBackend: audioBackend,
         kind: kind,
+        compatible: compatible,
       );
 
   factory RendererInfo.fromJson(Map<String, dynamic> json) {
@@ -1593,6 +1600,7 @@ class RendererInfo {
       hostname: platform['hostname']?.toString() ?? '',
       audioBackend: platform['audio_backend']?.toString() ?? '',
       kind: (json['kind'] ?? '') as String,
+      compatible: (json['compatible'] ?? true) as bool,
     );
   }
 }

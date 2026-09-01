@@ -352,6 +352,8 @@ const _backendLabels = {
 String rendererDetail(RendererInfo renderer, {bool isSelf = false}) {
   final parts = <String>[];
   if (!renderer.isConnected) parts.add('Offline');
+  // Leads for the same reason Offline does: it is why the row cannot be used.
+  if (!renderer.compatible) parts.add('Needs upgrade');
   final host = renderer.hostname;
   // Skipped when the name already carries it — most default to "… on <host>".
   if (host.isNotEmpty &&
@@ -384,15 +386,17 @@ class _RendererRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final connected = renderer.isConnected;
     final active = renderer.active;
     // Pinning an offline renderer leaves playback where it is, so those rows
-    // are shown for context but can't be chosen.
-    final canPlayHere = connected && !active;
-    // Settings are read from the renderer over its own socket, so an offline
-    // one has nothing to serve — but the renderer playback is already on is a
-    // perfectly good thing to configure.
-    final canConfigure = connected;
+    // are shown for context but can't be chosen. Nor can one the server has
+    // no protocol in common with: it is listed so it can be upgraded, and
+    // playback would never reach it.
+    final usable = renderer.isConnected && renderer.compatible;
+    final canPlayHere = usable && !active;
+    // Settings are read from the renderer over its own socket, so one that
+    // cannot answer has nothing to serve — but the renderer playback is
+    // already on is a perfectly good thing to configure.
+    final canConfigure = usable;
     final name = rendererDisplayName(renderer, isSelf: isSelf);
     final detail = rendererDetail(renderer, isSelf: isSelf);
 
@@ -401,7 +405,7 @@ class _RendererRow extends StatelessWidget {
       // to infer it from a tick.
       inMutuallyExclusiveGroup: true,
       selected: active,
-      enabled: connected,
+      enabled: usable,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
@@ -414,7 +418,7 @@ class _RendererRow extends StatelessWidget {
           ),
         ),
         child: Opacity(
-          opacity: connected ? 1.0 : 0.45,
+          opacity: usable ? 1.0 : 0.45,
           child: Material(
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(11),
