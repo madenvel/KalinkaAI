@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../utils/playback_utils.dart';
 import '../providers/source_modules_provider.dart';
+import 'bit_perfect_badge.dart';
 import 'play_pause_glyph.dart';
 import 'playback_progress_slider.dart';
 import 'renderer_switcher.dart';
@@ -292,13 +293,16 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
         if (showBadge) SourceBadge(entityId: currentTrack.id),
         if (attributionText.isNotEmpty) ...[
           if (showBadge) const SizedBox(width: 6),
-          Text(
-            attributionText,
-            style: KalinkaTextStyles.expandedAttribution,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          Flexible(
+            child: Text(
+              attributionText,
+              style: KalinkaTextStyles.expandedAttribution,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
+        const BitPerfectBadge(),
       ],
     );
   }

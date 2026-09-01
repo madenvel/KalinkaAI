@@ -1,0 +1,42 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../providers/bit_perfect_provider.dart';
+import '../theme/app_theme.dart';
+
+/// Says that playback reaches the output device untouched.
+///
+/// Shown only when that is certain, so its absence means "not established",
+/// not "altered" — nothing here is in a position to tell the two apart.
+class BitPerfectBadge extends ConsumerWidget {
+  const BitPerfectBadge({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(bitPerfectProvider)) return const SizedBox.shrink();
+
+    // The gap belongs to the badge: without it the row keeps a hole where a
+    // hidden badge would have been.
+    return Semantics(
+      label: 'Bit-perfect playback',
+      excludeSemantics: true,
+      child: Container(
+        margin: const EdgeInsets.only(left: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: KalinkaColors.statusOnlineSurface,
+          border: Border.all(
+            color: KalinkaColors.statusOnline.withValues(alpha: 0.30),
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          '1:1',
+          style: KalinkaTextStyles.bitPerfectBadge.copyWith(
+            color: KalinkaColors.statusOnline,
+          ),
+        ),
+      ),
+    );
+  }
+}

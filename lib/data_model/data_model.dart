@@ -38,17 +38,72 @@ extension PlayerStateTypeExtension on PlayerStateType {
   }
 }
 
+/// How a renderer holds its output device. Shared is not proof that anything
+/// alters the samples, only that nothing rules it out.
+enum DeviceAccess {
+  unknown,
+  exclusive,
+  shared;
+
+  static DeviceAccess fromJson(Object? value) => switch (value) {
+    'exclusive' => DeviceAccess.exclusive,
+    'shared' => DeviceAccess.shared,
+    _ => DeviceAccess.unknown,
+  };
+}
+
+/// What the output device runs at, against the stream decoded for it.
+class OutputInfo {
+  final int sampleRate;
+  final int bitsPerSample;
+  final int channels;
+  final DeviceAccess access;
+
+  /// Whether the decoded samples reach the device unaltered. Only half of
+  /// bit-perfection: the volume is reported with the device that applies it.
+  final bool losslessPath;
+
+  const OutputInfo({
+    this.sampleRate = 0,
+    this.bitsPerSample = 0,
+    this.channels = 0,
+    this.access = DeviceAccess.unknown,
+    this.losslessPath = false,
+  });
+
+  factory OutputInfo.fromJson(Map<String, dynamic> json) => OutputInfo(
+    sampleRate: json["sample_rate"] ?? 0,
+    bitsPerSample: json["bits_per_sample"] ?? 0,
+    channels: json["channels"] ?? 0,
+    access: DeviceAccess.fromJson(json["access"]),
+    losslessPath: json["lossless_path"] ?? false,
+  );
+
+  Map<String, dynamic> toJson() => {
+    "sample_rate": sampleRate,
+    "bits_per_sample": bitsPerSample,
+    "channels": channels,
+    "access": access.name,
+    "lossless_path": losslessPath,
+  };
+}
+
 class AudioInfo {
   int sampleRate;
   int bitsPerSample;
   int channels;
   int durationMs;
 
+  /// The device the stream is played out of; null on a server that does not
+  /// report one, or a renderer with none open.
+  OutputInfo? output;
+
   AudioInfo({
     this.sampleRate = 0,
     this.bitsPerSample = 0,
     this.channels = 0,
     this.durationMs = 0,
+    this.output,
   });
 
   factory AudioInfo.fromJson(Map<String, dynamic> json) => AudioInfo(
@@ -56,6 +111,7 @@ class AudioInfo {
     bitsPerSample: json["bits_per_sample"],
     channels: json["channels"],
     durationMs: json["duration_ms"],
+    output: json["output"] == null ? null : OutputInfo.fromJson(json["output"]),
   );
 
   Map<String, dynamic> toJson() => {
@@ -63,6 +119,7 @@ class AudioInfo {
     "bits_per_sample": bitsPerSample,
     "channels": channels,
     "duration_ms": durationMs,
+    "output": output?.toJson(),
   };
 }
 
@@ -183,17 +240,35 @@ class PlaybackState {
   }
 }
 
+/// Where a device applies its volume, and so whether it touches the samples.
+/// Only [software] does, and only below unity.
+enum VolumeBackend {
+  unknown,
+  none,
+  hardware,
+  software;
+
+  static VolumeBackend fromJson(Object? value) => switch (value) {
+    'none' => VolumeBackend.none,
+    'hardware' => VolumeBackend.hardware,
+    'software' => VolumeBackend.software,
+    _ => VolumeBackend.unknown,
+  };
+}
+
 class DeviceVolume {
   final int currentVolume;
   final int maxVolume;
   final int volumeGain;
   final bool supported;
+  final VolumeBackend backend;
 
   DeviceVolume({
     required this.currentVolume,
     required this.maxVolume,
     required this.volumeGain,
     required this.supported,
+    this.backend = VolumeBackend.unknown,
   });
 
   factory DeviceVolume.fromJson(Map<String, dynamic> json) => DeviceVolume(
@@ -201,6 +276,7 @@ class DeviceVolume {
     maxVolume: json["max_volume"],
     volumeGain: json["volume_gain"],
     supported: json["supported"],
+    backend: VolumeBackend.fromJson(json["backend"]),
   );
 
   static final empty = DeviceVolume(
@@ -215,6 +291,7 @@ class DeviceVolume {
     "max_volume": maxVolume,
     "volume_gain": volumeGain,
     "supported": supported,
+    "backend": backend.name,
   };
 
   DeviceVolume copyWith({
@@ -222,12 +299,14 @@ class DeviceVolume {
     int? maxVolume,
     int? volumeGain,
     bool? supported,
+    VolumeBackend? backend,
   }) {
     return DeviceVolume(
       currentVolume: currentVolume ?? this.currentVolume,
       maxVolume: maxVolume ?? this.maxVolume,
       volumeGain: volumeGain ?? this.volumeGain,
       supported: supported ?? this.supported,
+      backend: backend ?? this.backend,
     );
   }
 }
