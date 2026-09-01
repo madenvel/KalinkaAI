@@ -423,7 +423,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                   ),
                 ),
               ),
-              const BitPerfectBadge(),
+              if (currentTrack != null) const BitPerfectBadge(),
               const SizedBox(width: 4),
               // Outside the gesture area too, for the same reason as the play
               // button: the swipe recognizer must not steal its taps.
