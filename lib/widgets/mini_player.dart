@@ -12,6 +12,7 @@ import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../utils/playback_utils.dart';
+import 'bit_perfect_badge.dart';
 import 'gradient_progress_line.dart';
 import 'play_pause_glyph.dart';
 import 'procedural_album_art.dart';
@@ -422,6 +423,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer>
                   ),
                 ),
               ),
+              const BitPerfectBadge(),
               const SizedBox(width: 4),
               // Outside the gesture area too, for the same reason as the play
               // button: the swipe recognizer must not steal its taps.

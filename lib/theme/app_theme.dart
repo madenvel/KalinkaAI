@@ -346,6 +346,13 @@ class KalinkaTextStyles {
     color: KalinkaColors.textSecondary,
   );
 
+  static TextStyle bitPerfectBadge = KalinkaFonts.mono(
+    fontSize: KalinkaTypography.baseSize - 1,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.5,
+    height: 1,
+  );
+
   static TextStyle sourceBadgeLetter = KalinkaFonts.mono(
     fontSize: KalinkaTypography.baseSize + 1,
     fontWeight: FontWeight.w500,
