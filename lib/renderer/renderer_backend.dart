@@ -65,15 +65,14 @@ class BackendEnded extends BackendEvent {
   const BackendEnded(super.generation);
 }
 
-/// What the browser's own output runs at, and how long the source runs.
-/// HTMLMediaElement never exposes the format it decoded, so a browser
-/// renderer has a device format to report and no stream format.
+/// What the browser's own output runs at. HTMLMediaElement never exposes the
+/// format it decoded, so a browser renderer has this to report and no stream
+/// format. Emitted only when the browser will say — never invented.
 class BackendDeviceFormat extends BackendEvent {
   final int sampleRateHz;
   final int channels;
   final int bitsPerSample;
   final String sampleFormat;
-  final int durationMs;
 
   const BackendDeviceFormat(
     super.generation, {
@@ -81,8 +80,15 @@ class BackendDeviceFormat extends BackendEvent {
     required this.channels,
     required this.bitsPerSample,
     required this.sampleFormat,
-    required this.durationMs,
   });
+}
+
+/// How long the loaded source runs. Separate from the device, which is known
+/// for a live stream whose length never will be.
+class BackendDuration extends BackendEvent {
+  final int durationMs;
+
+  const BackendDuration(super.generation, {required this.durationMs});
 }
 
 /// The loaded source cannot play.

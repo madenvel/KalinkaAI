@@ -371,9 +371,8 @@ class RendererEngine {
         :final channels,
         :final bitsPerSample,
         :final sampleFormat,
-        :final durationMs,
       ):
-        if (token == null || sampleRateHz <= 0 || durationMs < 0) return;
+        if (token == null || sampleRateHz <= 0) return;
         _deviceInfo = pb.DeviceInfo()
           ..format = (pb.AudioFormat()
             ..sampleRateHz = sampleRateHz
@@ -383,13 +382,11 @@ class RendererEngine {
           // Web Audio resamples to the context rate and mixes with every
           // other tab; nothing here is ever the card on its own.
           ..access = pb.DeviceAccess.DEVICE_ACCESS_SHARED;
+        _restate(token);
+      case BackendDuration(:final durationMs):
+        if (token == null || durationMs < 0) return;
         _durationMs = durationMs;
-        // No message of its own any more, so restate the state it belongs to.
-        // Never an error state: replaying one would restate the failure.
-        if (_lastState != pb.PlaybackState.PLAYBACK_STATE_UNSPECIFIED &&
-            _lastState != pb.PlaybackState.PLAYBACK_STATE_ERROR) {
-          _emitState(_lastState, token);
-        }
+        _restate(token);
       case BackendEnded():
         if (token == null) return;
         if (_queued.isNotEmpty) {
@@ -422,6 +419,17 @@ class RendererEngine {
   }
 
   // ----------------------------------------------------------------- output
+
+  /// Neither the device nor the length has a message of its own, so restate
+  /// the state they ride on. Never an error state: replaying one would
+  /// restate the failure as if it were current.
+  void _restate(String token) {
+    if (_lastState == pb.PlaybackState.PLAYBACK_STATE_UNSPECIFIED ||
+        _lastState == pb.PlaybackState.PLAYBACK_STATE_ERROR) {
+      return;
+    }
+    _emitState(_lastState, token);
+  }
 
   void _emitState(pb.PlaybackState state, String? token, {int? positionMs}) {
     _lastState = state;

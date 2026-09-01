@@ -58,18 +58,20 @@ void main() {
     expect(failures.every((event) => event.generation == 2), isTrue);
   });
 
-  test(
-    'loaded metadata reports duration on the browser output timebase',
-    () async {
-      backend.play(uri: _finiteSilence, startOffsetMs: 0, generation: 7);
-      await Future<void>.delayed(const Duration(milliseconds: 400));
-      final format = events.whereType<BackendAudioFormat>().single;
-      expect(format.generation, 7);
-      expect(format.sampleRateHz, greaterThan(0));
-      expect(format.channels, greaterThan(0));
-      expect(format.durationMs, greaterThanOrEqualTo(0));
-    },
-  );
+  test('loaded metadata reports the browser output and the length', () async {
+    backend.play(uri: _finiteSilence, startOffsetMs: 0, generation: 7);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+
+    final device = events.whereType<BackendDeviceFormat>().single;
+    expect(device.generation, 7);
+    expect(device.sampleRateHz, greaterThan(0));
+    expect(device.channels, greaterThan(0));
+
+    // A separate event: a live stream reports the device and no length.
+    final duration = events.whereType<BackendDuration>().single;
+    expect(duration.generation, 7);
+    expect(duration.durationMs, greaterThanOrEqualTo(0));
+  });
 
   // Headless Chrome denies play before user interaction.
   test('an undisturbed refusal is still reported', () async {
