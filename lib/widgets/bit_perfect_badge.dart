@@ -33,7 +33,7 @@ class BitPerfectBadge extends ConsumerWidget {
         child: Text(
           '1:1',
           style: KalinkaTextStyles.bitPerfectBadge.copyWith(
-            color: KalinkaColors.statusOnline,
+            color: KalinkaColors.statusOnlineLight,
           ),
         ),
       ),

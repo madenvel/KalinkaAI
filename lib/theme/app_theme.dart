@@ -150,6 +150,12 @@ class KalinkaColors {
     0xFFE8B86A,
   ); // Use for text/icons on statusPendingSurface only
 
+  // Same reason as the amber above: statusOnline reads 3.9:1 on its own
+  // tinted surface, under the 4.5:1 normal-text floor.
+  static const statusOnlineLight = Color(
+    0xFF5FB07E,
+  ); // Use for text/icons on statusOnlineSurface only
+
   // ── Semantic — Actions ──────────────────────────────────────────────────
   // Destructive and confirmatory actions. Separate from status colours
   // because they appear in interactive controls (buttons, swipe actions)

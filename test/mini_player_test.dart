@@ -7,6 +7,7 @@ import 'package:kalinka/data_model/playqueue_events.dart';
 import 'package:kalinka/providers/app_state_provider.dart';
 import 'package:kalinka/providers/connection_state_provider.dart';
 import 'package:kalinka/providers/kalinka_ws_api_provider.dart';
+import 'package:kalinka/providers/bit_perfect_provider.dart';
 import 'package:kalinka/providers/playback_time_provider.dart';
 import 'package:kalinka/providers/renderer_provider.dart';
 import 'package:kalinka/providers/search_session_provider.dart';
@@ -306,6 +307,57 @@ void main() {
       expect(find.text('Stale Track'), findsNothing);
       expect(find.text('Stale Artist'), findsNothing);
       expect(find.text('No track'), findsOneWidget);
+    });
+
+    Future<void> pumpWithVerdict(WidgetTester tester, PlayQueueState state) =>
+        tester
+            .pumpWidget(
+              ProviderScope(
+                overrides: [
+                  ..._buildOverrides(queueState: state),
+                  bitPerfectProvider.overrideWithValue(true),
+                ],
+                child: const MaterialApp(home: Scaffold(body: MiniPlayer())),
+              ),
+            )
+            .then((_) => tester.pump());
+
+    testWidgets('does not claim bit-perfect playback beside "No track"',
+        (tester) async {
+      // audioInfo survives a queue clear the same way currentTrack does, so
+      // the verdict can still read true with nothing playing.
+      await pumpWithVerdict(
+        tester,
+        PlayQueueState(
+          playbackState: PlaybackState(state: PlayerStateType.stopped),
+          trackList: const [],
+          playbackMode: PlaybackMode.empty,
+          seq: 1,
+        ),
+      );
+
+      expect(find.text('No track'), findsOneWidget);
+      expect(find.text('1:1'), findsNothing);
+    });
+
+    testWidgets('shows the bit-perfect chip while a track is playing',
+        (tester) async {
+      final track = Track(id: 'tid', title: 'Playing', duration: 200);
+      await pumpWithVerdict(
+        tester,
+        PlayQueueState(
+          playbackState: PlaybackState(
+            state: PlayerStateType.playing,
+            currentTrack: track,
+            index: 0,
+          ),
+          trackList: [track],
+          playbackMode: PlaybackMode.empty,
+          seq: 1,
+        ),
+      );
+
+      expect(find.text('1:1'), findsOneWidget);
     });
 
     testWidgets('shows "No track" after playing track is removed from queue',
