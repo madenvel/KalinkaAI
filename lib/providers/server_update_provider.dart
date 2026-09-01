@@ -27,6 +27,9 @@ class ServerUpdateInfo {
 /// which is rebuilt from the connection settings. A `read` would instead pin the
 /// first server's answer for the container's lifetime. Resolves to null when the
 /// server predates the endpoint or the request fails — both mean "show nothing".
+/// Between switches the answer is cached for the session, so SettingsScreen
+/// invalidates it on open; the banner would otherwise keep showing a verdict
+/// taken before the release it is meant to announce.
 final serverUpdateProvider = FutureProvider<ServerUpdateInfo?>((ref) async {
   try {
     final info = await ref.watch(kalinkaProxyProvider).getServerUpdateInfo();
