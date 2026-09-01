@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/connection_state_provider.dart';
 import '../providers/restart_provider.dart';
+import '../providers/server_update_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/upgrade_provider.dart';
 import '../data_model/presentation_schema.dart' show PageSpec;
@@ -46,6 +47,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    // The release check resolves once and is cached for the app session, so
+    // an answer fetched minutes before a release would stand until restart.
+    ref.invalidate(serverUpdateProvider);
     // Load config
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(settingsProvider.notifier).loadConfig();
