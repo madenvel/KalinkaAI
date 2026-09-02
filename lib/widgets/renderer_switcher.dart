@@ -215,6 +215,7 @@ class RendererSwitcherDropdown extends ConsumerWidget {
 Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
   final notifier = ref.read(rendererListProvider.notifier);
   final route = ref.read(rendererSettingsRouteProvider.notifier);
+  final proxy = ref.read(kalinkaProxyProvider);
   final navigator = Navigator.of(context);
   // The sheet is anchored to the panel it was opened from, so its answers
   // belong over that panel too. Captured before the sheet's own context
@@ -259,7 +260,7 @@ Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
       );
       if (confirmed != true) return;
       try {
-        await ref.read(kalinkaProxyProvider).upgradeRenderer(choice.rendererId);
+        await proxy.upgradeRenderer(choice.rendererId);
         // It restarts and re-registers, and the renderer events bring the
         // list back with the new version — nothing to poll for here.
         say('${choice.rendererName} is upgrading and will reconnect');
@@ -437,6 +438,11 @@ class _RendererRow extends StatelessWidget {
     // already on is a perfectly good thing to configure.
     final canConfigure = usable;
     final offerUpgrade = renderer.updateAvailable;
+    // Kept where it will work again — an offline renderer comes back — but
+    // never on one the server cannot talk to, whose settings are unreachable
+    // until it is upgraded, and never beside an upgrade button: two targets
+    // where only one works is a trap.
+    final showGear = canConfigure || (renderer.compatible && !offerUpgrade);
     final name = rendererDisplayName(renderer, isSelf: isSelf);
     final detail = rendererDetail(renderer, isSelf: isSelf);
 
@@ -445,7 +451,9 @@ class _RendererRow extends StatelessWidget {
       // to infer it from a tick.
       inMutuallyExclusiveGroup: true,
       selected: active,
-      enabled: usable,
+      // The upgrade is a live control on a row that cannot be played; saying
+      // the row is dead would leave a screen reader with no way out of it.
+      enabled: usable || offerUpgrade,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
@@ -531,11 +539,12 @@ class _RendererRow extends StatelessWidget {
                     ),
                   ),
                   // Separate targets in one row: the rule is what says so.
-                  Container(
-                    width: 1,
-                    height: 26,
-                    color: KalinkaColors.borderSubtle,
-                  ),
+                  if (offerUpgrade || showGear)
+                    Container(
+                      width: 1,
+                      height: 26,
+                      color: KalinkaColors.borderSubtle,
+                    ),
                   if (offerUpgrade)
                     _UpgradeButton(
                       rendererName: name,
@@ -547,9 +556,7 @@ class _RendererRow extends StatelessWidget {
                         onIntent(RendererPickerIntent.upgrade);
                       },
                     ),
-                  // Dropped rather than shown dead: two targets where only
-                  // one works is a trap.
-                  if (canConfigure || !offerUpgrade)
+                  if (showGear)
                     _GearButton(
                       rendererName: name,
                       onTap: canConfigure

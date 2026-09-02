@@ -69,6 +69,10 @@ class UpgradeNotifier extends Notifier<UpgradeState> {
 
     try {
       await api.upgradeServer(version);
+    } on ServerUpgradeException catch (e) {
+      _logger.e('Upgrade request rejected', error: e);
+      state = state.copyWith(error: e.message);
+      return;
     } catch (e) {
       _logger.e('Upgrade request rejected', error: e);
       state = state.copyWith(error: 'The server rejected the upgrade request.');

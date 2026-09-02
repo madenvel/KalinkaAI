@@ -195,6 +195,15 @@ class RendererSwitchException implements Exception {
   String toString() => message;
 }
 
+/// The server would not upgrade itself. [message] is already fit to show.
+class ServerUpgradeException implements Exception {
+  final String message;
+  const ServerUpgradeException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 /// A renderer could not be upgraded. [message] is already fit to show.
 class RendererUpgradeException implements Exception {
   final String message;
@@ -726,13 +735,28 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
 
   @override
   Future<void> upgradeServer(String version) async {
-    final response = await client.put(
-      '/server/upgrade',
-      options: Options(contentType: Headers.jsonContentType),
-      data: jsonEncode({'version': version}),
-    );
-    if (response.statusCode != 200) {
-      throw Exception('Failed to upgrade server, url=${response.realUri}');
+    try {
+      final response = await client.put(
+        '/server/upgrade',
+        options: Options(contentType: Headers.jsonContentType),
+        data: jsonEncode({'version': version}),
+      );
+      if (response.statusCode != 200) {
+        throw const ServerUpgradeException(
+          'The server rejected the upgrade request',
+        );
+      }
+    } on DioException catch (e) {
+      // The server's own words when it gave any: renderers being brought
+      // forward first is a wait, not a failure, and only it can say so.
+      final detail = e.response?.data is Map
+          ? (e.response?.data['detail'] as String?)
+          : null;
+      throw ServerUpgradeException(
+        detail?.isNotEmpty == true
+            ? detail!
+            : 'The server rejected the upgrade request',
+      );
     }
   }
 
