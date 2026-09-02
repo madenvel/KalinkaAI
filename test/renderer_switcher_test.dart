@@ -443,10 +443,44 @@ void main() {
     await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.upgrade));
+    await tester.tap(find.byIcon(Icons.system_update_alt));
+    await tester.pumpAndSettle();
+    // It restarts the renderer, so it asks first.
+    expect(find.text('Upgrade Attic?'), findsOneWidget);
+    await tester.tap(find.text('Upgrade'));
     await tester.pumpAndSettle();
 
     expect(api.upgraded, ['r-old']);
+  });
+
+  testWidgets('tapping a renderer that cannot play offers the upgrade', (
+    tester,
+  ) async {
+    // Doing nothing at all reads as a broken app rather than as a renderer
+    // that needs new software.
+    final api = _FakeApi();
+    api.renderers = [
+      RendererInfo.fromJson(const {
+        'renderer_id': 'r-old',
+        'friendly_name': 'Attic',
+        'status': 'connected',
+        'kind': 'native',
+        'compatible': false,
+        'update_available': true,
+      }),
+    ];
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.cast));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Attic'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Upgrade Attic?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(api.upgraded, isEmpty, reason: 'cancel means cancel');
   });
 
   testWidgets('no upgrade button without a release to install', (
@@ -461,7 +495,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.upgrade), findsNothing);
+    expect(find.byIcon(Icons.system_update_alt), findsNothing);
   });
 
   testWidgets('a renderer that needs upgrading offers only that', (
@@ -486,7 +520,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.upgrade), findsOneWidget);
+    expect(find.byIcon(Icons.system_update_alt), findsOneWidget);
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
   });
 
@@ -509,7 +543,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.upgrade), findsOneWidget);
+    expect(find.byIcon(Icons.system_update_alt), findsOneWidget);
     expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
   });
 
@@ -535,7 +569,9 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.upgrade));
+    await tester.tap(find.byIcon(Icons.system_update_alt));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Upgrade'));
     await tester.pumpAndSettle();
 
     expect(
