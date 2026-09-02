@@ -14,6 +14,8 @@ import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import 'kalinka_bottom_sheet.dart';
+import 'kalinka_dialog.dart' show showKalinkaDialog;
+import 'renderer_upgrade_dialog.dart';
 import 'sheet_anchor.dart';
 import 'transport_button.dart';
 
@@ -30,10 +32,15 @@ class RendererPickerChoice {
   final String rendererName;
   final RendererPickerIntent intent;
 
+  /// The renderer cannot play until it is upgraded, as opposed to merely
+  /// having a newer release waiting. Only the wording depends on it.
+  final bool blocked;
+
   const RendererPickerChoice({
     required this.rendererId,
     required this.rendererName,
     required this.intent,
+    this.blocked = false,
   });
 }
 
@@ -239,6 +246,15 @@ Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
         toast.show('Couldn’t switch output', isError: true, inPanel: inPanel);
       }
     case RendererPickerIntent.upgrade:
+      if (!navigator.mounted) return;
+      final confirmed = await showKalinkaDialog<bool>(
+        context: navigator.context,
+        builder: (_) => RendererUpgradeDialog(
+          rendererName: choice.rendererName,
+          blocked: choice.blocked,
+        ),
+      );
+      if (confirmed != true) return;
       try {
         await ref.read(kalinkaProxyProvider).upgradeRenderer(choice.rendererId);
         // It restarts to apply and re-registers itself; the renderer events
@@ -299,6 +315,7 @@ class RendererPickerContent extends ConsumerWidget {
                       isSelf: renderers[i].rendererId == ownId,
                     ),
                     intent: intent,
+                    blocked: !renderers[i].compatible,
                   ),
                 ),
               ),
@@ -456,10 +473,18 @@ class _RendererRow extends StatelessWidget {
               // highlight stays a circle.
               Positioned.fill(
                 child: InkWell(
+                  // A row that cannot play but can be upgraded taps into the
+                  // upgrade: doing nothing at all reads as a broken app rather
+                  // than as a renderer that needs new software.
                   onTap: canPlayHere
                       ? () {
                           KalinkaHaptics.selectionClick();
                           onIntent(RendererPickerIntent.play);
+                        }
+                      : (offerUpgrade && !usable)
+                      ? () {
+                          KalinkaHaptics.selectionClick();
+                          onIntent(RendererPickerIntent.upgrade);
                         }
                       : null,
                 ),
@@ -612,9 +637,9 @@ class _UpgradeButton extends StatelessWidget {
               width: 48,
               height: 48,
               child: Icon(
-                // Upwards: this replaces the software with a newer one, where
-                // a downward arrow is what a download looks like.
-                Icons.upgrade,
+                // The glyph the server's own update dialog uses; the two
+                // upgrades should not look like different things.
+                Icons.system_update_alt,
                 size: 19,
                 color: urgent
                     ? KalinkaColors.statusPending

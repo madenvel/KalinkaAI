@@ -918,13 +918,23 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
         throw const RendererSwitchException('Couldn’t switch output');
       }
     } on DioException catch (e) {
-      throw RendererSwitchException(switch (e.response?.statusCode) {
-        404 => 'That output is no longer available',
-        409 => 'That output is already playing for someone else',
-        503 => 'That output isn’t connected',
-        504 => 'That output didn’t respond',
-        _ => 'Couldn’t switch output',
-      });
+      // The server's own words when it gave any: it knows which of several
+      // reasons applies — busy, gone, or too old to be driven — and the
+      // guesses below cannot tell them apart.
+      final detail = e.response?.data is Map
+          ? (e.response?.data['detail'] as String?)
+          : null;
+      throw RendererSwitchException(
+        detail?.isNotEmpty == true
+            ? detail!
+            : switch (e.response?.statusCode) {
+                404 => 'That output is no longer available',
+                409 => 'That output is already playing for someone else',
+                503 => 'That output isn’t connected',
+                504 => 'That output didn’t respond',
+                _ => 'Couldn’t switch output',
+              },
+      );
     }
   }
 
