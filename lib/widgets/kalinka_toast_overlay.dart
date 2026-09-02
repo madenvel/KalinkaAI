@@ -104,6 +104,13 @@ class KalinkaToastHost extends ConsumerWidget {
 
   const KalinkaToastHost({super.key, required this.child});
 
+  /// Above the navigator there is no [Material] in scope, and [MaterialApp]
+  /// fills that gap with a debug style — its decoration draws a yellow double
+  /// underline through any text that doesn't set one of its own.
+  static Widget _layer(Widget overlay) => IgnorePointer(
+    child: Material(type: MaterialType.transparency, child: overlay),
+  );
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final inset = ref.watch(toastBottomInsetProvider);
@@ -118,8 +125,8 @@ class KalinkaToastHost extends ConsumerWidget {
               Positioned(
                 right: 20,
                 bottom: inset,
-                child: const IgnorePointer(
-                  child: SizedBox(
+                child: _layer(
+                  const SizedBox(
                     width: 300,
                     child: KalinkaToastOverlay(
                       isTablet: true,
@@ -133,9 +140,7 @@ class KalinkaToastHost extends ConsumerWidget {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: IgnorePointer(
-                  child: KalinkaToastOverlay(bottomOffset: inset),
-                ),
+                child: _layer(KalinkaToastOverlay(bottomOffset: inset)),
               ),
           ],
         );

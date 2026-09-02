@@ -124,6 +124,25 @@ void main() {
     await _retireToast(tester);
   });
 
+  // Hosted outside the navigator there is no Material in scope, and MaterialApp
+  // fills that gap with a debug style — 48pt red monospace under a yellow
+  // double underline. Our own style overrides everything but the decoration,
+  // so the underline is what shows up.
+  testWidgets('toast text is styled, not left to the debug fallback', (
+    tester,
+  ) async {
+    final toasts = await _pumpApp(tester);
+
+    toasts.read(toastProvider.notifier).show(_busy, isError: true);
+    await tester.pumpAndSettle();
+
+    final span =
+        tester.renderObject<RenderParagraph>(find.text(_busy)).text as TextSpan;
+    expect(span.style?.decoration ?? TextDecoration.none, TextDecoration.none);
+    expect(span.style?.fontFamily, KalinkaFonts.sansFamily);
+    await _retireToast(tester);
+  });
+
   testWidgets('a success toast keeps the quiet surface and its dot', (
     tester,
   ) async {
