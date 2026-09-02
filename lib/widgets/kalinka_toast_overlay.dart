@@ -184,9 +184,8 @@ class _ToastCardState extends State<_ToastCard>
               // Message
               Flexible(
                 child: Text(
-                  // Wrapped rather than clipped: a refusal that explains
-                  // itself is worth two lines more than it is worth an
-                  // ellipsis over the half that says why.
+                  // Wrapped, not clipped: an ellipsis lands on the half
+                  // that says why.
                   widget.entry.message,
                   style: KalinkaTextStyles.toastText,
                 ),
