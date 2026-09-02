@@ -156,4 +156,33 @@ void main() {
       expect(preEvents.renderers, isNull);
     });
   });
+
+  group('PlaybackStateChangedEvent apply', () {
+    // The server sends a whole state each time, and reports no URL once the
+    // renderer is holding nothing — so the last one has to go.
+    test('a state reporting no stream URL clears the one before it', () {
+      final playing = _stateWith([Track(id: 'a', title: 'A', duration: 10)])
+          .apply(
+            PlayQueueEvent.playbackStateChanged(
+              state: PlaybackState(
+                state: PlayerStateType.playing,
+                streamUrl: 'http://server/content/localfiles/a',
+              ),
+              seq: 1,
+            ),
+            0,
+          );
+      expect(playing.playbackState.streamUrl, isNotNull);
+
+      final stopped = playing.apply(
+        PlayQueueEvent.playbackStateChanged(
+          state: PlaybackState(state: PlayerStateType.stopped),
+          seq: 2,
+        ),
+        0,
+      );
+
+      expect(stopped.playbackState.streamUrl, isNull);
+    });
+  });
 }
