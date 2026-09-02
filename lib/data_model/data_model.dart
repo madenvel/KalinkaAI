@@ -161,6 +161,10 @@ class PlaybackState {
   String? message;
   AudioInfo? audioInfo;
   String? mimeType;
+
+  /// Where the renderer is fetching the current stream from. Null on a server
+  /// that does not report it, and while nothing is loaded.
+  String? streamUrl;
   int timestampNs = 0;
 
   PlaybackState({
@@ -171,6 +175,7 @@ class PlaybackState {
     this.message,
     this.audioInfo,
     this.mimeType,
+    this.streamUrl,
     this.timestampNs = 0,
   });
 
@@ -190,6 +195,7 @@ class PlaybackState {
         ? null
         : AudioInfo.fromJson(json["audio_info"]),
     mimeType: json["mime_type"],
+    streamUrl: json["stream_url"],
     timestampNs: json["timestamp_ns"] ?? 0,
   );
 
@@ -201,6 +207,7 @@ class PlaybackState {
     "message": message,
     "audio_info": audioInfo?.toJson(),
     "mime_type": mimeType,
+    "stream_url": streamUrl,
     "timestamp_ns": timestampNs,
   };
 
@@ -213,6 +220,7 @@ class PlaybackState {
       message: other.message ?? message,
       audioInfo: other.audioInfo ?? audioInfo,
       mimeType: other.mimeType ?? mimeType,
+      streamUrl: other.streamUrl ?? streamUrl,
       timestampNs: other.timestampNs != 0 ? other.timestampNs : timestampNs,
     );
   }
@@ -225,6 +233,7 @@ class PlaybackState {
     String? message,
     AudioInfo? audioInfo,
     String? mimeType,
+    String? streamUrl,
     int? timestampNs,
   }) {
     return PlaybackState(
@@ -235,6 +244,7 @@ class PlaybackState {
       message: message ?? this.message,
       audioInfo: audioInfo ?? this.audioInfo,
       mimeType: mimeType ?? this.mimeType,
+      streamUrl: streamUrl ?? this.streamUrl,
       timestampNs: timestampNs ?? this.timestampNs,
     );
   }

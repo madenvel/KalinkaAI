@@ -16,6 +16,7 @@ import 'renderer_switcher.dart';
 import 'transport_button.dart';
 import 'procedural_album_art.dart';
 import 'source_badge.dart';
+import 'stream_info_dialog.dart';
 import 'volume_control_slider.dart';
 
 /// Core now-playing UI: album art, track info, transport controls, volume.
@@ -348,7 +349,13 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                 ),
                 const Align(
                   alignment: Alignment.centerRight,
-                  child: RendererSwitcherButton(hitDiameter: 36, iconSize: 20),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      StreamInfoButton(),
+                      RendererSwitcherButton(hitDiameter: 36, iconSize: 20),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -369,6 +376,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
                 style: KalinkaTextStyles.nowPlayingLabel,
               ),
             ),
+            const StreamInfoButton(),
             RendererSwitcherDropdown(key: widget.outputSwitcherKey),
           ],
         ),
@@ -384,7 +392,13 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
           Text('NOW PLAYING', style: KalinkaTextStyles.nowPlayingLabel),
           const Align(
             alignment: Alignment.centerRight,
-            child: RendererSwitcherDropdown(),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                StreamInfoButton(),
+                RendererSwitcherDropdown(),
+              ],
+            ),
           ),
         ],
       ),

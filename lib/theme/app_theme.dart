@@ -607,6 +607,21 @@ class KalinkaTextStyles {
     fontWeight: FontWeight.w500,
   );
 
+  // Stream info
+  static TextStyle streamInfoLabel = KalinkaFonts.mono(
+    fontSize: KalinkaTypography.baseSize - 1,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.8,
+    height: 1.5,
+    color: KalinkaColors.textMuted,
+  );
+
+  static TextStyle streamInfoValue = KalinkaFonts.mono(
+    fontSize: KalinkaTypography.baseSize,
+    height: 1.5,
+    color: KalinkaColors.textPrimary,
+  );
+
   // Lettermark
   static TextStyle lettermark = KalinkaFonts.display(
     fontSize: KalinkaTypography.baseSize + 12,
