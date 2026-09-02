@@ -822,6 +822,20 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                                 child: _buildRendererSettings(rendererSettings),
                               ),
                             ),
+                          // Toasts for what was done in this panel. Sheets
+                          // opened here are anchored to it, so their answers
+                          // belong over it too, not across the window.
+                          Positioned(
+                            left: 20,
+                            right: 20,
+                            bottom: 24,
+                            child: const IgnorePointer(
+                              child: KalinkaToastOverlay(
+                                isTablet: true,
+                                scope: ToastScope.panel,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -986,7 +1000,10 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
             child: const IgnorePointer(
               child: SizedBox(
                 width: 300,
-                child: KalinkaToastOverlay(isTablet: true),
+                child: KalinkaToastOverlay(
+                  isTablet: true,
+                  scope: ToastScope.window,
+                ),
               ),
             ),
           ),

@@ -443,7 +443,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.system_update_alt));
+    await tester.tap(find.byIcon(Icons.upgrade));
     await tester.pumpAndSettle();
 
     expect(api.upgraded, ['r-old']);
@@ -461,7 +461,56 @@ void main() {
     await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.system_update_alt), findsNothing);
+    expect(find.byIcon(Icons.upgrade), findsNothing);
+  });
+
+  testWidgets('a renderer that needs upgrading offers only that', (
+    tester,
+  ) async {
+    // Its settings are read over the socket that cannot carry them, so a gear
+    // there is a target that does nothing.
+    final api = _FakeApi();
+    api.renderers = [
+      RendererInfo.fromJson(const {
+        'renderer_id': 'r-old',
+        'friendly_name': 'Attic',
+        'status': 'connected',
+        'kind': 'native',
+        'compatible': false,
+        'update_available': true,
+      }),
+    ];
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.cast));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.upgrade), findsOneWidget);
+    expect(find.byIcon(Icons.settings_outlined), findsNothing);
+  });
+
+  testWidgets('a renderer that works keeps its settings alongside the upgrade', (
+    tester,
+  ) async {
+    final api = _FakeApi();
+    api.renderers = [
+      RendererInfo.fromJson(const {
+        'renderer_id': 'r-ok',
+        'friendly_name': 'Kitchen',
+        'status': 'connected',
+        'kind': 'native',
+        'update_available': true,
+      }),
+    ];
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.cast));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.upgrade), findsOneWidget);
+    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
   });
 
   testWidgets('a refused upgrade says why', (tester) async {
@@ -486,7 +535,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.cast));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.system_update_alt));
+    await tester.tap(find.byIcon(Icons.upgrade));
     await tester.pumpAndSettle();
 
     expect(
