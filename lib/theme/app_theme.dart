@@ -167,6 +167,15 @@ class KalinkaColors {
   static const actionConfirm = Color(
     0xFF5AAE78,
   ); // Confirm · apply · positive CTA (leaf green matches statusOnline)
+
+  // Opaque: a card that floats over content (the error toast) can't use the
+  // alpha tints above, which would let what's behind it read through.
+  static const actionDeleteSurface = Color(0xFF3E2422);
+
+  // actionDelete reads 3.5:1 on that surface, under the 4.5:1 text floor.
+  static const actionDeleteLight = Color(
+    0xFFE86A6A,
+  ); // Use for text/icons on actionDeleteSurface only
 }
 
 class KalinkaFonts {
@@ -522,7 +531,6 @@ class KalinkaTextStyles {
     fontSize: KalinkaTypography.baseSize + 1,
     color: KalinkaColors.textSecondary,
   );
-
 
   // Time
   static TextStyle timeLabel = KalinkaFonts.mono(

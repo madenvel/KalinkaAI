@@ -26,6 +26,7 @@ import '../data_model/data_model.dart'
 import '../data_model/presentation_schema.dart' show PresentationSchema;
 import '../data_model/renderer_config.dart'
     show RendererConfigResult, RendererConfigSnapshot;
+import '../utils/renderer_fault_text.dart' show rendererSwitchRefusal;
 
 abstract class KalinkaPlayerProxy {
   Future<StatusMessage> play([int? index]);
@@ -159,8 +160,9 @@ abstract class KalinkaPlayerProxy {
   /// Playback moves with the pin, so this can fail on the handover — the
   /// target is busy, gone, or silent. Those come back as
   /// [RendererSwitchException] with a message fit to show the user; playback
-  /// stays where it was.
-  Future<void> setActiveRenderer(String? rendererId);
+  /// stays where it was. Pass [rendererName] — the name the picker showed —
+  /// so the failure can name the output the way the user just did.
+  Future<void> setActiveRenderer(String? rendererId, {String? rendererName});
 
   /// Ask a renderer to install the latest published release of itself, via
   /// `POST /renderer/<id>/upgrade`, and return what it said it was doing.
@@ -931,7 +933,10 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
   }
 
   @override
-  Future<void> setActiveRenderer(String? rendererId) async {
+  Future<void> setActiveRenderer(
+    String? rendererId, {
+    String? rendererName,
+  }) async {
     try {
       final response = await client.put(
         '/renderer/active',
@@ -942,22 +947,14 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
         throw const RendererSwitchException('Couldn’t switch output');
       }
     } on DioException catch (e) {
-      // The server's own words when it gave any: it knows which of several
-      // reasons applies — busy, gone, or too old to be driven — and the
-      // guesses below cannot tell them apart.
-      final detail = e.response?.data is Map
-          ? (e.response?.data['detail'] as String?)
-          : null;
+      final data = e.response?.data;
       throw RendererSwitchException(
-        detail?.isNotEmpty == true
-            ? detail!
-            : switch (e.response?.statusCode) {
-                404 => 'That output is no longer available',
-                409 => 'That output is already playing for someone else',
-                503 => 'That output isn’t connected',
-                504 => 'That output didn’t respond',
-                _ => 'Couldn’t switch output',
-              },
+        rendererSwitchRefusal(
+          status: e.response?.statusCode,
+          detail: data is Map ? data['detail'] as String? : null,
+          rendererId: rendererId,
+          rendererName: rendererName,
+        ),
       );
     }
   }

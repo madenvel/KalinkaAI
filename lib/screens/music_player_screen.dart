@@ -14,6 +14,7 @@ import '../providers/search_session_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/renderer_fault_text.dart';
 import '../widgets/clear_all_confirm_dialog.dart';
 import '../widgets/coach_marks_overlay.dart';
 import '../widgets/connection_banner.dart';
@@ -334,6 +335,16 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     );
   }
 
+  /// An output failure reaches the queue socket in the server's words, which
+  /// name renderers by id. See [nameRenderersIn].
+  String? _namedFault(String? message) {
+    if (message == null || message.isEmpty) return message;
+    return nameRenderersIn(message, {
+      for (final r in ref.read(rendererListProvider).renderers)
+        if (r.friendlyName.isNotEmpty) r.rendererId: r.friendlyName,
+    });
+  }
+
   void _showPlaybackErrorDialog(String? message) {
     if (!mounted) return;
     // Claimed here, not in the callback: an error that clears in the same
@@ -428,7 +439,7 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
         if (prev?.state != PlayerStateType.error ||
             prev?.message != next.message ||
             prev?.trackId != next.trackId) {
-          _showPlaybackErrorDialog(next.message);
+          _showPlaybackErrorDialog(_namedFault(next.message));
         }
       },
     );
@@ -630,19 +641,24 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
           // Toast overlay — floats above the bottom dock, ignoring pointer
           // input. The search screen has nothing docked at the bottom (its bar
           // lives in the header), so toasts sit near the bottom edge there.
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: IgnorePointer(
-              // Clear the mini-player (visible on both screens now); off search
-              // also clear the measured dock cluster (search button / escalation
-              // card). On search the bar lives in the header, so nothing else
-              // docks at the bottom.
-              child: KalinkaToastOverlay(
-                bottomOffset: searchOpen
-                    ? kMiniPlayerHeight
-                    : kMiniPlayerHeight + _dockClusterHeight,
+          // Hoisted into the root overlay so it also clears the routes that
+          // cover this screen — Now Playing, the sheets, the dialogs — which
+          // is where most of these answers are asked for.
+          KalinkaToastPortal(
+            child: Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: IgnorePointer(
+                // Clear the mini-player (visible on both screens now); off
+                // search also clear the measured dock cluster (search button /
+                // escalation card). On search the bar lives in the header, so
+                // nothing else docks at the bottom.
+                child: KalinkaToastOverlay(
+                  bottomOffset: searchOpen
+                      ? kMiniPlayerHeight
+                      : kMiniPlayerHeight + _dockClusterHeight,
+                ),
               ),
             ),
           ),
@@ -992,16 +1008,20 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
             ],
           ),
           // Toast overlay — bottom-right of the right panel, lifted clear of the
-          // search dock (or composer, when search is open).
-          Positioned(
-            right: 20,
-            bottom: searchOpen ? 116 : 80,
-            child: const IgnorePointer(
-              child: SizedBox(
-                width: 300,
-                child: KalinkaToastOverlay(
-                  isTablet: true,
-                  scope: ToastScope.window,
+          // search dock (or composer, when search is open). In the root overlay
+          // for the same reason as the phone's; the panel-scoped one above
+          // stays put, since its place is the panel, not the window.
+          KalinkaToastPortal(
+            child: Positioned(
+              right: 20,
+              bottom: searchOpen ? 116 : 80,
+              child: const IgnorePointer(
+                child: SizedBox(
+                  width: 300,
+                  child: KalinkaToastOverlay(
+                    isTablet: true,
+                    scope: ToastScope.window,
+                  ),
                 ),
               ),
             ),

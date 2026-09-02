@@ -243,7 +243,10 @@ Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
       route.open(choice.rendererId, choice.rendererName);
     case RendererPickerIntent.play:
       try {
-        await notifier.select(choice.rendererId);
+        await notifier.select(
+          choice.rendererId,
+          rendererName: choice.rendererName,
+        );
       } on RendererSwitchException catch (e) {
         say(e.message, isError: true);
       } catch (_) {

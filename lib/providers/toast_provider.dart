@@ -57,7 +57,8 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
   static const _maxToasts = 3;
   static const _animationExtraMs = 250;
   static const _successDisplayMs = 2000;
-  static const _errorDisplayMs = 3000;
+  // Long enough to read a failure that names an output and says why.
+  static const _errorDisplayMs = 5000;
 
   final Map<String, Timer> _timers = {};
   String? _trackDeletionToastId;
