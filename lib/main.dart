@@ -9,6 +9,7 @@ import 'providers/connection_settings_provider.dart';
 import 'providers/onboarding_provider.dart';
 import 'providers/renderer_host_provider.dart';
 import 'providers/web_origin.dart';
+import 'widgets/kalinka_toast_overlay.dart';
 
 /// Dev-only (web): `host:port` of a CORS-enabled proxy to use instead of the
 /// serving origin. See scripts/run_web_dev.sh.
@@ -84,6 +85,9 @@ class KalinkaApp extends ConsumerWidget {
       title: 'Kalinka',
       theme: AppTheme.dark(),
       debugShowCheckedModeBanner: false,
+      // Outside the navigator, so a toast is painted over whatever route
+      // raised it rather than under it.
+      builder: (_, child) => KalinkaToastHost(child: child!),
       home: const MusicPlayerScreen(),
     );
   }
