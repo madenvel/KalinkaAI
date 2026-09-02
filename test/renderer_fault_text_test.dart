@@ -42,6 +42,16 @@ void main() {
         'renderer r-attic is offline',
       );
     });
+
+    // rendererDisplayName shows the id when a renderer reports no name, so an
+    // id arrives here as its own name. Swapping it for itself would drop the
+    // one word saying what the id is.
+    test('a renderer named by its own id keeps the label too', () {
+      expect(
+        nameRenderersIn('renderer r-attic is offline', {'r-attic': 'r-attic'}),
+        'renderer r-attic is offline',
+      );
+    });
   });
 
   group('rendererSwitchRefusal', () {
@@ -63,6 +73,21 @@ void main() {
           status: 409,
           detail: 'renderer r-attic is in use by another Core',
           rendererId: 'r-attic',
+        ),
+        'That output is playing through another Kalinka server',
+      );
+    });
+
+    // The picker passes the id as the name for a renderer that reported none,
+    // which would otherwise read "r-attic is playing…" — the id this whole
+    // exercise exists to keep off the screen.
+    test('does not pass an id off as a name', () {
+      expect(
+        rendererSwitchRefusal(
+          status: 409,
+          detail: 'renderer r-attic is in use by another Core',
+          rendererId: 'r-attic',
+          rendererName: 'r-attic',
         ),
         'That output is playing through another Kalinka server',
       );

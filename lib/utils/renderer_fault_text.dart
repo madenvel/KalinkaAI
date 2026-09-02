@@ -3,10 +3,14 @@
 /// The server names renderers by id — "renderer 7f3a2c… is in use by another
 /// Core" — because its logs read these first. No screen has ever shown that
 /// id, so the picker's name replaces it, along with the label introducing it.
+///
+/// A renderer that reported no name is left alone: the picker falls back to
+/// showing its id, and swapping an id for itself would only cost the label
+/// that at least says what the id refers to.
 String nameRenderersIn(String text, Map<String, String> namesById) {
   var out = text;
   for (final MapEntry(key: id, value: name) in namesById.entries) {
-    if (id.isEmpty || name.isEmpty || !out.contains(id)) continue;
+    if (id.isEmpty || name.isEmpty || name == id || !out.contains(id)) continue;
     out = out.replaceAll('renderer $id', name).replaceAll(id, name);
   }
   return out;
@@ -20,9 +24,13 @@ String rendererSwitchRefusal({
   String? rendererId,
   String? rendererName,
 }) {
-  final label = rendererName == null || rendererName.isEmpty
-      ? 'That output'
-      : rendererName;
+  // The picker shows a nameless renderer's id, so an id can arrive here as the
+  // name. It reads no better in our words than in the server's.
+  final named =
+      rendererName != null &&
+      rendererName.isNotEmpty &&
+      rendererName != rendererId;
+  final label = named ? rendererName : 'That output';
   // 409 is a claimed renderer and nothing else, so the server's log-term
   // wording carries nothing the picker's own words don't.
   if (status == 409) return '$label is playing through another Kalinka server';
@@ -30,7 +38,7 @@ String rendererSwitchRefusal({
   // merely offline from one too old to be driven — so they stand.
   if (detail != null && detail.isNotEmpty) {
     return nameRenderersIn(detail, {
-      if (rendererId != null && rendererName != null) rendererId: rendererName,
+      if (named && rendererId != null) rendererId: rendererName,
     });
   }
   return switch (status) {

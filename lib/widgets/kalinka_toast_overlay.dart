@@ -88,33 +88,58 @@ class KalinkaToastOverlay extends ConsumerWidget {
   };
 }
 
-/// Floats [child] — a [Positioned] holding a [KalinkaToastOverlay] — in the
-/// root [Overlay], so a toast raised from a sheet or dialog paints over it
-/// rather than behind the very thing that asked for it.
+/// Paints window-scoped toasts over [child], which is the whole app.
 ///
-/// [child] is laid out by the root overlay, so position it against the whole
-/// window; it knows nothing of the panel a tablet toast may belong to. An
-/// opaque route stays out of reach either way — the navigator stops building
-/// the screen underneath one, portal and all.
-class KalinkaToastPortal extends StatefulWidget {
+/// Mounted from [MaterialApp.builder] so it sits outside the navigator. An
+/// overlay inside a screen is painted under every route covering that screen,
+/// and those routes are where most toasts are raised from — the output picker
+/// opened from the phone's Now Playing sheet, for one. [OverlayPortal] is no
+/// help: its child paints with the entry hosting it, so it lands under later
+/// routes just the same.
+///
+/// The tablet layout's panel-scoped overlay stays inside that panel, whose
+/// bounds are the whole point of it and are unknown from here.
+class KalinkaToastHost extends ConsumerWidget {
   final Widget child;
 
-  const KalinkaToastPortal({super.key, required this.child});
+  const KalinkaToastHost({super.key, required this.child});
 
   @override
-  State<KalinkaToastPortal> createState() => _KalinkaToastPortalState();
-}
-
-class _KalinkaToastPortalState extends State<KalinkaToastPortal> {
-  // Always up: KalinkaToastOverlay renders nothing when there is no toast.
-  final _controller = OverlayPortalController()..show();
-
-  @override
-  Widget build(BuildContext context) {
-    return OverlayPortal(
-      controller: _controller,
-      overlayLocation: OverlayChildLocation.rootOverlay,
-      overlayChildBuilder: (_) => widget.child,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final inset = ref.watch(toastBottomInsetProvider);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isTablet = constraints.maxWidth >= kKalinkaTabletBreakpoint;
+        return Stack(
+          children: [
+            child,
+            if (isTablet)
+              // Bottom-right, over the queue panel.
+              Positioned(
+                right: 20,
+                bottom: inset,
+                child: const IgnorePointer(
+                  child: SizedBox(
+                    width: 300,
+                    child: KalinkaToastOverlay(
+                      isTablet: true,
+                      scope: ToastScope.window,
+                    ),
+                  ),
+                ),
+              )
+            else
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: KalinkaToastOverlay(bottomOffset: inset),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

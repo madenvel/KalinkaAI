@@ -8,6 +8,7 @@ import '../providers/connection_state_provider.dart';
 import '../providers/kalinka_player_api_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/playback_failure_provider.dart';
+import '../providers/renderer_host_provider.dart' show rendererIdentityProvider;
 import '../providers/renderer_provider.dart';
 import '../providers/renderer_settings_route_provider.dart';
 import '../providers/search_session_provider.dart';
@@ -30,6 +31,7 @@ import '../widgets/now_playing_content.dart';
 import '../widgets/playback_error_dialog.dart';
 import '../widgets/queue_management_tray.dart';
 import '../widgets/queue_zone.dart';
+import '../widgets/renderer_switcher.dart' show rendererDisplayName;
 import '../widgets/search/search_dock.dart';
 import '../widgets/search/search_session_view.dart';
 import '../widgets/server_sheet.dart';
@@ -94,9 +96,24 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   // queue behind it can reserve matching bottom space and clear the bar.
   double _dockClusterHeight = 0;
 
+  // Last value handed to [toastBottomInsetProvider], so a rebuild that leaves
+  // the chrome where it was schedules nothing.
+  double? _publishedToastInset;
+
   void _onDockClusterMeasured(double height) {
     if (!mounted || _dockClusterHeight == height) return;
     setState(() => _dockClusterHeight = height);
+  }
+
+  /// Tell the toast host how much of the bottom edge this screen is using.
+  /// Deferred to the post-frame: it is called from build, and a provider
+  /// cannot be written while the tree that reads it is being built.
+  void _publishToastInset(double inset) {
+    if (_publishedToastInset == inset) return;
+    _publishedToastInset = inset;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(toastBottomInsetProvider.notifier).set(inset);
+    });
   }
 
   @override
@@ -337,11 +354,15 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
 
   /// An output failure reaches the queue socket in the server's words, which
   /// name renderers by id. See [nameRenderersIn].
+  ///
+  /// Named through [rendererDisplayName], the same way the picker names them,
+  /// so a fault about the renderer this app hosts calls it "This browser" too.
   String? _namedFault(String? message) {
     if (message == null || message.isEmpty) return message;
+    final ownId = ref.read(rendererIdentityProvider).value?.rendererId;
     return nameRenderersIn(message, {
       for (final r in ref.read(rendererListProvider).renderers)
-        if (r.friendlyName.isNotEmpty) r.rendererId: r.friendlyName,
+        r.rendererId: rendererDisplayName(r, isSelf: r.rendererId == ownId),
     });
   }
 
@@ -525,6 +546,12 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     final rendererSettings = ref.watch(rendererSettingsRouteProvider);
     final connectionState = ref.watch(connectionStateProvider);
     final showCoachMarks = _showCoachMarks;
+    // Clear the mini-player (on both screens); off search also clear the
+    // measured dock cluster. On search the bar lives in the header, so nothing
+    // else docks at the bottom.
+    _publishToastInset(
+      searchOpen ? kMiniPlayerHeight : kMiniPlayerHeight + _dockClusterHeight,
+    );
 
     return PopScope(
       canPop: !searchOpen && !_settingsOpen && rendererSettings == null,
@@ -638,30 +665,6 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
               ],
             ),
           ),
-          // Toast overlay — floats above the bottom dock, ignoring pointer
-          // input. The search screen has nothing docked at the bottom (its bar
-          // lives in the header), so toasts sit near the bottom edge there.
-          // Hoisted into the root overlay so it also clears the routes that
-          // cover this screen — Now Playing, the sheets, the dialogs — which
-          // is where most of these answers are asked for.
-          KalinkaToastPortal(
-            child: Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: IgnorePointer(
-                // Clear the mini-player (visible on both screens now); off
-                // search also clear the measured dock cluster (search button /
-                // escalation card). On search the bar lives in the header, so
-                // nothing else docks at the bottom.
-                child: KalinkaToastOverlay(
-                  bottomOffset: searchOpen
-                      ? kMiniPlayerHeight
-                      : kMiniPlayerHeight + _dockClusterHeight,
-                ),
-              ),
-            ),
-          ),
           // Settings — full-screen overlay on phone (slides in from the right).
           // The same flag renders it in the left panel on tablet, so resizing
           // across the breakpoint just re-homes it.
@@ -765,6 +768,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   Widget _buildTabletLayout(BuildContext context) {
     final searchOpen = ref.watch(searchSessionProvider.select((s) => s.isOpen));
     final rendererSettings = ref.watch(rendererSettingsRouteProvider);
+    // Lifted clear of the search dock, or of the composer when search is open.
+    _publishToastInset(searchOpen ? 116 : 80);
     return PopScope(
       canPop:
           !searchOpen &&
@@ -1006,25 +1011,6 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
                 ),
               ),
             ],
-          ),
-          // Toast overlay — bottom-right of the right panel, lifted clear of the
-          // search dock (or composer, when search is open). In the root overlay
-          // for the same reason as the phone's; the panel-scoped one above
-          // stays put, since its place is the panel, not the window.
-          KalinkaToastPortal(
-            child: Positioned(
-              right: 20,
-              bottom: searchOpen ? 116 : 80,
-              child: const IgnorePointer(
-                child: SizedBox(
-                  width: 300,
-                  child: KalinkaToastOverlay(
-                    isTablet: true,
-                    scope: ToastScope.window,
-                  ),
-                ),
-              ),
-            ),
           ),
           // The same one-time tour as the phone. It used to be phone-only, so
           // anyone who first ran the app on a wide window never saw it.

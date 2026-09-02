@@ -88,7 +88,7 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
     return [];
   }
 
-  /// Show a toast. Success toasts dismiss after 2 s; error toasts after 3 s.
+  /// Show a toast. Success toasts dismiss after 2 s; error toasts after 5 s.
   ///
   /// Set [inPanel] when the action was taken inside the tablet layout's left
   /// panel, so the toast lands over that panel instead of across the window.
@@ -301,6 +301,26 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
 final toastProvider = NotifierProvider<ToastNotifier, List<ToastEntry>>(
   ToastNotifier.new,
 );
+
+/// How far up from the bottom edge toasts should sit, so they clear whatever
+/// the screen underneath floats there — the mini-player, the search dock.
+///
+/// Published by the screen that owns that chrome, because the toasts are
+/// painted above the navigator and so out of its reach. Zero until a screen
+/// says otherwise, which is right for one that docks nothing.
+class ToastBottomInsetNotifier extends Notifier<double> {
+  @override
+  double build() => 0;
+
+  void set(double inset) {
+    if (state != inset) state = inset;
+  }
+}
+
+final toastBottomInsetProvider =
+    NotifierProvider<ToastBottomInsetNotifier, double>(
+      ToastBottomInsetNotifier.new,
+    );
 
 extension ConsumerStateToastX<T extends ConsumerStatefulWidget>
     on ConsumerState<T> {
