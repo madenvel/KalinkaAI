@@ -7,12 +7,27 @@ import '../theme/app_theme.dart';
 /// Height of the MiniPlayer (not including SafeArea bottom inset).
 const double kMiniPlayerHeight = 72.0;
 
+/// Which toasts an overlay is responsible for. The tablet layout mounts two —
+/// one per half — so an answer appears where its question was asked; the phone
+/// mounts one that takes everything.
+enum ToastScope {
+  /// Every toast (phone).
+  all,
+
+  /// Only toasts not raised inside a panel (tablet, right half).
+  window,
+
+  /// Only toasts raised inside a panel (tablet, left half).
+  panel,
+}
+
 /// Overlay that renders themed toast notifications above the bottom dock.
 ///
 /// On phone: toasts stack upward from just above the bottom bar, cleared by
 /// [bottomOffset] (the height of whatever docks at the bottom — the mini
 /// player + search pill on the main screen, or the composer on the search
-/// screen). On tablet (isTablet: true): toasts appear at bottom-right.
+/// screen). On tablet (isTablet: true): toasts appear at bottom-right of
+/// whichever half [scope] assigns them to.
 ///
 /// Wrap in [IgnorePointer] at the call site so toasts never capture taps.
 class KalinkaToastOverlay extends ConsumerWidget {
@@ -21,15 +36,19 @@ class KalinkaToastOverlay extends ConsumerWidget {
   /// Space to leave below the toasts on phone so they clear the bottom dock.
   final double bottomOffset;
 
+  /// Which toasts this overlay draws; see [ToastScope].
+  final ToastScope scope;
+
   const KalinkaToastOverlay({
     super.key,
     this.isTablet = false,
     this.bottomOffset = kMiniPlayerHeight,
+    this.scope = ToastScope.all,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final toasts = ref.watch(toastProvider);
+    final toasts = ref.watch(toastProvider).where(_mine).toList();
     if (toasts.isEmpty) return const SizedBox.shrink();
 
     final bottomInset = MediaQuery.of(context).padding.bottom;
@@ -61,6 +80,12 @@ class KalinkaToastOverlay extends ConsumerWidget {
       ],
     );
   }
+
+  bool _mine(ToastEntry entry) => switch (scope) {
+    ToastScope.all => true,
+    ToastScope.window => !entry.inPanel,
+    ToastScope.panel => entry.inPanel,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -159,10 +184,11 @@ class _ToastCardState extends State<_ToastCard>
               // Message
               Flexible(
                 child: Text(
+                  // Wrapped rather than clipped: a refusal that explains
+                  // itself is worth two lines more than it is worth an
+                  // ellipsis over the half that says why.
                   widget.entry.message,
                   style: KalinkaTextStyles.toastText,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],

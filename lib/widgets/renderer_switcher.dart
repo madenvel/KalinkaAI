@@ -14,6 +14,7 @@ import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import 'kalinka_bottom_sheet.dart';
+import 'sheet_anchor.dart';
 import 'transport_button.dart';
 
 /// One string for the chrome (tooltips, labels) and the sheet's empty note,
@@ -207,6 +208,10 @@ class RendererSwitcherDropdown extends ConsumerWidget {
 Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
   final notifier = ref.read(rendererListProvider.notifier);
   final toast = ref.read(toastProvider.notifier);
+  // The sheet is anchored to the panel it was opened from, so its answers
+  // belong over that panel too. Captured here, before the sheet's own context
+  // replaces this one.
+  final inPanel = SheetAnchor.elementOf(context) != null;
   final route = ref.read(rendererSettingsRouteProvider.notifier);
   final navigator = Navigator.of(context);
   // Servers with the renderer events keep the list fresh over the queue
@@ -229,20 +234,27 @@ Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
       try {
         await notifier.select(choice.rendererId);
       } on RendererSwitchException catch (e) {
-        toast.show(e.message, isError: true);
+        toast.show(e.message, isError: true, inPanel: inPanel);
       } catch (_) {
-        toast.show('Couldn’t switch output', isError: true);
+        toast.show('Couldn’t switch output', isError: true, inPanel: inPanel);
       }
     case RendererPickerIntent.upgrade:
       try {
         await ref.read(kalinkaProxyProvider).upgradeRenderer(choice.rendererId);
         // It restarts to apply and re-registers itself; the renderer events
         // bring the list back with the new version, so nothing to poll here.
-        toast.show('${choice.rendererName} is upgrading and will reconnect');
+        toast.show(
+          '${choice.rendererName} is upgrading and will reconnect',
+          inPanel: inPanel,
+        );
       } on RendererUpgradeException catch (e) {
-        toast.show(e.message, isError: true);
+        toast.show(e.message, isError: true, inPanel: inPanel);
       } catch (_) {
-        toast.show('Couldn’t start the upgrade', isError: true);
+        toast.show(
+          'Couldn’t start the upgrade',
+          isError: true,
+          inPanel: inPanel,
+        );
       }
   }
 }
@@ -411,6 +423,7 @@ class _RendererRow extends StatelessWidget {
     // cannot answer has nothing to serve — but the renderer playback is
     // already on is a perfectly good thing to configure.
     final canConfigure = usable;
+    final offerUpgrade = renderer.updateAvailable;
     final name = rendererDisplayName(renderer, isSelf: isSelf);
     final detail = rendererDetail(renderer, isSelf: isSelf);
 
@@ -504,7 +517,7 @@ class _RendererRow extends StatelessWidget {
                     height: 26,
                     color: KalinkaColors.borderSubtle,
                   ),
-                  if (renderer.updateAvailable)
+                  if (offerUpgrade)
                     _UpgradeButton(
                       rendererName: name,
                       // Amber only while it is the reason the row is dead;
@@ -515,15 +528,19 @@ class _RendererRow extends StatelessWidget {
                         onIntent(RendererPickerIntent.upgrade);
                       },
                     ),
-                  _GearButton(
-                    rendererName: name,
-                    onTap: canConfigure
-                        ? () {
-                            KalinkaHaptics.selectionClick();
-                            onIntent(RendererPickerIntent.configure);
-                          }
-                        : null,
-                  ),
+                  // Dropped rather than shown dead: on a renderer that cannot
+                  // answer for its settings, the upgrade is the only thing to
+                  // do, and two targets where one works is a trap.
+                  if (canConfigure || !offerUpgrade)
+                    _GearButton(
+                      rendererName: name,
+                      onTap: canConfigure
+                          ? () {
+                              KalinkaHaptics.selectionClick();
+                              onIntent(RendererPickerIntent.configure);
+                            }
+                          : null,
+                    ),
                 ],
               ),
             ],
@@ -595,7 +612,9 @@ class _UpgradeButton extends StatelessWidget {
               width: 48,
               height: 48,
               child: Icon(
-                Icons.system_update_alt,
+                // Upwards: this replaces the software with a newer one, where
+                // a downward arrow is what a download looks like.
+                Icons.upgrade,
                 size: 19,
                 color: urgent
                     ? KalinkaColors.statusPending

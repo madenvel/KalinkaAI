@@ -16,6 +16,12 @@ class ToastEntry {
   /// Render as a compact right-aligned pill rather than a full-width toast.
   final bool compact;
 
+  /// Raised by something that happened inside a panel — the tablet layout's
+  /// left half — so the answer appears where the question was asked rather
+  /// than in the opposite corner of a wide window. Ignored on phone, which
+  /// has one place to put a toast.
+  final bool inPanel;
+
   /// When true the [_ToastCard] widget plays its exit animation.
   /// The entry is removed from the list ~250 ms after this flips.
   final bool dismissing;
@@ -26,6 +32,7 @@ class ToastEntry {
     required this.isError,
     this.isLoading = false,
     this.compact = false,
+    this.inPanel = false,
     this.dismissing = false,
   });
 
@@ -41,6 +48,7 @@ class ToastEntry {
     isError: isError ?? this.isError,
     isLoading: isLoading ?? this.isLoading,
     compact: compact ?? this.compact,
+    inPanel: inPanel,
     dismissing: dismissing ?? this.dismissing,
   );
 }
@@ -80,9 +88,16 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
   }
 
   /// Show a toast. Success toasts dismiss after 2 s; error toasts after 3 s.
-  void show(String message, {bool isError = false}) {
+  ///
+  /// Set [inPanel] when the action was taken inside the tablet layout's left
+  /// panel, so the toast lands over that panel instead of across the window.
+  void show(String message, {bool isError = false, bool inPanel = false}) {
     if (_isDisposed) return;
-    final id = _appendToast(message: message, isError: isError);
+    final id = _appendToast(
+      message: message,
+      isError: isError,
+      inPanel: inPanel,
+    );
     final displayMs = isError ? _errorDisplayMs : _successDisplayMs;
     _restartDisplayTimer(id, displayMs);
   }
@@ -213,6 +228,7 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
     required bool isError,
     bool isLoading = false,
     bool compact = false,
+    bool inPanel = false,
   }) {
     if (_isDisposed) return '';
     final id = '${DateTime.now().millisecondsSinceEpoch}_${_counter++}';
@@ -222,6 +238,7 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
       isError: isError,
       isLoading: isLoading,
       compact: compact,
+      inPanel: inPanel,
     );
 
     var list = [...state, entry];
