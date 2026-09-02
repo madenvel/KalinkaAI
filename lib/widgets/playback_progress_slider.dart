@@ -7,6 +7,7 @@ import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/playback_time_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
+import '../utils/playback_utils.dart';
 
 /// Playback progress slider with optimistic seeking while dragging.
 class PlaybackProgressSlider extends ConsumerStatefulWidget {
@@ -35,13 +36,6 @@ class _PlaybackProgressSliderState
   int? _seekBeforeSeq;
   double _lastHapticSeekPosition = -1.0;
   ProviderSubscription? _playQueueStateStoreProviderSubscription;
-
-  String _formatTime(int milliseconds) {
-    final seconds = milliseconds ~/ 1000;
-    final minutes = seconds ~/ 60;
-    final remaining = seconds % 60;
-    return '$minutes:${remaining.toString().padLeft(2, '0')}';
-  }
 
   @override
   void initState() {
@@ -152,11 +146,11 @@ class _PlaybackProgressSliderState
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        _formatTime(positionMs),
+                        formatClock(Duration(milliseconds: positionMs)),
                         style: KalinkaTextStyles.timeLabel,
                       ),
                       Text(
-                        _formatTime(widget.durationMs),
+                        formatClock(Duration(milliseconds: widget.durationMs)),
                         style: KalinkaTextStyles.timeLabel,
                       ),
                     ],

@@ -45,3 +45,10 @@ IconData playPauseFilledIcon(PlayerStateType? playerState) {
 bool isPlayPauseDisabled(PlayerStateType? playerState) {
   return playerState == PlayerStateType.buffering;
 }
+
+/// The playback clock as the app writes it everywhere: `m:ss`, and never a
+/// negative one — a position before the start reads as the start.
+String formatClock(Duration position) {
+  final seconds = position.isNegative ? 0 : position.inSeconds;
+  return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+}
