@@ -524,6 +524,33 @@ void main() {
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
   });
 
+  testWidgets('a renderer nothing can fix offers neither button', (
+    tester,
+  ) async {
+    // Built from source, or a flatpak: the server has no upgrade to give it,
+    // and its settings are behind the same socket that cannot carry them.
+    final api = _FakeApi();
+    api.renderers = [
+      RendererInfo.fromJson(const {
+        'renderer_id': 'r-src',
+        'friendly_name': 'Workshop',
+        'status': 'connected',
+        'kind': 'native',
+        'compatible': false,
+        'update_available': false,
+      }),
+    ];
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.cast));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Workshop'), findsOneWidget);
+    expect(find.byIcon(Icons.system_update_alt), findsNothing);
+    expect(find.byIcon(Icons.settings_outlined), findsNothing);
+  });
+
   testWidgets('a renderer that works keeps its settings alongside the upgrade', (
     tester,
   ) async {
