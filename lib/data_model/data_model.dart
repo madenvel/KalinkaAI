@@ -1561,6 +1561,10 @@ class RendererInfo {
   /// be configured until one side is upgraded.
   final bool compatible;
 
+  /// True when a published release would bring this renderer forward and it
+  /// can install one — the two conditions for offering the upgrade button.
+  final bool updateAvailable;
+
   const RendererInfo({
     required this.rendererId,
     required this.friendlyName,
@@ -1571,6 +1575,7 @@ class RendererInfo {
     this.audioBackend = '',
     this.kind = '',
     this.compatible = true,
+    this.updateAvailable = false,
   });
 
   bool get isConnected => status == 'connected';
@@ -1585,6 +1590,7 @@ class RendererInfo {
         audioBackend: audioBackend,
         kind: kind,
         compatible: compatible,
+        updateAvailable: updateAvailable,
       );
 
   factory RendererInfo.fromJson(Map<String, dynamic> json) {
@@ -1601,6 +1607,7 @@ class RendererInfo {
       audioBackend: platform['audio_backend']?.toString() ?? '',
       kind: (json['kind'] ?? '') as String,
       compatible: (json['compatible'] ?? true) as bool,
+      updateAvailable: (json['update_available'] ?? false) as bool,
     );
   }
 }
