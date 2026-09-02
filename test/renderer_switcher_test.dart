@@ -15,6 +15,7 @@ import 'package:kalinka/providers/kalinka_player_api_provider.dart';
 import 'package:kalinka/providers/renderer_host_provider.dart';
 import 'package:kalinka/providers/renderer_provider.dart';
 import 'package:kalinka/providers/renderer_settings_route_provider.dart';
+import 'package:kalinka/providers/toast_provider.dart';
 import 'package:kalinka/providers/wire_event_provider.dart';
 import 'package:kalinka/renderer/renderer_identity.dart';
 import 'package:kalinka/screens/renderer_settings_screen.dart';
@@ -79,6 +80,19 @@ class _FakeApi implements KalinkaPlayerProxy {
 
   /// Set when a settings page opened and asked this renderer for its config.
   String? configuredRenderer;
+
+  /// Renderers asked to upgrade, in order.
+  final List<String> upgraded = [];
+
+  /// Thrown by [upgradeRenderer] when set.
+  Object? upgradeFailsWith;
+
+  @override
+  Future<String> upgradeRenderer(String rendererId) async {
+    if (upgradeFailsWith != null) throw upgradeFailsWith!;
+    upgraded.add(rendererId);
+    return 'upgrading to 0.4.0';
+  }
 
   @override
   Future<RendererConfigSnapshot> getRendererConfig(String rendererId) async {
@@ -259,34 +273,42 @@ void main() {
   /// Mirrors how MusicPlayerScreen hosts the renderer settings panel: an
   /// overlay driven by the route provider, not a pushed route — that is what
   /// lets the tablet layout put it in the left panel.
-  Widget wrap(KalinkaPlayerProxy api, {Stream<PlayQueueEvent>? events}) =>
-      ProviderScope(
-        overrides: overrides(api, events: events),
-        child: MaterialApp(
-          home: Scaffold(
-            body: Stack(
-              fit: StackFit.expand,
-              children: [
-                const Center(child: RendererSwitcherButton()),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final route = ref.watch(rendererSettingsRouteProvider);
-                    if (route == null) return const SizedBox.shrink();
-                    return RendererSettingsScreen(
-                      key: ValueKey(route.rendererId),
-                      rendererId: route.rendererId,
-                      rendererName: route.rendererName,
-                      onClose: () => ref
-                          .read(rendererSettingsRouteProvider.notifier)
-                          .close(),
-                    );
-                  },
-                ),
-              ],
-            ),
+  Widget switcherTree() => MaterialApp(
+    home: Scaffold(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const Center(child: RendererSwitcherButton()),
+          Consumer(
+            builder: (context, ref, _) {
+              final route = ref.watch(rendererSettingsRouteProvider);
+              if (route == null) return const SizedBox.shrink();
+              return RendererSettingsScreen(
+                key: ValueKey(route.rendererId),
+                rendererId: route.rendererId,
+                rendererName: route.rendererName,
+                onClose: () =>
+                    ref.read(rendererSettingsRouteProvider.notifier).close(),
+              );
+            },
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
+
+  /// Pass [container] to read provider state the tree wrote — the toasts a
+  /// failed action leaves behind have no host widget here.
+  Widget wrap(
+    KalinkaPlayerProxy api, {
+    Stream<PlayQueueEvent>? events,
+    ProviderContainer? container,
+  }) => container != null
+      ? UncontrolledProviderScope(container: container, child: switcherTree())
+      : ProviderScope(
+          overrides: overrides(api, events: events),
+          child: switcherTree(),
+        );
 
   testWidgets('no renderers → crossed icon, sheet says so', (tester) async {
     final api = _FakeApi()..renderers = const [];
@@ -397,6 +419,83 @@ void main() {
     // Host dropped when the name already carries it — the server's default
     // friendly name is "Kalinka Renderer on <host>".
     expect(find.text('ALSA'), findsOneWidget);
+  });
+
+  testWidgets('one button upgrades a renderer that has a release waiting', (
+    tester,
+  ) async {
+    final api = _FakeApi();
+    api.renderers = [
+      RendererInfo.fromJson(const {
+        'renderer_id': 'r-old',
+        'friendly_name': 'Attic',
+        'status': 'connected',
+        'kind': 'native',
+        'compatible': false,
+        'update_available': true,
+        'platform': {'hostname': 'attic-pi'},
+      }),
+      ...api.renderers,
+    ];
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.cast));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.system_update_alt));
+    await tester.pumpAndSettle();
+
+    expect(api.upgraded, ['r-old']);
+  });
+
+  testWidgets('no upgrade button without a release to install', (
+    tester,
+  ) async {
+    // The server only flags a renderer it could actually bring forward, so an
+    // unflagged row must not offer a button that would refuse.
+    final api = _FakeApi();
+    await tester.pumpWidget(wrap(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.cast));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.system_update_alt), findsNothing);
+  });
+
+  testWidgets('a refused upgrade says why', (tester) async {
+    final api = _FakeApi();
+    api.upgradeFailsWith = const RendererUpgradeException(
+      'That output is playing',
+    );
+    api.renderers = [
+      RendererInfo.fromJson(const {
+        'renderer_id': 'r-old',
+        'friendly_name': 'Attic',
+        'status': 'connected',
+        'kind': 'native',
+        'update_available': true,
+      }),
+      ...api.renderers,
+    ];
+    final container = ProviderContainer(overrides: overrides(api));
+    addTearDown(container.dispose);
+    await tester.pumpWidget(wrap(api, container: container));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.cast));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.system_update_alt));
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(toastProvider).map((t) => t.message),
+      contains('That output is playing'),
+    );
+    // The toast retires itself on a timer the container outlives; left
+    // pending, it fails the test after the tree is gone.
+    await tester.pump(const Duration(seconds: 30));
   });
 
   testWidgets('a renderer the server cannot talk to is shown but not usable', (

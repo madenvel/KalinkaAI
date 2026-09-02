@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data_model/data_model.dart' show RendererInfo;
 import '../providers/kalinka_player_api_provider.dart'
-    show RendererSwitchException;
+    show
+        RendererSwitchException,
+        RendererUpgradeException,
+        kalinkaProxyProvider;
 import '../providers/renderer_host_provider.dart' show rendererIdentityProvider;
 import '../providers/renderer_provider.dart';
 import '../providers/renderer_settings_route_provider.dart';
@@ -18,7 +21,7 @@ import 'transport_button.dart';
 const _noRendererLabel = 'No renderer available';
 
 /// What a row in the picker was asked to do.
-enum RendererPickerIntent { play, configure }
+enum RendererPickerIntent { play, configure, upgrade }
 
 /// The renderer a row names, and which of its two controls was tapped.
 class RendererPickerChoice {
@@ -230,6 +233,17 @@ Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
       } catch (_) {
         toast.show('Couldn’t switch output', isError: true);
       }
+    case RendererPickerIntent.upgrade:
+      try {
+        await ref.read(kalinkaProxyProvider).upgradeRenderer(choice.rendererId);
+        // It restarts to apply and re-registers itself; the renderer events
+        // bring the list back with the new version, so nothing to poll here.
+        toast.show('${choice.rendererName} is upgrading and will reconnect');
+      } on RendererUpgradeException catch (e) {
+        toast.show(e.message, isError: true);
+      } catch (_) {
+        toast.show('Couldn’t start the upgrade', isError: true);
+      }
   }
 }
 
@@ -417,34 +431,37 @@ class _RendererRow extends StatelessWidget {
             color: active ? KalinkaColors.accentBorder : Colors.transparent,
           ),
         ),
-        child: Opacity(
-          opacity: usable ? 1.0 : 0.45,
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(11),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              children: [
-                // Full-bleed, and under the content: hovering the name lights
-                // the whole item rather than the strip left of the rule. The
-                // gear is painted over it and takes its own hits first, so its
-                // highlight stays a circle.
-                Positioned.fill(
-                  child: InkWell(
-                    onTap: canPlayHere
-                        ? () {
-                            KalinkaHaptics.selectionClick();
-                            onIntent(RendererPickerIntent.play);
-                          }
-                        : null,
-                  ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(11),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              // Full-bleed, and under the content: hovering the name lights
+              // the whole item rather than the strip left of the rule. The
+              // gear is painted over it and takes its own hits first, so its
+              // highlight stays a circle.
+              Positioned.fill(
+                child: InkWell(
+                  onTap: canPlayHere
+                      ? () {
+                          KalinkaHaptics.selectionClick();
+                          onIntent(RendererPickerIntent.play);
+                        }
+                      : null,
                 ),
-                Row(
-                  children: [
-                    Expanded(
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    // Dimmed here rather than over the whole row: on a row
+                    // that cannot be played to, the upgrade is the one live
+                    // control and must not look as dead as the name does.
+                    child: Opacity(
+                      opacity: usable ? 1.0 : 0.45,
                       // Text swallows pointers (RenderParagraph hit-tests
-                      // itself for selection), which would keep the hover off
-                      // the InkWell below. Nothing here is a target anyway.
+                      // itself for selection), which would keep the hover
+                      // off the InkWell below. Nothing here is a target.
                       child: IgnorePointer(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(11, 10, 8, 10),
@@ -480,25 +497,36 @@ class _RendererRow extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // Two targets in one row: the rule is what says so.
-                    Container(
-                      width: 1,
-                      height: 26,
-                      color: KalinkaColors.borderSubtle,
-                    ),
-                    _GearButton(
+                  ),
+                  // Separate targets in one row: the rule is what says so.
+                  Container(
+                    width: 1,
+                    height: 26,
+                    color: KalinkaColors.borderSubtle,
+                  ),
+                  if (renderer.updateAvailable)
+                    _UpgradeButton(
                       rendererName: name,
-                      onTap: canConfigure
-                          ? () {
-                              KalinkaHaptics.selectionClick();
-                              onIntent(RendererPickerIntent.configure);
-                            }
-                          : null,
+                      // Amber only while it is the reason the row is dead;
+                      // an upgrade that is merely available is not a fault.
+                      urgent: !renderer.compatible,
+                      onTap: () {
+                        KalinkaHaptics.selectionClick();
+                        onIntent(RendererPickerIntent.upgrade);
+                      },
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  _GearButton(
+                    rendererName: name,
+                    onTap: canConfigure
+                        ? () {
+                            KalinkaHaptics.selectionClick();
+                            onIntent(RendererPickerIntent.configure);
+                          }
+                        : null,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -530,6 +558,53 @@ class _SelectionMark extends StatelessWidget {
       child: selected
           ? const Icon(Icons.check, size: 13, color: KalinkaColors.textPrimary)
           : null,
+    );
+  }
+}
+
+/// One tap to replace the renderer's software. Shown only where the server
+/// says a release would bring it forward and it can install one itself — a
+/// renderer the Core can no longer drive is reached by exactly this route.
+class _UpgradeButton extends StatelessWidget {
+  final String rendererName;
+  final bool urgent;
+  final VoidCallback onTap;
+
+  const _UpgradeButton({
+    required this.rendererName,
+    required this.urgent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Upgrade $rendererName',
+      button: true,
+      child: Tooltip(
+        message: urgent ? 'Upgrade to restore playback' : 'Upgrade output',
+        excludeFromSemantics: true,
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(
+                Icons.system_update_alt,
+                size: 19,
+                color: urgent
+                    ? KalinkaColors.statusPending
+                    : KalinkaColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

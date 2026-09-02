@@ -161,6 +161,15 @@ abstract class KalinkaPlayerProxy {
   /// [RendererSwitchException] with a message fit to show the user; playback
   /// stays where it was.
   Future<void> setActiveRenderer(String? rendererId);
+
+  /// Ask a renderer to install the latest published release of itself, via
+  /// `POST /renderer/<id>/upgrade`, and return what it said it was doing.
+  ///
+  /// Returns once the renderer has taken the request on; it then restarts and
+  /// re-registers, which is what actually reports the outcome. A refusal — it
+  /// is playing, or cannot replace itself — comes back as
+  /// [RendererUpgradeException] with a message fit to show the user.
+  Future<String> upgradeRenderer(String rendererId);
   void close();
 }
 
@@ -181,6 +190,15 @@ class RenderersUnsupportedException implements Exception {
 class RendererSwitchException implements Exception {
   final String message;
   const RendererSwitchException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+/// A renderer could not be upgraded. [message] is already fit to show.
+class RendererUpgradeException implements Exception {
+  final String message;
+  const RendererUpgradeException(this.message);
 
   @override
   String toString() => message;
@@ -866,6 +884,28 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
 
   // A 404 here is the server rejecting an unknown renderer id, not a missing
   // endpoint — the switcher only exists once `listRenderers` has succeeded.
+  @override
+  Future<String> upgradeRenderer(String rendererId) async {
+    try {
+      final response = await client.post('/renderer/$rendererId/upgrade');
+      if (response.statusCode != 200) {
+        throw const RendererUpgradeException('Couldn’t start the upgrade');
+      }
+      return (response.data?['detail'] ?? '') as String;
+    } on DioException catch (e) {
+      throw RendererUpgradeException(switch (e.response?.statusCode) {
+        404 => 'That output is no longer connected',
+        // Both a refusal and "no release known yet"; the server's own words
+        // are the only thing that tells them apart.
+        409 =>
+          (e.response?.data?['detail'] as String?) ??
+              'That output can’t be upgraded right now',
+        504 => 'That output didn’t respond',
+        _ => 'Couldn’t start the upgrade',
+      });
+    }
+  }
+
   @override
   Future<void> setActiveRenderer(String? rendererId) async {
     try {
