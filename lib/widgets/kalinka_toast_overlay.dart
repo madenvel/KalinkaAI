@@ -88,6 +88,37 @@ class KalinkaToastOverlay extends ConsumerWidget {
   };
 }
 
+/// Floats [child] — a [Positioned] holding a [KalinkaToastOverlay] — in the
+/// root [Overlay], so a toast raised from a sheet or dialog paints over it
+/// rather than behind the very thing that asked for it.
+///
+/// [child] is laid out by the root overlay, so position it against the whole
+/// window; it knows nothing of the panel a tablet toast may belong to. An
+/// opaque route stays out of reach either way — the navigator stops building
+/// the screen underneath one, portal and all.
+class KalinkaToastPortal extends StatefulWidget {
+  final Widget child;
+
+  const KalinkaToastPortal({super.key, required this.child});
+
+  @override
+  State<KalinkaToastPortal> createState() => _KalinkaToastPortalState();
+}
+
+class _KalinkaToastPortalState extends State<KalinkaToastPortal> {
+  // Always up: KalinkaToastOverlay renders nothing when there is no toast.
+  final _controller = OverlayPortalController()..show();
+
+  @override
+  Widget build(BuildContext context) {
+    return OverlayPortal(
+      controller: _controller,
+      overlayLocation: OverlayChildLocation.rootOverlay,
+      overlayChildBuilder: (_) => widget.child,
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ToastCard extends StatefulWidget {
@@ -144,15 +175,32 @@ class _ToastCardState extends State<_ToastCard>
 
   @override
   Widget build(BuildContext context) {
+    // A failure gets its own surface: a 5px dot is too little to carry the
+    // difference between "queued" and "that didn't work".
+    final isError = widget.entry.isError;
     return FadeTransition(
       opacity: _opacity,
       child: SlideTransition(
         position: _slide,
         child: Container(
           decoration: BoxDecoration(
-            color: KalinkaColors.surfaceElevated,
+            color: isError
+                ? KalinkaColors.actionDeleteSurface
+                : KalinkaColors.surfaceElevated,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: KalinkaColors.borderDefault, width: 1),
+            border: Border.all(
+              color: isError
+                  ? KalinkaColors.actionDelete
+                  : KalinkaColors.borderDefault,
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.55),
+                blurRadius: 22,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           child: Row(
@@ -169,15 +217,19 @@ class _ToastCardState extends State<_ToastCard>
                     ),
                   ),
                 )
+              else if (isError)
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 16,
+                  color: KalinkaColors.actionDeleteLight,
+                )
               else
                 Container(
                   width: 5,
                   height: 5,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: widget.entry.isError
-                        ? KalinkaColors.statusOffline
-                        : KalinkaColors.statusOnline,
+                    color: KalinkaColors.statusOnline,
                   ),
                 ),
               const SizedBox(width: 10),

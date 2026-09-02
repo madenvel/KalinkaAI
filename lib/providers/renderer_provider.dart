@@ -177,7 +177,10 @@ class RendererListNotifier extends Notifier<RendererListState> {
   /// a pin on an offline renderer but leaves playback where it is, so the
   /// picker only offers connected ones. Marks it active straight away so the
   /// tick moves with the tap, then reconciles against what the server reports.
-  Future<void> select(String rendererId) async {
+  ///
+  /// [rendererName] is the name the picker row showed, so a refusal can name
+  /// the output rather than quote the server's id back at the user.
+  Future<void> select(String rendererId, {String? rendererName}) async {
     state = state.copyWith(
       renderers: [
         for (final r in state.renderers)
@@ -188,7 +191,9 @@ class RendererListNotifier extends Notifier<RendererListState> {
       ],
     );
     try {
-      await ref.read(kalinkaProxyProvider).setActiveRenderer(rendererId);
+      await ref
+          .read(kalinkaProxyProvider)
+          .setActiveRenderer(rendererId, rendererName: rendererName);
     } finally {
       await refresh();
     }

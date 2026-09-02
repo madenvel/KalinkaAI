@@ -76,6 +76,9 @@ class _FakeApi implements KalinkaPlayerProxy {
 
   int listCalls = 0;
   final List<String?> selected = [];
+
+  /// The display name each select carried, so a refusal can be phrased in it.
+  final List<String?> selectedNames = [];
   List<RendererInfo> renderers = _parse(_listPayload);
 
   /// Set when a settings page opened and asked this renderer for its config.
@@ -108,8 +111,12 @@ class _FakeApi implements KalinkaPlayerProxy {
   }
 
   @override
-  Future<void> setActiveRenderer(String? rendererId) async {
+  Future<void> setActiveRenderer(
+    String? rendererId, {
+    String? rendererName,
+  }) async {
     selected.add(rendererId);
+    selectedNames.add(rendererName);
     if (failWith != null) throw failWith!;
     renderers = [
       for (final r in renderers)
@@ -483,9 +490,7 @@ void main() {
     expect(api.upgraded, isEmpty, reason: 'cancel means cancel');
   });
 
-  testWidgets('no upgrade button without a release to install', (
-    tester,
-  ) async {
+  testWidgets('no upgrade button without a release to install', (tester) async {
     // The server only flags a renderer it could actually bring forward, so an
     // unflagged row must not offer a button that would refuse.
     final api = _FakeApi();
@@ -551,28 +556,29 @@ void main() {
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
   });
 
-  testWidgets('a renderer that works keeps its settings alongside the upgrade', (
-    tester,
-  ) async {
-    final api = _FakeApi();
-    api.renderers = [
-      RendererInfo.fromJson(const {
-        'renderer_id': 'r-ok',
-        'friendly_name': 'Kitchen',
-        'status': 'connected',
-        'kind': 'native',
-        'update_available': true,
-      }),
-    ];
-    await tester.pumpWidget(wrap(api));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'a renderer that works keeps its settings alongside the upgrade',
+    (tester) async {
+      final api = _FakeApi();
+      api.renderers = [
+        RendererInfo.fromJson(const {
+          'renderer_id': 'r-ok',
+          'friendly_name': 'Kitchen',
+          'status': 'connected',
+          'kind': 'native',
+          'update_available': true,
+        }),
+      ];
+      await tester.pumpWidget(wrap(api));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.cast));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.cast));
+      await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.system_update_alt), findsOneWidget);
-    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
-  });
+      expect(find.byIcon(Icons.system_update_alt), findsOneWidget);
+      expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+    },
+  );
 
   testWidgets('a refused upgrade says why', (tester) async {
     final api = _FakeApi();
@@ -841,6 +847,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.selected, ['r-kitchen']);
+    // The name goes with the id, so a refusal can be phrased in the words the
+    // row used rather than in the server's id.
+    expect(api.selectedNames, ['Kitchen']);
     expect(find.text('PLAY ON'), findsNothing, reason: 'sheet dismissed');
   });
 
