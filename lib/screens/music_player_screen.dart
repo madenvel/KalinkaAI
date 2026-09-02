@@ -96,8 +96,6 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   // queue behind it can reserve matching bottom space and clear the bar.
   double _dockClusterHeight = 0;
 
-  // Last value handed to [toastBottomInsetProvider], so a rebuild that leaves
-  // the chrome where it was schedules nothing.
   double? _publishedToastInset;
 
   void _onDockClusterMeasured(double height) {
@@ -106,8 +104,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   }
 
   /// Tell the toast host how much of the bottom edge this screen is using.
-  /// Deferred to the post-frame: it is called from build, and a provider
-  /// cannot be written while the tree that reads it is being built.
+  /// Deferred to the post-frame because it is called from build, and a
+  /// provider cannot be written while the tree reading it is being built.
   void _publishToastInset(double inset) {
     if (_publishedToastInset == inset) return;
     _publishedToastInset = inset;
@@ -352,11 +350,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     );
   }
 
-  /// An output failure reaches the queue socket in the server's words, which
-  /// name renderers by id. See [nameRenderersIn].
-  ///
-  /// Named through [rendererDisplayName], the same way the picker names them,
-  /// so a fault about the renderer this app hosts calls it "This browser" too.
+  /// An output failure arrives in the server's words, which name renderers by
+  /// id. Puts back the names the picker shows — see [nameRenderersIn].
   String? _namedFault(String? message) {
     if (message == null || message.isEmpty) return message;
     final ownId = ref.read(rendererIdentityProvider).value?.rendererId;
@@ -546,9 +541,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     final rendererSettings = ref.watch(rendererSettingsRouteProvider);
     final connectionState = ref.watch(connectionStateProvider);
     final showCoachMarks = _showCoachMarks;
-    // Clear the mini-player (on both screens); off search also clear the
-    // measured dock cluster. On search the bar lives in the header, so nothing
-    // else docks at the bottom.
+    // Clear the mini-player, and off search the dock cluster too — on search
+    // the bar lives in the header, so nothing else docks at the bottom.
     _publishToastInset(
       searchOpen ? kMiniPlayerHeight : kMiniPlayerHeight + _dockClusterHeight,
     );

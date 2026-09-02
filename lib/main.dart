@@ -85,8 +85,6 @@ class KalinkaApp extends ConsumerWidget {
       title: 'Kalinka',
       theme: AppTheme.dark(),
       debugShowCheckedModeBanner: false,
-      // Outside the navigator, so a toast is painted over whatever route
-      // raised it rather than under it.
       builder: (_, child) => KalinkaToastHost(child: child!),
       home: const MusicPlayerScreen(),
     );

@@ -57,7 +57,6 @@ class ToastNotifier extends Notifier<List<ToastEntry>> {
   static const _maxToasts = 3;
   static const _animationExtraMs = 250;
   static const _successDisplayMs = 2000;
-  // Long enough to read a failure that names an output and says why.
   static const _errorDisplayMs = 5000;
 
   final Map<String, Timer> _timers = {};
@@ -302,12 +301,11 @@ final toastProvider = NotifierProvider<ToastNotifier, List<ToastEntry>>(
   ToastNotifier.new,
 );
 
-/// How far up from the bottom edge toasts should sit, so they clear whatever
-/// the screen underneath floats there — the mini-player, the search dock.
+/// How far up from the bottom edge toasts sit, so they clear whatever the
+/// screen underneath floats there — the mini-player, the search dock.
 ///
-/// Published by the screen that owns that chrome, because the toasts are
-/// painted above the navigator and so out of its reach. Zero until a screen
-/// says otherwise, which is right for one that docks nothing.
+/// Published by the screen that owns that chrome; zero, which suits a screen
+/// that docks nothing, until one says otherwise.
 class ToastBottomInsetNotifier extends Notifier<double> {
   @override
   double build() => 0;
