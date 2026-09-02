@@ -847,8 +847,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.selected, ['r-kitchen']);
-    // The name goes with the id, so a refusal can be phrased in the words the
-    // row used rather than in the server's id.
     expect(api.selectedNames, ['Kitchen']);
     expect(find.text('PLAY ON'), findsNothing, reason: 'sheet dismissed');
   });

@@ -1,12 +1,9 @@
-/// Substitutes renderer names for ids in [text], given [namesById].
+/// Substitutes renderer names for ids in [text], given [namesById], taking the
+/// log-style `renderer` label in front of an id with it.
 ///
-/// The server names renderers by id — "renderer 7f3a2c… is in use by another
-/// Core" — because its logs read these first. No screen has ever shown that
-/// id, so the picker's name replaces it, along with the label introducing it.
-///
-/// A renderer that reported no name is left alone: the picker falls back to
-/// showing its id, and swapping an id for itself would only cost the label
-/// that at least says what the id refers to.
+/// The server names renderers by id, which is on no screen the user has seen.
+/// An entry whose name is its own id — the picker's fallback for a renderer
+/// that reported none — is left alone, label and all.
 String nameRenderersIn(String text, Map<String, String> namesById) {
   var out = text;
   for (final MapEntry(key: id, value: name) in namesById.entries) {
@@ -24,18 +21,17 @@ String rendererSwitchRefusal({
   String? rendererId,
   String? rendererName,
 }) {
-  // The picker shows a nameless renderer's id, so an id can arrive here as the
-  // name. It reads no better in our words than in the server's.
+  // The picker shows a nameless renderer's id, so an id can arrive as the name.
   final named =
       rendererName != null &&
       rendererName.isNotEmpty &&
       rendererName != rendererId;
   final label = named ? rendererName : 'That output';
-  // 409 is a claimed renderer and nothing else, so the server's log-term
-  // wording carries nothing the picker's own words don't.
+  // 409 here is a claimed renderer and nothing else, so the detail adds only
+  // the id.
   if (status == 409) return '$label is playing through another Kalinka server';
-  // Elsewhere its words separate reasons the guesses below cannot — an output
-  // merely offline from one too old to be driven — so they stand.
+  // The server separates reasons the statuses below cannot — an output merely
+  // offline from one too old to be driven.
   if (detail != null && detail.isNotEmpty) {
     return nameRenderersIn(detail, {
       if (named && rendererId != null) rendererId: rendererName,

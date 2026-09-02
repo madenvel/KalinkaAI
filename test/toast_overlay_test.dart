@@ -1,7 +1,5 @@
-// A toast answers something the user just did, so it has to be readable where
-// they did it. Both of these used to fail: an error looked like every other
-// toast, and one raised from the phone's Now Playing sheet was painted behind
-// the sheet, because the overlay was mounted on the screen the sheet covers.
+// A toast answers something the user just did, so it has to be legible, and
+// visible, where they did it — including on top of the route they did it from.
 
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -46,20 +44,15 @@ Future<void> _retireToast(WidgetTester tester) =>
     tester.pump(const Duration(seconds: 10));
 
 /// The card a toast is drawn on — its outermost decorated ancestor.
-BoxDecoration _card(WidgetTester tester, String message) {
-  final container = tester.widget<Container>(
-    find
-        .ancestor(of: find.text(message), matching: find.byType(Container))
-        .first,
-  );
-  return container.decoration! as BoxDecoration;
-}
+Finder _card(String message) => find
+    .ancestor(of: find.text(message), matching: find.byType(Container))
+    .first;
+
+BoxDecoration _cardDecoration(WidgetTester tester, String message) =>
+    tester.widget<Container>(_card(message)).decoration! as BoxDecoration;
 
 /// The colour actually on screen at [at], read back off the rendered frame.
-///
-/// Render-tree ancestry can't answer this: an overlay child is reparented out
-/// of its host and still painted under a later route, which is exactly the bug
-/// the first attempt at this shipped with.
+/// Widget-tree position proves nothing about what covers what.
 Future<int> _pixelAt(WidgetTester tester, Offset at) async {
   final boundary = tester.renderObject<RenderRepaintBoundary>(
     find.byKey(_boundaryKey),
@@ -83,10 +76,9 @@ void main() {
   ) async {
     final toasts = await _pumpApp(tester);
 
-    // The phone's Now Playing sheet, pared back to what matters: a route
-    // covering the screen, from which the output picker — the thing that
-    // raises this toast — is opened. Edge to edge, as that sheet is, so the
-    // sample below lands on it rather than beside it.
+    // The phone's Now Playing sheet, pared back to a route covering the
+    // screen. Edge to edge, as that sheet is, so the sample lands on it
+    // rather than beside it.
     showModalBottomSheet<void>(
       context: _navKey.currentContext!,
       isScrollControlled: true,
@@ -100,11 +92,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Inside the card but clear of its border, glyph and text.
-    final rect = tester.getRect(
-      find
-          .ancestor(of: find.text(_busy), matching: find.byType(Container))
-          .first,
-    );
+    final rect = tester.getRect(_card(_busy));
     expect(
       await _pixelAt(tester, Offset(rect.center.dx, rect.top + 4)),
       KalinkaColors.actionDeleteSurface.toARGB32(),
@@ -120,14 +108,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.error_outline_rounded), findsOneWidget);
-    expect(_card(tester, _busy).color, KalinkaColors.actionDeleteSurface);
+    expect(
+      _cardDecoration(tester, _busy).color,
+      KalinkaColors.actionDeleteSurface,
+    );
     await _retireToast(tester);
   });
 
-  // Hosted outside the navigator there is no Material in scope, and MaterialApp
-  // fills that gap with a debug style — 48pt red monospace under a yellow
-  // double underline. Our own style overrides everything but the decoration,
-  // so the underline is what shows up.
+  // MaterialApp's fallback for text with no Material in scope sets a
+  // decoration our own style does not override, so it survives the merge.
   testWidgets('toast text is styled, not left to the debug fallback', (
     tester,
   ) async {
@@ -152,7 +141,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.error_outline_rounded), findsNothing);
-    expect(_card(tester, 'Queue cleared').color, KalinkaColors.surfaceElevated);
+    expect(
+      _cardDecoration(tester, 'Queue cleared').color,
+      KalinkaColors.surfaceElevated,
+    );
     await _retireToast(tester);
   });
 }

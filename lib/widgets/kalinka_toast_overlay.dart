@@ -90,23 +90,19 @@ class KalinkaToastOverlay extends ConsumerWidget {
 
 /// Paints window-scoped toasts over [child], which is the whole app.
 ///
-/// Mounted from [MaterialApp.builder] so it sits outside the navigator. An
-/// overlay inside a screen is painted under every route covering that screen,
-/// and those routes are where most toasts are raised from — the output picker
-/// opened from the phone's Now Playing sheet, for one. [OverlayPortal] is no
-/// help: its child paints with the entry hosting it, so it lands under later
-/// routes just the same.
+/// Belongs in [MaterialApp.builder], outside the navigator: mounted on a
+/// screen it would be painted under every route covering that screen, and
+/// those routes are where most toasts are raised from.
 ///
 /// The tablet layout's panel-scoped overlay stays inside that panel, whose
-/// bounds are the whole point of it and are unknown from here.
+/// bounds are the point of it and are unknown from here.
 class KalinkaToastHost extends ConsumerWidget {
   final Widget child;
 
   const KalinkaToastHost({super.key, required this.child});
 
-  /// Above the navigator there is no [Material] in scope, and [MaterialApp]
-  /// fills that gap with a debug style — its decoration draws a yellow double
-  /// underline through any text that doesn't set one of its own.
+  // The Material is what the text takes its style from; without one in scope
+  // MaterialApp's debug fallback strikes a yellow double underline through it.
   static Widget _layer(Widget overlay) => IgnorePointer(
     child: Material(type: MaterialType.transparency, child: overlay),
   );
@@ -205,8 +201,6 @@ class _ToastCardState extends State<_ToastCard>
 
   @override
   Widget build(BuildContext context) {
-    // A failure gets its own surface: a 5px dot is too little to carry the
-    // difference between "queued" and "that didn't work".
     final isError = widget.entry.isError;
     return FadeTransition(
       opacity: _opacity,
