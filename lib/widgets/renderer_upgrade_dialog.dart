@@ -7,10 +7,9 @@ import 'kalinka_dialog.dart';
 /// Asks whether to upgrade the renderer named [rendererName].
 ///
 /// Returns `true` when the user confirms — the caller posts the upgrade.
-/// Raised from the output picker, both from the row of a renderer that can no
-/// longer play and from the upgrade button on one that merely has a release
-/// waiting; [blocked] tells those two apart in the wording. Show via
-/// [showKalinkaDialog].
+/// Raised from the output picker by both the row of a renderer that can no
+/// longer play and the button on one merely behind; [blocked] tells the two
+/// apart in the wording. Show via [showKalinkaDialog].
 class RendererUpgradeDialog extends StatelessWidget {
   final String rendererName;
 

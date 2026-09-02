@@ -214,13 +214,16 @@ class RendererSwitcherDropdown extends ConsumerWidget {
 
 Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
   final notifier = ref.read(rendererListProvider.notifier);
-  final toast = ref.read(toastProvider.notifier);
-  // The sheet is anchored to the panel it was opened from, so its answers
-  // belong over that panel too. Captured here, before the sheet's own context
-  // replaces this one.
-  final inPanel = SheetAnchor.elementOf(context) != null;
   final route = ref.read(rendererSettingsRouteProvider.notifier);
   final navigator = Navigator.of(context);
+  // The sheet is anchored to the panel it was opened from, so its answers
+  // belong over that panel too. Captured before the sheet's own context
+  // replaces this one.
+  final inPanel = SheetAnchor.elementOf(context) != null;
+  final toasts = ref.read(toastProvider.notifier);
+  void say(String message, {bool isError = false}) =>
+      toasts.show(message, isError: isError, inPanel: inPanel);
+
   // Servers with the renderer events keep the list fresh over the queue
   // socket; this re-read is the fallback for ones that predate them.
   notifier.refresh();
@@ -241,9 +244,9 @@ Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
       try {
         await notifier.select(choice.rendererId);
       } on RendererSwitchException catch (e) {
-        toast.show(e.message, isError: true, inPanel: inPanel);
+        say(e.message, isError: true);
       } catch (_) {
-        toast.show('Couldn’t switch output', isError: true, inPanel: inPanel);
+        say('Couldn’t switch output', isError: true);
       }
     case RendererPickerIntent.upgrade:
       if (!navigator.mounted) return;
@@ -257,20 +260,13 @@ Future<void> _openPicker(BuildContext context, WidgetRef ref) async {
       if (confirmed != true) return;
       try {
         await ref.read(kalinkaProxyProvider).upgradeRenderer(choice.rendererId);
-        // It restarts to apply and re-registers itself; the renderer events
-        // bring the list back with the new version, so nothing to poll here.
-        toast.show(
-          '${choice.rendererName} is upgrading and will reconnect',
-          inPanel: inPanel,
-        );
+        // It restarts and re-registers, and the renderer events bring the
+        // list back with the new version — nothing to poll for here.
+        say('${choice.rendererName} is upgrading and will reconnect');
       } on RendererUpgradeException catch (e) {
-        toast.show(e.message, isError: true, inPanel: inPanel);
+        say(e.message, isError: true);
       } catch (_) {
-        toast.show(
-          'Couldn’t start the upgrade',
-          isError: true,
-          inPanel: inPanel,
-        );
+        say('Couldn’t start the upgrade', isError: true);
       }
   }
 }
@@ -473,9 +469,8 @@ class _RendererRow extends StatelessWidget {
               // highlight stays a circle.
               Positioned.fill(
                 child: InkWell(
-                  // A row that cannot play but can be upgraded taps into the
-                  // upgrade: doing nothing at all reads as a broken app rather
-                  // than as a renderer that needs new software.
+                  // A dead tap reads as a broken app, not as an output
+                  // waiting for new software.
                   onTap: canPlayHere
                       ? () {
                           KalinkaHaptics.selectionClick();
@@ -492,9 +487,8 @@ class _RendererRow extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    // Dimmed here rather than over the whole row: on a row
-                    // that cannot be played to, the upgrade is the one live
-                    // control and must not look as dead as the name does.
+                    // Dimmed here, not over the whole row: the upgrade is
+                    // the one live control and must not look dead too.
                     child: Opacity(
                       opacity: usable ? 1.0 : 0.45,
                       // Text swallows pointers (RenderParagraph hit-tests
@@ -553,9 +547,8 @@ class _RendererRow extends StatelessWidget {
                         onIntent(RendererPickerIntent.upgrade);
                       },
                     ),
-                  // Dropped rather than shown dead: on a renderer that cannot
-                  // answer for its settings, the upgrade is the only thing to
-                  // do, and two targets where one works is a trap.
+                  // Dropped rather than shown dead: two targets where only
+                  // one works is a trap.
                   if (canConfigure || !offerUpgrade)
                     _GearButton(
                       rendererName: name,
