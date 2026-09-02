@@ -10,6 +10,7 @@ import '../providers/kalinka_ws_api_provider.dart';
 import '../providers/url_resolver.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
+import '../utils/playback_utils.dart';
 import 'procedural_album_art.dart';
 import 'source_badge.dart';
 import 'swipe_to_delete_row.dart';
@@ -45,12 +46,6 @@ class QueueItemRow extends ConsumerWidget {
     this.onDelete,
     this.upNextCount = 0,
   });
-
-  String _formatDuration(int seconds) {
-    final minutes = seconds ~/ 60;
-    final remaining = seconds % 60;
-    return '$minutes:${remaining.toString().padLeft(2, '0')}';
-  }
 
   int get _upNextPosition => displayIndex + 1;
 
@@ -269,7 +264,7 @@ class QueueItemRow extends ConsumerWidget {
                   ? Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Text(
-                        _formatDuration(track.duration),
+                        formatClock(Duration(seconds: track.duration)),
                         style: KalinkaTextStyles.queueItemDuration.copyWith(
                           color: KalinkaColors.textMuted,
                         ),
@@ -282,7 +277,7 @@ class QueueItemRow extends ConsumerWidget {
                           _NowPlayingTimer(durationSec: track.duration)
                         else
                           Text(
-                            _formatDuration(track.duration),
+                            formatClock(Duration(seconds: track.duration)),
                             // Keep Up Next duration fixed for fast scanning.
                             style: KalinkaTextStyles.queueItemDuration.copyWith(
                               color: KalinkaColors.textSecondary,
@@ -388,13 +383,6 @@ class _NowPlayingTimer extends ConsumerWidget {
 
   const _NowPlayingTimer({required this.durationSec});
 
-  String _fmt(int seconds) {
-    final s = seconds < 0 ? 0 : seconds;
-    final m = s ~/ 60;
-    final r = s % 60;
-    return '$m:${r.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final positionMs = ref.watch(playbackTimeMsProvider);
@@ -402,10 +390,10 @@ class _NowPlayingTimer extends ConsumerWidget {
     final String label;
     if (durationSec > 0) {
       final clamped = positionSec.clamp(0, durationSec);
-      label = '-${_fmt(durationSec - clamped)}';
+      label = '-${formatClock(Duration(seconds: durationSec - clamped))}';
     } else {
       // Unknown duration: fall back to elapsed time so the timer still moves.
-      label = _fmt(positionSec < 0 ? 0 : positionSec);
+      label = formatClock(Duration(seconds: positionSec));
     }
     return Text(
       label,
