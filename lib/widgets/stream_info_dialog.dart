@@ -31,8 +31,11 @@ List<StreamInfoField> streamInfoFields(
   required int queueLength,
   required bool bitPerfect,
 }) {
+  // currentTrack is sticky by design — it survives Clear All so the transport
+  // has something to show — so the queue, not the track, says whether anything
+  // is loaded.
   final track = state.currentTrack;
-  if (track == null) return const [];
+  if (track == null || queueLength == 0) return const [];
 
   final audio = state.audioInfo;
   final output = audio?.output;

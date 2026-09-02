@@ -177,6 +177,19 @@ void main() {
       expect(_valueOf(fields, 'Path'), 'Bit-perfect');
     });
 
+    test('an emptied queue is nothing playing, sticky track or not', () {
+      // Clear All leaves currentTrack behind for the transport to show.
+      expect(
+        streamInfoFields(
+          _playing(),
+          positionMs: 0,
+          queueLength: 0,
+          bitPerfect: false,
+        ),
+        isEmpty,
+      );
+    });
+
     test('nothing loaded is no fields at all', () {
       expect(
         streamInfoFields(

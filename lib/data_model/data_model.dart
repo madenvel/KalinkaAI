@@ -220,7 +220,10 @@ class PlaybackState {
       message: other.message ?? message,
       audioInfo: other.audioInfo ?? audioInfo,
       mimeType: other.mimeType ?? mimeType,
-      streamUrl: other.streamUrl ?? streamUrl,
+      // Replaced, not merged: the URL is only true while the renderer holds
+      // that stream, so a state reporting none must clear the last one rather
+      // than leave a link to something that stopped playing.
+      streamUrl: other.streamUrl,
       timestampNs: other.timestampNs != 0 ? other.timestampNs : timestampNs,
     );
   }
@@ -511,7 +514,15 @@ class Playlist {
   };
 }
 
-enum PreviewType { imageText, textOnly, carousel, tile, tileNumbered, card, none }
+enum PreviewType {
+  imageText,
+  textOnly,
+  carousel,
+  tile,
+  tileNumbered,
+  card,
+  none,
+}
 
 extension PreviewTypeExtension on PreviewType {
   String toValue() {
@@ -1288,11 +1299,10 @@ class StatusMessage {
 
   StatusMessage({this.message, this.count});
 
-  factory StatusMessage.fromJson(Map<String, dynamic> json) =>
-      StatusMessage(
-        message: json["message"],
-        count: (json["count"] as num?)?.toInt(),
-      );
+  factory StatusMessage.fromJson(Map<String, dynamic> json) => StatusMessage(
+    message: json["message"],
+    count: (json["count"] as num?)?.toInt(),
+  );
 
   Map<String, dynamic> toJson() => {"message": message, "count": count};
 }
@@ -1383,7 +1393,8 @@ class ModuleInfo {
     enabled: json["enabled"],
     state: ModuleStateExtension.fromValue(json["state"]),
     message: json["error_message"] as String?,
-    missingPackages: (json["missing_packages"] as List?)
+    missingPackages:
+        (json["missing_packages"] as List?)
             ?.map((e) => e.toString())
             .toList() ??
         const [],
@@ -1461,13 +1472,13 @@ class StageStatus {
   });
 
   factory StageStatus.fromJson(Map<String, dynamic> json) => StageStatus(
-        total: (json['total'] ?? 0) as int,
-        done: (json['done'] ?? 0) as int,
-        pending: (json['pending'] ?? 0) as int,
-        inProgress: (json['in_progress'] ?? 0) as int,
-        failed: (json['failed'] ?? 0) as int,
-        coveragePct: ((json['coverage_pct'] ?? 0) as num).toDouble(),
-      );
+    total: (json['total'] ?? 0) as int,
+    done: (json['done'] ?? 0) as int,
+    pending: (json['pending'] ?? 0) as int,
+    inProgress: (json['in_progress'] ?? 0) as int,
+    failed: (json['failed'] ?? 0) as int,
+    coveragePct: ((json['coverage_pct'] ?? 0) as num).toDouble(),
+  );
 }
 
 class IndexerStatus {
@@ -1476,14 +1487,14 @@ class IndexerStatus {
   const IndexerStatus(this.modules);
 
   factory IndexerStatus.fromJson(Map<String, dynamic> json) => IndexerStatus({
-        for (final m in json.entries)
-          m.key: {
-            for (final s in (m.value as Map).entries)
-              s.key as String:
-                  StageStatus.fromJson(Map<String, dynamic>.from(s.value as Map)),
-          },
-      });
-
+    for (final m in json.entries)
+      m.key: {
+        for (final s in (m.value as Map).entries)
+          s.key as String: StageStatus.fromJson(
+            Map<String, dynamic>.from(s.value as Map),
+          ),
+      },
+  });
 }
 
 /// One ready-to-run AI search query from `/ai_search/suggestions`, matched to
@@ -1591,17 +1602,17 @@ class RendererInfo {
   bool get isConnected => status == 'connected';
 
   RendererInfo copyWith({bool? active, bool? selected}) => RendererInfo(
-        rendererId: rendererId,
-        friendlyName: friendlyName,
-        status: status,
-        active: active ?? this.active,
-        selected: selected ?? this.selected,
-        hostname: hostname,
-        audioBackend: audioBackend,
-        kind: kind,
-        compatible: compatible,
-        updateAvailable: updateAvailable,
-      );
+    rendererId: rendererId,
+    friendlyName: friendlyName,
+    status: status,
+    active: active ?? this.active,
+    selected: selected ?? this.selected,
+    hostname: hostname,
+    audioBackend: audioBackend,
+    kind: kind,
+    compatible: compatible,
+    updateAvailable: updateAvailable,
+  );
 
   factory RendererInfo.fromJson(Map<String, dynamic> json) {
     final platform = json['platform'] is Map
