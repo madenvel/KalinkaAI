@@ -5,15 +5,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:kalinka/data_model/data_model.dart' show RendererInfo;
 import 'package:kalinka/data_model/presentation_schema.dart';
 import 'package:kalinka/data_model/renderer_config.dart';
 import 'package:kalinka/data_model/renderer_config_adapter.dart';
 import 'package:kalinka/providers/connection_settings_provider.dart';
 import 'package:kalinka/providers/connection_state_provider.dart';
 import 'package:kalinka/providers/kalinka_player_api_provider.dart';
+import 'package:kalinka/providers/renderer_provider.dart';
 import 'package:kalinka/providers/renderer_settings_provider.dart';
 import 'package:kalinka/screens/renderer_settings_screen.dart';
+import 'package:kalinka/theme/app_theme.dart';
 import 'package:kalinka/widgets/kalinka_button.dart';
+import 'package:kalinka/widgets/settings_controls/settings_readonly_card.dart';
+import 'package:kalinka/widgets/settings_controls/settings_text_input.dart';
 
 /// A `/renderer/{id}/config` body shaped like the live one from a Pi renderer:
 /// enum fields whose options are resolved per request, text values in both
@@ -69,6 +74,19 @@ const _configPayload = '''
 ]}
 ''';
 
+/// A renderer whose name was fixed with `--name`, so the field arrives
+/// read-only.
+const _readonlyNamePayload = '''
+{"config_version":"1","sections":[
+  {"path":"renderer","title":"Renderer","description":"",
+   "fields":[
+     {"path":"renderer.name","title":"Name","description":"","type":"string",
+      "value":"Living Room","default":"Kalinka","options":[],
+      "apply":"restart_required","read_only":true,"importance":"simple"}
+   ]}
+]}
+''';
+
 RendererConfigSnapshot _snapshot([String body = _configPayload]) =>
     RendererConfigSnapshot.fromJson(
       Map<String, dynamic>.from(jsonDecode(body) as Map),
@@ -76,10 +94,13 @@ RendererConfigSnapshot _snapshot([String body = _configPayload]) =>
 
 /// Serves the captured config and records writes; everything else throws.
 class _FakeApi implements KalinkaPlayerProxy {
-  _FakeApi({this.loadError, this.outcomes});
+  _FakeApi({this.loadError, this.outcomes, this.payload = _configPayload});
 
   /// Thrown by [getRendererConfig] when set.
   final Object? loadError;
+
+  /// Served by [getRendererConfig].
+  final String payload;
 
   /// Returned by [updateRendererConfig] when set; defaults to "all applied".
   final List<Map<String, dynamic>>? outcomes;
@@ -93,7 +114,7 @@ class _FakeApi implements KalinkaPlayerProxy {
   Future<RendererConfigSnapshot> getRendererConfig(String rendererId) async {
     loadCalls++;
     if (loadError != null) throw loadError!;
-    return _snapshot();
+    return _snapshot(payload);
   }
 
   @override
@@ -132,6 +153,16 @@ class _FakeApi implements KalinkaPlayerProxy {
 class _FakeConnectionNotifier extends ConnectionStateNotifier {
   @override
   ConnectionStatus build() => ConnectionStatus.connected;
+}
+
+/// A fixed renderer list; the real notifier arms socket listeners.
+class _StubRendererList extends RendererListNotifier {
+  _StubRendererList(this.renderers);
+  final List<RendererInfo> renderers;
+
+  @override
+  RendererListState build() =>
+      RendererListState(renderers: renderers, loaded: true);
 }
 
 /// The speaker-test card sits past the fold of an 800x600 test window, and how
@@ -510,6 +541,23 @@ void main() {
           ),
         );
 
+    // As [wrap], with a known renderer list for the address badge to read.
+    Widget wrapWithList(KalinkaPlayerProxy api, List<RendererInfo> rows) =>
+        ProviderScope(
+          overrides: [
+            ...overrides(api),
+            rendererListProvider.overrideWith(() => _StubRendererList(rows)),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: RendererSettingsScreen(
+                rendererId: rendererId,
+                rendererName: 'Living Room',
+              ),
+            ),
+          ),
+        );
+
     testWidgets('renders the renderer page with the shared settings chrome', (
       tester,
     ) async {
@@ -790,6 +838,49 @@ void main() {
       await tester.tap(find.text('Retry'));
       await tester.pumpAndSettle();
       expect(api.loadCalls, 2);
+    });
+
+    testWidgets('the renderer section carries host and version on its label', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithList(_FakeApi(payload: _readonlyNamePayload), [
+          const RendererInfo(
+            rendererId: rendererId,
+            friendlyName: 'Living Room',
+            status: 'connected',
+            hostname: 'pi-living',
+            softwareVersion: '1.2.3',
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      final badge = find.text('pi-living · v1.2.3');
+      expect(badge, findsOneWidget);
+      // Under the section label, above the field card.
+      final badgeTop = tester.getRect(badge).top;
+      expect(badgeTop, greaterThan(tester.getRect(find.text('RENDERER')).top));
+      expect(badgeTop, lessThan(tester.getRect(find.text('Name')).top));
+    });
+
+    testWidgets('a read-only name is grey, with no input to mistake it for', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithList(_FakeApi(payload: _readonlyNamePayload), const []),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SettingsTextInput), findsNothing);
+      final value = tester.widget<Text>(
+        find.descendant(
+          of: find.byType(SettingsReadonlyCard),
+          matching: find.byType(Text),
+        ),
+      );
+      expect(value.textSpan!.toPlainText(), 'Living Room');
+      expect(value.style!.color, KalinkaColors.textSecondary);
     });
   });
 }

@@ -33,9 +33,11 @@ class SettingsReadonlyCard extends StatelessWidget {
       style: KalinkaTextStyles.trayRowSublabel.copyWith(
         fontSize: KalinkaTypography.baseSize + 1,
         height: 1.45,
+        // Grey, not input white: the card shares its fill with the text
+        // inputs, so the colour is what says "not editable".
         color: text.isEmpty
             ? KalinkaColors.textMuted
-            : KalinkaColors.textPrimary,
+            : KalinkaColors.textSecondary,
       ),
     );
 

@@ -316,10 +316,16 @@ Widget buildFieldControl({
 class SchemaSectionRenderer extends StatelessWidget {
   final SectionSpec section;
   final bool isTopLevel;
+
+  /// Metadata line under a top-level section's label, e.g. the renderer
+  /// page's host + version badge.
+  final Widget? subtitle;
+
   const SchemaSectionRenderer({
     super.key,
     required this.section,
     this.isTopLevel = false,
+    this.subtitle,
   });
 
   @override
@@ -399,7 +405,7 @@ class SchemaSectionRenderer extends StatelessWidget {
             section.title,
             subtitle: section.id == 'base_config.server'
                 ? const _ServerAddressBadge()
-                : null,
+                : subtitle,
           ),
           // "New version available ›" banner between the SERVER label
           // and the settings fields; hidden when there's no update.

@@ -1571,6 +1571,9 @@ class RendererInfo {
   /// friendly names don't.
   final String hostname;
 
+  /// The renderer build's own version, or empty for one that reported none.
+  final String softwareVersion;
+
   /// Audio backend it plays through (`alsa`, `pipewire`, …), or empty.
   final String audioBackend;
 
@@ -1593,6 +1596,7 @@ class RendererInfo {
     this.active = false,
     this.selected = false,
     this.hostname = '',
+    this.softwareVersion = '',
     this.audioBackend = '',
     this.kind = '',
     this.compatible = true,
@@ -1608,6 +1612,7 @@ class RendererInfo {
     active: active ?? this.active,
     selected: selected ?? this.selected,
     hostname: hostname,
+    softwareVersion: softwareVersion,
     audioBackend: audioBackend,
     kind: kind,
     compatible: compatible,
@@ -1625,6 +1630,7 @@ class RendererInfo {
       active: (json['active'] ?? false) as bool,
       selected: (json['selected'] ?? false) as bool,
       hostname: platform['hostname']?.toString() ?? '',
+      softwareVersion: (json['software_version'] ?? '') as String,
       audioBackend: platform['audio_backend']?.toString() ?? '',
       kind: (json['kind'] ?? '') as String,
       compatible: (json['compatible'] ?? true) as bool,

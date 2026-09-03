@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/kalinka_player_api_provider.dart';
+import '../providers/renderer_provider.dart';
 import '../providers/renderer_settings_provider.dart';
 import '../providers/settings_provider.dart' show expertModeProvider;
 import '../theme/app_theme.dart';
@@ -159,6 +160,9 @@ class _RendererSettingsScreenState
               key: ValueKey(section.id),
               section: section,
               isTopLevel: true,
+              subtitle: section.id == 'renderer'
+                  ? _RendererAddressBadge(rendererId: widget.rendererId)
+                  : null,
             ),
           _SpeakerTestSection(
             rendererId: widget.rendererId,
@@ -295,6 +299,36 @@ class _RendererSettingsScreenState
           ),
         ),
       ),
+    );
+  }
+}
+
+/// `host · vX.Y` under the RENDERER section title, from the same list the
+/// renderer switcher shows.
+class _RendererAddressBadge extends ConsumerWidget {
+  final String rendererId;
+  const _RendererAddressBadge({required this.rendererId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final info = ref.watch(
+      rendererListProvider.select(
+        (s) => s.renderers.where((r) => r.rendererId == rendererId).firstOrNull,
+      ),
+    );
+    if (info == null) return const SizedBox.shrink();
+    final parts = <String>[
+      if (info.hostname.isNotEmpty) info.hostname,
+      if (info.softwareVersion.isNotEmpty) 'v${info.softwareVersion}',
+    ];
+    if (parts.isEmpty) return const SizedBox.shrink();
+    return Text(
+      parts.join(' · '),
+      style: KalinkaTextStyles.trayRowSublabel.copyWith(
+        fontSize: KalinkaTypography.baseSize + 1,
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }
