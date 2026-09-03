@@ -140,13 +140,19 @@ class PlayQueueState {
           playbackState: _normalizePlaybackIndex(newPlaybackState, list.length),
           seq: seq,
         );
-      case TrackUnavailableEvent(:final index, :final unavailable, :final seq):
+      case TrackUnavailableEvent(
+        :final index,
+        :final unavailable,
+        :final reason,
+        :final seq,
+      ):
         if (index < 0 || index >= trackList.length) {
           return this;
         }
         final nextTrackList = [...trackList];
         nextTrackList[index] = nextTrackList[index].copyWith(
           unavailable: unavailable,
+          unavailableReason: unavailable ? reason : null,
         );
         return copyWith(trackList: nextTrackList, seq: seq);
       case PlaybackErrorEvent():
@@ -338,6 +344,7 @@ sealed class PlayQueueEvent with _$PlayQueueEvent {
     required int index,
     required bool unavailable,
     required int seq,
+    String? reason,
   }) = TrackUnavailableEvent;
 
   const factory PlayQueueEvent.playbackError({
@@ -419,6 +426,7 @@ sealed class PlayQueueEvent with _$PlayQueueEvent {
           index: index,
           unavailable: json['unavailable'] as bool? ?? true,
           seq: seq,
+          reason: json['reason'] as String?,
         );
       case 'playback_error':
         return PlayQueueEvent.playbackError(

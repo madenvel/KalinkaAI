@@ -63,12 +63,42 @@ void main() {
       expect(next, same(state));
     });
 
+    test('carries the reason onto the track and clears it with the flag', () {
+      final state = _stateWith([Track(id: 'a', title: 'A', duration: 10)]);
+
+      final flagged = state.apply(
+        const PlayQueueEvent.trackUnavailable(
+          index: 0,
+          unavailable: true,
+          reason: 'Music folder /mnt/nas is not available',
+          seq: 1,
+        ),
+        0,
+      );
+      expect(
+        flagged.trackList[0].unavailableReason,
+        'Music folder /mnt/nas is not available',
+      );
+
+      final cleared = flagged.apply(
+        const PlayQueueEvent.trackUnavailable(
+          index: 0,
+          unavailable: false,
+          seq: 2,
+        ),
+        0,
+      );
+      expect(cleared.trackList[0].unavailable, isFalse);
+      expect(cleared.trackList[0].unavailableReason, isNull);
+    });
+
     test('parses the wire event', () {
       final event = PlayQueueEvent.fromJson({
         'event_type': 'track_unavailable',
         'index': 2,
         'unavailable': true,
         'seq': 7,
+        'reason': 'Music folder /mnt/nas is not available',
       });
 
       expect(event, isA<TrackUnavailableEvent>());
@@ -76,6 +106,18 @@ void main() {
       expect(unavailable.index, 2);
       expect(unavailable.unavailable, isTrue);
       expect(unavailable.seq, 7);
+      expect(unavailable.reason, 'Music folder /mnt/nas is not available');
+    });
+
+    test('parses the wire event without a reason (older server)', () {
+      final event = PlayQueueEvent.fromJson({
+        'event_type': 'track_unavailable',
+        'index': 2,
+        'unavailable': true,
+        'seq': 7,
+      });
+
+      expect((event as TrackUnavailableEvent).reason, isNull);
     });
 
     test('parses a numeric (non-int) index defensively', () {

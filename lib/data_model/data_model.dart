@@ -336,6 +336,11 @@ class Track {
   /// skipped it during playback. Surfaced as a warning indicator in the queue.
   bool unavailable;
 
+  /// User-presentable cause the server offered with [unavailable] (e.g. an
+  /// unmounted network share). Event-borne and session-local: a replay after
+  /// reconnect restores the flag but not the reason.
+  String? unavailableReason;
+
   Track({
     required this.id,
     required this.title,
@@ -344,6 +349,7 @@ class Track {
     this.album,
     this.playlistTrackId,
     this.unavailable = false,
+    this.unavailableReason,
   });
 
   factory Track.fromJson(Map<String, dynamic> json) => Track(
@@ -368,7 +374,10 @@ class Track {
     "unavailable": unavailable,
   };
 
-  Track copyWith({bool? unavailable}) => Track(
+  /// The reason travels with the flag: changing [unavailable] replaces
+  /// [unavailableReason] (with null when none is given), so a track that
+  /// becomes available again never keeps a stale cause.
+  Track copyWith({bool? unavailable, String? unavailableReason}) => Track(
     id: id,
     title: title,
     duration: duration,
@@ -376,6 +385,9 @@ class Track {
     album: album,
     playlistTrackId: playlistTrackId,
     unavailable: unavailable ?? this.unavailable,
+    unavailableReason: unavailable == null
+        ? this.unavailableReason
+        : unavailableReason,
   );
 }
 
