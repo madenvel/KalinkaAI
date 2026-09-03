@@ -213,7 +213,8 @@ class QueueItemRow extends ConsumerWidget {
                       if (track.unavailable || playbackFailed) ...[
                         Tooltip(
                           message: track.unavailable
-                              ? 'Unavailable — could not load this track'
+                              ? (track.unavailableReason ??
+                                    'Unavailable — could not load this track')
                               : 'Playback failed — press play to try again',
                           child: const Icon(
                             Icons.error_outline,
