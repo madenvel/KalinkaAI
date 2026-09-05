@@ -120,6 +120,18 @@ void main() {
       expect((event as TrackUnavailableEvent).reason, isNull);
     });
 
+    test('treats a blank reason as absent', () {
+      final event = PlayQueueEvent.fromJson({
+        'event_type': 'track_unavailable',
+        'index': 2,
+        'unavailable': true,
+        'seq': 7,
+        'reason': '  ',
+      });
+
+      expect((event as TrackUnavailableEvent).reason, isNull);
+    });
+
     test('parses a numeric (non-int) index defensively', () {
       final event = PlayQueueEvent.fromJson({
         'event_type': 'track_unavailable',

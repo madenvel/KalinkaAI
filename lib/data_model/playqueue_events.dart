@@ -414,6 +414,7 @@ sealed class PlayQueueEvent with _$PlayQueueEvent {
           seq: seq,
         );
       case 'track_unavailable':
+        final reason = json['reason'] as String?;
         final rawIndex = json['index'];
         final index = rawIndex is int
             ? rawIndex
@@ -426,7 +427,8 @@ sealed class PlayQueueEvent with _$PlayQueueEvent {
           index: index,
           unavailable: json['unavailable'] as bool? ?? true,
           seq: seq,
-          reason: json['reason'] as String?,
+          // Blank reasons count as absent — an empty Tooltip message asserts.
+          reason: (reason == null || reason.trim().isEmpty) ? null : reason,
         );
       case 'playback_error':
         return PlayQueueEvent.playbackError(
