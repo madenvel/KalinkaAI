@@ -860,6 +860,7 @@ class _IndexerProgressCard extends ConsumerWidget {
     // Name the stage but always make clear it's the local library being built.
     final String action = switch (stage) {
       IndexerDisplayStage.indexing => 'Indexing local library',
+      IndexerDisplayStage.analyzingAudio => 'Analyzing local library audio',
       IndexerDisplayStage.enrichment => 'Enriching local library',
       IndexerDisplayStage.preparingAi => 'Preparing local library for AI',
     };
