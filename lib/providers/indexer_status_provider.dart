@@ -7,11 +7,14 @@ import '../data_model/data_model.dart';
 import 'connection_settings_provider.dart';
 import 'kalinka_player_api_provider.dart';
 
-/// Library-pipeline stages surfaced to the user, in pipeline order. The
-/// server reports finer-grained stages (`clap_audio` / `clap_text`); both
-/// embedding stages fold into [preparingAi].
+/// Library-pipeline stages surfaced to the user, in pipeline order:
+/// scan, audio analysis (`clap_audio` — runs off the raw files, before any
+/// metadata work), enrichment, then the enrichment-dependent tail
+/// (`clap_text` and the aggregate embeddings that ride its completion),
+/// which folds into [preparingAi].
 enum IndexerDisplayStage {
   indexing('Indexing'),
+  analyzingAudio('Analyzing audio'),
   enrichment('Enrichment'),
   preparingAi('Preparing AI search');
 
@@ -152,9 +155,11 @@ class IndexerStatusNotifier extends Notifier<IndexerStatusState> {
     switch (serverStage) {
       case 'indexing':
         return IndexerDisplayStage.indexing;
+      case 'clap_audio':
+        return IndexerDisplayStage.analyzingAudio;
       case 'enrichment':
         return IndexerDisplayStage.enrichment;
-      default: // clap_audio, clap_text and any future embedding stage
+      default: // clap_text and any future enrichment-dependent stage
         return IndexerDisplayStage.preparingAi;
     }
   }
