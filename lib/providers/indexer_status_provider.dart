@@ -7,11 +7,9 @@ import '../data_model/data_model.dart';
 import 'connection_settings_provider.dart';
 import 'kalinka_player_api_provider.dart';
 
-/// Library-pipeline stages surfaced to the user, in pipeline order:
-/// scan, audio analysis (`clap_audio` — runs off the raw files, before any
-/// metadata work), enrichment, then the enrichment-dependent tail
-/// (`clap_text` and the aggregate embeddings that ride its completion),
-/// which folds into [preparingAi].
+/// Library-pipeline stages surfaced to the user, in pipeline order. The
+/// server's `clap_audio` maps to [analyzingAudio]; `clap_text` and any later
+/// embedding stage fold into [preparingAi].
 enum IndexerDisplayStage {
   indexing('Indexing'),
   analyzingAudio('Analyzing audio'),
@@ -167,8 +165,8 @@ class IndexerStatusNotifier extends Notifier<IndexerStatusState> {
 
 final indexerStatusProvider =
     NotifierProvider<IndexerStatusNotifier, IndexerStatusState>(
-  IndexerStatusNotifier.new,
-);
+      IndexerStatusNotifier.new,
+    );
 
 /// Holds the indexer poll for this State's lifetime. The microtask defers
 /// past the mounting build; the flag keeps dispose from releasing a hold the

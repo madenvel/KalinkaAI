@@ -336,9 +336,8 @@ class Track {
   /// skipped it during playback. Surfaced as a warning indicator in the queue.
   bool unavailable;
 
-  /// User-presentable cause the server offered with [unavailable] (e.g. an
-  /// unmounted network share). Event-borne and session-local: a replay after
-  /// reconnect restores the flag but not the reason.
+  /// User-presentable cause the server sent with [unavailable]. Event-borne:
+  /// a replay after reconnect restores the flag but not the reason.
   String? unavailableReason;
 
   Track({
@@ -374,9 +373,8 @@ class Track {
     "unavailable": unavailable,
   };
 
-  /// The reason travels with the flag: changing [unavailable] replaces
-  /// [unavailableReason] (with null when none is given), so a track that
-  /// becomes available again never keeps a stale cause.
+  /// Changing [unavailable] also replaces [unavailableReason], so a track
+  /// that becomes available again drops the stale cause.
   Track copyWith({bool? unavailable, String? unavailableReason}) => Track(
     id: id,
     title: title,
