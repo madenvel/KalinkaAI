@@ -40,7 +40,7 @@ Near-white on near-black — maximum contrast.
 
 ## Accent — Kalinka Berry
 
-Primary interactive accent — deep natural red of guelder-rose berries. Active states, progress, selected indicators. Use sparingly — max 2 tinted surfaces at once.
+Primary interactive accent — deep natural red of guelder-rose berries. Active states, progress, selected indicators. Use sparingly — max 2 tinted surfaces at once; [Fill or outline](#fill-or-outline) decides which treatment a control gets.
 
 | Token | Value | Usage |
 |---|---|---|
@@ -50,6 +50,20 @@ Primary interactive accent — deep natural red of guelder-rose berries. Active 
 | `accentBright` | `#F59299` | Text/icons on `accentFaded` only |
 | `accentSubtle` | `rgba(194,57,75,0.08)` | Now-playing row · active pill bg |
 | `accentBorder` | `rgba(194,57,75,0.40)` | Focused inputs · selected cards |
+
+### Fill or outline
+
+Berry has two treatments, and which one a control gets is not a matter of taste.
+
+**Fill** — `accent` background, `textPrimary` label — marks *where the decision is being made*: the active `SettingsEnumPills` segment, a selected chip inside the filter card, `SettingsToggle` on, the primary `KalinkaButton`. Fill is what makes one chip findable among twenty.
+
+**Outline** — `accentSubtle` fill, `accentBorder` edge, `accentTint` label — marks *the trace of a decision made elsewhere*: applied-filter chips above a listing, the lit search-and-filters button, `ActionPillButton(accent:)`, the now-playing row tint. It reads as "in effect", not "pick me".
+
+The same value takes both treatments depending on where it is drawn, and that is the rule working rather than an inconsistency: a genre chip is filled inside the filter card, where you are choosing it, and outlined in the header of the listing it produced, where it is a receipt.
+
+Duration settles what the first test leaves open. Berry is loud — a surface you look at for four seconds while choosing can afford it; chrome that stays on screen for a whole session cannot. That is why the lit filter button is outlined despite holding genuine state.
+
+**The budget:** a screen at rest carries at most one crimson fill. A decision surface — a filter card, a dialog — is not at rest, and inside it fill is the vocabulary of choosing.
 
 ## Accent — Warm Brass
 
