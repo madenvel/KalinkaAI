@@ -790,7 +790,12 @@ class Catalog {
   final String title;
   final AlbumImage? image;
   final String? description;
-  final bool canGenreFilter;
+
+  /// The fields this catalog can be filtered by, declared by its source.
+  /// Empty means it offers no filtering; a field absent here must never be
+  /// sent, because the module answers such a request with 422.
+  final List<FilterSpec> filters;
+
   final Preview? previewConfig;
   final CatalogRole? role;
 
@@ -802,7 +807,7 @@ class Catalog {
   Catalog({
     required this.id,
     required this.title,
-    required this.canGenreFilter,
+    this.filters = const [],
     this.image,
     this.description,
     this.previewConfig,
@@ -813,7 +818,7 @@ class Catalog {
   static final empty = Catalog(
     id: '',
     title: '',
-    canGenreFilter: false,
+    filters: const [],
     image: null,
     description: null,
     previewConfig: null,
@@ -826,7 +831,7 @@ class Catalog {
     title: unescapeHtml(json["title"]),
     image: json["image"] == null ? null : AlbumImage.fromJson(json["image"]),
     description: json["description"],
-    canGenreFilter: json["can_genre_filter"],
+    filters: FilterSpec.parseList(json["filters"]),
     previewConfig: json["preview_config"] == null
         ? null
         : Preview.fromJson(json["preview_config"]),
@@ -841,7 +846,7 @@ class Catalog {
     "title": title,
     "image": image?.toJson(),
     "description": description,
-    "can_genre_filter": canGenreFilter,
+    "filters": filters.map((x) => x.toJson()).toList(),
     "preview_config": previewConfig?.toJson(),
     "role": role?.toValue(),
     "sources": sources,
@@ -852,7 +857,7 @@ class Catalog {
     String? title,
     AlbumImage? image,
     String? description,
-    bool? canGenreFilter,
+    List<FilterSpec>? filters,
     Preview? previewConfig,
     CatalogRole? role,
     List<String>? sources,
@@ -862,7 +867,7 @@ class Catalog {
       title: title ?? this.title,
       image: image ?? this.image,
       description: description ?? this.description,
-      canGenreFilter: canGenreFilter ?? this.canGenreFilter,
+      filters: filters ?? this.filters,
       previewConfig: previewConfig ?? this.previewConfig,
       role: role ?? this.role,
       sources: sources ?? this.sources,
@@ -1258,46 +1263,167 @@ class FavoriteIds {
   };
 }
 
-class GenreList {
+class Genre {
+  final String id;
+  final String name;
+
+  const Genre({required this.id, required this.name});
+
+  factory Genre.fromJson(Map<String, dynamic> json) =>
+      Genre(id: json["id"], name: json["name"]);
+
+  Map<String, dynamic> toJson() => {"id": id, "name": name};
+}
+
+/// Which selector shape a filter field takes. The set is closed; the field
+/// ids that use them are not.
+///
+/// [choice] is the wire's `values` — Dart reserves that name on an enum. The
+/// contract also has a `range` kind, which no source declares yet and this app
+/// therefore does not draw: [FilterSpec.parseList] drops a spec carrying it
+/// rather than rendering an empty gap.
+enum FilterKind {
+  text,
+  choice;
+
+  static const _wireNames = {
+    "text": FilterKind.text,
+    "values": FilterKind.choice,
+  };
+
+  static FilterKind? fromWire(Object? name) => _wireNames[name];
+
+  String get wireName =>
+      _wireNames.entries.firstWhere((entry) => entry.value == this).key;
+}
+
+/// How a source combines several values of one field. It is the source's
+/// answer, not the UI's assumption: Qobuz unions its genre ids, Jamendo
+/// intersects its tags.
+enum FilterOp { any, all, none }
+
+/// One field a catalog can be filtered by.
+class FilterSpec {
+  final String id;
+  final FilterKind kind;
+
+  /// Shown above the control. For a text field this is also where the source
+  /// says what it matches ("Search track names").
+  final String label;
+
+  /// [FilterKind.choice] only — the combinations this source honours.
+  final List<FilterOp> ops;
+
+  /// The span a `range` field can offer. Parsed and carried so a spec
+  /// round-trips, but nothing draws it yet — see [FilterKind].
+  final (int, int)? bounds;
+
+  const FilterSpec({
+    required this.id,
+    required this.kind,
+    required this.label,
+    this.ops = const [],
+    this.bounds,
+  });
+
+  /// The operation to send for a multi-value selection. A source that offers
+  /// several is asked for a union, the reading a chip row implies.
+  FilterOp get defaultOp => ops.contains(FilterOp.any)
+      ? FilterOp.any
+      : (ops.firstOrNull ?? FilterOp.any);
+
+  /// Every spec this build can render, skipping any whose kind or operations
+  /// it does not know. A control it cannot draw would hide a filter the source
+  /// offers, so an older app shows fewer fields rather than a broken one.
+  static List<FilterSpec> parseList(dynamic json) {
+    if (json is! List) return const [];
+    return json
+        .map((entry) => tryFromJson(entry as Map<String, dynamic>))
+        .whereType<FilterSpec>()
+        .toList();
+  }
+
+  static FilterSpec? tryFromJson(Map<String, dynamic> json) {
+    final kind = FilterKind.fromWire(json["kind"]);
+    if (kind == null) return null;
+
+    final bounds = json["bounds"];
+    return FilterSpec(
+      id: json["id"],
+      kind: kind,
+      label: json["label"] ?? json["id"],
+      ops: json["ops"] == null
+          ? const []
+          : List<FilterOp>.from(
+              (json["ops"] as List)
+                  .map((x) => FilterOp.values.asNameMap()[x])
+                  .whereType<FilterOp>(),
+            ),
+      bounds: bounds == null
+          ? null
+          : ((bounds[0] as num).toInt(), (bounds[1] as num).toInt()),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    "id": id,
+    "kind": kind.wireName,
+    "label": label,
+    "ops": ops.map((op) => op.name).toList(),
+    if (bounds != null) "bounds": [bounds!.$1, bounds!.$2],
+  };
+}
+
+/// One entry of a values field's vocabulary.
+class FilterValue {
+  final String id;
+  final String name;
+
+  /// How many items the value covers, where the source can say.
+  final int? count;
+
+  const FilterValue({required this.id, required this.name, this.count});
+
+  factory FilterValue.fromJson(Map<String, dynamic> json) => FilterValue(
+    id: json["id"],
+    name: json["name"],
+    count: (json["count"] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() => {"id": id, "name": name, "count": count};
+}
+
+class FilterValueList {
   final int offset;
   final int limit;
   final int total;
-  final List<Genre> items;
+  final List<FilterValue> items;
 
-  GenreList({
+  const FilterValueList({
     required this.offset,
     required this.limit,
     required this.total,
     required this.items,
   });
 
-  factory GenreList.fromJson(Map<String, dynamic> json) => GenreList(
-    offset: json["offset"],
-    limit: json["limit"],
-    total: json["total"],
-    items: json["items"] == null
-        ? []
-        : List<Genre>.from(json["items"]!.map((x) => Genre.fromJson(x))),
-  );
+  factory FilterValueList.fromJson(Map<String, dynamic> json) =>
+      FilterValueList(
+        offset: json["offset"],
+        limit: json["limit"],
+        total: json["total"],
+        items: json["items"] == null
+            ? const []
+            : List<FilterValue>.from(
+                json["items"]!.map((x) => FilterValue.fromJson(x)),
+              ),
+      );
 
   Map<String, dynamic> toJson() => {
     "offset": offset,
     "limit": limit,
     "total": total,
-    "items": List<dynamic>.from(items.map((x) => x.toJson())),
+    "items": items.map((x) => x.toJson()).toList(),
   };
-}
-
-class Genre {
-  final String id;
-  final String name;
-
-  Genre({required this.id, required this.name});
-
-  factory Genre.fromJson(Map<String, dynamic> json) =>
-      Genre(id: json["id"], name: json["name"]);
-
-  Map<String, dynamic> toJson() => {"id": id, "name": name};
 }
 
 class StatusMessage {

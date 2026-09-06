@@ -9,6 +9,28 @@ import 'package:kalinka/providers/browse_genres_provider.dart';
 import 'package:kalinka/theme/app_theme.dart';
 import 'package:kalinka/widgets/browse_filters/browse_filter_form.dart';
 
+const _vocabulary = (
+  catalogId: 'kalinka:localfiles:catalog:albums',
+  field: 'genre',
+);
+const _genreField = FilterSpec(
+  id: 'genre',
+  kind: FilterKind.choice,
+  label: 'Genre',
+  ops: [FilterOp.any],
+);
+const _textField = FilterSpec(
+  id: 'q',
+  kind: FilterKind.text,
+  label: 'Search Popular Albums',
+);
+const _typeField = FilterSpec(
+  id: 'type',
+  kind: FilterKind.choice,
+  label: 'Type',
+  ops: [FilterOp.any],
+);
+
 /// A surface whose source honours nothing: every facet renders as a muted
 /// placeholder, and the kind group only reports what the collection holds.
 const _inertCaps = BrowseFilterCapabilities(
@@ -31,6 +53,10 @@ const _liveCaps = BrowseFilterCapabilities(
     SearchType.playlist,
   },
   genre: FacetSupport.supported,
+  genreVocabulary: _vocabulary,
+  genreField: _genreField,
+  textField: _textField,
+  typeField: _typeField,
 );
 
 /// The form never reaches the network in tests; the genre taxonomy is served
@@ -45,7 +71,9 @@ Future<void> _pumpForm(
 }) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [browseGenresProvider('').overrideWith((ref) async => genres)],
+      overrides: [
+        browseGenresProvider(_vocabulary).overrideWith((ref) async => genres),
+      ],
       child: MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
@@ -76,11 +104,23 @@ void main() {
       // Placeholder facets contribute nothing, so a list keyed on this string
       // never refetches for a filter the server would ignore.
       expect(query.serverKey(_inertCaps), isEmpty);
-      expect(query.serverKey(_liveCaps), equals('q=blue&k=album&g=jazz'));
+      // The key carries the document itself, so it cannot disagree with the
+      // request about what travels.
+      expect(
+        query.serverKey(_liveCaps),
+        equals(
+          '{"q":{"contains":"blue"},"type":{"any":["album"]},'
+          '"genre":{"any":["jazz"]}}',
+        ),
+      );
+      expect(query.encoded(_liveCaps), contains('"jazz"'));
     });
 
     test('a supported facet changes the key when its value changes', () {
-      const caps = BrowseFilterCapabilities(genre: FacetSupport.supported);
+      const caps = BrowseFilterCapabilities(
+        genre: FacetSupport.supported,
+        genreField: _genreField,
+      );
       const a = BrowseFilterQuery(genreIds: ['jazz']);
       const b = BrowseFilterQuery(genreIds: ['jazz', 'blues']);
 

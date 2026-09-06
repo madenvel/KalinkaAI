@@ -100,12 +100,7 @@ BrowseItemsList _resultFor(String query) {
     name: 'Best Match',
     canBrowse: true,
     canAdd: false,
-    catalog: Catalog(
-      id: 'sec1',
-      title: 'Best Match',
-      canGenreFilter: false,
-      sources: const ['qobuz'],
-    ),
+    catalog: Catalog(id: 'sec1', title: 'Best Match', sources: const ['qobuz']),
     sections: [track('t1', 'Song A'), track('t2', 'Song B')],
   );
   return BrowseItemsList(0, 10, 1, [section]);

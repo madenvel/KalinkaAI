@@ -63,12 +63,23 @@ class CatalogPage {
   /// Server-rendered card art path — reused as the page's header backdrop.
   final String? artPath;
 
+  /// The fields this category's source declared for it, carried from the
+  /// catalog the page was opened from.
+  final List<FilterSpec> filters;
+
+  /// The shelves this category is made of, one per entity kind it holds, as
+  /// its source declared them. Each is a catalog to browse in its own right;
+  /// empty for a category that is a single flat listing.
+  final List<BrowseItem> sections;
+
   const CatalogPage.root()
     : id = null,
       title = null,
       provider = null,
       description = null,
-      artPath = null;
+      artPath = null,
+      filters = const [],
+      sections = const [];
 
   const CatalogPage.category({
     required this.id,
@@ -76,36 +87,51 @@ class CatalogPage {
     this.provider,
     this.description,
     this.artPath,
+    this.filters = const [],
+    this.sections = const [],
   });
 
   bool get isRoot => id == null;
 
-  /// What this category can be filtered by.
-  ///
-  /// No kind group: a category holds one entity type, so there is nothing to
-  /// choose between — that group belongs to mixed surfaces like favourites.
-  ///
-  /// Genre is live: `/browse` already takes `genre_ids`, and changing it
-  /// reloads the list. Text is not — `/browse` has no free-text parameter, so
-  /// the field renders as a muted placeholder rather than accepting input the
-  /// server would silently drop. Flip it to [FacetSupport.supported] the day
-  /// the endpoint grows one.
-  BrowseFilterCapabilities get filterCapabilities {
-    if (isRoot) return const BrowseFilterCapabilities();
-    return BrowseFilterCapabilities(
-      text: FacetSupport.unsupported,
-      genre: FacetSupport.supported,
-      genreSource: _source,
-    );
+  /// The entity kinds this category holds, in the order its source listed
+  /// them — one per section. Empty for a single-kind category, which is what
+  /// keeps the kind facet off a page with nothing to choose between.
+  List<SearchType> get sectionTypes => [
+    for (final section in sections)
+      if (typeOf(section) case final type?) type,
+  ];
+
+  /// The entity kind a shelf stands for, as its source declared it — null
+  /// for a shelf that names no single kind.
+  static SearchType? typeOf(BrowseItem section) {
+    final contentType = section.catalog?.previewConfig?.contentType;
+    return switch (contentType) {
+      PreviewContentType.track => SearchType.track,
+      PreviewContentType.album => SearchType.album,
+      PreviewContentType.artist => SearchType.artist,
+      PreviewContentType.playlist => SearchType.playlist,
+      _ => null,
+    };
   }
 
-  String? get _source {
-    if (id == null) return null;
-    try {
-      return EntityId.fromString(id!).source;
-    } catch (_) {
-      return null;
-    }
+  /// What this category can be filtered by — whatever its source declared, and
+  /// nothing more.
+  ///
+  /// The kind group shows only where the source declared a kind field AND
+  /// said which kinds it holds — a category of one kind has nothing to choose
+  /// between.
+  ///
+  /// A facet the source did not declare is hidden rather than muted: the
+  /// server refuses a field it never offered, so there is no affordance to
+  /// stand in for. Which facets a source offers differs per shelf — Jamendo
+  /// filters its track shelf by genre and its album shelf only by text.
+  BrowseFilterCapabilities get filterCapabilities {
+    if (isRoot) return const BrowseFilterCapabilities();
+    return BrowseFilterCapabilities.fromSpecs(
+      filters,
+      catalogId: id!,
+      types: sectionTypes,
+    );
   }
 }
 
@@ -293,6 +319,8 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     String? provider,
     String? description,
     String? artPath,
+    List<FilterSpec> filters = const [],
+    List<BrowseItem> sections = const [],
   }) {
     state = state.copyWith(
       activeView: FindMusicView.catalogs,
@@ -302,6 +330,8 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
         provider: provider,
         description: description,
         artPath: artPath,
+        filters: filters,
+        sections: sections,
       ),
       catalogFilter: const BrowseFilterQuery(),
     );

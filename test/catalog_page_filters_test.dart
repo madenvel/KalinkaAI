@@ -14,23 +14,45 @@ import 'package:kalinka/widgets/search/catalog_page_view.dart';
 /// Answers browse with nothing, so the page settles on its empty state and the
 /// rows never pull in the player/favourite providers.
 class _EmptyBrowseApi implements KalinkaPlayerProxy {
-  final List<List<String>?> genreIdsSeen = [];
+  /// The filter document each browse carried, as the server would see it.
+  final List<String?> filtersSeen = [];
 
   @override
   Future<BrowseItemsList> browse(
     String id, {
     int offset = 0,
     int limit = 10,
-    List<String>? genreIds,
+    String? filter,
   }) async {
-    genreIdsSeen.add(genreIds);
+    filtersSeen.add(filter);
     return BrowseItemsList(offset, limit, 0, const []);
   }
+
+  @override
+  Future<FilterValueList> getFilterValues(
+    String catalogId,
+    String field, {
+    int offset = 0,
+    int limit = 50,
+    String query = '',
+  }) async => const FilterValueList(offset: 0, limit: 50, total: 0, items: []);
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName}');
 }
+
+const _genreField = FilterSpec(
+  id: 'genre',
+  kind: FilterKind.choice,
+  label: 'Genre',
+  ops: [FilterOp.any],
+);
+const _textField = FilterSpec(
+  id: 'q',
+  kind: FilterKind.text,
+  label: 'Search albums and artists',
+);
 
 late SharedPreferences _prefs;
 
@@ -57,6 +79,8 @@ Future<_Harness> _pumpPage(WidgetTester tester, CatalogPage page) async {
           title: page.title!,
           provider: page.provider,
           description: page.description,
+          filters: page.filters,
+          sections: page.sections,
         );
   }
 
@@ -81,27 +105,44 @@ void main() {
   });
 
   group('capabilities', () {
-    test('a category offers genre, and no kind group or text', () {
+    test('a category offers what its source declared, and no kind group', () {
       const page = CatalogPage.category(
         id: 'kalinka:localfiles:catalog:albums',
         title: 'My Albums',
+        filters: [_textField, _genreField],
       );
       final caps = page.filterCapabilities;
 
       // One category holds one kind — nothing to choose between.
       expect(caps.type, FacetSupport.hidden);
-      // `/browse` has no free-text parameter, so the field is a placeholder.
-      expect(caps.text, FacetSupport.unsupported);
+      expect(caps.text, FacetSupport.supported);
       expect(caps.genre, FacetSupport.supported);
-      expect(caps.genreSource, 'localfiles');
+      expect(caps.genreVocabulary, (
+        catalogId: 'kalinka:localfiles:catalog:albums',
+        field: 'genre',
+      ));
     });
 
-    test('the genre source is read off the entity id', () {
+    test('a facet the source did not declare is hidden, not muted', () {
+      // The server refuses a field it never offered, so there is no
+      // affordance for a placeholder to stand in for.
       const page = CatalogPage.category(
         id: 'kalinka:qobuz:catalog:new',
         title: 'New Releases',
+        filters: [_genreField],
       );
-      expect(page.filterCapabilities.genreSource, 'qobuz');
+      final caps = page.filterCapabilities;
+
+      expect(caps.text, FacetSupport.hidden);
+      expect(caps.genre, FacetSupport.supported);
+    });
+
+    test('a source that declares nothing offers nothing', () {
+      const page = CatalogPage.category(
+        id: 'kalinka:jamendo:catalog:popular-artists',
+        title: 'Popular Artists',
+      );
+      expect(page.filterCapabilities.isEmpty, isTrue);
     });
 
     test('the root has nothing to filter', () {
@@ -225,7 +266,7 @@ void main() {
     )).api;
 
     // Nothing is filtered yet, so browse is asked plainly.
-    expect(api.genreIdsSeen, [null]);
+    expect(api.filtersSeen, [null]);
     expect(find.text('Nothing here yet'), findsOneWidget);
     expect(find.text('Nothing matches these filters'), findsNothing);
   });
@@ -237,20 +278,39 @@ void main() {
         const CatalogPage.category(
           id: 'kalinka:localfiles:catalog:albums',
           title: 'My Albums',
+          filters: [_textField, _genreField],
         ),
       );
-      expect(harness.api.genreIdsSeen, hasLength(1));
+      expect(harness.api.filtersSeen, hasLength(1));
 
       harness.container
           .read(searchSessionProvider.notifier)
           .setCatalogFilter(const BrowseFilterQuery(genreIds: ['jazz']));
       await tester.pumpAndSettle();
 
-      // The list restarts from the top and carries the genre through.
-      expect(harness.api.genreIdsSeen, [
-        null,
-        ['jazz'],
-      ]);
+      // The list restarts from the top and carries the genre through, in the
+      // operation the source said it honours.
+      expect(harness.api.filtersSeen, [null, '{"genre":{"any":["jazz"]}}']);
+    });
+
+    testWidgets('text travels as the field the source declared', (
+      tester,
+    ) async {
+      final harness = await _pumpPage(
+        tester,
+        const CatalogPage.category(
+          id: 'kalinka:localfiles:catalog:albums',
+          title: 'My Albums',
+          filters: [_textField, _genreField],
+        ),
+      );
+
+      harness.container
+          .read(searchSessionProvider.notifier)
+          .setCatalogFilter(const BrowseFilterQuery(text: 'blue'));
+      await tester.pumpAndSettle();
+
+      expect(harness.api.filtersSeen.last, '{"q":{"contains":"blue"}}');
     });
 
     testWidgets('touching nothing the backend sees costs no refetch', (
@@ -269,7 +329,7 @@ void main() {
           .read(searchSessionProvider.notifier)
           .setCatalogFilter(const BrowseFilterQuery(type: SearchType.album));
       await tester.pumpAndSettle();
-      expect(harness.api.genreIdsSeen, hasLength(1));
+      expect(harness.api.filtersSeen, hasLength(1));
     });
 
     testWidgets('applied filters show as chips above the rows', (tester) async {
@@ -278,6 +338,7 @@ void main() {
         const CatalogPage.category(
           id: 'kalinka:localfiles:catalog:albums',
           title: 'My Albums',
+          filters: [_textField, _genreField],
         ),
       );
       expect(find.byType(ActiveFilterChips), findsOneWidget);
@@ -290,7 +351,7 @@ void main() {
           );
       await tester.pumpAndSettle();
 
-      // No taxonomy behind the fake, so a chip falls back to the raw id.
+      // No vocabulary behind the fake, so a chip falls back to the raw id.
       expect(find.text('jazz'), findsOneWidget);
       // Two filters earn the bulk action.
       expect(find.text('RESET ALL'), findsOneWidget);

@@ -13,6 +13,7 @@ import '../../utils/haptics.dart';
 import '../browse_filters/search_filter_button.dart';
 import '../browse_filters/search_filter_overlay.dart';
 import '../mini_player.dart';
+import '../overlay_card.dart';
 import '../selection_overlay.dart';
 import '../server_chip.dart';
 import 'catalog_page_view.dart';
@@ -237,6 +238,8 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
           provider: provider,
           description: plan.description,
           artPath: plan.artPath,
+          filters: plan.filters,
+          sections: plan.sections,
         );
   }
 
@@ -648,11 +651,11 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
             );
             // Cap the suggestion list to the room left between the card top and
             // the keyboard (the surface itself is not resized by the IME), so
-            // it scrolls internally instead of running off-screen. ~96 leaves
-            // the composer row + divider + card margins above it.
+            // it scrolls internally instead of running off-screen. ~160 leaves
+            // the header, the field and the card margins above it.
             final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
             final listMaxHeight =
-                (constraints.maxHeight - targetTop - keyboardInset - 96).clamp(
+                (constraints.maxHeight - targetTop - keyboardInset - 160).clamp(
                   80.0,
                   double.infinity,
                 );
@@ -674,73 +677,65 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                   top: top,
                   left: left,
                   right: right,
-                  child: TextFieldTapRegion(
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: KalinkaColors.surfaceInput,
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(
-                            color: KalinkaColors.borderDefault,
-                            width: 1,
-                          ),
-                          // Elevation so the card lifts off the fading scrim.
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0xB3000000),
-                              offset: Offset(0, 12),
-                              blurRadius: 40,
-                            ),
-                          ],
+                  child: KalinkaOverlayCard(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // The card names itself and carries its own dismiss,
+                        // like every other surface that opens over the title
+                        // bar; the field below is then only a field.
+                        OverlayCardHeader(
+                          icon: Icons.auto_awesome,
+                          title: 'SMART SEARCH',
+                          onClose: _closeSearch,
+                          closeLabel: 'Close search',
                         ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SearchComposer(
-                              controller: _composerController,
-                              focusNode: _composerFocus,
-                              onSubmit: _submit,
-                              // No placeholder once activated — the resting
-                              // entry already showed the example prompt.
-                              hint: '',
-                              onBack: _closeSearch,
-                            ),
-                            // The suggestion panel grows top-down; rows fade/slide
-                            // in staggered inside it.
-                            ClipRect(
-                              child: Align(
-                                alignment: Alignment.topCenter,
-                                heightFactor: panelReveal,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      height: 1,
-                                      margin: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                      ),
-                                      color: KalinkaColors.borderSubtle,
-                                    ),
-                                    ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        maxHeight: listMaxHeight,
-                                      ),
-                                      child: SearchSuggestionsList(
-                                        query: _typed,
-                                        onInsert: _insert,
-                                        onSubmit: _submitFromTile,
-                                        reveal: _overlayCtrl,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                          child: DecoratedBox(
+                            // The field is drawn as a field: the composer is
+                            // chromeless, so the outline belongs here.
+                            decoration: BoxDecoration(
+                              color: KalinkaColors.surfaceInput,
+                              borderRadius: BorderRadius.circular(26),
+                              border: Border.all(
+                                color: KalinkaColors.accentBorder,
                               ),
                             ),
-                          ],
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 4,
+                              ),
+                              child: SearchComposer(
+                                controller: _composerController,
+                                focusNode: _composerFocus,
+                                onSubmit: _submit,
+                                hint: 'Search music, or describe a mood',
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        // The suggestion panel grows top-down; rows fade/slide
+                        // in staggered inside it.
+                        ClipRect(
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            heightFactor: panelReveal,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: listMaxHeight,
+                              ),
+                              child: SearchSuggestionsList(
+                                query: _typed,
+                                onInsert: _insert,
+                                onSubmit: _submitFromTile,
+                                reveal: _overlayCtrl,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

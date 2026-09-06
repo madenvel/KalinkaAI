@@ -8,8 +8,9 @@ import '../../utils/haptics.dart';
 /// container paints the surface and border — so the field and the suggestion
 /// list below read as one surface (Material 3 docked search bar).
 ///
-/// An AI sparkle leads; a neutral ✕ (clear) and the accent send arrow surface
-/// on the right once the field holds non-whitespace text.
+/// A magnifier leads — the card around it already carries the AI mark; a
+/// neutral ✕ (clear) and the accent send arrow surface on the right once the
+/// field holds non-whitespace text.
 ///
 /// There is deliberately no onChanged search hook: typing never triggers a
 /// query. The query fires on the soft keyboard's search action, hardware
@@ -72,8 +73,7 @@ class _SearchComposerState extends State<SearchComposer> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Back arrow inside the overlay (the dimmed top bar's arrow is
-          // covered), AI sparkle at rest.
+          // Back arrow where the caller asked for one, magnifier at rest.
           if (widget.onBack != null)
             Semantics(
               label: 'Close search',
@@ -97,9 +97,9 @@ class _SearchComposerState extends State<SearchComposer> {
               width: 38,
               height: 32,
               child: Icon(
-                Icons.auto_awesome,
-                size: 16,
-                color: KalinkaColors.gold,
+                Icons.search_rounded,
+                size: 19,
+                color: KalinkaColors.accentTint,
               ),
             ),
           Expanded(

@@ -323,9 +323,11 @@ class _GenreGroup extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final live = capabilities.genre == FacetSupport.supported;
+    final vocabulary = capabilities.genreVocabulary;
+    final live =
+        capabilities.genre == FacetSupport.supported && vocabulary != null;
     final genres = live
-        ? ref.watch(browseGenresProvider(capabilities.genreSource ?? '')).value
+        ? ref.watch(browseGenresProvider(vocabulary)).value
         : null;
     final ready = genres != null && genres.isNotEmpty;
 

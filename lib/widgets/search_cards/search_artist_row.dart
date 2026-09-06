@@ -110,10 +110,10 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
               opacity: selectionMode ? 0.45 : 1.0,
               duration: const Duration(milliseconds: 180),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 52),
+                constraints: const BoxConstraints(minHeight: 60),
                 child: Row(
                   children: [
-                    // Circular avatar 52x52
+                    // Circular avatar, sized like the album thumbnail
                     // Note: previously wrapped in a Container with
                     // BoxShadow(blurRadius: 14). The 14px blur is GPU-
                     // expensive (~5x cost of a 6px blur) and forces a
@@ -123,36 +123,36 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
                     _GrayscaleWhen(
                       active: selectionMode,
                       child: SizedBox(
-                        width: 52,
-                        height: 52,
+                        width: 60,
+                        height: 60,
                         child: ClipOval(
                           child: resolvedImageUrl != null
                               ? Image(
                                   // ResizeImage.fit preserves aspect ratio at decode
                                   // time. The Image.network shortcut wraps with the
                                   // default ResizeImagePolicy.exact, which squashes
-                                  // non-square artist photos into 156x156 — visible
+                                  // non-square artist photos into 180x180 — visible
                                   // as stretching even after BoxFit.cover.
                                   image: ResizeImage(
                                     NetworkImage(resolvedImageUrl),
-                                    width: 156,
-                                    height: 156,
+                                    width: 180,
+                                    height: 180,
                                     policy: ResizeImagePolicy.fit,
                                   ),
-                                  width: 52,
-                                  height: 52,
+                                  width: 60,
+                                  height: 60,
                                   fit: BoxFit.cover,
                                   gaplessPlayback: true,
                                   filterQuality: FilterQuality.low,
                                   errorBuilder: (_, __, ___) =>
                                       ProceduralAlbumArt(
                                         trackId: widget.item.id,
-                                        size: 52,
+                                        size: 60,
                                       ),
                                 )
                               : ProceduralAlbumArt(
                                   trackId: widget.item.id,
-                                  size: 52,
+                                  size: 60,
                                 ),
                         ),
                       ),
