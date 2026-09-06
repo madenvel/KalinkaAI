@@ -14,6 +14,7 @@ import '../browse_rows_shimmer.dart';
 import '../infinite_list_view.dart';
 import '../search_cards/browse_item_rows.dart';
 import '../source_badge.dart';
+import 'catalog_sections_view.dart';
 
 /// One selected catalog page — the single navigation level below the
 /// Catalogs root (back lives in the title bar). The banner scrolls away with
@@ -47,13 +48,27 @@ class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
     // Recomputed per chunk, not per row (O(n²) otherwise).
     final trackIdsMemo = _TrackIdsMemo();
 
+    void setQuery(BrowseFilterQuery next) =>
+        ref.read(searchSessionProvider.notifier).setCatalogFilter(next);
+
     final header = _CatalogHeader(
       page: page,
       capabilities: capabilities,
       query: query,
-      onQueryChanged: (next) =>
-          ref.read(searchSessionProvider.notifier).setCatalogFilter(next),
+      onQueryChanged: setQuery,
     );
+
+    // A catalog made of shelves shows them until a kind is chosen; choosing
+    // one narrows the catalog to that kind's flat listing, which is the same
+    // listing its shelf was previewing.
+    if (page.sections.isNotEmpty && query.type == null) {
+      return CatalogSectionsView(
+        page: page,
+        query: query,
+        header: header,
+        onViewAll: (type) => setQuery(query.copyWith(type: type)),
+      );
+    }
 
     return InfiniteListView<BrowseItem>(
       key: ValueKey(page.id),
@@ -66,16 +81,11 @@ class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
       header: header,
       fetchChunk: (offset, limit) async {
         final api = ref.read(kalinkaProxyProvider);
-        final genreIds =
-            capabilities.genre == FacetSupport.supported &&
-                query.genreIds.isNotEmpty
-            ? query.genreIds
-            : null;
         final list = await api.browse(
           page.id!,
           offset: offset,
           limit: limit,
-          genreIds: genreIds,
+          filter: query.encoded(capabilities),
         );
         return ItemChunk(items: list.items, total: list.total);
       },

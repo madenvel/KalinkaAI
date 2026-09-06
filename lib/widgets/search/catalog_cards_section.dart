@@ -103,6 +103,8 @@ IconData? _iconForId(String? id) {
       return Icons.new_releases_outlined;
     case 'recent':
       return Icons.history_rounded;
+    case 'library':
+      return Icons.library_music_rounded;
     case 'album':
       return Icons.album_outlined;
     case 'artist':

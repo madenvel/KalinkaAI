@@ -14,6 +14,7 @@ import 'package:kalinka/providers/kalinka_player_api_provider.dart';
 import 'package:kalinka/providers/search_session_provider.dart';
 import 'package:kalinka/providers/source_modules_provider.dart';
 import 'package:kalinka/widgets/browse_filters/search_filter_button.dart';
+import 'package:kalinka/widgets/overlay_card.dart';
 import 'package:kalinka/widgets/search/search_session_view.dart';
 
 /// Mounting the whole Find Music surface is the only thing that exercises its
@@ -33,7 +34,7 @@ class _FakeApi implements KalinkaPlayerProxy {
     String id, {
     int offset = 0,
     int limit = 10,
-    List<String>? genreIds,
+    String? filter,
   }) async => BrowseItemsList(offset, limit, 0, const []);
 
   @override
@@ -130,6 +131,15 @@ void main() {
         .openCatalog(
           id: 'kalinka:localfiles:catalog:albums',
           title: 'My Albums',
+          // The control stands for what the source declared, so a category
+          // that declared nothing has none to show.
+          filters: const [
+            FilterSpec(
+              id: 'q',
+              kind: FilterKind.text,
+              label: 'Search albums and artists',
+            ),
+          ],
         );
     await tester.pumpAndSettle();
 
@@ -145,6 +155,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('SEARCH & FILTERS'), findsNothing);
     expect(container.read(searchSessionProvider).catalogFilter.isEmpty, isTrue);
+  });
+
+  testWidgets('the smart search card names itself and closes', (tester) async {
+    await pumpSurface(tester);
+
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) => widget is Semantics && widget.properties.label == 'Search',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The card carries its own name and dismiss, the same chrome the filter
+    // card uses, so the composer inside it needs neither.
+    expect(find.text('SMART SEARCH'), findsOneWidget);
+
+    await tester.tap(find.byType(OverlayCloseButton));
+    await tester.pumpAndSettle();
+    expect(find.text('SMART SEARCH'), findsNothing);
   });
 
   testWidgets('the DISCOVER crumb goes back, like the arrow', (tester) async {

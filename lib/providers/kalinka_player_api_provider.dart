@@ -12,7 +12,7 @@ import '../data_model/data_model.dart'
         BrowseItemsList,
         DeviceVolume,
         FavoriteIds,
-        GenreList,
+        FilterValueList,
         IndexerStatus,
         ModulesAndDevices,
         Playlist,
@@ -69,13 +69,13 @@ abstract class KalinkaPlayerProxy {
     String id, {
     int offset = 0,
     int limit = 10,
-    List<String>? genreIds,
+    String? filter,
   });
   Future<BrowseItemsList> browseItem(
     BrowseItem item, {
     int offset = 0,
     int limit = 10,
-    List<String>? genreIds,
+    String? filter,
   });
   Future<BrowseItem> getMetadata(String id);
   Future<BrowseItemsList> getFavorite(
@@ -90,7 +90,15 @@ abstract class KalinkaPlayerProxy {
   Future<void> clear();
   Future<void> setVolume(int volume);
   Future<DeviceVolume> getVolume();
-  Future<GenreList> getGenres(String? source);
+
+  /// One page of a catalog filter field's vocabulary.
+  Future<FilterValueList> getFilterValues(
+    String catalogId,
+    String field, {
+    int offset = 0,
+    int limit = 50,
+    String query = '',
+  });
   Future<SeekStatusMessage> seek(int positionMs);
   Future<Playlist> playlistCreate(String name, String? description);
   Future<void> playlistDelete(String playlistId);
@@ -450,7 +458,7 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
     String id, {
     int offset = 0,
     int limit = 10,
-    List<String>? genreIds,
+    String? filter,
   }) async {
     final normalizedId = id.trim();
     final endpoint = (normalizedId.isEmpty || normalizedId == 'root')
@@ -463,7 +471,7 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
           queryParameters: {
             'offset': offset.toString(),
             'limit': limit.toString(),
-            ...genreIds != null ? {'genre_ids': genreIds} : {},
+            if (filter != null) 'filter': filter,
           },
         )
         .then((response) {
@@ -480,10 +488,10 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
     BrowseItem item, {
     int offset = 0,
     int limit = 10,
-    List<String>? genreIds,
+    String? filter,
   }) {
     if (item.canBrowse) {
-      return browse(item.id, offset: offset, limit: limit, genreIds: genreIds);
+      return browse(item.id, offset: offset, limit: limit, filter: filter);
     }
 
     return Future.value(BrowseItemsList(0, 0, 0, []));
@@ -590,17 +598,29 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
   }
 
   @override
-  Future<GenreList> getGenres(String? source) async {
+  Future<FilterValueList> getFilterValues(
+    String catalogId,
+    String field, {
+    int offset = 0,
+    int limit = 50,
+    String query = '',
+  }) async {
     return client
         .get(
-          '/genre/list',
-          queryParameters: source != null ? {'source': source} : null,
+          '/browse/$catalogId/filter/$field/values',
+          queryParameters: {
+            'offset': offset.toString(),
+            'limit': limit.toString(),
+            if (query.isNotEmpty) 'q': query,
+          },
         )
         .then((response) {
           if (response.statusCode != 200) {
-            throw Exception('Failed to get genres, url=${response.realUri}');
+            throw Exception(
+              'Failed to get $field values, url=${response.realUri}',
+            );
           }
-          return GenreList.fromJson(response.data);
+          return FilterValueList.fromJson(response.data);
         });
   }
 

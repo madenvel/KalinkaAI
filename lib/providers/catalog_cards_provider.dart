@@ -36,6 +36,16 @@ class CatalogCardPlan {
   /// Null until the server has generated the art; the card is black until then.
   final String? artPath;
 
+  /// What the shelf behind this card can be filtered by, as its source
+  /// declared it. Carried from here into the page so the page never has to
+  /// guess what its source supports.
+  final List<FilterSpec> filters;
+
+  /// The shelves behind this card, when its catalog is made of several — one
+  /// per entity kind. Carried from here into the page, so opening the card
+  /// costs no extra round trip to learn what it holds.
+  final List<BrowseItem> sections;
+
   const CatalogCardPlan({
     required this.id,
     required this.title,
@@ -44,6 +54,8 @@ class CatalogCardPlan {
     this.contentType,
     this.icon,
     this.artPath,
+    this.filters = const [],
+    this.sections = const [],
   });
 }
 
@@ -53,10 +65,15 @@ class CatalogCardGroup {
   final String sourceTitle;
   final List<CatalogCardPlan> cards;
 
+  /// Whether this source offers the user's own content, as it claimed with
+  /// [CatalogRole.library]. Orders the groups; see [catalogCardGroupsProvider].
+  final bool ownLibrary;
+
   const CatalogCardGroup({
     required this.sourceName,
     required this.sourceTitle,
     required this.cards,
+    this.ownLibrary = false,
   });
 }
 
@@ -108,10 +125,12 @@ final catalogCardGroupsProvider = FutureProvider<List<CatalogCardGroup>>((
 
     final children = await api.browse(module.id, limit: 20);
     final cards = <CatalogCardPlan>[];
+    var ownLibrary = false;
     for (final item in children.items) {
       final catalog = item.catalog;
       if (catalog == null || !item.canBrowse) continue;
       if (catalog.role == CatalogRole.hideOnHome) continue;
+      if (catalog.role == CatalogRole.library) ownLibrary = true;
 
       cards.add(
         CatalogCardPlan(
@@ -122,6 +141,8 @@ final catalogCardGroupsProvider = FutureProvider<List<CatalogCardGroup>>((
           contentType: catalog.previewConfig?.contentType,
           icon: catalog.previewConfig?.icon,
           artPath: _artPathOf(item),
+          filters: catalog.filters,
+          sections: item.sections ?? const [],
         ),
       );
       if (cards.length >= _kMaxCardsPerSource) break;
@@ -133,10 +154,20 @@ final catalogCardGroupsProvider = FutureProvider<List<CatalogCardGroup>>((
           sourceName: sourceName,
           sourceTitle: module.name ?? sourceName,
           cards: cards,
+          ownLibrary: ownLibrary,
         ),
       );
     }
   }
+
+  // Your own music first, then everything else by name. The server lists
+  // sources alphabetically by their internal key, which buries the local
+  // library under whatever sorts before it. Which source that is comes from
+  // the source's own CatalogRole.library claim, so no source is named here.
+  groups.sort((a, b) {
+    if (a.ownLibrary != b.ownLibrary) return a.ownLibrary ? -1 : 1;
+    return a.sourceTitle.toLowerCase().compareTo(b.sourceTitle.toLowerCase());
+  });
 
   final missingArt = groups.any(
     (group) => group.cards.any((card) => card.artPath == null),

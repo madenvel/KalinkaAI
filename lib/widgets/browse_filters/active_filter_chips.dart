@@ -6,6 +6,7 @@ import '../../data_model/data_model.dart' show Genre;
 import '../../providers/browse_genres_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
+import '../hover_text_action.dart';
 import 'browse_filter_form.dart';
 
 /// One removable chip per active answer, shown above the rows.
@@ -32,9 +33,10 @@ class ActiveFilterChips extends ConsumerWidget {
     if (query.isEmpty) return const SizedBox.shrink();
 
     // Only reached with genres applied, which needs the capability anyway.
-    final genres = query.genreIds.isEmpty
+    final vocabulary = capabilities.genreVocabulary;
+    final genres = query.genreIds.isEmpty || vocabulary == null
         ? null
-        : ref.watch(browseGenresProvider(capabilities.genreSource ?? '')).value;
+        : ref.watch(browseGenresProvider(vocabulary)).value;
 
     final chips = <Widget>[
       if (query.type != null)
@@ -68,7 +70,20 @@ class ActiveFilterChips extends ConsumerWidget {
           // one. Only worth its space once there is more than one to drop.
           if (chips.length > 1) ...[
             const SizedBox(width: 10),
-            _ResetAll(onTap: () => onChanged(const BrowseFilterQuery())),
+            SizedBox(
+              // Matches a chip so the label sits on the first row's centre
+              // line. Neutral, not crimson: it sits beside tinted chips.
+              height: 34,
+              child: Center(
+                child: HoverTextAction(
+                  label: 'RESET ALL',
+                  semanticsLabel: 'Reset all filters',
+                  onTap: () => onChanged(const BrowseFilterQuery()),
+                  color: KalinkaColors.textSecondary,
+                  hoverColor: KalinkaColors.textPrimary,
+                ),
+              ),
+            ),
           ],
         ],
       ),
@@ -159,67 +174,6 @@ class _ChipState extends State<_Chip> {
                       : KalinkaColors.textSecondary,
                 ),
               ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Clears every active filter at once. Mono and unfilled, so it reads as the
-/// row's action rather than a fifth chip — and neutral, because crimson here
-/// would compete with the chips it is meant to sit beside.
-class _ResetAll extends StatefulWidget {
-  final VoidCallback onTap;
-
-  const _ResetAll({required this.onTap});
-
-  @override
-  State<_ResetAll> createState() => _ResetAllState();
-}
-
-class _ResetAllState extends State<_ResetAll> {
-  bool _hovering = false;
-
-  void _setHovering(bool value) {
-    if (value == _hovering) return;
-    setState(() => _hovering = value);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Reset all filters',
-      excludeSemantics: true,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => _setHovering(true),
-        onExit: (_) => _setHovering(false),
-        child: GestureDetector(
-          onTap: () {
-            KalinkaHaptics.selectionClick();
-            widget.onTap();
-          },
-          behavior: HitTestBehavior.opaque,
-          child: SizedBox(
-            // Matches a chip so the label sits on the first row's centre line.
-            height: 34,
-            child: Center(
-              child: AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 130),
-                curve: Curves.easeOut,
-                style: KalinkaFonts.mono(
-                  fontSize: KalinkaTypography.baseSize,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.4,
-                  color: _hovering
-                      ? KalinkaColors.textPrimary
-                      : KalinkaColors.textSecondary,
-                ),
-                child: const Text('RESET ALL'),
-              ),
             ),
           ),
         ),

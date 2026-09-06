@@ -142,14 +142,13 @@ class SearchSuggestionsList extends ConsumerWidget {
     // entrance lands them one by one top-to-bottom across all sections.
     final rows = <Widget>[
       if (needle.isEmpty) ...[
-        if (curated.isNotEmpty) ...[
-          _aiHeader(),
-          ...curated.map(tile),
-        ],
-        if (serendipity.isNotEmpty) ...[
-          _leadIn('Or fancy something new? Venture beyond your library:'),
-          ...serendipity.map(tile),
-        ],
+        if (curated.isNotEmpty) ...[_aiHeader(), ...curated.map(tile)],
+        for (final s in serendipity)
+          _SerendipityCard(
+            text: s.query,
+            onInsert: () => onInsert(s.query),
+            onRun: () => onSubmit(s.query),
+          ),
       ] else
         ...suggestions.map(tile),
       if (history.isNotEmpty) ...[
@@ -189,16 +188,19 @@ class SearchSuggestionsList extends ConsumerWidget {
   Widget _searchForTile(String text) => Semantics(
     label: 'Search for $text',
     button: true,
-    child: _HoverRow(
+    child: _Tile(
       onTap: () => onSubmit(text),
       child: Row(
         children: [
-          const Icon(
-            Icons.search_rounded,
-            size: 16,
-            color: KalinkaColors.textSecondary,
+          const SizedBox(
+            width: 32,
+            child: Icon(
+              Icons.search_rounded,
+              size: 17,
+              color: KalinkaColors.textSecondary,
+            ),
           ),
-          const SizedBox(width: 11),
+          const SizedBox(width: 12),
           Expanded(
             child: Text.rich(
               TextSpan(
@@ -236,24 +238,10 @@ class SearchSuggestionsList extends ConsumerWidget {
     color: KalinkaColors.textMuted,
   );
 
-  /// AI SUGGESTIONS heading — text only.
+  /// The curated list's heading — text only.
   Widget _aiHeader() => Padding(
-    padding: const EdgeInsets.fromLTRB(10, 14, 10, 8),
-    child: Text('AI SUGGESTIONS', style: _sectionTitle),
-  );
-
-  /// Conversational lead-in over the serendipity pick — sentence case, not the
-  /// mono section chrome, so it reads as an invitation rather than a label.
-  Widget _leadIn(String text) => Padding(
-    padding: const EdgeInsets.fromLTRB(10, 16, 10, 6),
-    child: Text(
-      text,
-      style: KalinkaFonts.sans(
-        fontSize: KalinkaTypography.baseSize + 2,
-        fontWeight: FontWeight.w500,
-        color: KalinkaColors.textSecondary,
-      ),
-    ),
+    padding: const EdgeInsets.fromLTRB(10, 12, 10, 8),
+    child: Text('IDEAS TO TRY', style: _sectionTitle),
   );
 
   /// RECENT SEARCHES heading with a trailing "Clear". [divider] separates it
@@ -390,19 +378,15 @@ class _SuggestionTile extends StatelessWidget {
           : 'Run suggestion: $text',
       hint: 'Long press to edit before sending',
       button: true,
-      child: _HoverRow(
+      child: _Tile(
         onTap: onRun,
         onLongPress: onInsert,
         child: Row(
           children: [
-            Icon(
-              experimental ? Icons.explore_outlined : Icons.auto_awesome,
-              size: 14,
-              color: experimental
-                  ? KalinkaColors.accentTint
-                  : KalinkaColors.gold,
+            _GlyphTile(
+              icon: experimental ? Icons.explore_outlined : Icons.auto_awesome,
             ),
-            const SizedBox(width: 11),
+            const SizedBox(width: 12),
             Expanded(child: _buildText()),
             const SizedBox(width: 8),
             const Icon(
@@ -435,17 +419,20 @@ class _HistoryTile extends StatelessWidget {
     return Semantics(
       label: 'Search again for $query',
       button: true,
-      child: _HoverRow(
+      child: _Tile(
         onTap: onTap,
         child: Row(
           children: [
             // History mark keeps recents visually apart from the AI rows.
-            const Icon(
-              Icons.history_rounded,
-              size: 15,
-              color: KalinkaColors.textMuted,
+            const SizedBox(
+              width: 32,
+              child: Icon(
+                Icons.history_rounded,
+                size: 17,
+                color: KalinkaColors.textMuted,
+              ),
             ),
-            const SizedBox(width: 11),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 query,
@@ -500,6 +487,138 @@ class _HoverRow extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 11, 10, 11),
           child: child,
+        ),
+      ),
+    );
+  }
+}
+
+/// A bordered row inside the search card — the shape the card's own controls
+/// use, so the ideas read as things to press rather than lines of a list.
+class _Tile extends StatelessWidget {
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final Widget child;
+
+  /// Accent-tinted, for the one row that is not an ordinary idea.
+  final bool accent;
+
+  const _Tile({
+    required this.onTap,
+    required this.child,
+    this.onLongPress,
+    this.accent = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      decoration: BoxDecoration(
+        color: accent ? KalinkaColors.accentSubtle : KalinkaColors.surfaceInput,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: accent
+              ? KalinkaColors.accentBorder
+              : KalinkaColors.borderSubtle,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: _HoverRow(onTap: onTap, onLongPress: onLongPress, child: child),
+    );
+  }
+}
+
+/// The accent tile that leads a row, matching the mark in the card's header.
+class _GlyphTile extends StatelessWidget {
+  final IconData icon;
+
+  const _GlyphTile({required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: KalinkaColors.accentSubtle,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: KalinkaColors.accentBorder),
+      ),
+      child: Center(
+        child: Icon(icon, size: 16, color: KalinkaColors.accentBright),
+      ),
+    );
+  }
+}
+
+/// The server's serendipity pick: context-matched but not validated against
+/// the library, so it is offered as a departure rather than a fourth idea.
+class _SerendipityCard extends StatelessWidget {
+  final String text;
+  final VoidCallback onInsert;
+  final VoidCallback onRun;
+
+  const _SerendipityCard({
+    required this.text,
+    required this.onInsert,
+    required this.onRun,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Run experimental suggestion: $text',
+      hint: 'Long press to edit before sending',
+      button: true,
+      child: _Tile(
+        onTap: onRun,
+        onLongPress: onInsert,
+        accent: true,
+        child: Row(
+          children: [
+            const _GlyphTile(icon: Icons.explore_outlined),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'DISCOVER SOMETHING NEW',
+                    style: KalinkaFonts.mono(
+                      fontSize: KalinkaTypography.baseSize - 2,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.4,
+                      color: KalinkaColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    text,
+                    style: KalinkaTextStyles.searchOverlayRow.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Beyond your library',
+                    style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+                      color: KalinkaColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              size: 15,
+              color: KalinkaColors.textMuted,
+            ),
+          ],
         ),
       ),
     );

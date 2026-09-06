@@ -118,9 +118,6 @@ class SearchState {
   /// Whether the "show more" in the recently favourited section is expanded
   final bool recentlyFavouritedExpanded;
 
-  /// Genre pills available in the filter row (max 4)
-  final List<Genre> genrePills;
-
   /// Whether the AI mode toggle in the search bar is active
   final bool isAiEnabled;
 
@@ -180,7 +177,6 @@ class SearchState {
     this.activeGenreId,
     this.recentlyFavourited = const [],
     this.recentlyFavouritedExpanded = false,
-    this.genrePills = const [],
     this.isAiEnabled = true,
     this.aiSearchResults,
     this.aiExpandedSections = const {},
@@ -239,7 +235,6 @@ class SearchState {
     bool clearActiveGenreId = false,
     List<BrowseItem>? recentlyFavourited,
     bool? recentlyFavouritedExpanded,
-    List<Genre>? genrePills,
     bool? isAiEnabled,
     BrowseItemsList? aiSearchResults,
     bool clearAiSearchResults = false,
@@ -293,7 +288,6 @@ class SearchState {
       recentlyFavourited: recentlyFavourited ?? this.recentlyFavourited,
       recentlyFavouritedExpanded:
           recentlyFavouritedExpanded ?? this.recentlyFavouritedExpanded,
-      genrePills: genrePills ?? this.genrePills,
       isAiEnabled: isAiEnabled ?? this.isAiEnabled,
       aiSearchResults: clearAiSearchResults
           ? null
@@ -362,7 +356,6 @@ class SearchStateNotifier extends Notifier<SearchState> {
           clearScopedFavourites: true,
           clearScopedPlaylists: true,
           recentlyFavourited: const [],
-          genrePills: const [],
           librarySections: const [],
           browseRecommendations: const [],
           clearError: true,
@@ -416,8 +409,8 @@ class SearchStateNotifier extends Notifier<SearchState> {
           _recommendationsForTrackId = null; // force reload despite same track
           _loadBrowseRecommendations();
         }
-        // Genre pills + recently-favourited back the always-visible filter
-        // row and the All/genre teaser, so refresh them in every zero-state.
+        // The recently-favourited rail backs the always-visible filter row,
+        // so refresh it in every zero-state.
         _loadZeroStateData();
     }
   }
@@ -602,10 +595,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
     try {
       final result = await api.playlistUserList(0, 50);
       if (state.activeScopeFilter != FilterPillType.myPlaylists) return;
-      state = state.copyWith(
-        scopedPlaylists: result,
-        isScopedLoading: false,
-      );
+      state = state.copyWith(scopedPlaylists: result, isScopedLoading: false);
     } catch (e) {
       if (state.activeScopeFilter != FilterPillType.myPlaylists) return;
       state = state.copyWith(
@@ -649,15 +639,14 @@ class SearchStateNotifier extends Notifier<SearchState> {
     );
   }
 
-  /// Load data needed for the zero-state: genre pills and recently favourited.
+  /// Load data needed for the zero-state: the recently favourited rail.
   Future<void> _loadZeroStateData() async {
     final settings = ref.read(connectionSettingsProvider);
     if (!settings.isSet) return;
     final api = ref.read(kalinkaProxyProvider);
     state = state.copyWith(isZeroStateLoading: true);
     try {
-      final (genres, tracks, albums, artists, playlists) = await (
-        api.getGenres(null),
+      final (tracks, albums, artists, playlists) = await (
         api.getFavorite(SearchType.track, limit: 5),
         api.getFavorite(SearchType.album, limit: 5),
         api.getFavorite(SearchType.artist, limit: 5),
@@ -689,7 +678,6 @@ class SearchStateNotifier extends Notifier<SearchState> {
       });
 
       state = state.copyWith(
-        genrePills: genres.items.take(4).toList(),
         recentlyFavourited: filtered,
         isZeroStateLoading: false,
       );
@@ -799,10 +787,7 @@ class SearchStateNotifier extends Notifier<SearchState> {
           resultsFilter: ResultsFilterType.all,
         );
       } else {
-        state = state.copyWith(
-          query: query,
-          clearError: true,
-        );
+        state = state.copyWith(query: query, clearError: true);
       }
       return;
     }

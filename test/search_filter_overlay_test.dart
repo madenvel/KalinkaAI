@@ -10,6 +10,24 @@ import 'package:kalinka/theme/app_theme.dart';
 import 'package:kalinka/widgets/browse_filters/search_filter_button.dart';
 import 'package:kalinka/widgets/browse_filters/search_filter_overlay.dart';
 
+const _vocabulary = (
+  catalogId: 'kalinka:localfiles:catalog:albums',
+  field: 'genre',
+);
+const _genreField = FilterSpec(
+  id: 'genre',
+  kind: FilterKind.choice,
+  label: 'Genre',
+  ops: [FilterOp.any],
+);
+
+const _typeField = FilterSpec(
+  id: 'type',
+  kind: FilterKind.choice,
+  label: 'Type',
+  ops: [FilterOp.any],
+);
+
 const _liveCaps = BrowseFilterCapabilities(
   text: FacetSupport.supported,
   type: FacetSupport.supported,
@@ -21,6 +39,9 @@ const _liveCaps = BrowseFilterCapabilities(
     SearchType.playlist,
   },
   genre: FacetSupport.supported,
+  genreVocabulary: _vocabulary,
+  genreField: _genreField,
+  typeField: _typeField,
 );
 
 Future<void> _pumpOverlay(
@@ -32,7 +53,9 @@ Future<void> _pumpOverlay(
 }) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [browseGenresProvider('').overrideWith((ref) async => genres)],
+      overrides: [
+        browseGenresProvider(_vocabulary).overrideWith((ref) async => genres),
+      ],
       child: MaterialApp(
         home: Scaffold(
           body: SearchFilterOverlay(
