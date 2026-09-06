@@ -3,11 +3,13 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data_model/browse_filters.dart';
 import '../../data_model/data_model.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_session_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
+import '../browse_filters/active_filter_chips.dart';
 import '../browse_rows_shimmer.dart';
 import '../infinite_list_view.dart';
 import '../search_cards/browse_item_rows.dart';
@@ -18,7 +20,7 @@ import '../source_badge.dart';
 /// the items; albums/artists/playlists unroll inline. Items are pulled in
 /// chunks by an [InfiniteListView] straight off the browse endpoint
 /// (deterministic — never the AI router).
-class CatalogPageView extends ConsumerWidget {
+class CatalogPageView extends ConsumerStatefulWidget {
   final CatalogPage page;
 
   /// Returns to the Catalogs root — used by the error state's action.
@@ -31,20 +33,50 @@ class CatalogPageView extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CatalogPageView> createState() => _CatalogPageViewState();
+}
+
+class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
+  @override
+  Widget build(BuildContext context) {
+    final page = widget.page;
+    final capabilities = page.filterCapabilities;
+    final query = ref.watch(
+      searchSessionProvider.select((s) => s.catalogFilter),
+    );
     // Recomputed per chunk, not per row (O(n²) otherwise).
     final trackIdsMemo = _TrackIdsMemo();
 
+    final header = _CatalogHeader(
+      page: page,
+      capabilities: capabilities,
+      query: query,
+      onQueryChanged: (next) =>
+          ref.read(searchSessionProvider.notifier).setCatalogFilter(next),
+    );
+
     return InfiniteListView<BrowseItem>(
       key: ValueKey(page.id),
-      reloadKey: page.id,
+      // Only the facets the server honours restart the list, so touching an
+      // inert placeholder never costs a refetch.
+      reloadKey: '${page.id}|${query.serverKey(capabilities)}',
       // No horizontal list padding — the banner bleeds edge to edge; rows and
       // separators carry their own 16px inset instead.
       padding: const EdgeInsets.only(bottom: 24),
-      header: _CatalogBanner(page: page),
+      header: header,
       fetchChunk: (offset, limit) async {
         final api = ref.read(kalinkaProxyProvider);
-        final list = await api.browse(page.id!, offset: offset, limit: limit);
+        final genreIds =
+            capabilities.genre == FacetSupport.supported &&
+                query.genreIds.isNotEmpty
+            ? query.genreIds
+            : null;
+        final list = await api.browse(
+          page.id!,
+          offset: offset,
+          limit: limit,
+          genreIds: genreIds,
+        );
         return ItemChunk(items: list.items, total: list.total);
       },
       separatorBuilder: (context, _) => const Padding(
@@ -75,15 +107,48 @@ class CatalogPageView extends ConsumerWidget {
         padding: EdgeInsets.symmetric(horizontal: 16),
         child: BrowseRowsShimmer(count: 3, leadingDivider: true),
       ),
-      emptyBuilder: (context) => const _CatalogEmpty(),
-      // The error state replaces only the rows, never the banner.
+      emptyBuilder: (context) => _CatalogEmpty(filtered: !query.isEmpty),
+      // The error state replaces only the rows, never the header — a filter
+      // that failed has to stay reachable to be undone.
       errorBuilder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _CatalogBanner(page: page),
-          Expanded(child: _CatalogError(onReturn: onBackToCatalogs)),
+          header,
+          Expanded(child: _CatalogError(onReturn: widget.onBackToCatalogs)),
         ],
       ),
+    );
+  }
+}
+
+/// Banner plus the active-filter chips — the whole page head, shared by the
+/// list header and the error state. The filter *controls* live in the title
+/// bar; only what they produced shows here.
+class _CatalogHeader extends StatelessWidget {
+  final CatalogPage page;
+  final BrowseFilterCapabilities capabilities;
+  final BrowseFilterQuery query;
+  final ValueChanged<BrowseFilterQuery> onQueryChanged;
+
+  const _CatalogHeader({
+    required this.page,
+    required this.capabilities,
+    required this.query,
+    required this.onQueryChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _CatalogBanner(page: page),
+        ActiveFilterChips(
+          capabilities: capabilities,
+          query: query,
+          onChanged: onQueryChanged,
+        ),
+      ],
     );
   }
 }
@@ -106,12 +171,11 @@ class _TrackIdsMemo {
   }
 }
 
-/// Height of the banner zone (art fade + title block) for a given surface
-/// width. Grows slowly and caps low: the near-3:1 phone proportions turned
-/// into a mostly-empty 320px slab on desktop widths, with the text block
-/// centred in ~90px of dead art above and below. ~168px at a 400dp phone.
-double _bannerZoneHeight(double width) =>
-    (120 + width * 0.12).clamp(150.0, 230.0);
+/// Height of the blurred-art zone below the title bar. Sizes the backdrop
+/// only: the title block is content-sized and much shorter, so the art runs on
+/// behind the first rows and fades out among them. Tying the two together
+/// meant a wash big enough to see forced dead space above the title.
+double _artZoneHeight(double width) => (120 + width * 0.12).clamp(150.0, 230.0);
 
 /// The blurred catalog art as a full-bleed backdrop for the page — painted at
 /// the surface Stack level (like the Discover-root bloom) so it runs from the
@@ -136,7 +200,7 @@ class CatalogArtBackdrop extends ConsumerWidget {
         final height =
             topInset +
             kKalinkaTopBarHeight +
-            _bannerZoneHeight(constraints.maxWidth);
+            _artZoneHeight(constraints.maxWidth);
         return SizedBox(
           height: height,
           width: double.infinity,
@@ -146,10 +210,13 @@ class CatalogArtBackdrop extends ConsumerWidget {
               Opacity(opacity: 0.45, child: _BakedBlurImage(url: url)),
               const DecoratedBox(
                 decoration: BoxDecoration(
+                  // Full strength across the title bar and the title, then
+                  // clear before the rows get far — the text block no longer
+                  // fills the zone, so the fade has to do that job itself.
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    stops: [0.45, 0.97],
+                    stops: [0.30, 0.90],
                     colors: [Color(0x00080808), KalinkaColors.background],
                   ),
                 ),
@@ -172,30 +239,38 @@ class _CatalogBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final w = constraints.maxWidth;
-          final minHeight = _bannerZoneHeight(w);
-          // Type scales with width, gently.
-          final scale = (w / 420).clamp(1.0, 1.25);
-          return _buildBanner(minHeight, scale);
-        },
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Type scales with width, gently.
+        return _buildBanner((constraints.maxWidth / 420).clamp(1.0, 1.25));
+      },
     );
   }
 
-  Widget _buildBanner(double minHeight, double scale) {
+  Widget _buildBanner(double scale) {
+    // One attribution line, not two: the provider name and the description
+    // said much the same thing ("Local library" over "Recently added
+    // tracks"). The badge keeps the attribution; the description carries the
+    // words, and only stands in for itself when there is none.
+    final description = page.description?.trim() ?? '';
+    final subtitle = description.isNotEmpty
+        ? description
+        : (page.provider ?? '');
+
     return Consumer(
       builder: (context, ref, _) {
         return Container(
-          constraints: BoxConstraints(minHeight: minHeight),
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
-          // Grows beyond minHeight only if the text needs the room.
-          alignment: Alignment.centerLeft,
+          // The text block is content-sized — no zone to be centred in, so
+          // these insets are the whole vertical spacing and nothing drifts
+          // with window width.
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           child: FractionallySizedBox(
-            widthFactor: 0.55,
+            // Wide enough that ordinary category names ("Recently Added")
+            // stay on one line; longer ones still wrap rather than shrink.
+            widthFactor: 0.82,
+            // The box defaults to centring its child — the text column hugs
+            // the left edge, whatever fraction of the width it takes.
+            alignment: Alignment.centerLeft,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -208,7 +283,7 @@ class _CatalogBanner extends StatelessWidget {
                     color: KalinkaColors.textPrimary,
                   ),
                 ),
-                if (page.provider != null && page.provider!.isNotEmpty)
+                if (subtitle.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 5),
                     child: Row(
@@ -218,25 +293,14 @@ class _CatalogBanner extends StatelessWidget {
                           const SizedBox(width: 7),
                         Flexible(
                           child: Text(
-                            page.provider!,
+                            subtitle,
                             style: KalinkaTextStyles.trackRowSubtitle
-                                .copyWith(color: KalinkaColors.textMuted)
+                                .copyWith(color: KalinkaColors.textSecondary)
                                 .apply(fontSizeFactor: scale),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                if (page.description != null &&
-                    page.description!.trim().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      page.description!,
-                      style: KalinkaTextStyles.trackRowSubtitle
-                          .copyWith(color: KalinkaColors.textPrimary)
-                          .apply(fontSizeFactor: scale),
                     ),
                   ),
               ],
@@ -404,9 +468,12 @@ class _CatalogError extends StatelessWidget {
   }
 }
 
-/// A catalog that resolved but holds nothing.
+/// A catalog that resolved but holds nothing — [filtered] distinguishes an
+/// empty category from filters that matched none of it.
 class _CatalogEmpty extends StatelessWidget {
-  const _CatalogEmpty();
+  final bool filtered;
+
+  const _CatalogEmpty({this.filtered = false});
 
   @override
   Widget build(BuildContext context) {
@@ -417,12 +484,17 @@ class _CatalogEmpty extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.library_music_outlined,
+              filtered
+                  ? Icons.filter_list_off_rounded
+                  : Icons.library_music_outlined,
               size: 40,
               color: KalinkaColors.textSecondary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 12),
-            Text('Nothing here yet', style: KalinkaTextStyles.cardTitle),
+            Text(
+              filtered ? 'Nothing matches these filters' : 'Nothing here yet',
+              style: KalinkaTextStyles.cardTitle,
+            ),
           ],
         ),
       ),

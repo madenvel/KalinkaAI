@@ -3,12 +3,15 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data_model/browse_filters.dart';
 import '../../providers/catalog_cards_provider.dart';
 import '../../providers/indexer_status_provider.dart';
 import '../../providers/search_session_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
+import '../browse_filters/search_filter_button.dart';
+import '../browse_filters/search_filter_overlay.dart';
 import '../mini_player.dart';
 import '../selection_overlay.dart';
 import '../server_chip.dart';
@@ -37,7 +40,8 @@ class SearchSessionView extends ConsumerStatefulWidget {
 class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     with
         IndexerPollHolder,
-        SingleTickerProviderStateMixin,
+        // Two controllers: the search overlay and the filter card.
+        TickerProviderStateMixin,
         WidgetsBindingObserver {
   final _composerController = TextEditingController();
   final _composerFocus = FocusNode();
@@ -55,6 +59,9 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   // resting entry and stretching, and the staggered suggestions.
   late final AnimationController _overlayCtrl;
 
+  // Drives the filter card unfolding out of its title-bar pill.
+  late final AnimationController _filtersCtrl;
+
   // The resting search entry's screen rect, measured on open so the overlay
   // card can rise out of exactly where the entry sat.
   final _entryKey = GlobalKey();
@@ -63,6 +70,9 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   // Tracks the keyboard so its dismissal (e.g. the hardware back that hides it)
   // also closes the overlay — one back drops both.
   bool _keyboardUp = false;
+
+  // Whether the search-and-filters card is unfolded out of its title-bar pill.
+  bool _filtersOpen = false;
 
   // Rotates the example hint: each mount of the search surface advances one
   // step through the suggestion list.
@@ -81,6 +91,11 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
       duration: const Duration(milliseconds: 300),
       reverseDuration: const Duration(milliseconds: 230),
     );
+    _filtersCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 240),
+      reverseDuration: const Duration(milliseconds: 180),
+    );
     _composerController.addListener(_onTextChange);
     WidgetsBinding.instance.addObserver(this);
   }
@@ -90,6 +105,7 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     WidgetsBinding.instance.removeObserver(this);
     _composerController.removeListener(_onTextChange);
     _overlayCtrl.dispose();
+    _filtersCtrl.dispose();
     _composerController.dispose();
     _composerFocus.dispose();
     // Torn down with the overlay still up (session closed externally) would
@@ -224,12 +240,38 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
         );
   }
 
+  void _openFilters() {
+    if (_filtersOpen) return;
+    setState(() => _filtersOpen = true);
+    _filtersCtrl.forward(from: 0);
+  }
+
+  void _closeFilters() {
+    // Re-entrant: the scrim tap and the Cancel button can both land.
+    if (!_filtersOpen || _filtersCtrl.status == AnimationStatus.reverse) return;
+    _filtersCtrl.reverse().whenComplete(() {
+      if (mounted) setState(() => _filtersOpen = false);
+    });
+  }
+
+  /// Commit the staged selection and fold the card away. The page reloads only
+  /// if the part of the filter the backend honours actually changed.
+  void _applyFilters(BrowseFilterQuery filter) {
+    ref.read(searchSessionProvider.notifier).setCatalogFilter(filter);
+    _closeFilters();
+  }
+
   /// One back press unwinds one layer (MD §11): overlay → Results/catalog
   /// page → Catalogs root → close to playback. Shared by the title-bar arrow
   /// and the system back gesture.
   void _handleBack() {
     if (_focused) {
       _closeSearch();
+      return;
+    }
+    if (_filtersOpen) {
+      // Back is Cancel: the staged edits go with the card.
+      _closeFilters();
       return;
     }
     final session = ref.read(searchSessionProvider);
@@ -249,6 +291,14 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(searchSessionProvider);
+
+    // ...and drop the flag too, so back does not spend a press closing a card
+    // that is no longer on screen.
+    if (_filtersOpen && session.catalogPage.isRoot) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _closeFilters();
+      });
+    }
 
     // The shared tiles long-press into multi-select; surface the same batch
     // bar the old search feed used so the selection can be acted on.
@@ -327,6 +377,10 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                 ),
               ],
             ),
+            // Only while there is a page to filter: a reconnect can reset the
+            // session to its root under an open card.
+            if (_filtersOpen && !session.catalogPage.isRoot)
+              _buildFiltersOverlay(session),
             // The animated search overlay floats above the header too, so its
             // dim scrim covers the top bar — the in-field arrow is the
             // only back affordance while it is up.
@@ -392,21 +446,18 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              // 2, not 8: the DISCOVER crumb brings 6 of its own so its
+              // hover outline has somewhere to sit.
+              const SizedBox(width: 2),
               Expanded(child: _buildBreadcrumb(session, onResults)),
-              // Placeholder filter affordance — greyed and inert for now.
-              SizedBox(
-                height: _kBarMinHeight,
-                width: 42,
-                child: IconButton(
-                  onPressed: null,
-                  padding: EdgeInsets.zero,
-                  iconSize: 22,
-                  constraints: const BoxConstraints.expand(),
-                  disabledColor: KalinkaColors.textMuted.withValues(alpha: 0.5),
-                  icon: const Icon(Icons.filter_list_rounded),
+              // Only where there is something to filter: the Catalogs root and
+              // Results have no collection of their own to narrow.
+              if (!onResults && !session.catalogPage.filterCapabilities.isEmpty)
+                SearchFilterButton(
+                  activeCount: session.catalogFilter.activeCount,
+                  open: _filtersOpen,
+                  onTap: _openFilters,
                 ),
-              ),
               SizedBox(
                 height: _kBarMinHeight,
                 width: 42,
@@ -421,40 +472,44 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     );
   }
 
-  /// The navigation stack as text (`DISCOVER › CATEGORY`); earlier segments
-  /// are muted — they are where back returns to.
+  /// The navigation stack (`DISCOVER › CATEGORY`); the earlier segment is
+  /// muted because it is where back returns to — and, being where back
+  /// returns to, it is also a target: tapping it unwinds the same layer the
+  /// arrow does.
   Widget _buildBreadcrumb(SearchSessionState session, bool onResults) {
-    final segments = <String>[
-      'DISCOVER',
-      if (onResults)
-        'RESULTS'
-      else if (!session.catalogPage.isRoot)
-        (session.catalogPage.title ?? '').toUpperCase(),
-    ];
+    final String? current = onResults
+        ? 'RESULTS'
+        : (session.catalogPage.isRoot
+              ? null
+              : (session.catalogPage.title ?? '').toUpperCase());
     final style = KalinkaTextStyles.trayTitle;
 
-    return Text.rich(
-      TextSpan(
-        children: [
-          for (var i = 0; i < segments.length; i++) ...[
-            if (i > 0)
-              TextSpan(
-                text: ' › ',
-                style: style.copyWith(color: KalinkaColors.textMuted),
-              ),
-            TextSpan(
-              text: segments[i],
-              style: style.copyWith(
-                color: i == segments.length - 1
-                    ? KalinkaColors.textPrimary
-                    : KalinkaColors.textMuted,
-              ),
+    return Row(
+      children: [
+        _BreadcrumbCrumb(
+          label: 'DISCOVER',
+          style: style,
+          // At the root there is nowhere to go: DISCOVER is the page itself.
+          onTap: current == null ? null : _handleBack,
+        ),
+        if (current != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Text(
+              '›',
+              style: style.copyWith(color: KalinkaColors.textMuted),
             ),
-          ],
+          ),
+          Flexible(
+            child: Text(
+              current,
+              style: style.copyWith(color: KalinkaColors.textPrimary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
-      ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+      ],
     );
   }
 
@@ -494,6 +549,66 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     final suggestions = session.suggestions;
     if (suggestions.isEmpty) return 'Ask for music…';
     return 'Try “${suggestions[_hintIndex % suggestions.length].query}”';
+  }
+
+  /// The unfolded search-and-filters card, resting under the title bar so the
+  /// pill it came from stays visible above it. The scrim is lighter than the
+  /// search overlay's: the rows behind stay legible, since the whole point of
+  /// the card is to narrow them.
+  Widget _buildFiltersOverlay(SearchSessionState session) {
+    final page = session.catalogPage;
+    final topInset = MediaQuery.paddingOf(context).top;
+    final targetTop = topInset + kKalinkaTopBarHeight;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return AnimatedBuilder(
+          animation: _filtersCtrl,
+          builder: (context, _) {
+            final t = Curves.easeOutCubic.transform(_filtersCtrl.value);
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: _closeFilters,
+                    behavior: HitTestBehavior.opaque,
+                    child: ColoredBox(
+                      color: Colors.black.withValues(alpha: 0.72 * t),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: targetTop,
+                  left: 16,
+                  right: 16,
+                  child: Opacity(
+                    opacity: t,
+                    child: Transform.scale(
+                      scale: lerpDouble(0.92, 1, t)!,
+                      // Unfolds out of the pill it replaced, top-right.
+                      alignment: Alignment.topRight,
+                      child: SearchFilterOverlay(
+                        capabilities: page.filterCapabilities,
+                        applied: session.catalogFilter,
+                        searchHint: (page.title == null || page.title!.isEmpty)
+                            ? 'Search'
+                            : 'Search ${page.title}',
+                        // Clamped: a window short enough to make this
+                        // negative would assert on the card's constraints.
+                        maxHeight: (constraints.maxHeight - targetTop - 24)
+                            .clamp(120.0, double.infinity),
+                        onApply: _applyFilters,
+                        onCancel: _closeFilters,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   /// The focused search view: a dim scrim over the search surface (top bar
@@ -917,6 +1032,84 @@ class _IndexerProgressCard extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The parent segment of the breadcrumb: a plain label until the pointer finds
+/// it, then an outlined target. Tapping it goes back a layer — the same action
+/// as the arrow beside it — so the crumb is not merely a caption.
+class _BreadcrumbCrumb extends StatefulWidget {
+  final String label;
+  final TextStyle style;
+
+  /// Null at the root, where this crumb names the page you are already on.
+  final VoidCallback? onTap;
+
+  const _BreadcrumbCrumb({
+    required this.label,
+    required this.style,
+    required this.onTap,
+  });
+
+  @override
+  State<_BreadcrumbCrumb> createState() => _BreadcrumbCrumbState();
+}
+
+class _BreadcrumbCrumbState extends State<_BreadcrumbCrumb> {
+  bool _hovering = false;
+
+  void _setHovering(bool value) {
+    if (value == _hovering) return;
+    setState(() => _hovering = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final interactive = widget.onTap != null;
+
+    final crumb = AnimatedContainer(
+      duration: const Duration(milliseconds: 130),
+      curve: Curves.easeOut,
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        // White alpha rather than a surface tone: the bar is transparent, so
+        // on a catalog page this plate sits over blurred art, and only
+        // lightening whatever is behind it reads on both.
+        color: _hovering && interactive
+            ? Colors.white.withValues(alpha: 0.10)
+            : Colors.transparent,
+      ),
+      child: Text(
+        widget.label,
+        style: widget.style.copyWith(
+          color: interactive
+              ? KalinkaColors.textMuted
+              : KalinkaColors.textPrimary,
+        ),
+      ),
+    );
+
+    if (!interactive) return crumb;
+
+    return Semantics(
+      button: true,
+      label: 'Back to Discover',
+      excludeSemantics: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => _setHovering(true),
+        onExit: (_) => _setHovering(false),
+        child: GestureDetector(
+          onTap: () {
+            KalinkaHaptics.lightImpact();
+            widget.onTap!();
+          },
+          behavior: HitTestBehavior.opaque,
+          child: crumb,
+        ),
       ),
     );
   }

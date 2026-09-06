@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data_model/browse_filters.dart';
 import '../data_model/data_model.dart';
 import 'catalog_cards_provider.dart';
 import 'connection_settings_provider.dart';
@@ -78,6 +79,34 @@ class CatalogPage {
   });
 
   bool get isRoot => id == null;
+
+  /// What this category can be filtered by.
+  ///
+  /// No kind group: a category holds one entity type, so there is nothing to
+  /// choose between — that group belongs to mixed surfaces like favourites.
+  ///
+  /// Genre is live: `/browse` already takes `genre_ids`, and changing it
+  /// reloads the list. Text is not — `/browse` has no free-text parameter, so
+  /// the field renders as a muted placeholder rather than accepting input the
+  /// server would silently drop. Flip it to [FacetSupport.supported] the day
+  /// the endpoint grows one.
+  BrowseFilterCapabilities get filterCapabilities {
+    if (isRoot) return const BrowseFilterCapabilities();
+    return BrowseFilterCapabilities(
+      text: FacetSupport.unsupported,
+      genre: FacetSupport.supported,
+      genreSource: _source,
+    );
+  }
+
+  String? get _source {
+    if (id == null) return null;
+    try {
+      return EntityId.fromString(id!).source;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 /// State for the Find Music workspace: two views (Catalogs / Results) with
@@ -111,6 +140,11 @@ class SearchSessionState {
   /// page view via `browseDetailProvider(id)` (cached across view switches).
   final CatalogPage catalogPage;
 
+  /// Filters applied to [catalogPage]. Lives here rather than inside the page
+  /// because the control that edits it sits in the title bar, a sibling of the
+  /// page. Cleared whenever the open category changes.
+  final BrowseFilterQuery catalogFilter;
+
   // ── Zero-state data (persisted history + fetched favourites) ───────────────
   final List<String> history;
   final List<BrowseItem> recentFavourites;
@@ -131,6 +165,7 @@ class SearchSessionState {
     this.searchError,
     this.expandedSections = const {},
     this.catalogPage = const CatalogPage.root(),
+    this.catalogFilter = const BrowseFilterQuery(),
     this.history = const [],
     this.recentFavourites = const [],
     this.zeroStateLoading = false,
@@ -154,6 +189,7 @@ class SearchSessionState {
     bool clearError = false,
     Set<String>? expandedSections,
     CatalogPage? catalogPage,
+    BrowseFilterQuery? catalogFilter,
     List<String>? history,
     List<BrowseItem>? recentFavourites,
     bool? zeroStateLoading,
@@ -171,6 +207,7 @@ class SearchSessionState {
       searchError: clearError ? null : (searchError ?? this.searchError),
       expandedSections: expandedSections ?? this.expandedSections,
       catalogPage: catalogPage ?? this.catalogPage,
+      catalogFilter: catalogFilter ?? this.catalogFilter,
       history: history ?? this.history,
       recentFavourites: recentFavourites ?? this.recentFavourites,
       zeroStateLoading: zeroStateLoading ?? this.zeroStateLoading,
@@ -222,6 +259,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
       clearError: true,
       expandedSections: const {},
       catalogPage: const CatalogPage.root(),
+      catalogFilter: const BrowseFilterQuery(),
       history: _loadHistory(),
     );
   }
@@ -235,7 +273,10 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     if (view == FindMusicView.catalogs &&
         state.activeView == FindMusicView.catalogs &&
         !state.catalogPage.isRoot) {
-      state = state.copyWith(catalogPage: const CatalogPage.root());
+      state = state.copyWith(
+        catalogPage: const CatalogPage.root(),
+        catalogFilter: const BrowseFilterQuery(),
+      );
       return;
     }
     if (view == state.activeView) return;
@@ -262,13 +303,24 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
         description: description,
         artPath: artPath,
       ),
+      catalogFilter: const BrowseFilterQuery(),
     );
   }
 
   /// Return from a catalog page to the Catalogs root (the search screen).
   void backToCatalogsRoot() {
     if (state.catalogPage.isRoot) return;
-    state = state.copyWith(catalogPage: const CatalogPage.root());
+    state = state.copyWith(
+      catalogPage: const CatalogPage.root(),
+      catalogFilter: const BrowseFilterQuery(),
+    );
+  }
+
+  /// Apply a filter selection to the open catalog page. The page reloads only
+  /// when the part of it the backend honours actually changed.
+  void setCatalogFilter(BrowseFilterQuery filter) {
+    if (state.catalogPage.isRoot) return;
+    state = state.copyWith(catalogFilter: filter);
   }
 
   // ── Submitting queries (AI search) ─────────────────────────────────────────
