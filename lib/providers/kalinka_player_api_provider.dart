@@ -56,6 +56,11 @@ abstract class KalinkaPlayerProxy {
     List<String>? sources,
   });
 
+  /// Every hit the given sources return for a name, ranked as one list and
+  /// annotated with why each stands where it does. Empty [sources] asks
+  /// every source.
+  Future<BrowseItemsList> searchMatches(String query, {List<String>? sources});
+
   /// Context-aware, library-validated AI search suggestions.
   /// [tzOffsetMin] is the device's UTC offset in MINUTES (east positive) so
   /// the server resolves "morning"/"evening" in the listener's local time;
@@ -399,6 +404,28 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
         .then((response) {
           if (response.statusCode != 200) {
             throw Exception('Failed ai_search for "$query"');
+          }
+          return BrowseItemsList.fromJson(response.data);
+        });
+  }
+
+  @override
+  Future<BrowseItemsList> searchMatches(
+    String query, {
+    List<String>? sources,
+  }) async {
+    return client
+        .get(
+          '/search/matches',
+          queryParameters: {
+            'query': query,
+            if (sources != null && sources.isNotEmpty)
+              'sources': sources.join(','),
+          },
+        )
+        .then((response) {
+          if (response.statusCode != 200) {
+            throw Exception('Failed to match "$query"');
           }
           return BrowseItemsList.fromJson(response.data);
         });

@@ -7,8 +7,8 @@ import '../../providers/catalog_section_provider.dart';
 import '../../providers/search_session_provider.dart';
 import '../../theme/app_theme.dart';
 import '../browse_rows_shimmer.dart';
-import '../hover_text_action.dart';
 import '../search_cards/browse_item_rows.dart';
+import '../shelf_heading.dart';
 
 /// Items a shelf shows when its source did not say.
 const _defaultPreviewLimit = 5;
@@ -145,44 +145,10 @@ class _Shelf extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Text(
-                title.toUpperCase(),
-                style: KalinkaTextStyles.sectionLabel.copyWith(
-                  color: KalinkaColors.textPrimary,
-                ),
-              ),
-              if (count != null) ...[
-                const SizedBox(width: 8),
-                Text(
-                  '· $count',
-                  style: KalinkaTextStyles.sectionLabel.copyWith(
-                    color: KalinkaColors.textMuted,
-                  ),
-                ),
-              ],
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Divider(
-                  color: KalinkaColors.borderSubtle,
-                  thickness: 1,
-                  height: 1,
-                ),
-              ),
-              if (onViewAll != null) ...[
-                const SizedBox(width: 12),
-                // Mono and unfilled like RESET ALL, so it reads as the
-                // heading's action rather than a control of its own.
-                HoverTextAction(
-                  label: 'VIEW ALL',
-                  semanticsLabel: 'View all',
-                  onTap: onViewAll!,
-                  color: KalinkaColors.accentTint,
-                  hoverColor: KalinkaColors.textPrimary,
-                ),
-              ],
-            ],
+          ShelfHeading(
+            title: title.toUpperCase(),
+            count: count,
+            onViewAll: onViewAll,
           ),
           const SizedBox(height: 10),
           child,

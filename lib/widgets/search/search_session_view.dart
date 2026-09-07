@@ -144,17 +144,15 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   /// Lift the search overlay out of the resting entry: measure where the entry
   /// sits, fade the scrim in, and forward the transition while the field takes
   /// focus.
-  void _openSearch({bool measure = true}) {
+  void _openSearch() {
     if (_focused) return;
     // Measure the entry in THIS surface's local space (not global): on tablet
     // the search surface is only the right panel, and the overlay positions
-    // itself within it, so the origin must be panel-relative. When opened from
-    // the Results pencil (no entry on screen), skip it and rise from the top.
+    // itself within it, so the origin must be panel-relative.
     final selfBox = context.findRenderObject() as RenderBox?;
     final entryBox = _entryKey.currentContext?.findRenderObject() as RenderBox?;
     _originRect =
-        (measure &&
-            selfBox != null &&
+        (selfBox != null &&
             selfBox.attached &&
             entryBox != null &&
             entryBox.hasSize)
@@ -216,17 +214,6 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     _composerFocus.requestFocus();
   }
 
-  /// The Results pencil: reopen the overlay pre-filled with the current query
-  /// (no on-screen entry to rise from, so skip the measurement).
-  void _editSearch() {
-    final query = ref.read(searchSessionProvider).searchQuery;
-    _composerController.text = query;
-    _composerController.selection = TextSelection.collapsed(
-      offset: query.length,
-    );
-    _openSearch(measure: false);
-  }
-
   /// Open a catalog page directly from a card tap — deterministic browse, never
   /// the AI router, and never recorded in search history.
   void _openCatalog(CatalogCardPlan plan, String provider) {
@@ -257,12 +244,37 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
     });
   }
 
-  /// Commit the staged selection and fold the card away. The page reloads only
-  /// if the part of the filter the backend honours actually changed.
+  /// Commit the staged selection and fold the card away. A catalog page
+  /// reloads only if the part of the filter the backend honours actually
+  /// changed; results narrow in hand.
   void _applyFilters(BrowseFilterQuery filter) {
-    ref.read(searchSessionProvider.notifier).setCatalogFilter(filter);
+    final notifier = ref.read(searchSessionProvider.notifier);
+    final session = ref.read(searchSessionProvider);
+    if (session.activeView == FindMusicView.results) {
+      // The field holds the query: a changed one is a new search, an emptied
+      // one keeps the search and resets the facets.
+      final query = filter.text.trim();
+      if (query.isNotEmpty && query != session.searchQuery) {
+        notifier.submit(query);
+      } else {
+        notifier.setResultsFilter(filter);
+      }
+    } else {
+      notifier.setCatalogFilter(filter);
+    }
     _closeFilters();
   }
+
+  /// What the filter card narrows: the open catalog page, or the results.
+  BrowseFilterCapabilities _filterCapabilities(SearchSessionState session) =>
+      session.activeView == FindMusicView.results
+      ? session.resultsFilterCapabilities
+      : session.catalogPage.filterCapabilities;
+
+  BrowseFilterQuery _appliedFilter(SearchSessionState session) =>
+      session.activeView == FindMusicView.results
+      ? session.resultsFilter.copyWith(text: session.searchQuery)
+      : session.catalogFilter;
 
   /// One back press unwinds one layer (MD §11): overlay → Results/catalog
   /// page → Catalogs root → close to playback. Shared by the title-bar arrow
@@ -297,7 +309,7 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
 
     // ...and drop the flag too, so back does not spend a press closing a card
     // that is no longer on screen.
-    if (_filtersOpen && session.catalogPage.isRoot) {
+    if (_filtersOpen && _filterCapabilities(session).isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _closeFilters();
       });
@@ -373,16 +385,16 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                     children: [
                       _buildCatalogsTab(session),
                       session.resultsAvailable
-                          ? ResultsView(onEdit: _editSearch)
+                          ? const ResultsView()
                           : const SizedBox.shrink(),
                     ],
                   ),
                 ),
               ],
             ),
-            // Only while there is a page to filter: a reconnect can reset the
-            // session to its root under an open card.
-            if (_filtersOpen && !session.catalogPage.isRoot)
+            // Only while there is something to narrow: a reconnect can reset
+            // the session under an open card.
+            if (_filtersOpen && !_filterCapabilities(session).isEmpty)
               _buildFiltersOverlay(session),
             // The animated search overlay floats above the header too, so its
             // dim scrim covers the top bar — the in-field arrow is the
@@ -453,11 +465,11 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
               // hover outline has somewhere to sit.
               const SizedBox(width: 2),
               Expanded(child: _buildBreadcrumb(session, onResults)),
-              // Only where there is something to filter: the Catalogs root and
-              // Results have no collection of their own to narrow.
-              if (!onResults && !session.catalogPage.filterCapabilities.isEmpty)
+              // Only where there is something to narrow: the Catalogs root
+              // has no collection of its own.
+              if (!_filterCapabilities(session).isEmpty)
                 SearchFilterButton(
-                  activeCount: session.catalogFilter.activeCount,
+                  activeCount: _appliedFilter(session).activeCount,
                   open: _filtersOpen,
                   onTap: _openFilters,
                 ),
@@ -560,6 +572,7 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   /// the card is to narrow them.
   Widget _buildFiltersOverlay(SearchSessionState session) {
     final page = session.catalogPage;
+    final onResults = session.activeView == FindMusicView.results;
     final topInset = MediaQuery.paddingOf(context).top;
     final targetTop = topInset + kKalinkaTopBarHeight;
 
@@ -591,11 +604,20 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
                       // Unfolds out of the pill it replaced, top-right.
                       alignment: Alignment.topRight,
                       child: SearchFilterOverlay(
-                        capabilities: page.filterCapabilities,
-                        applied: session.catalogFilter,
-                        searchHint: (page.title == null || page.title!.isEmpty)
+                        capabilities: _filterCapabilities(session),
+                        applied: _appliedFilter(session),
+                        title: onResults
+                            ? 'REFINE RESULTS'
+                            : 'SEARCH & FILTERS',
+                        searchHint:
+                            onResults ||
+                                page.title == null ||
+                                page.title!.isEmpty
                             ? 'Search'
                             : 'Search ${page.title}',
+                        searchCaption: onResults
+                            ? 'A new query starts a new search.'
+                            : null,
                         // Clamped: a window short enough to make this
                         // negative would assert on the card's constraints.
                         maxHeight: (constraints.maxHeight - targetTop - 24)
@@ -625,8 +647,7 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   Widget _buildSearchOverlay(SearchSessionState session) {
     final topInset = MediaQuery.paddingOf(context).top;
     // Rest the card at the title-bar bottom rather than the screen top, so it
-    // never overlaps the "Find Music" bar (both the Catalogs entry and the
-    // Results pencil open here).
+    // never overlaps the "Find Music" bar.
     final targetTop = topInset + kKalinkaTopBarHeight;
 
     return LayoutBuilder(

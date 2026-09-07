@@ -985,6 +985,33 @@ class EntityId {
   }
 }
 
+/// How closely a search hit's name answers the query, best first — the order
+/// hits from several sources merge in, without the app ranking anything.
+enum MatchTier { exact, equivalent, close, partial, contextual, weak }
+
+/// Why a search hit stands where it does in its listing, as the server's name
+/// ranking decided it.
+class NameMatch {
+  final MatchTier tier;
+
+  /// Whole-string similarity to the query, 0..100. Orders hits within a tier
+  /// and means nothing across tiers.
+  final double score;
+
+  const NameMatch({required this.tier, required this.score});
+
+  /// Null for a tier this build does not know: such a hit merges last rather
+  /// than somewhere made up.
+  static NameMatch? tryFromJson(Map<String, dynamic>? json) {
+    if (json == null) return null;
+    final tier = MatchTier.values.asNameMap()[json["tier"]];
+    if (tier == null) return null;
+    return NameMatch(tier: tier, score: (json["score"] as num).toDouble());
+  }
+
+  Map<String, dynamic> toJson() => {"tier": tier.name, "score": score};
+}
+
 class BrowseItem {
   final String id;
   final String? name;
@@ -998,6 +1025,10 @@ class BrowseItem {
   final Artist? artist;
   final Playlist? playlist;
   final Catalog? catalog;
+
+  /// How this item answers the query it was searched for; only a search
+  /// hit carries one.
+  final NameMatch? match;
   final List<BrowseItem>? sections;
 
   const BrowseItem({
@@ -1012,6 +1043,7 @@ class BrowseItem {
     this.artist,
     this.playlist,
     this.catalog,
+    this.match,
     this.sections,
   });
 
@@ -1136,6 +1168,7 @@ class BrowseItem {
         ? null
         : Playlist.fromJson(json["playlist"]),
     catalog: json["catalog"] == null ? null : Catalog.fromJson(json["catalog"]),
+    match: NameMatch.tryFromJson(json["match"]),
     sections: json["sections"] == null
         ? null
         : List<BrowseItem>.from(
@@ -1155,6 +1188,7 @@ class BrowseItem {
     "artist": artist?.toJson(),
     "playlist": playlist?.toJson(),
     "catalog": catalog?.toJson(),
+    "match": match?.toJson(),
     "sections": sections == null
         ? null
         : List<dynamic>.from(sections!.map((x) => x.toJson())),

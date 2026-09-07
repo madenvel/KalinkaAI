@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'data_model.dart'
-    show FilterKind, FilterSpec, SearchType, SearchTypeExtension;
+    show FilterKind, FilterSpec, Genre, SearchType, SearchTypeExtension;
 
 /// The field id every source uses for the entity kind — the one values
 /// field a consumer may recognise by name rather than by vocabulary.
@@ -22,12 +22,33 @@ enum FacetSupport {
   supported,
 }
 
+/// The two blocks a search answers with: what was looked up by name, and
+/// what was found for it.
+enum ResultKind { nameMatches, recommendations }
+
+/// How the name matches are ordered. Recommendations keep their own order
+/// regardless: it is the source's ranking, and nothing here can improve it.
+enum NameMatchOrder { relevance, alphabetical }
+
+/// One source a results surface can be narrowed to.
+typedef SourceOption = ({String name, String title});
+
+extension SourceOptions on List<SourceOption> {
+  /// The title [name] shows under, or the name itself where it is not listed.
+  String titleOf(String name) {
+    for (final option in this) {
+      if (option.name == name) return option.title;
+    }
+    return name;
+  }
+}
+
 /// What a browsable surface can be filtered by. Facets the backend can honour
 /// are [FacetSupport.supported]; the rest render as placeholders or not at all.
 ///
 /// Derived per surface from the shape of the endpoint behind it. Keeping it a
 /// descriptor rather than a pile of booleans on each screen is what lets one
-/// form serve catalog pages, favourites, and whatever comes next.
+/// form serve catalog pages, search results, and whatever comes next.
 class BrowseFilterCapabilities {
   /// Free-text filtering over the collection.
   final FacetSupport text;
@@ -46,8 +67,13 @@ class BrowseFilterCapabilities {
   final FacetSupport genre;
 
   /// The catalog whose vocabulary fills the genre facet, and the field id it
-  /// is filled from. Null where there is no genre facet to fill.
+  /// is filled from. Null where there is no genre facet to fill, or where
+  /// [genreOptions] already holds it.
   final ({String catalogId, String field})? genreVocabulary;
+
+  /// The genre vocabulary held in hand — a surface that already knows what
+  /// it holds, like loaded search results, fills the facet without a fetch.
+  final List<Genre>? genreOptions;
 
   /// The genre field as its source declared it — the id the request addresses
   /// it by, and the combination the source honours.
@@ -61,6 +87,18 @@ class BrowseFilterCapabilities {
   /// mixes kinds has one.
   final FilterSpec? typeField;
 
+  /// Choosing between the result blocks. Only a search answers with two.
+  final FacetSupport kind;
+
+  /// Narrowing to a source. Only a surface that holds several has a choice.
+  final FacetSupport source;
+
+  /// Sources to render, in display order.
+  final List<SourceOption> sources;
+
+  /// Ordering the name matches.
+  final FacetSupport order;
+
   const BrowseFilterCapabilities({
     this.text = FacetSupport.hidden,
     this.type = FacetSupport.hidden,
@@ -68,9 +106,14 @@ class BrowseFilterCapabilities {
     this.presentTypes = const {},
     this.genre = FacetSupport.hidden,
     this.genreVocabulary,
+    this.genreOptions,
     this.genreField,
     this.textField,
     this.typeField,
+    this.kind = FacetSupport.hidden,
+    this.source = FacetSupport.hidden,
+    this.sources = const [],
+    this.order = FacetSupport.hidden,
   });
 
   /// What a surface offers, from what its source declared for it. A facet the
@@ -118,7 +161,10 @@ class BrowseFilterCapabilities {
   bool get isEmpty =>
       text == FacetSupport.hidden &&
       genre == FacetSupport.hidden &&
-      (type == FacetSupport.hidden || types.isEmpty);
+      (type == FacetSupport.hidden || types.isEmpty) &&
+      kind == FacetSupport.hidden &&
+      (source == FacetSupport.hidden || sources.isEmpty) &&
+      order == FacetSupport.hidden;
 
   /// The canonical entity-kind row. Order is the one the mockups use.
   static const allTypes = <SearchType>[
@@ -131,8 +177,8 @@ class BrowseFilterCapabilities {
 
 /// The active filter selection — one request object rather than a widening
 /// list of arguments, so the surfaces above it never learn how it travels.
-/// Today each facet becomes a query parameter; a richer query language later
-/// changes only the callers that build the request.
+/// A catalog page sends the facets its source declared; search results apply
+/// every facet to what they already hold.
 class BrowseFilterQuery {
   final String text;
 
@@ -141,30 +187,59 @@ class BrowseFilterQuery {
 
   final List<String> genreIds;
 
+  /// Null means both blocks.
+  final ResultKind? kind;
+
+  /// Empty means every source.
+  final List<String> sources;
+
+  final NameMatchOrder order;
+
   const BrowseFilterQuery({
     this.text = '',
     this.type,
     this.genreIds = const [],
+    this.kind,
+    this.sources = const [],
+    this.order = NameMatchOrder.relevance,
   });
 
-  bool get isEmpty => text.isEmpty && type == null && genreIds.isEmpty;
+  bool get isEmpty =>
+      text.isEmpty &&
+      type == null &&
+      genreIds.isEmpty &&
+      kind == null &&
+      sources.isEmpty &&
+      order == NameMatchOrder.relevance;
 
   /// How many separate answers this query carries — the number on the filter
   /// button's badge, and the number of chips shown above the rows. Each genre
-  /// counts on its own, because each is separately removable.
+  /// and each source counts on its own, because each is separately removable.
   int get activeCount =>
-      (text.isEmpty ? 0 : 1) + (type == null ? 0 : 1) + genreIds.length;
+      (text.isEmpty ? 0 : 1) +
+      (type == null ? 0 : 1) +
+      genreIds.length +
+      (kind == null ? 0 : 1) +
+      sources.length +
+      (order == NameMatchOrder.relevance ? 0 : 1);
 
   BrowseFilterQuery copyWith({
     String? text,
     SearchType? type,
     bool clearType = false,
     List<String>? genreIds,
+    ResultKind? kind,
+    bool clearKind = false,
+    List<String>? sources,
+    NameMatchOrder? order,
   }) {
     return BrowseFilterQuery(
       text: text ?? this.text,
       type: clearType ? null : (type ?? this.type),
       genreIds: genreIds ?? this.genreIds,
+      kind: clearKind ? null : (kind ?? this.kind),
+      sources: sources ?? this.sources,
+      order: order ?? this.order,
     );
   }
 

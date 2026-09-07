@@ -164,6 +164,7 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          ...matchBadge(widget.item),
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [

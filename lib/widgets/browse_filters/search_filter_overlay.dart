@@ -29,6 +29,13 @@ class SearchFilterOverlay extends StatefulWidget {
   /// Vertical space the card may occupy before its body starts scrolling.
   final double maxHeight;
 
+  /// The card's name, in mono caps.
+  final String title;
+
+  /// One quiet line under the search field, where what that field does needs
+  /// saying — on results it starts a new search rather than narrowing one.
+  final String? searchCaption;
+
   const SearchFilterOverlay({
     super.key,
     required this.capabilities,
@@ -37,6 +44,8 @@ class SearchFilterOverlay extends StatefulWidget {
     required this.onCancel,
     required this.maxHeight,
     this.searchHint = 'Search',
+    this.title = 'SEARCH & FILTERS',
+    this.searchCaption,
   });
 
   @override
@@ -54,7 +63,7 @@ class _SearchFilterOverlayState extends State<SearchFilterOverlay> {
         mainAxisSize: MainAxisSize.min,
         children: [
           OverlayCardHeader(
-            title: 'SEARCH & FILTERS',
+            title: widget.title,
             onClose: widget.onCancel,
             closeLabel: 'Close filters',
             action: _staged.isEmpty
@@ -72,6 +81,7 @@ class _SearchFilterOverlayState extends State<SearchFilterOverlay> {
                 capabilities: widget.capabilities,
                 query: _staged,
                 searchHint: widget.searchHint,
+                searchCaption: widget.searchCaption,
                 // Staged: nothing is sent until Show results, so there is
                 // nothing to coalesce and the badge can track every key.
                 textDebounce: Duration.zero,
@@ -104,8 +114,8 @@ class _SearchFilterOverlayState extends State<SearchFilterOverlay> {
             const SizedBox(width: 10),
             KalinkaButton(
               // The app's primary CTA, filled — the same weight as committing
-              // anything else. No count: the filtered total is not known until
-              // the request this button sends comes back.
+              // anything else. No count: the filtered total is not known
+              // until the selection is applied.
               label: 'Show results',
               size: KalinkaButtonSize.compact,
               onTap: () => widget.onApply(_staged),

@@ -246,6 +246,7 @@ class _SearchPlaylistRowState extends ConsumerState<SearchPlaylistRow>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        ...matchBadge(widget.item),
                         Text(
                           title,
                           style: KalinkaTextStyles.trackRowTitle.copyWith(
@@ -414,7 +415,6 @@ class _InlinePlaylistTrack extends ConsumerStatefulWidget {
 
 class _InlinePlaylistTrackState extends ConsumerState<_InlinePlaylistTrack>
     with SingleTickerProviderStateMixin, LongPressRingMixin {
-  // ── Play-on-tap flash animation (mirrors the album inline track row) ──────
   late final AnimationController _flashController;
   late final Animation<Color?> _flashColorAnim;
   bool _tappedToPlay = false;

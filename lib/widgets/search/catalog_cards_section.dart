@@ -90,7 +90,7 @@ class CatalogCardsSection extends ConsumerWidget {
 Color _tintFor(String sourceName) => colorForSourceName(sourceName);
 
 /// Maps a backend preview_config icon id to a glyph; null falls back to the
-/// content-type icon. Superset of _sectionIcon in staging_result_sections.dart.
+/// content-type icon.
 IconData? _iconForId(String? id) {
   switch (id) {
     case 'best_match':

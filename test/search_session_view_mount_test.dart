@@ -44,6 +44,20 @@ class _FakeApi implements KalinkaPlayerProxy {
   }) async => const SearchSuggestionList(suggestions: []);
 
   @override
+  Future<BrowseItemsList> searchMatches(
+    String query, {
+    List<String>? sources,
+  }) async => BrowseItemsList(0, 10, 0, const []);
+
+  @override
+  Future<BrowseItemsList> aiSearch(
+    String query, {
+    int offset = 0,
+    int limit = 10,
+    List<String>? sources,
+  }) async => BrowseItemsList(offset, limit, 0, const []);
+
+  @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName}');
 }
@@ -77,12 +91,12 @@ void main() {
     prefs = await SharedPreferences.getInstance();
   });
 
-  ProviderContainer makeContainer() {
+  ProviderContainer makeContainer({List<ModuleInfo> modules = const []}) {
     final container = ProviderContainer(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
         kalinkaProxyProvider.overrideWithValue(_FakeApi()),
-        sourceModulesProvider.overrideWith((ref) => <ModuleInfo>[]),
+        sourceModulesProvider.overrideWith((ref) => modules),
         connectionStateProvider.overrideWith(_FixedConnection.new),
         playerStateProvider.overrideWithValue(PlaybackState.empty),
         catalogCardGroupsProvider.overrideWith(
@@ -95,8 +109,11 @@ void main() {
     return container;
   }
 
-  Future<ProviderContainer> pumpSurface(WidgetTester tester) async {
-    final container = makeContainer();
+  Future<ProviderContainer> pumpSurface(
+    WidgetTester tester, {
+    List<ModuleInfo> modules = const [],
+  }) async {
+    final container = makeContainer(modules: modules);
     container.read(searchSessionProvider.notifier).open();
 
     await tester.pumpWidget(
@@ -155,6 +172,39 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('SEARCH & FILTERS'), findsNothing);
     expect(container.read(searchSessionProvider).catalogFilter.isEmpty, isTrue);
+  });
+
+  testWidgets('the Results view carries the filter control, and it opens', (
+    tester,
+  ) async {
+    final container = await pumpSurface(
+      tester,
+      modules: [
+        ModuleInfo(
+          name: 'qobuz',
+          title: 'Qobuz',
+          enabled: true,
+          state: ModuleState.ready,
+        ),
+      ],
+    );
+    container.read(searchSessionProvider.notifier).submit('the beatles');
+    // Past the minimum loading hold, so the legs have landed.
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(find.byType(SearchFilterButton), findsOneWidget);
+
+    await tester.tap(find.byType(SearchFilterButton));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('REFINE RESULTS'), findsOneWidget);
+    // The field re-searches rather than narrowing, and says so.
+    expect(find.text('A new query starts a new search.'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('REFINE RESULTS'), findsNothing);
+    expect(container.read(searchSessionProvider).resultsFilter.isEmpty, isTrue);
   });
 
   testWidgets('the smart search card names itself and closes', (tester) async {

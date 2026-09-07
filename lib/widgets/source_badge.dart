@@ -80,3 +80,46 @@ class SourceBadge extends ConsumerWidget {
     );
   }
 }
+
+/// The letter tile for [source] where a results group or a filter pill
+/// names its source, or nothing for the local library: it is the unmarked
+/// default here as everywhere.
+Widget? sourceLetter(String source) =>
+    isLocalSource(source) ? null : SourceLetter(source: source);
+
+/// The letter tile that stands for a source in a results group or a filter
+/// pill. Reached through [sourceLetter], which keeps the library unmarked.
+class SourceLetter extends ConsumerWidget {
+  final String source;
+
+  const SourceLetter({super.key, required this.source});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final info = ref.watch(sourceDisplayInfoProvider)[source];
+    final color = info?.color ?? colorForSourceName(source);
+    final letter =
+        info?.abbreviation ?? (source.isEmpty ? '?' : source[0].toUpperCase());
+    return Semantics(
+      label: info?.title ?? source,
+      excludeSemantics: true,
+      child: Container(
+        width: 22,
+        height: 22,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.14),
+          border: Border.all(color: color.withValues(alpha: 0.30), width: 1),
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Text(
+          letter,
+          style: KalinkaTextStyles.sourceBadgeLetter.copyWith(
+            fontSize: 11,
+            color: color,
+          ),
+        ),
+      ),
+    );
+  }
+}
