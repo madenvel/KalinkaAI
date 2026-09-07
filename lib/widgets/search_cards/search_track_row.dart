@@ -35,7 +35,6 @@ class SearchTrackRow extends ConsumerStatefulWidget {
 
 class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
     with SingleTickerProviderStateMixin, LongPressRingMixin {
-  // ── Play-on-tap flash animation ──────────────────────────────────────────
   late final AnimationController _flashController;
   late final Animation<Color?> _flashColorAnim;
   bool _tappedToPlay = false;
@@ -235,6 +234,7 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          ...matchBadge(widget.item),
           Text(
             title,
             style: KalinkaTextStyles.trackRowTitle.copyWith(

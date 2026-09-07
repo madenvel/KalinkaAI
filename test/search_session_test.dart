@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:kalinka/data_model/browse_filters.dart';
 import 'package:kalinka/data_model/data_model.dart';
+import 'package:kalinka/data_model/search_results.dart';
 import 'package:kalinka/providers/app_state_provider.dart';
 import 'package:kalinka/providers/catalog_cards_provider.dart';
 import 'package:kalinka/providers/connection_settings_provider.dart';
@@ -20,6 +22,7 @@ import 'package:kalinka/widgets/search/search_zero_state.dart';
 /// implemented; everything else throws if unexpectedly invoked.
 class _FakeApi implements KalinkaPlayerProxy {
   int aiSearchCalls = 0;
+  int matchCalls = 0;
   final List<String> queries = [];
 
   @override
@@ -30,8 +33,17 @@ class _FakeApi implements KalinkaPlayerProxy {
     List<String>? sources,
   }) async {
     aiSearchCalls++;
+    return _inspiredFor(sources!.single);
+  }
+
+  @override
+  Future<BrowseItemsList> searchMatches(
+    String query, {
+    List<String>? sources,
+  }) async {
+    matchCalls++;
     queries.add(query);
-    return _resultFor(query);
+    return _matchesFor(sources!.single);
   }
 
   @override
@@ -62,7 +74,7 @@ class _FakeApi implements KalinkaPlayerProxy {
       throw UnimplementedError('${invocation.memberName}');
 }
 
-/// The search that never answers — its future simply never completes.
+/// The search that never answers — neither leg's future ever completes.
 class _HangingApi extends _FakeApi {
   @override
   Future<BrowseItemsList> aiSearch(
@@ -74,6 +86,25 @@ class _HangingApi extends _FakeApi {
     aiSearchCalls++;
     return Completer<BrowseItemsList>().future;
   }
+
+  @override
+  Future<BrowseItemsList> searchMatches(String query, {List<String>? sources}) {
+    matchCalls++;
+    return Completer<BrowseItemsList>().future;
+  }
+}
+
+/// A source whose name-match leg fails on the first ask and answers after.
+class _FlakyApi extends _FakeApi {
+  @override
+  Future<BrowseItemsList> searchMatches(
+    String query, {
+    List<String>? sources,
+  }) async {
+    matchCalls++;
+    if (matchCalls == 1) throw Exception('upstream down');
+    return _matchesFor(sources!.single);
+  }
 }
 
 /// Pinned connection state — the real notifier arms a retry [Timer] that
@@ -83,28 +114,48 @@ class _FixedConnection extends ConnectionStateNotifier {
   ConnectionStatus build() => ConnectionStatus.connected;
 }
 
-BrowseItemsList _resultFor(String query) {
-  BrowseItem track(String id, String title) => BrowseItem(
-    id: 'kalinka:qobuz:track:$id',
-    canBrowse: false,
-    canAdd: true,
-    track: Track(
-      id: id,
-      title: title,
-      duration: 200,
-      performer: Artist(id: 'ar', name: 'An Artist'),
-    ),
-  );
-  final section = BrowseItem(
-    id: 'kalinka:qobuz:catalog:sec1',
-    name: 'Best Match',
+BrowseItem _track(String source, String id, String title) => BrowseItem(
+  id: 'kalinka:$source:track:$id',
+  canBrowse: false,
+  canAdd: true,
+  track: Track(
+    id: id,
+    title: title,
+    duration: 200,
+    performer: Artist(id: 'ar', name: 'An Artist'),
+  ),
+);
+
+BrowseItemsList _matchesFor(String source) => BrowseItemsList(0, 1, 1, [
+  BrowseItem(
+    id: 'kalinka:$source:artist:a1',
+    name: 'An Artist',
     canBrowse: true,
     canAdd: false,
-    catalog: Catalog(id: 'sec1', title: 'Best Match', sources: const ['qobuz']),
-    sections: [track('t1', 'Song A'), track('t2', 'Song B')],
-  );
-  return BrowseItemsList(0, 10, 1, [section]);
-}
+    artist: Artist(id: 'a1', name: 'An Artist'),
+    match: const NameMatch(tier: MatchTier.exact, score: 100),
+  ),
+]);
+
+BrowseItemsList _inspiredFor(String source) => BrowseItemsList(0, 1, 1, [
+  BrowseItem(
+    id: 'kalinka:$source:catalog:ai',
+    name: 'AI SUGGESTIONS',
+    canBrowse: false,
+    canAdd: false,
+    catalog: Catalog(id: 'ai', title: 'AI SUGGESTIONS', sources: [source]),
+    sections: [_track(source, 't1', 'Song A'), _track(source, 't2', 'Song B')],
+  ),
+]);
+
+final _modules = <ModuleInfo>[
+  ModuleInfo(
+    name: 'qobuz',
+    title: 'Qobuz',
+    enabled: true,
+    state: ModuleState.ready,
+  ),
+];
 
 void main() {
   late SharedPreferences prefs;
@@ -123,7 +174,7 @@ void main() {
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
         kalinkaProxyProvider.overrideWithValue(api),
-        sourceModulesProvider.overrideWith((ref) => <ModuleInfo>[]),
+        sourceModulesProvider.overrideWith((ref) => _modules),
         connectionStateProvider.overrideWith(_FixedConnection.new),
         // The real provider opens the wire-event WebSocket (retry timer).
         playerStateProvider.overrideWithValue(PlaybackState.empty),
@@ -152,29 +203,35 @@ void main() {
       expect(state.activeView, FindMusicView.catalogs);
       expect(state.resultsAvailable, isFalse);
       expect(state.recentFavourites, isNotEmpty);
-      expect(api.aiSearchCalls, 0, reason: 'no search-as-you-type on open');
+      expect(api.matchCalls + api.aiSearchCalls, 0);
     });
 
-    test('submit switches to Results, loads, then resolves', () async {
-      final api = _FakeApi();
-      final container = makeContainer(api);
-      final notifier = container.read(searchSessionProvider.notifier);
-      notifier.open();
+    test(
+      'submit asks every source twice and lands each leg on its own',
+      () async {
+        final api = _FakeApi();
+        final container = makeContainer(api);
+        final notifier = container.read(searchSessionProvider.notifier);
+        notifier.open();
 
-      notifier.submit('jazz for a rainy night');
-      var state = container.read(searchSessionProvider);
-      expect(state.activeView, FindMusicView.results);
-      expect(state.resultsAvailable, isTrue);
-      expect(state.searchQuery, 'jazz for a rainy night');
-      expect(state.searchLoading, isTrue);
+        notifier.submit('jazz for a rainy night');
+        var state = container.read(searchSessionProvider);
+        expect(state.activeView, FindMusicView.results);
+        expect(state.resultsAvailable, isTrue);
+        expect(state.searchQuery, 'jazz for a rainy night');
+        expect(state.searchLoading, isTrue);
 
-      await Future.delayed(const Duration(milliseconds: 900));
-      state = container.read(searchSessionProvider);
-      expect(state.searchLoading, isFalse);
-      expect(state.searchResults, isNotNull);
-      expect(state.searchResults!.items, hasLength(1));
-      expect(api.aiSearchCalls, 1);
-    });
+        await Future.delayed(const Duration(milliseconds: 900));
+        state = container.read(searchSessionProvider);
+        final results = state.results!;
+        expect(state.searchLoading, isFalse);
+        expect(results.matchesSettled, isTrue);
+        expect(results.rankedMatches, hasLength(1));
+        expect(results.inspiredGroups.single.tracks, hasLength(2));
+        expect(api.matchCalls, 1);
+        expect(api.aiSearchCalls, 1);
+      },
+    );
 
     test('a new submit replaces the previous query', () async {
       final api = _FakeApi();
@@ -188,12 +245,15 @@ void main() {
 
       final state = container.read(searchSessionProvider);
       expect(state.searchQuery, 'two');
-      expect(api.queries, ['one', 'two']);
+      expect(state.results!.query, 'two');
+      // Superseded before its sources were even resolved, the first query
+      // never reaches the network.
+      expect(api.queries, ['two']);
       // Newest-first history.
       expect(state.history.take(2), ['two', 'one']);
     });
 
-    test('a search that never answers times out with an error', () {
+    test('a source that never answers is unavailable, leg by leg', () {
       fakeAsync((async) {
         final api = _HangingApi();
         final container = makeContainer(api);
@@ -201,20 +261,82 @@ void main() {
         notifier.open();
         notifier.submit('jazz');
         async.flushMicrotasks();
-        expect(container.read(searchSessionProvider).searchLoading, isTrue);
-        expect(api.aiSearchCalls, 1);
+        var results = container.read(searchSessionProvider).results!;
+        expect(results.matches['qobuz'], isA<LegLoading>());
+        expect(api.matchCalls, 1);
 
-        // Just short of the cap the search is still patiently loading…
+        // Just short of the cap the legs are still patiently loading…
         async.elapse(const Duration(seconds: 9));
-        expect(container.read(searchSessionProvider).searchLoading, isTrue);
+        results = container.read(searchSessionProvider).results!;
+        expect(results.matches['qobuz'], isA<LegLoading>());
 
-        // …and past it the app gives up and says so.
+        // …and past it each leg gives up and says so.
         async.elapse(const Duration(seconds: 2));
         final state = container.read(searchSessionProvider);
-        expect(state.searchLoading, isFalse);
-        expect(state.searchResults, isNull);
-        expect(state.searchError, contains('timed out'));
+        results = state.results!;
+        expect(results.matches['qobuz'], isA<LegFailed>());
+        expect(results.inspired['qobuz'], isA<LegFailed>());
+        expect(state.searchError, isNull);
       });
+    });
+
+    test('retry asks that one source for that one leg again', () async {
+      final api = _FlakyApi();
+      final container = makeContainer(api);
+      final notifier = container.read(searchSessionProvider.notifier);
+      notifier.open();
+
+      notifier.submit('jazz');
+      await Future.delayed(const Duration(milliseconds: 900));
+      expect(
+        container.read(searchSessionProvider).results!.matches['qobuz'],
+        isA<LegFailed>(),
+      );
+
+      notifier.retry(ResultsLeg.matches, 'qobuz');
+      expect(
+        container.read(searchSessionProvider).results!.matches['qobuz'],
+        isA<LegLoading>(),
+      );
+      await Future.delayed(const Duration(milliseconds: 900));
+      final results = container.read(searchSessionProvider).results!;
+      expect(results.matches['qobuz'], isA<LegReady>());
+      expect(api.matchCalls, 2);
+      expect(api.aiSearchCalls, 1, reason: 'the other leg is left alone');
+    });
+
+    test('narrowing keeps the query out of the facets', () async {
+      final api = _FakeApi();
+      final container = makeContainer(api);
+      final notifier = container.read(searchSessionProvider.notifier);
+      notifier.open();
+      notifier.submit('jazz');
+
+      notifier.setResultsFilter(
+        const BrowseFilterQuery(text: 'jazz', type: SearchType.album),
+      );
+
+      final filter = container.read(searchSessionProvider).resultsFilter;
+      expect(filter.type, SearchType.album);
+      expect(filter.text, isEmpty);
+      await Future.delayed(const Duration(milliseconds: 900));
+    });
+
+    test('clearing the search returns to Catalogs with nothing kept', () async {
+      final api = _FakeApi();
+      final container = makeContainer(api);
+      final notifier = container.read(searchSessionProvider.notifier);
+      notifier.open();
+      notifier.submit('jazz');
+      await Future.delayed(const Duration(milliseconds: 900));
+
+      notifier.clearSearch();
+
+      final state = container.read(searchSessionProvider);
+      expect(state.activeView, FindMusicView.catalogs);
+      expect(state.resultsAvailable, isFalse);
+      expect(state.results, isNull);
+      expect(state.searchQuery, isEmpty);
     });
 
     test('view switches are gated and layered', () async {
@@ -269,7 +391,7 @@ void main() {
       var state = container.read(searchSessionProvider);
       expect(state.isOpen, isFalse);
       expect(state.resultsAvailable, isFalse);
-      expect(state.searchResults, isNull);
+      expect(state.results, isNull);
       expect(state.catalogPage.isRoot, isTrue);
 
       notifier.open();

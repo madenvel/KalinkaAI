@@ -20,43 +20,70 @@ class ActiveFilterChips extends ConsumerWidget {
 
   final EdgeInsets padding;
 
+  /// Shown first, ahead of the facet chips — where a results page puts its
+  /// query, which is not a facet but belongs in the same row.
+  final Widget? leading;
+
   const ActiveFilterChips({
     super.key,
     required this.capabilities,
     required this.query,
     required this.onChanged,
     this.padding = const EdgeInsets.fromLTRB(16, 0, 16, 12),
+    this.leading,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (query.isEmpty) return const SizedBox.shrink();
+    if (query.isEmpty && leading == null) return const SizedBox.shrink();
 
     // Only reached with genres applied, which needs the capability anyway.
     final vocabulary = capabilities.genreVocabulary;
-    final genres = query.genreIds.isEmpty || vocabulary == null
-        ? null
-        : ref.watch(browseGenresProvider(vocabulary)).value;
+    final genres =
+        capabilities.genreOptions ??
+        (query.genreIds.isEmpty || vocabulary == null
+            ? null
+            : ref.watch(browseGenresProvider(vocabulary)).value);
 
     final chips = <Widget>[
+      if (query.kind != null)
+        ActiveFilterChip(
+          label: resultKindLabel(query.kind!),
+          onRemove: () => onChanged(query.copyWith(clearKind: true)),
+        ),
       if (query.type != null)
-        _Chip(
+        ActiveFilterChip(
           label: filterTypeLabel(query.type!),
           onRemove: () => onChanged(query.copyWith(clearType: true)),
         ),
       if (query.text.isNotEmpty)
-        _Chip(
+        ActiveFilterChip(
           label: '“${query.text}”',
           onRemove: () => onChanged(query.copyWith(text: '')),
         ),
+      for (final source in query.sources)
+        ActiveFilterChip(
+          label: capabilities.sources.titleOf(source),
+          onRemove: () => onChanged(
+            query.copyWith(
+              sources: [...query.sources.where((other) => other != source)],
+            ),
+          ),
+        ),
       for (final id in query.genreIds)
-        _Chip(
+        ActiveFilterChip(
           label: _genreName(genres, id),
           onRemove: () => onChanged(
             query.copyWith(
               genreIds: [...query.genreIds.where((other) => other != id)],
             ),
           ),
+        ),
+      if (query.order != NameMatchOrder.relevance)
+        ActiveFilterChip(
+          label: 'A–Z',
+          onRemove: () =>
+              onChanged(query.copyWith(order: NameMatchOrder.relevance)),
         ),
     ];
 
@@ -65,7 +92,13 @@ class ActiveFilterChips extends ConsumerWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Wrap(spacing: 8, runSpacing: 8, children: chips)),
+          Expanded(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [if (leading != null) leading!, ...chips],
+            ),
+          ),
           // Dropping four filters one X at a time is four reloads; this is
           // one. Only worth its space once there is more than one to drop.
           if (chips.length > 1) ...[
@@ -103,17 +136,25 @@ class ActiveFilterChips extends ConsumerWidget {
 
 /// One applied filter. Crimson-tinted like a selected pill in the overlay,
 /// and white-labelled for the same reason: the fill says it is on.
-class _Chip extends StatefulWidget {
+class ActiveFilterChip extends StatefulWidget {
   final String label;
   final VoidCallback onRemove;
 
-  const _Chip({required this.label, required this.onRemove});
+  /// A glyph ahead of the label, for the chip that is not an ordinary facet.
+  final IconData? icon;
+
+  const ActiveFilterChip({
+    super.key,
+    required this.label,
+    required this.onRemove,
+    this.icon,
+  });
 
   @override
-  State<_Chip> createState() => _ChipState();
+  State<ActiveFilterChip> createState() => _ActiveFilterChipState();
 }
 
-class _ChipState extends State<_Chip> {
+class _ActiveFilterChipState extends State<ActiveFilterChip> {
   bool _hovering = false;
 
   void _setHovering(bool value) {
@@ -157,6 +198,10 @@ class _ChipState extends State<_Chip> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (widget.icon != null) ...[
+                  Icon(widget.icon, size: 14, color: KalinkaColors.accentTint),
+                  const SizedBox(width: 7),
+                ],
                 Text(
                   widget.label,
                   style: KalinkaFonts.sans(

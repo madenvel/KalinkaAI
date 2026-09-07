@@ -16,6 +16,42 @@ import '../../utils/play_next.dart';
 /// the genuinely identical logic lives here so the per-type widgets only carry
 /// what actually differs (their layout).
 
+/// The mark a name hit earns when it is the query itself, word for word.
+/// Shown above the title, so the eye lands on why this row leads.
+class MatchBadge extends StatelessWidget {
+  const MatchBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: KalinkaColors.accentSubtle,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: KalinkaColors.accentBorder),
+      ),
+      child: Text(
+        'EXACT NAME',
+        style: KalinkaFonts.mono(
+          fontSize: KalinkaTypography.baseSize - 3,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+          color: KalinkaColors.accentTint,
+        ),
+      ),
+    );
+  }
+}
+
+/// The badge slot above a row's title: the mark and its gap for an exact
+/// hit, nothing otherwise.
+List<Widget> matchBadge(BrowseItem item) => item.match?.tier == MatchTier.exact
+    ? const [
+        Align(alignment: Alignment.centerLeft, child: MatchBadge()),
+        SizedBox(height: 3),
+      ]
+    : const [];
+
 /// Subtitle span with a bold entity-type prefix — "Track · artist · album",
 /// "Album · 2019 · 12 tracks", "Artist · 4 albums" — so the tile types are
 /// tellable apart at a glance. [rest] may be empty, leaving just the type.

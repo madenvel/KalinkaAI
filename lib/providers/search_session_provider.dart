@@ -6,9 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data_model/browse_filters.dart';
 import '../data_model/data_model.dart';
+import '../data_model/search_results.dart';
 import 'catalog_cards_provider.dart';
 import 'connection_settings_provider.dart';
 import 'kalinka_player_api_provider.dart';
+import 'source_modules_provider.dart';
 
 /// Persistent history of submitted search prompts (most-recent first).
 const _historyKey = 'Kalinka.chatSearchHistory';
@@ -20,9 +22,9 @@ const _minHistoryQueryLength = 2;
 /// rather than flickering a frame of loading.
 const _minLoadingDuration = Duration(milliseconds: 650);
 
-/// How long a search may run before the app gives up on it. ai_search fronts
-/// an AI pipeline that can wedge without the HTTP layer noticing, so the cap
-/// is deliberately tighter than the Dio receive timeout.
+/// How long one source may take to answer one leg before the app gives up on
+/// it. ai_search fronts an AI pipeline that can wedge without the HTTP layer
+/// noticing, so the cap is deliberately tighter than the Dio receive timeout.
 const _searchTimeout = Duration(seconds: 10);
 
 /// How many suggestions the zero state asks the server for.
@@ -149,19 +151,24 @@ class SearchSessionState {
   /// for the life of the workspace.
   final bool resultsAvailable;
 
-  // ── Results view (single query) ─────────────────────────────────────────────
   final String searchQuery;
 
-  /// AI search result — top-level items are per-source sections, never merged
-  /// into a single ranked list. Null until the current query resolves.
-  final BrowseItemsList? searchResults;
+  /// What every source has answered so far, leg by leg. Null until the
+  /// sources to ask are known.
+  final SearchResults? results;
+
+  /// True while the sources to ask are being resolved — before there is a
+  /// leg to show as loading.
   final bool searchLoading;
+
+  /// A failure before any source could be asked; per-source failures live
+  /// in [results].
   final String? searchError;
 
-  /// Section ids expanded past their default visible limit in the results.
-  final Set<String> expandedSections;
+  /// Narrows what [results] shows. Applied in hand — the results are already
+  /// here — so nothing is refetched.
+  final BrowseFilterQuery resultsFilter;
 
-  // ── Catalogs view ───────────────────────────────────────────────────────────
   /// Root screen, or the one open catalog page. Its item data is fetched by the
   /// page view via `browseDetailProvider(id)` (cached across view switches).
   final CatalogPage catalogPage;
@@ -171,7 +178,6 @@ class SearchSessionState {
   /// page. Cleared whenever the open category changes.
   final BrowseFilterQuery catalogFilter;
 
-  // ── Zero-state data (persisted history + fetched favourites) ───────────────
   final List<String> history;
   final List<BrowseItem> recentFavourites;
   final bool zeroStateLoading;
@@ -186,10 +192,10 @@ class SearchSessionState {
     this.activeView = FindMusicView.catalogs,
     this.resultsAvailable = false,
     this.searchQuery = '',
-    this.searchResults,
+    this.results,
     this.searchLoading = false,
     this.searchError,
-    this.expandedSections = const {},
+    this.resultsFilter = const BrowseFilterQuery(),
     this.catalogPage = const CatalogPage.root(),
     this.catalogFilter = const BrowseFilterQuery(),
     this.history = const [],
@@ -203,17 +209,40 @@ class SearchSessionState {
   List<SearchSuggestion> get suggestions =>
       aiSuggestions.isEmpty ? _fallbackSuggestions : aiSuggestions;
 
+  /// What the results can be narrowed by: whatever they hold. A facet with
+  /// nothing to choose between is hidden — one source, one kind.
+  BrowseFilterCapabilities get resultsFilterCapabilities {
+    final results = this.results;
+    if (results == null) return const BrowseFilterCapabilities();
+    final types = results.typesPresent;
+    final genres = results.genresPresent;
+    return BrowseFilterCapabilities(
+      text: FacetSupport.supported,
+      kind: FacetSupport.supported,
+      type: types.length > 1 ? FacetSupport.supported : FacetSupport.hidden,
+      types: types,
+      presentTypes: types.toSet(),
+      source: results.sources.length > 1
+          ? FacetSupport.supported
+          : FacetSupport.hidden,
+      sources: results.sources,
+      genre: genres.isEmpty ? FacetSupport.hidden : FacetSupport.supported,
+      genreOptions: genres,
+      order: FacetSupport.supported,
+    );
+  }
+
   SearchSessionState copyWith({
     bool? isOpen,
     FindMusicView? activeView,
     bool? resultsAvailable,
     String? searchQuery,
-    BrowseItemsList? searchResults,
+    SearchResults? results,
     bool clearResults = false,
     bool? searchLoading,
     String? searchError,
     bool clearError = false,
-    Set<String>? expandedSections,
+    BrowseFilterQuery? resultsFilter,
     CatalogPage? catalogPage,
     BrowseFilterQuery? catalogFilter,
     List<String>? history,
@@ -226,12 +255,10 @@ class SearchSessionState {
       activeView: activeView ?? this.activeView,
       resultsAvailable: resultsAvailable ?? this.resultsAvailable,
       searchQuery: searchQuery ?? this.searchQuery,
-      searchResults: clearResults
-          ? null
-          : (searchResults ?? this.searchResults),
+      results: clearResults ? null : (results ?? this.results),
       searchLoading: searchLoading ?? this.searchLoading,
       searchError: clearError ? null : (searchError ?? this.searchError),
-      expandedSections: expandedSections ?? this.expandedSections,
+      resultsFilter: resultsFilter ?? this.resultsFilter,
       catalogPage: catalogPage ?? this.catalogPage,
       catalogFilter: catalogFilter ?? this.catalogFilter,
       history: history ?? this.history,
@@ -258,8 +285,6 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     return SearchSessionState(history: _loadHistory());
   }
 
-  // ── Open / close ───────────────────────────────────────────────────────────
-
   /// Open Find Music on the Catalogs root and refresh its data. Catalog
   /// cards reload on every open (shimmer meanwhile) — a stale set from the
   /// last session may miss sources added or re-indexed since.
@@ -283,14 +308,12 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
       clearResults: true,
       searchLoading: false,
       clearError: true,
-      expandedSections: const {},
+      resultsFilter: const BrowseFilterQuery(),
       catalogPage: const CatalogPage.root(),
       catalogFilter: const BrowseFilterQuery(),
       history: _loadHistory(),
     );
   }
-
-  // ── Views ────────────────────────────────────────────────────────────────
 
   /// Switch view (pure state, no back-stack). Results is inert until a search
   /// has run. Reselecting Catalogs while on a page returns to its root.
@@ -308,8 +331,6 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     if (view == state.activeView) return;
     state = state.copyWith(activeView: view);
   }
-
-  // ── Catalog navigation (deterministic — never through the AI router) ───────
 
   /// Open a catalog category page directly by its stable browse id. Not
   /// recorded in search history — this is navigation, not a search.
@@ -353,11 +374,12 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     state = state.copyWith(catalogFilter: filter);
   }
 
-  // ── Submitting queries (AI search) ─────────────────────────────────────────
-
-  /// Submit [rawQuery] through the AI router. No-op for blank input. Enables +
-  /// selects Results and replaces the current query. This is the only path that
-  /// fires a search — there is no search-as-you-type, and catalog taps bypass it.
+  /// Submit [rawQuery]. No-op for blank input. Enables + selects Results and
+  /// replaces the current query. This is the only path that fires a search —
+  /// there is no search-as-you-type, and catalog taps bypass it.
+  ///
+  /// Every source is asked twice, separately — for its name matches and for
+  /// its recommendations — so each answer can land on its own.
   void submit(String rawQuery) {
     final query = rawQuery.trim();
     if (query.isEmpty) return;
@@ -373,7 +395,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
       clearResults: true,
       searchLoading: true,
       clearError: true,
-      expandedSections: const {},
+      resultsFilter: const BrowseFilterQuery(),
       history: _loadHistory(),
     );
     _runQuery(query, gen);
@@ -382,40 +404,86 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
   Future<void> _runQuery(String query, int gen) async {
     final settings = ref.read(connectionSettingsProvider);
     if (!settings.isSet) {
-      if (gen == _queryGen && !_disposed) {
-        state = state.copyWith(
-          searchLoading: false,
-          searchError: 'No server connected',
-        );
-      }
+      _fail(gen, 'No server connected');
       return;
     }
 
-    final start = DateTime.now();
+    List<SourceOption> sources;
     try {
-      final api = ref.read(kalinkaProxyProvider);
-      final result = await api.aiSearch(query).timeout(_searchTimeout);
-      await _holdMinimumLoading(start);
-      if (_disposed || gen != _queryGen) return;
-      state = state.copyWith(
-        searchLoading: false,
-        searchResults: result,
-        clearError: true,
-      );
-    } on TimeoutException {
-      if (_disposed || gen != _queryGen) return;
-      state = state.copyWith(
-        searchLoading: false,
-        searchError: 'Search timed out — the server didn’t answer. Try again.',
-      );
+      final modules = await ref.read(sourceModulesProvider.future);
+      sources = _inDisplayOrder(modules);
     } catch (e) {
-      await _holdMinimumLoading(start);
-      if (_disposed || gen != _queryGen) return;
-      state = state.copyWith(
-        searchLoading: false,
-        searchError: 'Search failed: $e',
-      );
+      _fail(gen, 'Could not reach the server: $e');
+      return;
     }
+    if (_disposed || gen != _queryGen) return;
+
+    state = state.copyWith(
+      searchLoading: false,
+      results: SearchResults.pending(query, sources),
+    );
+    for (final source in sources) {
+      for (final leg in ResultsLeg.values) {
+        _runLeg(gen, query, source.name, leg);
+      }
+    }
+  }
+
+  void _fail(int gen, String message) {
+    if (_disposed || gen != _queryGen) return;
+    state = state.copyWith(searchLoading: false, searchError: message);
+  }
+
+  /// The listener's own library first, then the rest by name.
+  static List<SourceOption> _inDisplayOrder(List<ModuleInfo> modules) {
+    final sources = [
+      for (final module in modules) (name: module.name, title: module.title),
+    ];
+    sources.sort((a, b) {
+      final aLocal = isLocalSource(a.name);
+      final bLocal = isLocalSource(b.name);
+      if (aLocal != bLocal) return aLocal ? -1 : 1;
+      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    });
+    return sources;
+  }
+
+  Future<void> _runLeg(
+    int gen,
+    String query,
+    String source,
+    ResultsLeg leg,
+  ) async {
+    final start = DateTime.now();
+    final api = ref.read(kalinkaProxyProvider);
+    LegState outcome;
+    try {
+      final list = await switch (leg) {
+        ResultsLeg.matches => api.searchMatches(query, sources: [source]),
+        ResultsLeg.inspired => api.aiSearch(query, sources: [source]),
+      }.timeout(_searchTimeout);
+      outcome = LegReady(list);
+    } on TimeoutException {
+      outcome = const LegFailed('timed out');
+    } catch (e) {
+      outcome = LegFailed('$e');
+    }
+    await _holdMinimumLoading(start);
+    if (_disposed || gen != _queryGen) return;
+    final results = state.results;
+    if (results == null) return;
+    state = state.copyWith(results: results.withLeg(leg, source, outcome));
+  }
+
+  /// Ask one source again for one leg — the source that was unavailable,
+  /// without disturbing what the others already answered.
+  void retry(ResultsLeg leg, String source) {
+    final results = state.results;
+    if (results == null) return;
+    state = state.copyWith(
+      results: results.withLeg(leg, source, const LegLoading()),
+    );
+    _runLeg(_queryGen, state.searchQuery, source, leg);
   }
 
   Future<void> _holdMinimumLoading(DateTime start) async {
@@ -426,14 +494,25 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     }
   }
 
-  /// Toggle "show more" for a results section.
-  void toggleSection(String sectionId) {
-    final next = Set<String>.from(state.expandedSections);
-    if (!next.remove(sectionId)) next.add(sectionId);
-    state = state.copyWith(expandedSections: next);
+  /// Narrow the results. The query itself is not a facet here — a changed
+  /// query is a new search, which is [submit]'s job.
+  void setResultsFilter(BrowseFilterQuery filter) {
+    state = state.copyWith(resultsFilter: filter.copyWith(text: ''));
   }
 
-  // ── Zero-state data ────────────────────────────────────────────────────────
+  /// Drop the search: no query, so no results, and back to Catalogs.
+  void clearSearch() {
+    _queryGen++;
+    state = state.copyWith(
+      activeView: FindMusicView.catalogs,
+      resultsAvailable: false,
+      searchQuery: '',
+      clearResults: true,
+      searchLoading: false,
+      clearError: true,
+      resultsFilter: const BrowseFilterQuery(),
+    );
+  }
 
   /// Fetch context-aware suggestions for the zero state. The proxy sends the
   /// device's real UTC offset so "morning" is the listener's morning. Any
@@ -488,8 +567,6 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
       state = state.copyWith(zeroStateLoading: false);
     }
   }
-
-  // ── Persistent history ─────────────────────────────────────────────────────
 
   List<String> _loadHistory() {
     final json = _prefs.getString(_historyKey);

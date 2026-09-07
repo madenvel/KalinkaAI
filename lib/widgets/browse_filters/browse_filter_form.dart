@@ -8,6 +8,7 @@ import '../../data_model/data_model.dart' show SearchType;
 import '../../providers/browse_genres_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
+import '../source_badge.dart';
 
 /// Default idle time before a keystroke becomes a query — long enough that
 /// typing a word is one request, short enough to feel live. Staged surfaces
@@ -32,6 +33,10 @@ class BrowseFilterForm extends StatelessWidget {
   /// Placeholder text for the search field, e.g. "Search Popular Albums".
   final String searchHint;
 
+  /// One quiet line under the search field, where what that field does needs
+  /// saying.
+  final String? searchCaption;
+
   final Duration textDebounce;
 
   const BrowseFilterForm({
@@ -40,6 +45,7 @@ class BrowseFilterForm extends StatelessWidget {
     required this.query,
     required this.onChanged,
     this.searchHint = 'Search',
+    this.searchCaption,
     this.textDebounce = kFilterTextDebounce,
   });
 
@@ -61,7 +67,22 @@ class BrowseFilterForm extends StatelessWidget {
             debounce: textDebounce,
             onChanged: (text) => onChanged(query.copyWith(text: text)),
           ),
+          if (searchCaption != null) ...[
+            const SizedBox(height: 8),
+            _FacetCaption(searchCaption!),
+          ],
           const SizedBox(height: 18),
+        ],
+        if (capabilities.kind == FacetSupport.supported) ...[
+          _KindGroup(
+            selected: query.kind,
+            onSelected: (kind) => onChanged(
+              kind == null
+                  ? query.copyWith(clearKind: true)
+                  : query.copyWith(kind: kind),
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
         if (_showTypes) ...[
           _TypeGroup(
@@ -77,18 +98,33 @@ class BrowseFilterForm extends StatelessWidget {
           ),
           const SizedBox(height: 16),
         ],
-        if (capabilities.genre != FacetSupport.hidden)
+        if (capabilities.source == FacetSupport.supported &&
+            capabilities.sources.isNotEmpty) ...[
+          _SourceGroup(
+            capabilities: capabilities,
+            selected: query.sources,
+            onChanged: (sources) => onChanged(query.copyWith(sources: sources)),
+          ),
+          const SizedBox(height: 16),
+        ],
+        if (capabilities.genre != FacetSupport.hidden) ...[
           _GenreGroup(
             capabilities: capabilities,
             selected: query.genreIds,
             onChanged: (ids) => onChanged(query.copyWith(genreIds: ids)),
           ),
+          if (capabilities.order == FacetSupport.supported)
+            const SizedBox(height: 16),
+        ],
+        if (capabilities.order == FacetSupport.supported)
+          _OrderGroup(
+            selected: query.order,
+            onSelected: (order) => onChanged(query.copyWith(order: order)),
+          ),
       ],
     );
   }
 }
-
-// ── Text ────────────────────────────────────────────────────────────────────
 
 /// The search field. Disabled it keeps its full shape in muted tones — the
 /// affordance a source will grow into, not a control that quietly does
@@ -232,14 +268,16 @@ class _FilterSearchFieldState extends State<FilterSearchField> {
   }
 }
 
-// ── Groups ──────────────────────────────────────────────────────────────────
-
 /// One labelled facet: a mono caption over a wrap of pills.
 class _FacetGroup extends StatelessWidget {
   final String label;
   final List<Widget> pills;
 
-  const _FacetGroup({required this.label, required this.pills});
+  /// One quiet line under the pills, where a group needs a word of
+  /// explanation.
+  final String? caption;
+
+  const _FacetGroup({required this.label, required this.pills, this.caption});
 
   @override
   Widget build(BuildContext context) {
@@ -257,6 +295,123 @@ class _FacetGroup extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Wrap(spacing: 7, runSpacing: 7, children: pills),
+        if (caption != null) ...[
+          const SizedBox(height: 8),
+          _FacetCaption(caption!),
+        ],
+      ],
+    );
+  }
+}
+
+/// One quiet line under a control, saying what it does.
+class _FacetCaption extends StatelessWidget {
+  final String text;
+
+  const _FacetCaption(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+        color: KalinkaColors.textMuted,
+      ),
+    );
+  }
+}
+
+/// Which of a search's two blocks to show.
+class _KindGroup extends StatelessWidget {
+  final ResultKind? selected;
+  final ValueChanged<ResultKind?> onSelected;
+
+  const _KindGroup({required this.selected, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return _FacetGroup(
+      label: 'RESULT KIND',
+      caption: 'Choose lookup, discovery, or both',
+      pills: [
+        FilterPill(
+          label: 'All results',
+          selected: selected == null,
+          onTap: () => onSelected(null),
+        ),
+        for (final kind in ResultKind.values)
+          FilterPill(
+            label: resultKindLabel(kind),
+            selected: selected == kind,
+            onTap: () => onSelected(kind),
+          ),
+      ],
+    );
+  }
+}
+
+/// The sources to keep, each pill leading with the source's own mark.
+class _SourceGroup extends StatelessWidget {
+  final BrowseFilterCapabilities capabilities;
+  final List<String> selected;
+  final ValueChanged<List<String>> onChanged;
+
+  const _SourceGroup({
+    required this.capabilities,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _FacetGroup(
+      label: 'SOURCE',
+      pills: [
+        FilterPill(
+          label: 'All sources',
+          selected: selected.isEmpty,
+          onTap: selected.isEmpty ? null : () => onChanged(const []),
+        ),
+        for (final source in capabilities.sources)
+          FilterPill(
+            label: source.title,
+            leading: sourceLetter(source.name),
+            selected: selected.contains(source.name),
+            onTap: () => onChanged(
+              selected.contains(source.name)
+                  ? [...selected.where((name) => name != source.name)]
+                  : [...selected, source.name],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// How the name matches are ordered. The recommendations are not on offer:
+/// their order is the source's ranking, which nothing here can improve on.
+class _OrderGroup extends StatelessWidget {
+  final NameMatchOrder selected;
+  final ValueChanged<NameMatchOrder> onSelected;
+
+  const _OrderGroup({required this.selected, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return _FacetGroup(
+      label: 'SORT NAME MATCHES',
+      caption: 'Recommendations keep their smart order.',
+      pills: [
+        FilterPill(
+          label: 'Relevance',
+          selected: selected == NameMatchOrder.relevance,
+          onTap: () => onSelected(NameMatchOrder.relevance),
+        ),
+        FilterPill(
+          label: 'A–Z',
+          selected: selected == NameMatchOrder.alphabetical,
+          onTap: () => onSelected(NameMatchOrder.alphabetical),
+        ),
       ],
     );
   }
@@ -326,9 +481,9 @@ class _GenreGroup extends ConsumerWidget {
     final vocabulary = capabilities.genreVocabulary;
     final live =
         capabilities.genre == FacetSupport.supported && vocabulary != null;
-    final genres = live
-        ? ref.watch(browseGenresProvider(vocabulary)).value
-        : null;
+    final genres =
+        capabilities.genreOptions ??
+        (live ? ref.watch(browseGenresProvider(vocabulary)).value : null);
     final ready = genres != null && genres.isNotEmpty;
 
     return _FacetGroup(
@@ -358,6 +513,11 @@ class _GenreGroup extends ConsumerWidget {
   }
 }
 
+String resultKindLabel(ResultKind kind) => switch (kind) {
+  ResultKind.nameMatches => 'Name matches',
+  ResultKind.recommendations => 'Recommendations',
+};
+
 String filterTypeLabel(SearchType type) {
   switch (type) {
     case SearchType.artist:
@@ -372,8 +532,6 @@ String filterTypeLabel(SearchType type) {
       return '';
   }
 }
-
-// ── Pill chrome ─────────────────────────────────────────────────────────────
 
 /// A filter pill: a filled crimson segment when it carries the current answer,
 /// plain surface when it is an available alternative, outline-only when the
@@ -393,12 +551,16 @@ class FilterPill extends StatefulWidget {
 
   final VoidCallback? onTap;
 
+  /// A mark ahead of the label, such as a source's letter tile.
+  final Widget? leading;
+
   const FilterPill({
     super.key,
     required this.label,
     this.selected = false,
     this.muted = false,
     this.onTap,
+    this.leading,
   });
 
   @override
@@ -445,19 +607,28 @@ class _FilterPillState extends State<FilterPill> {
     Widget pill = AnimatedContainer(
       duration: const Duration(milliseconds: 130),
       curve: Curves.easeOut,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      padding: EdgeInsets.fromLTRB(widget.leading == null ? 14 : 8, 7, 14, 7),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: border, width: 1),
       ),
-      child: Text(
-        widget.label,
-        style: KalinkaFonts.sans(
-          fontSize: KalinkaTypography.baseSize + 1,
-          fontWeight: FontWeight.w500,
-          color: fg,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.leading != null) ...[
+            widget.leading!,
+            const SizedBox(width: 8),
+          ],
+          Text(
+            widget.label,
+            style: KalinkaFonts.sans(
+              fontSize: KalinkaTypography.baseSize + 1,
+              fontWeight: FontWeight.w500,
+              color: fg,
+            ),
+          ),
+        ],
       ),
     );
 
