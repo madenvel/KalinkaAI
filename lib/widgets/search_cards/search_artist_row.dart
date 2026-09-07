@@ -4,7 +4,7 @@ import '../../data_model/data_model.dart';
 import '../../providers/app_state_provider.dart';
 import '../../providers/browse_detail_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
-import '../../providers/search_state_provider.dart';
+import '../../providers/row_expansion_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
@@ -44,15 +44,13 @@ class SearchArtistRow extends ConsumerStatefulWidget {
 
 class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
   void _toggleExpand() {
-    ref.read(searchStateProvider.notifier).toggleArtistExpanded(widget.item.id);
+    ref.read(rowExpansionProvider.notifier).toggleArtist(widget.item.id);
   }
 
   @override
   Widget build(BuildContext context) {
     final isExpanded = ref.watch(
-      searchStateProvider.select(
-        (s) => s.expandedArtistIds.contains(widget.item.id),
-      ),
+      rowExpansionProvider.select((s) => s.artists.contains(widget.item.id)),
     );
     // Artists aren't a playable unit, so they sit out multi-select: the row
     // greys out (B&W avatar, dimmed) and ignores taps while it's active.
@@ -260,9 +258,7 @@ class _ArtistExpansionContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final browseAsync = ref.watch(browseDetailProvider(artistId));
     final showAllAlbums = ref.watch(
-      searchStateProvider.select(
-        (s) => s.artistMoreAlbumsExpanded.contains(artistId),
-      ),
+      rowExpansionProvider.select((s) => s.artistMoreAlbums.contains(artistId)),
     );
 
     return Padding(
@@ -309,7 +305,7 @@ class _ArtistExpansionContent extends ConsumerWidget {
               if (!showAllAlbums && moreCount > 0)
                 GestureDetector(
                   onTap: () => ref
-                      .read(searchStateProvider.notifier)
+                      .read(rowExpansionProvider.notifier)
                       .revealArtistMoreAlbums(artistId),
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
@@ -677,8 +673,8 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection>
   Widget build(BuildContext context) {
     final singlesKey = 'singles_${widget.artistId}';
     final showAllTracks = ref.watch(
-      searchStateProvider.select(
-        (s) => s.albumMoreTracksExpanded.contains(singlesKey),
+      rowExpansionProvider.select(
+        (s) => s.albumMoreTracks.contains(singlesKey),
       ),
     );
     final selection = ref.watch(selectionStateProvider);
@@ -883,7 +879,7 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection>
           if (!showAll && moreCount > 0)
             GestureDetector(
               onTap: () => ref
-                  .read(searchStateProvider.notifier)
+                  .read(rowExpansionProvider.notifier)
                   .revealAlbumMoreTracks(singlesKey),
               behavior: HitTestBehavior.opaque,
               child: Padding(

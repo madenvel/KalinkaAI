@@ -134,8 +134,9 @@ class ActiveFilterChips extends ConsumerWidget {
   }
 }
 
-/// One applied filter. Crimson-tinted like a selected pill in the overlay,
-/// and white-labelled for the same reason: the fill says it is on.
+/// One applied filter, in the palette's outline treatment — subtle fill,
+/// berry edge and label — since it is the trace of a choice made in the
+/// card, not the place the choice is made.
 class ActiveFilterChip extends StatefulWidget {
   final String label;
   final VoidCallback onRemove;
@@ -207,7 +208,7 @@ class _ActiveFilterChipState extends State<ActiveFilterChip> {
                   style: KalinkaFonts.sans(
                     fontSize: KalinkaTypography.baseSize + 1,
                     fontWeight: FontWeight.w500,
-                    color: KalinkaColors.textPrimary,
+                    color: KalinkaColors.accentTint,
                   ),
                 ),
                 const SizedBox(width: 6),

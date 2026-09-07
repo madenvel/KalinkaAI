@@ -26,7 +26,7 @@ BrowseItem _album(
   MatchTier tier, {
   double score = 100,
   String? artistId,
-  String? genre,
+  List<String> genres = const [],
 }) => BrowseItem(
   id: 'kalinka:$source:album:$id',
   name: title,
@@ -38,7 +38,7 @@ BrowseItem _album(
     artist: artistId == null
         ? null
         : Artist(id: 'kalinka:$source:artist:$artistId', name: 'x'),
-    genre: genre == null ? null : Genre(id: 'g', name: genre),
+    genres: _genreList(genres),
   ),
   match: NameMatch(tier: tier, score: score),
 );
@@ -47,7 +47,7 @@ BrowseItem _track(
   String source,
   String id,
   String title, {
-  String? genre,
+  List<String> genres = const [],
   MatchTier? tier,
   double score = 100,
 }) => BrowseItem(
@@ -62,11 +62,15 @@ BrowseItem _track(
     album: Album(
       id: 'kalinka:$source:album:al-$id',
       title: '',
-      genre: genre == null ? null : Genre(id: 'g', name: genre),
+      genres: _genreList(genres),
     ),
   ),
   match: tier == null ? null : NameMatch(tier: tier, score: score),
 );
+
+List<Genre> _genreList(List<String> names) => [
+  for (final name in names) Genre(id: name.toLowerCase(), name: name),
+];
 
 BrowseItemsList _list(List<BrowseItem> items) =>
     BrowseItemsList(0, items.length, items.length, items);
@@ -256,7 +260,7 @@ void main() {
                 MatchTier.contextual,
                 score: 50,
                 artistId: 'beatles',
-                genre: 'Rock, Pop',
+                genres: ['Rock', 'Pop'],
               ),
             ]),
           ),
@@ -272,7 +276,7 @@ void main() {
                 'Beatles Jazz',
                 MatchTier.partial,
                 score: 70,
-                genre: 'Jazz',
+                genres: ['Jazz'],
               ),
             ]),
           ),
@@ -282,8 +286,8 @@ void main() {
           'qobuz',
           LegReady(
             _card('qobuz', [
-              _track('qobuz', 't-rock', 'Come Together', genre: 'Rock'),
-              _track('qobuz', 't-jazz', 'Something', genre: 'Jazz'),
+              _track('qobuz', 't-rock', 'Come Together', genres: ['Rock']),
+              _track('qobuz', 't-jazz', 'Something', genres: ['Jazz']),
             ]),
           ),
         )

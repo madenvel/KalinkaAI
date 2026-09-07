@@ -43,12 +43,6 @@ abstract class KalinkaPlayerProxy {
     bool? repeatAll,
     bool? shuffle,
   });
-  Future<BrowseItemsList> search(
-    SearchType queryType,
-    String query, {
-    int offset = 0,
-    int limit = 30,
-  });
   Future<BrowseItemsList> aiSearch(
     String query, {
     int offset = 0,
@@ -355,31 +349,6 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
         )
         .then((response) {
           return statusMessageFromResponse(response);
-        });
-  }
-
-  @override
-  Future<BrowseItemsList> search(
-    SearchType queryType,
-    String query, {
-    int offset = 0,
-    int limit = 30,
-  }) async {
-    final url = '/search/${queryType.toStringValue()}/$query';
-    return client
-        .get(
-          url,
-          queryParameters: {
-            'offset': offset.toString(),
-            'limit': limit.toString(),
-          },
-        )
-        .then((response) {
-          if (response.statusCode != 200) {
-            throw Exception('Failed to search for $queryType $query');
-          }
-
-          return BrowseItemsList.fromJson(response.data);
         });
   }
 

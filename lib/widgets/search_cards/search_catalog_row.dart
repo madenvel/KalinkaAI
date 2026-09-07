@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data_model/data_model.dart';
 import '../../providers/browse_detail_provider.dart';
-import '../../providers/search_state_provider.dart';
+import '../../providers/row_expansion_provider.dart';
 import '../../theme/app_theme.dart';
 import '../procedural_album_art.dart';
 import 'browse_item_rows.dart';
@@ -21,13 +21,13 @@ class SearchCatalogRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Shares the album/playlist expansion set — ids are unique, so no clash.
     final isExpanded = ref.watch(
-      searchStateProvider.select((s) => s.expandedAlbumIds.contains(item.id)),
+      rowExpansionProvider.select((s) => s.unrolled.contains(item.id)),
     );
     final title = item.catalog?.title ?? item.name ?? 'Unknown';
     final description = item.catalog?.description ?? '';
 
     void toggle() =>
-        ref.read(searchStateProvider.notifier).toggleAlbumExpanded(item.id);
+        ref.read(rowExpansionProvider.notifier).toggleUnrolled(item.id);
 
     return Column(
       children: [

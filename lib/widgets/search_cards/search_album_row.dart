@@ -4,7 +4,7 @@ import '../../data_model/data_model.dart';
 import '../../providers/app_state_provider.dart';
 import '../../providers/browse_detail_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
-import '../../providers/search_state_provider.dart';
+import '../../providers/row_expansion_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
@@ -34,7 +34,7 @@ class SearchAlbumRow extends ConsumerStatefulWidget {
 class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
     with LongPressRingMixin {
   void _toggleExpand() {
-    ref.read(searchStateProvider.notifier).toggleAlbumExpanded(widget.item.id);
+    ref.read(rowExpansionProvider.notifier).toggleUnrolled(widget.item.id);
   }
 
   Future<void> _addToQueue() async {
@@ -68,9 +68,7 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
   @override
   Widget build(BuildContext context) {
     final isExpanded = ref.watch(
-      searchStateProvider.select(
-        (s) => s.expandedAlbumIds.contains(widget.item.id),
-      ),
+      rowExpansionProvider.select((s) => s.unrolled.contains(widget.item.id)),
     );
 
     // Scoped watches so unrelated selection changes don't rebuild the row.
@@ -92,7 +90,10 @@ class _SearchAlbumRowState extends ConsumerState<SearchAlbumRow>
     final title = album?.title ?? widget.item.name ?? 'Unknown';
     final artist = album?.artist?.name ?? '';
     final trackCount = album?.trackCount;
-    final genre = album?.genre?.name;
+    final genres = album?.genres ?? const <Genre>[];
+    final genre = genres.isEmpty
+        ? null
+        : genres.map((genre) => genre.name).join(' \u00B7 ');
 
     final urlResolver = ref.read(urlResolverProvider);
     final imageUrl = widget.item.image?.small ?? widget.item.image?.thumbnail;
