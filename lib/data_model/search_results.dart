@@ -270,20 +270,17 @@ class SearchResults {
     }
   }
 
-  static final _genreSeparator = RegExp(r'[,;/|]');
-
-  /// The genres an item carries, keyed by folded name. Tag writers join
-  /// several with punctuation, so one tag can be several genres.
+  /// The genres an item carries, keyed by folded name rather than by the
+  /// sources' own ids, which never agree with each other.
   static List<Genre> _genresOf(
     BrowseItem item, {
     Map<String, Set<String>> inherited = const {},
   }) {
-    final raw = item.album?.genre?.name ?? item.track?.album?.genre?.name;
-    if (raw != null) {
+    final genres = item.album?.genres ?? item.track?.album?.genres;
+    if (genres != null && genres.isNotEmpty) {
       return [
-        for (final part in raw.split(_genreSeparator))
-          if (part.trim().isNotEmpty)
-            Genre(id: part.trim().toLowerCase(), name: part.trim()),
+        for (final genre in genres)
+          Genre(id: genre.name.toLowerCase(), name: genre.name),
       ];
     }
     final artist = item.artist;

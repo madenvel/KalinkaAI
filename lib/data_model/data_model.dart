@@ -396,7 +396,7 @@ class Album {
   final int? trackCount;
   final int? year;
   final AlbumImage? image;
-  final Genre? genre;
+  final List<Genre> genres;
   final Artist? artist;
 
   Album({
@@ -406,7 +406,7 @@ class Album {
     this.trackCount,
     this.year,
     this.image,
-    this.genre,
+    this.genres = const [],
     this.artist,
   });
 
@@ -417,7 +417,9 @@ class Album {
     trackCount: json["track_count"],
     year: json["year"],
     image: json["image"] == null ? null : AlbumImage.fromJson(json["image"]),
-    genre: json["genre"] == null ? null : Genre.fromJson(json["genre"]),
+    genres: json["genres"] == null
+        ? const []
+        : List<Genre>.from(json["genres"].map((x) => Genre.fromJson(x))),
     artist: json["artist"] == null ? null : Artist.fromJson(json["artist"]),
   );
 
@@ -428,7 +430,7 @@ class Album {
     "track_count": trackCount,
     "year": year,
     "image": image?.toJson(),
-    "genre": genre?.toJson(),
+    "genres": genres.map((genre) => genre.toJson()).toList(),
     "artist": artist?.toJson(),
   };
 }
@@ -1348,16 +1350,11 @@ class FilterSpec {
   /// [FilterKind.choice] only — the combinations this source honours.
   final List<FilterOp> ops;
 
-  /// The span a `range` field can offer. Parsed and carried so a spec
-  /// round-trips, but nothing draws it yet — see [FilterKind].
-  final (int, int)? bounds;
-
   const FilterSpec({
     required this.id,
     required this.kind,
     required this.label,
     this.ops = const [],
-    this.bounds,
   });
 
   /// The operation to send for a multi-value selection. A source that offers
@@ -1381,7 +1378,6 @@ class FilterSpec {
     final kind = FilterKind.fromWire(json["kind"]);
     if (kind == null) return null;
 
-    final bounds = json["bounds"];
     return FilterSpec(
       id: json["id"],
       kind: kind,
@@ -1393,9 +1389,6 @@ class FilterSpec {
                   .map((x) => FilterOp.values.asNameMap()[x])
                   .whereType<FilterOp>(),
             ),
-      bounds: bounds == null
-          ? null
-          : ((bounds[0] as num).toInt(), (bounds[1] as num).toInt()),
     );
   }
 
@@ -1404,7 +1397,6 @@ class FilterSpec {
     "kind": kind.wireName,
     "label": label,
     "ops": ops.map((op) => op.name).toList(),
-    if (bounds != null) "bounds": [bounds!.$1, bounds!.$2],
   };
 }
 
