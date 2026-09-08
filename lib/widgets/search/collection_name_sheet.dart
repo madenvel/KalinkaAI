@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data_model/data_model.dart';
 import '../../providers/collections_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/toast_provider.dart';
@@ -19,9 +20,11 @@ Future<String?> showNewCollectionSheet(
   BuildContext context,
   WidgetRef ref,
 ) async {
-  final name = await showKalinkaBottomSheet<String>(
-    context: context,
-    contentBuilder: (_) => const _NewCollectionForm(),
+  final name = await _askForName(
+    context,
+    heading: 'NEW COLLECTION',
+    note: 'Tracks from any source, in the order you choose.',
+    action: 'CREATE',
   );
   if (name == null || !context.mounted) return null;
 
@@ -38,21 +41,83 @@ Future<String?> showNewCollectionSheet(
   }
 }
 
-/// The sheet body: one field and the two ways out. Pops its own name.
-class _NewCollectionForm extends StatefulWidget {
-  const _NewCollectionForm();
+/// Asks what [item] should be called instead, and renames it. A name that
+/// comes back unchanged writes nothing — a rename counts as a change, and
+/// would move the collection to the front of a listing for nothing.
+Future<void> showRenameCollectionSheet(
+  BuildContext context,
+  WidgetRef ref,
+  BrowseItem item,
+) async {
+  final was = item.playlist?.name ?? item.name ?? '';
+  final name = await _askForName(
+    context,
+    heading: 'RENAME COLLECTION',
+    action: 'RENAME',
+    initial: was,
+  );
+  if (name == null || name == was || !context.mounted) return;
 
-  @override
-  State<_NewCollectionForm> createState() => _NewCollectionFormState();
+  final api = ref.read(kalinkaProxyProvider);
+  final toast = ref.read(toastProvider.notifier);
+  try {
+    await api.renameCollection(item.id, name);
+    ref.read(collectionsRevisionProvider.notifier).bump();
+    toast.show('Renamed to $name');
+  } catch (e) {
+    toast.show('Could not rename the collection: $e', isError: true);
+  }
 }
 
-class _NewCollectionFormState extends State<_NewCollectionForm> {
-  final _controller = TextEditingController();
+Future<String?> _askForName(
+  BuildContext context, {
+  required String heading,
+  required String action,
+  String note = '',
+  String initial = '',
+}) {
+  return showKalinkaBottomSheet<String>(
+    context: context,
+    contentBuilder: (_) => _NameForm(
+      heading: heading,
+      action: action,
+      note: note,
+      initial: initial,
+    ),
+  );
+}
+
+/// The sheet body: one field and the two ways out. Pops the name it was given.
+class _NameForm extends StatefulWidget {
+  final String heading;
+  final String action;
+  final String note;
+  final String initial;
+
+  const _NameForm({
+    required this.heading,
+    required this.action,
+    required this.note,
+    required this.initial,
+  });
+
+  @override
+  State<_NameForm> createState() => _NameFormState();
+}
+
+class _NameFormState extends State<_NameForm> {
+  late final TextEditingController _controller;
 
   @override
   void initState() {
     super.initState();
-    // CREATE follows what is typed.
+    _controller = TextEditingController(text: widget.initial);
+    // Typing replaces the name being changed rather than appending to it.
+    _controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: widget.initial.length,
+    );
+    // The action button follows what is typed.
     _controller.addListener(() => setState(() {}));
   }
 
@@ -80,12 +145,11 @@ class _NewCollectionFormState extends State<_NewCollectionForm> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('NEW COLLECTION', style: KalinkaTextStyles.sectionLabel),
-            const SizedBox(height: 6),
-            Text(
-              'Tracks from any source, in the order you choose.',
-              style: KalinkaTextStyles.trackRowSubtitle,
-            ),
+            Text(widget.heading, style: KalinkaTextStyles.sectionLabel),
+            if (widget.note.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(widget.note, style: KalinkaTextStyles.trackRowSubtitle),
+            ],
             const SizedBox(height: 18),
             TextField(
               controller: _controller,
@@ -125,7 +189,7 @@ class _NewCollectionFormState extends State<_NewCollectionForm> {
                 ),
                 const SizedBox(width: 12),
                 KalinkaButton(
-                  label: 'CREATE',
+                  label: widget.action,
                   enabled: _name.isNotEmpty,
                   onTap: _submit,
                 ),

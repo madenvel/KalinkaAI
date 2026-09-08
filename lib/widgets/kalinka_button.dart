@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../utils/click_cursor.dart';
 import '../utils/haptics.dart';
 
 enum KalinkaButtonVariant { accent, neutral }
@@ -77,6 +78,7 @@ class KalinkaButton extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
+          mouseCursor: clickCursor(interactive: enabled && onTap != null),
           onTap: enabled && onTap != null
               ? () {
                   if (variant == KalinkaButtonVariant.accent) {

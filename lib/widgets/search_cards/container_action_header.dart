@@ -8,24 +8,35 @@ import '../search/track_group_actions.dart';
 import 'track_row_support.dart';
 
 /// Header shown at the top of an unrolled album, playlist or collection: an
-/// info line (track count · duration · tap-to-play reminder) over the Play
-/// all / Enqueue pair, acting on the container as a whole. The same two chips
-/// a section of results carries, so one action reads the same everywhere.
+/// info line (track count · duration · what a tap does) over the Play all /
+/// Enqueue pair, acting on the container as a whole. The same two chips a
+/// section of results carries, so one action reads the same everywhere.
 ///
-/// Hidden while multi-select is active so it can't be confused with the
-/// selection actions.
+/// It stays through multi-select: the pair still means the whole container,
+/// and a header that came and went would move every row under it. What
+/// changes is the line, which reports the tally instead of the tap that no
+/// longer plays.
 class ContainerActionHeader extends ConsumerWidget {
   /// The album, playlist or collection this header plays/enqueues. It goes to
   /// the server as one id, which the server expands into its tracks.
   final BrowseItem item;
-  final int trackCount;
+
+  /// The tracks under this header: how many there are, and which of them a
+  /// running selection has taken.
+  final List<String> trackIds;
+
   final int? totalDurationSeconds;
+
+  /// An action on the container itself rather than on its music, set apart at
+  /// the trailing end. A collection puts renaming there.
+  final Widget? trailing;
 
   const ContainerActionHeader({
     super.key,
     required this.item,
-    required this.trackCount,
+    required this.trackIds,
     this.totalDurationSeconds,
+    this.trailing,
   });
 
   String get _name =>
@@ -33,16 +44,19 @@ class ContainerActionHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectionMode = ref.watch(
+    final selecting = ref.watch(
       selectionStateProvider.select((s) => s.isActive),
     );
-    if (selectionMode) return const SizedBox.shrink();
+    final taken = ref.watch(
+      selectionStateProvider.select((s) => s.selectedWithin(item.id, trackIds)),
+    );
 
+    final count = trackIds.length;
     final duration = totalDurationSeconds;
     final info = <String>[
-      '$trackCount ${trackCount == 1 ? 'track' : 'tracks'}',
+      '$count ${count == 1 ? 'track' : 'tracks'}',
       if (duration != null && duration > 0) formatTotalDuration(duration),
-      'tap a track to play from there',
+      if (selecting) '$taken selected' else 'tap a track to play from there',
     ];
 
     return SizedBox(
@@ -63,16 +77,23 @@ class ContainerActionHeader extends ConsumerWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
               children: [
-                PlayAllChip(trackIds: [item.id], trackCount: trackCount),
-                AddAllChip(
-                  trackIds: [item.id],
-                  trackCount: trackCount,
-                  name: _name,
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      PlayAllChip(trackIds: [item.id], trackCount: count),
+                      AddAllChip(
+                        trackIds: [item.id],
+                        trackCount: count,
+                        name: _name,
+                      ),
+                    ],
+                  ),
                 ),
+                if (trailing != null) trailing!,
               ],
             ),
           ],

@@ -26,10 +26,15 @@ class ExpandedContainerTracks extends ConsumerWidget {
   /// different from a source's playlist, which cannot be empty by accident.
   final String emptyLabel;
 
+  /// An action on the container itself, carried at the trailing end of the
+  /// header row.
+  final Widget? headerAction;
+
   const ExpandedContainerTracks({
     super.key,
     required this.item,
     this.emptyLabel = 'No tracks in this playlist',
+    this.headerAction,
   });
 
   String get containerId => item.id;
@@ -55,8 +60,9 @@ class ExpandedContainerTracks extends ConsumerWidget {
           children: [
             ContainerActionHeader(
               item: item,
-              trackCount: items.length,
+              trackIds: [for (final it in items) it.id],
               totalDurationSeconds: totalSeconds > 0 ? totalSeconds : null,
+              trailing: headerAction,
             ),
             _buildTrackList(items, ref),
           ],

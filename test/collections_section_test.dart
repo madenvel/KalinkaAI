@@ -13,6 +13,7 @@ import 'package:kalinka/widgets/collection_art_tile.dart';
 import 'package:kalinka/widgets/kalinka_button.dart';
 import 'package:kalinka/widgets/search/collections_section.dart';
 import 'package:kalinka/widgets/search_cards/collection_row.dart';
+import 'package:kalinka/widgets/source_badge.dart';
 
 const _shelfId = 'kalinka:collections:catalog:collections';
 
@@ -204,7 +205,15 @@ void main() {
     expect(find.text('VIEW ALL'), findsOneWidget);
     expect(find.byType(CollectionShelfRow), findsNWidgets(3));
     expect(find.text('Late Night Focus'), findsOneWidget);
-    expect(find.text('28 tracks · 3 sources'), findsOneWidget);
+    expect(find.text('28 tracks'), findsOneWidget);
+    // Which sources it draws on, in their own colours, not how many.
+    expect(
+      find.descendant(
+        of: find.widgetWithText(CollectionShelfRow, 'Late Night Focus'),
+        matching: find.byType(SourceLetter),
+      ),
+      findsNWidgets(3),
+    );
   });
 
   testWidgets('an empty collection says so, and offers nothing to play', (

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/click_cursor.dart';
 
 /// Compact pill button for the search-results batch actions ("Play all",
 /// "Enqueue", and the expanded album/playlist header's Play / Add to queue).
@@ -8,7 +9,9 @@ import '../../theme/app_theme.dart';
 /// (accentSubtle fill, accentBorder edge, berry-tint label) — never a solid
 /// crimson fill; the neutral variant is a plain surface.
 class ActionPillButton extends StatelessWidget {
-  final String label;
+  /// What the button says, or null for an icon-only one — the same chrome and
+  /// height as the pills beside it, for an action its glyph already names.
+  final String? label;
   final IconData? icon;
   final bool accent;
   final bool enabled;
@@ -22,7 +25,7 @@ class ActionPillButton extends StatelessWidget {
 
   const ActionPillButton({
     super.key,
-    required this.label,
+    this.label,
     this.icon,
     this.accent = false,
     this.enabled = true,
@@ -53,23 +56,23 @@ class ActionPillButton extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: enabled ? onTap : null,
+        mouseCursor: clickCursor(interactive: enabled && onTap != null),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null) ...[
-                Icon(icon, size: 16, color: fg),
-                const SizedBox(width: 5),
-              ],
-              Text(
-                label,
-                style: KalinkaFonts.sans(
-                  fontSize: KalinkaTypography.baseSize + 1,
-                  fontWeight: FontWeight.w600,
-                  color: fg,
+              if (icon != null) Icon(icon, size: 16, color: fg),
+              if (icon != null && label != null) const SizedBox(width: 5),
+              if (label != null)
+                Text(
+                  label!,
+                  style: KalinkaFonts.sans(
+                    fontSize: KalinkaTypography.baseSize + 1,
+                    fontWeight: FontWeight.w600,
+                    color: fg,
+                  ),
                 ),
-              ),
             ],
           ),
         ),

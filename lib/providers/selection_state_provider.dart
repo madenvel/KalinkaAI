@@ -27,6 +27,18 @@ class SelectionState {
       selectedContainerIds.contains(containerId) &&
       !(containerExclusions[containerId]?.contains(trackId) ?? false);
 
+  /// How many of [trackIds] the selection holds, whether they were taken one
+  /// by one or by taking the container they sit in.
+  int selectedWithin(String containerId, Iterable<String> trackIds) {
+    final excluded = containerExclusions[containerId] ?? const <String>{};
+    final whole = selectedContainerIds.contains(containerId);
+    return trackIds
+        .where(
+          (id) => selectedIds.contains(id) || (whole && !excluded.contains(id)),
+        )
+        .length;
+  }
+
   SelectionState copyWith({
     bool? isActive,
     Set<String>? selectedIds,

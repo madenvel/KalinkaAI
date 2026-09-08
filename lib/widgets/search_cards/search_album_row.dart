@@ -361,7 +361,7 @@ class _ExpandedAlbumTracks extends ConsumerWidget {
           children: [
             ContainerActionHeader(
               item: item,
-              trackCount: display.length,
+              trackIds: [for (final it in display) it.id],
               totalDurationSeconds: totalSeconds > 0 ? totalSeconds : null,
             ),
             _buildTrackList(display, ref),

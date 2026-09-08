@@ -81,6 +81,10 @@ abstract class KalinkaPlayerProxy {
   /// Makes an empty collection and answers with the browse id to go to.
   /// Throws when the server refuses the name or cannot reach its file.
   Future<String> createCollection(String name, {String description = ''});
+
+  /// Gives a collection another name. Throws when the server refuses the
+  /// name, cannot reach its file, or knows no such collection.
+  Future<void> renameCollection(String id, String name);
   Future<BrowseItemsList> getFavorite(
     SearchType queryType, {
     int offset = 0,
@@ -524,6 +528,18 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
       throw Exception('Failed to create collection, url=${response.realUri}');
     }
     return response.data['id'] as String;
+  }
+
+  @override
+  Future<void> renameCollection(String id, String name) async {
+    final response = await client.patch(
+      '/collections/$id',
+      data: {'name': name},
+      options: Options(contentType: Headers.jsonContentType),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to rename collection, url=${response.realUri}');
+    }
   }
 
   @override

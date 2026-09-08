@@ -8,7 +8,7 @@ import '../../theme/app_theme.dart';
 import '../browse_rows_shimmer.dart';
 import '../collection_art_tile.dart';
 import '../kalinka_button.dart';
-import 'new_collection_sheet.dart';
+import 'collection_name_sheet.dart';
 import '../search_cards/collection_row.dart';
 import '../shelf_heading.dart';
 

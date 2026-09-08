@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/click_cursor.dart';
 
 /// Icon-only action chip (section title rows, the multi-select batch bar): a
 /// rounded square in a 44dp hit target, echoing [ExpandChevronButton]'s chrome
@@ -95,6 +96,7 @@ class _ActionIconChipState extends State<ActionIconChip> {
           type: MaterialType.transparency,
           child: InkResponse(
             onTap: interactive ? widget.onTap : null,
+            mouseCursor: clickCursor(interactive: interactive),
             radius: 24,
             hoverColor: Colors.transparent,
             splashColor: accent
