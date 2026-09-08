@@ -12,6 +12,7 @@ import '../kalinka_bottom_sheet.dart';
 import '../kalinka_button.dart';
 import '../kalinka_dialog.dart';
 import '../search_cards/collection_identity.dart';
+import '../settings_controls/settings_toggle.dart';
 import '../tap_highlight.dart';
 import 'collection_name_sheet.dart';
 
@@ -35,28 +36,20 @@ class CollectionAddition {
   /// What making a new collection would do with it.
   final String createNote;
 
-  /// How much is being saved, as the action names it: `12 tracks`. What
-  /// becomes of it is asked in the sheet, so the verb is the sheet's and only
-  /// the amount comes from here.
-  final String amount;
-
   const CollectionAddition({
     required this.itemIds,
     required this.heading,
     required this.summary,
     required this.createNote,
-    required this.amount,
   });
 
   /// The play queue as it stands, in the order it plays.
   factory CollectionAddition.queue(List<String> trackIds) {
-    final tracks = _tracks(trackIds.length);
     return CollectionAddition(
       itemIds: trackIds,
       heading: 'SAVE QUEUE TO COLLECTION',
-      summary: '$tracks from queue',
+      summary: '${_tracks(trackIds.length)} from queue',
       createNote: 'Name it and add this queue',
-      amount: tracks,
     );
   }
 }
@@ -93,9 +86,10 @@ class _AddToCollectionSheetState extends ConsumerState<_AddToCollectionSheet> {
   final _search = TextEditingController();
   String? _chosenId;
 
-  /// Opting to drop what the collection holds. Starts off every time the
-  /// sheet opens: adding is what saving means unless it is asked otherwise.
-  bool _replace = false;
+  /// Whether a track the collection already holds may land again beside it.
+  /// Off every time the sheet opens: holding the same track twice is a thing
+  /// to ask for, not a thing to discover afterwards.
+  bool _keepDuplicates = false;
 
   bool _busy = false;
 
@@ -127,23 +121,25 @@ class _AddToCollectionSheetState extends ConsumerState<_AddToCollectionSheet> {
     KalinkaHaptics.lightImpact();
     final made = await createCollectionByName(context, ref);
     if (made == null || !mounted) return;
-    // Nothing to keep or drop in one just made, whatever the box says.
+    // One just made has nothing to replace, so filling it is all there is.
     await _save(made.id, made.name, replace: false, created: true);
   }
 
-  Future<void> _saveToChosen(List<BrowseItem> items) async {
+  Future<void> _saveToChosen(
+    List<BrowseItem> items, {
+    required bool replace,
+  }) async {
     final chosen = _chosen(items);
     if (chosen == null) return;
-    if (!await _confirmed(chosen)) return;
-    KalinkaHaptics.mediumImpact();
-    await _save(chosen.id, _nameOf(chosen), replace: _replace);
+    if (replace && !await _confirmed(chosen)) return;
+    await _save(chosen.id, _nameOf(chosen), replace: replace);
   }
 
   /// Nothing keeps what a replace drops, so a collection with tracks in it is
-  /// named back to the user before it loses them. Everything else goes ahead.
+  /// named back to the user before it loses them. An empty one goes ahead.
   Future<bool> _confirmed(BrowseItem chosen) async {
     final held = chosen.playlist?.trackCount ?? 0;
-    if (!_replace || held == 0) return true;
+    if (held == 0) return true;
     final go = await showKalinkaDialog<bool>(
       context: context,
       builder: (dialog) => KalinkaDialog(
@@ -200,20 +196,19 @@ class _AddToCollectionSheetState extends ConsumerState<_AddToCollectionSheet> {
     final api = ref.read(kalinkaProxyProvider);
     final ids = widget.addition.itemIds;
     if (replace) {
-      final outcome = await api.replaceCollection(id, ids);
+      final outcome = await api.replaceCollection(
+        id,
+        ids,
+        keepDuplicates: _keepDuplicates,
+      );
       return (outcome.added, '$name now holds ${_tracks(outcome.added)}');
     }
-    final outcome = await api.addToCollection(id, ids);
+    final outcome = await api.addToCollection(
+      id,
+      ids,
+      keepDuplicates: _keepDuplicates,
+    );
     return (outcome.added, _report(name, outcome, created: created));
-  }
-
-  /// What ticking the box would cost, named against the collection it would
-  /// cost it from.
-  String _cost(BrowseItem? chosen) {
-    if (chosen == null) return 'Remove what the collection holds first.';
-    final held = chosen.playlist?.trackCount ?? 0;
-    if (held == 0) return '${_nameOf(chosen)} is empty — nothing to remove.';
-    return 'Remove all ${_tracks(held)} from ${_nameOf(chosen)} first.';
   }
 
   @override
@@ -222,7 +217,7 @@ class _AddToCollectionSheetState extends ConsumerState<_AddToCollectionSheet> {
     final items = choices.value ?? const <BrowseItem>[];
     final matching = _matching(items);
     final insets = MediaQuery.viewInsetsOf(context).bottom;
-    final amount = widget.addition.amount.toUpperCase();
+    final ready = _chosenId != null && !_busy;
 
     return Padding(
       // Clears the keyboard the search field raises.
@@ -307,18 +302,9 @@ class _AddToCollectionSheetState extends ConsumerState<_AddToCollectionSheet> {
               ),
             ),
             const SheetDivider(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                kSheetGutter,
-                14,
-                kSheetGutter,
-                12,
-              ),
-              child: _ReplaceCheck(
-                ticked: _replace,
-                cost: _cost(_chosen(items)),
-                onChanged: (ticked) => setState(() => _replace = ticked),
-              ),
+            _KeepDuplicates(
+              keeping: _keepDuplicates,
+              onChanged: (keeping) => setState(() => _keepDuplicates = keeping),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -327,11 +313,27 @@ class _AddToCollectionSheetState extends ConsumerState<_AddToCollectionSheet> {
                 kSheetGutter,
                 8,
               ),
-              child: KalinkaButton(
-                label: _replace ? 'REPLACE WITH $amount' : 'ADD $amount',
-                fullWidth: true,
-                enabled: _chosenId != null && !_busy,
-                onTap: () => _saveToChosen(items),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: KalinkaButton(
+                      label: 'APPEND',
+                      fullWidth: true,
+                      enabled: ready,
+                      onTap: () => _saveToChosen(items, replace: false),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: KalinkaButton(
+                      label: 'REPLACE',
+                      variant: KalinkaButtonVariant.neutral,
+                      fullWidth: true,
+                      enabled: ready,
+                      onTap: () => _saveToChosen(items, replace: true),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -393,98 +395,30 @@ class _Head extends StatelessWidget {
   }
 }
 
-/// The one thing on the sheet that takes something away, so it is the one
-/// thing drawn in red and the one thing that has to be asked for. Unticked,
-/// saving adds; ticked, it leaves the collection holding only what is saved.
-class _ReplaceCheck extends StatelessWidget {
-  final bool ticked;
-
-  /// What ticking it costs, named against the collection chosen above.
-  final String cost;
-
+/// Whether a track a collection already holds may land beside it. Drawn the
+/// way a setting is, because that is what it is: a standing choice about how
+/// the write behaves, not one of the two things the buttons below do.
+class _KeepDuplicates extends StatelessWidget {
+  final bool keeping;
   final ValueChanged<bool> onChanged;
 
-  const _ReplaceCheck({
-    required this.ticked,
-    required this.cost,
-    required this.onChanged,
-  });
+  const _KeepDuplicates({required this.keeping, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      checked: ticked,
-      label: 'Replace collection contents',
-      child: TapHighlight(
+      toggled: keeping,
+      child: SheetRow(
+        label: 'Keep duplicates',
+        sublabel: keeping
+            ? 'The same track may land more than once.'
+            : 'Tracks the collection already holds are skipped.',
+        trailing: SettingsToggle(value: keeping, onChanged: onChanged),
         onTap: () {
-          KalinkaHaptics.selectionClick();
-          onChanged(!ticked);
+          KalinkaHaptics.mediumImpact();
+          onChanged(!keeping);
         },
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: ticked
-                ? KalinkaColors.statusOfflineSurface
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: ticked
-                  ? KalinkaColors.actionDelete
-                  : KalinkaColors.borderDefault,
-            ),
-          ),
-          child: Row(
-            children: [
-              _CheckBox(ticked: ticked),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Replace collection contents',
-                      style: KalinkaTextStyles.trayRowLabel.copyWith(
-                        color: ticked ? KalinkaColors.actionDelete : null,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(cost, style: KalinkaTextStyles.trayRowSublabel),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
-    );
-  }
-}
-
-class _CheckBox extends StatelessWidget {
-  final bool ticked;
-
-  const _CheckBox({required this.ticked});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        color: ticked ? KalinkaColors.actionDelete : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: ticked
-              ? KalinkaColors.actionDelete
-              : KalinkaColors.borderDefault,
-        ),
-      ),
-      child: ticked
-          ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
-          : null,
     );
   }
 }

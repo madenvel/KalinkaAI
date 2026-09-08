@@ -54,8 +54,8 @@ class _StillQueue extends PlayQueueStateStore {
 /// Takes what it is given and says how it went. Records both, so a test can
 /// tell what the sheet asked the server for.
 class _AddApi implements KalinkaPlayerProxy {
-  final List<(String, List<String>)> added = [];
-  final List<(String, List<String>)> replaced = [];
+  final List<(String, List<String>, bool)> added = [];
+  final List<(String, List<String>, bool)> replaced = [];
   final List<String> created = [];
   final int alreadyThere;
 
@@ -64,18 +64,20 @@ class _AddApi implements KalinkaPlayerProxy {
   @override
   Future<({int added, int dropped})> replaceCollection(
     String id,
-    List<String> itemIds,
-  ) async {
-    replaced.add((id, itemIds));
+    List<String> itemIds, {
+    bool keepDuplicates = false,
+  }) async {
+    replaced.add((id, itemIds, keepDuplicates));
     return (added: itemIds.length, dropped: 18);
   }
 
   @override
   Future<({int added, int alreadyThere})> addToCollection(
     String id,
-    List<String> itemIds,
-  ) async {
-    added.add((id, itemIds));
+    List<String> itemIds, {
+    bool keepDuplicates = false,
+  }) async {
+    added.add((id, itemIds, keepDuplicates));
     return (added: itemIds.length - alreadyThere, alreadyThere: alreadyThere);
   }
 
@@ -111,7 +113,7 @@ void main() {
     List<BrowseItem> choices = const [],
   }) async {
     // A phone-sized surface: the sheet gives its list whatever the header,
-    // the replace box and the action leave, and the default 600px test window
+    // the switch and the actions leave, and the default 600px test window
     // leaves room for one row.
     tester.view.physicalSize = const Size(1000, 1800);
     tester.view.devicePixelRatio = 1.0;
@@ -149,9 +151,9 @@ void main() {
     return container;
   }
 
-  /// Ticks the box that turns saving into replacing.
-  Future<void> chooseReplace(WidgetTester tester) async {
-    await tester.tap(find.text('Replace collection contents'));
+  /// Turns on keeping what the collection already holds.
+  Future<void> keepDuplicates(WidgetTester tester) async {
+    await tester.tap(find.text('Keep duplicates'));
     await tester.pump();
   }
 
@@ -165,18 +167,21 @@ void main() {
     _collection(_c2, 'Sunday Morning', 12),
   ];
 
-  testWidgets('the action waits until a collection is chosen', (tester) async {
+  testWidgets('both ways out wait until a collection is chosen', (
+    tester,
+  ) async {
     await openSheet(tester, _AddApi(), choices: twoCollections);
 
-    KalinkaButton action() => tester.widget<KalinkaButton>(
-      find.widgetWithText(KalinkaButton, 'ADD 2 TRACKS'),
-    );
-    expect(action().enabled, isFalse);
+    KalinkaButton action(String label) =>
+        tester.widget<KalinkaButton>(find.widgetWithText(KalinkaButton, label));
+    expect(action('APPEND').enabled, isFalse);
+    expect(action('REPLACE').enabled, isFalse);
 
     await tester.tap(find.text('Sunday Morning'));
     await tester.pump();
 
-    expect(action().enabled, isTrue);
+    expect(action('APPEND').enabled, isTrue);
+    expect(action('REPLACE').enabled, isTrue);
   });
 
   testWidgets('adding sends the queue to the one that was chosen', (
@@ -187,12 +192,13 @@ void main() {
 
     await tester.tap(find.text('Sunday Morning'));
     await tester.pump();
-    await tester.tap(find.text('ADD 2 TRACKS'));
+    await tester.tap(find.text('APPEND'));
     await tester.pumpAndSettle();
 
     expect(api.added.single.$1, _c2);
     expect(api.added.single.$2, ['t1', 't2']);
-    expect(find.text('ADD 2 TRACKS'), findsNothing);
+    expect(api.added.single.$3, isFalse);
+    expect(find.text('APPEND'), findsNothing);
     await letToastsGo(tester);
   });
 
@@ -229,7 +235,7 @@ void main() {
     expect(api.created, ['For the Train']);
     expect(api.added.single.$1, _made);
     expect(api.added.single.$2, ['t1', 't2']);
-    expect(find.text('ADD 2 TRACKS'), findsNothing);
+    expect(find.text('APPEND'), findsNothing);
     await letToastsGo(tester);
   });
 
@@ -244,7 +250,7 @@ void main() {
 
     await tester.tap(find.text('Late Night Signals'));
     await tester.pump();
-    await tester.tap(find.text('ADD 2 TRACKS'));
+    await tester.tap(find.text('APPEND'));
     await tester.pumpAndSettle();
 
     expect(
@@ -270,11 +276,10 @@ void main() {
   ) async {
     final api = _AddApi();
     await openSheet(tester, api, choices: twoCollections);
-    await chooseReplace(tester);
 
     await tester.tap(find.text('Late Night Signals'));
     await tester.pump();
-    await tester.tap(find.text('REPLACE WITH 2 TRACKS'));
+    await tester.tap(find.text('REPLACE'));
     await tester.pumpAndSettle();
 
     expect(find.text('Replace Late Night Signals?'), findsOneWidget);
@@ -284,7 +289,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.replaced, isEmpty);
-    expect(find.text('REPLACE WITH 2 TRACKS'), findsOneWidget);
+    expect(find.text('REPLACE'), findsOneWidget);
   });
 
   testWidgets('confirming the replace sends the queue in place of it', (
@@ -292,11 +297,10 @@ void main() {
   ) async {
     final api = _AddApi();
     await openSheet(tester, api, choices: twoCollections);
-    await chooseReplace(tester);
 
     await tester.tap(find.text('Late Night Signals'));
     await tester.pump();
-    await tester.tap(find.text('REPLACE WITH 2 TRACKS'));
+    await tester.tap(find.text('REPLACE'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Replace'));
     await tester.pumpAndSettle();
@@ -304,7 +308,7 @@ void main() {
     expect(api.replaced.single.$1, _c1);
     expect(api.replaced.single.$2, ['t1', 't2']);
     expect(api.added, isEmpty);
-    expect(find.text('REPLACE WITH 2 TRACKS'), findsNothing);
+    expect(find.text('REPLACE'), findsNothing);
     await letToastsGo(tester);
   });
 
@@ -317,51 +321,64 @@ void main() {
       api,
       choices: [_collection(_c1, 'Late Night Signals', 0)],
     );
-    await chooseReplace(tester);
 
     await tester.tap(find.text('Late Night Signals'));
     await tester.pump();
-    await tester.tap(find.text('REPLACE WITH 2 TRACKS'));
+    await tester.tap(find.text('REPLACE'));
     await tester.pumpAndSettle();
 
     expect(api.replaced.single.$1, _c1);
     await letToastsGo(tester);
   });
 
-  testWidgets('the box starts unticked and renames the action when ticked', (
+  testWidgets('the switch starts off, so what is already there is skipped', (
     tester,
   ) async {
     await openSheet(tester, _AddApi(), choices: twoCollections);
-    await tester.tap(find.text('Late Night Signals'));
-    await tester.pump();
 
-    expect(find.text('ADD 2 TRACKS'), findsOneWidget);
     expect(
-      find.text('Remove all 18 tracks from Late Night Signals first.'),
+      find.text('Tracks the collection already holds are skipped.'),
       findsOneWidget,
     );
 
-    await chooseReplace(tester);
+    await keepDuplicates(tester);
 
-    expect(find.text('REPLACE WITH 2 TRACKS'), findsOneWidget);
-    expect(find.text('ADD 2 TRACKS'), findsNothing);
+    expect(
+      find.text('The same track may land more than once.'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('an empty collection has nothing the box could remove', (
-    tester,
-  ) async {
+  testWidgets('the switch travels with the append', (tester) async {
+    final api = _AddApi();
+    await openSheet(tester, api, choices: twoCollections);
+    await keepDuplicates(tester);
+
+    await tester.tap(find.text('Sunday Morning'));
+    await tester.pump();
+    await tester.tap(find.text('APPEND'));
+    await tester.pumpAndSettle();
+
+    expect(api.added.single.$3, isTrue);
+    await letToastsGo(tester);
+  });
+
+  testWidgets('the switch travels with the replace too', (tester) async {
+    final api = _AddApi();
     await openSheet(
       tester,
-      _AddApi(),
+      api,
       choices: [_collection(_c1, 'Late Night Signals', 0)],
     );
+    await keepDuplicates(tester);
+
     await tester.tap(find.text('Late Night Signals'));
     await tester.pump();
+    await tester.tap(find.text('REPLACE'));
+    await tester.pumpAndSettle();
 
-    expect(
-      find.text('Late Night Signals is empty — nothing to remove.'),
-      findsOneWidget,
-    );
+    expect(api.replaced.single.$3, isTrue);
+    await letToastsGo(tester);
   });
 
   testWidgets('a collection made here is filled, never replaced', (
@@ -369,7 +386,6 @@ void main() {
   ) async {
     final api = _AddApi();
     await openSheet(tester, api, choices: twoCollections);
-    await chooseReplace(tester);
 
     await tester.tap(find.text('Create new collection'));
     await tester.pumpAndSettle();

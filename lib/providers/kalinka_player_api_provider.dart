@@ -89,20 +89,26 @@ abstract class KalinkaPlayerProxy {
   /// Puts [itemIds] — tracks, or anything that holds them — at the end of a
   /// collection, and answers with how many rows landed and how many it
   /// already had. The server expands a container through its own source, so
-  /// a caller need not page one out first. Throws when it knows no such
-  /// collection or cannot reach its file.
+  /// a caller need not page one out first. With [keepDuplicates] a track the
+  /// collection already holds lands again as its own entry rather than being
+  /// counted as already there. Throws when it knows no such collection or
+  /// cannot reach its file.
   Future<({int added, int alreadyThere})> addToCollection(
     String id,
-    List<String> itemIds,
-  );
+    List<String> itemIds, {
+    bool keepDuplicates = false,
+  });
 
   /// Makes a collection hold exactly [itemIds] and nothing it held before,
-  /// answering with what it now has and what was dropped to make room. Throws
-  /// on the same terms as [addToCollection].
+  /// answering with what it now has and what was dropped to make room.
+  /// Nothing survives to be duplicated, so [keepDuplicates] decides only
+  /// whether one batch may name a track twice. Throws on the same terms as
+  /// [addToCollection].
   Future<({int added, int dropped})> replaceCollection(
     String id,
-    List<String> itemIds,
-  );
+    List<String> itemIds, {
+    bool keepDuplicates = false,
+  });
   Future<BrowseItemsList> getFavorite(
     SearchType queryType, {
     int offset = 0,
@@ -563,11 +569,12 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
   @override
   Future<({int added, int alreadyThere})> addToCollection(
     String id,
-    List<String> itemIds,
-  ) async {
+    List<String> itemIds, {
+    bool keepDuplicates = false,
+  }) async {
     final response = await client.post(
       '/collections/$id/entries',
-      data: {'items': itemIds},
+      data: {'items': itemIds, 'allow_duplicates': keepDuplicates},
       options: Options(contentType: Headers.jsonContentType),
     );
     if (response.statusCode != 200) {
@@ -582,11 +589,12 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
   @override
   Future<({int added, int dropped})> replaceCollection(
     String id,
-    List<String> itemIds,
-  ) async {
+    List<String> itemIds, {
+    bool keepDuplicates = false,
+  }) async {
     final response = await client.put(
       '/collections/$id/entries',
-      data: {'items': itemIds},
+      data: {'items': itemIds, 'allow_duplicates': keepDuplicates},
       options: Options(contentType: Headers.jsonContentType),
     );
     if (response.statusCode != 200) {
