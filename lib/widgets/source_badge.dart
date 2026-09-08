@@ -85,11 +85,17 @@ Widget? sourceLetter(String source) =>
     isLocalSource(source) ? null : SourceLetter(source: source);
 
 /// The letter tile that stands for a source in a results group or a filter
-/// pill. Reached through [sourceLetter], which keeps the library unmarked.
+/// pill. Reached through [sourceLetter], which keeps the library unmarked —
+/// and directly where the library is one of the sources being named, as on a
+/// collection drawn from several.
 class SourceLetter extends ConsumerWidget {
   final String source;
 
-  const SourceLetter({super.key, required this.source});
+  /// Side of the tile. Smaller where the letters sit on a row's second line
+  /// rather than beside a heading.
+  final double size;
+
+  const SourceLetter({super.key, required this.source, this.size = 22});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -101,8 +107,8 @@ class SourceLetter extends ConsumerWidget {
       label: info?.title ?? source,
       excludeSemantics: true,
       child: Container(
-        width: 22,
-        height: 22,
+        width: size,
+        height: size,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.14),
@@ -112,7 +118,7 @@ class SourceLetter extends ConsumerWidget {
         child: Text(
           letter,
           style: KalinkaTextStyles.sourceBadgeLetter.copyWith(
-            fontSize: 11,
+            fontSize: size / 2,
             color: color,
           ),
         ),

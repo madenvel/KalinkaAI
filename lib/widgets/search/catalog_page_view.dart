@@ -18,7 +18,7 @@ import '../search_cards/browse_item_rows.dart';
 import '../source_badge.dart';
 import 'catalog_sections_view.dart';
 import 'collections_section.dart';
-import 'new_collection_sheet.dart';
+import 'collection_name_sheet.dart';
 
 /// One selected catalog page — the single navigation level below the
 /// Catalogs root (back lives in the title bar). The banner scrolls away with

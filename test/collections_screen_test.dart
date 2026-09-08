@@ -13,10 +13,13 @@ import 'package:kalinka/providers/indexer_status_provider.dart';
 import 'package:kalinka/providers/kalinka_player_api_provider.dart';
 import 'package:kalinka/providers/row_expansion_provider.dart';
 import 'package:kalinka/providers/search_session_provider.dart';
+import 'package:kalinka/providers/selection_state_provider.dart';
 import 'package:kalinka/providers/source_modules_provider.dart';
 import 'package:kalinka/widgets/kalinka_button.dart';
 import 'package:kalinka/widgets/search_cards/action_pill_button.dart';
+import 'package:kalinka/widgets/search_cards/container_action_header.dart';
 import 'package:kalinka/widgets/search/search_session_view.dart';
+import 'package:kalinka/widgets/source_badge.dart';
 
 const _shelfId = 'kalinka:collections:catalog:collections';
 const _c1 = 'kalinka:collections:playlist:c1';
@@ -88,6 +91,7 @@ class _EmptyApi implements KalinkaPlayerProxy {
 /// tracks when a row unrolls. Records what was created.
 class _ShelfApi extends _EmptyApi {
   final List<String> created = [];
+  final List<(String, String)> renamed = [];
 
   @override
   Future<String> createCollection(
@@ -96,6 +100,11 @@ class _ShelfApi extends _EmptyApi {
   }) async {
     created.add(name);
     return 'kalinka:collections:playlist:new';
+  }
+
+  @override
+  Future<void> renameCollection(String id, String name) async {
+    renamed.add((id, name));
   }
 
   @override
@@ -193,6 +202,17 @@ void main() {
     return container;
   }
 
+  /// Presses and holds long enough to be taken: half a second for the
+  /// recogniser to call it a long press, and another for the ring to fill.
+  Future<void> hold(WidgetTester tester, Finder finder) async {
+    final gesture = await tester.startGesture(tester.getCenter(finder));
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await gesture.up();
+    await tester.pump();
+  }
+
   Future<void> settle(WidgetTester tester) async {
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -248,7 +268,15 @@ void main() {
     await settle(tester);
 
     expect(find.text('Late Night Signals'), findsOneWidget);
-    expect(find.text('2 tracks · 1 source'), findsOneWidget);
+    expect(find.text('2 tracks'), findsOneWidget);
+    // The local library is attributed here, where every other row leaves it
+    // unmarked: what a collection is made of is the point of the line.
+    expect(
+      tester
+          .widgetList<SourceLetter>(find.byType(SourceLetter))
+          .map((letter) => letter.source),
+      ['localfiles', 'localfiles'],
+    );
     expect(find.text('Night Drive'), findsNothing);
 
     await tester.tap(find.text('Late Night Signals'));
@@ -276,6 +304,61 @@ void main() {
     expect(find.text('Enqueue'), findsOneWidget);
     // Editing is the screen's mode, not a row's action.
     expect(find.text('Edit tracks'), findsNothing);
+  });
+
+  testWidgets('a long press takes a collection, and the actions stay put', (
+    tester,
+  ) async {
+    final container = await pumpSurface(tester, api: _ShelfApi());
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+    await tester.tap(find.text('Late Night Signals'));
+    await settle(tester);
+
+    await hold(tester, find.text('Late Night Signals'));
+    await settle(tester);
+
+    expect(container.read(selectionStateProvider).selectedContainerIds, {_c1});
+    // A header that came and went under a selection would move every row
+    // beneath it; what changes is the line, not what is there.
+    expect(find.text('Play all'), findsOneWidget);
+    expect(find.text('Enqueue'), findsOneWidget);
+    expect(find.textContaining('2 selected'), findsOneWidget);
+  });
+
+  testWidgets('renaming an open collection sends the name it was given', (
+    tester,
+  ) async {
+    final api = _ShelfApi();
+    final container = await pumpSurface(tester, api: api);
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+    await tester.tap(find.text('Sunday Morning'));
+    await settle(tester);
+
+    await tester.tap(find.byIcon(Icons.edit_rounded));
+    await settle(tester);
+    await tester.enterText(find.byType(TextField), 'Sunday Mornings');
+    await tester.pump();
+    await tester.tap(find.text('RENAME'));
+    await settle(tester);
+
+    expect(api.renamed, [(_c2, 'Sunday Mornings')]);
+    // Renaming is the same control as the pair beside it, not a taller one.
+    expect(
+      find.descendant(
+        of: find.byType(ContainerActionHeader),
+        matching: find.byType(ActionPillButton),
+      ),
+      findsNWidgets(3),
+    );
+    // The confirmation toast retires itself on a timer the container
+    // outlives; left pending, it fails the test after the tree is gone.
+    await tester.pump(const Duration(seconds: 30));
   });
 
   testWidgets('making a collection names it and reloads the listing', (
