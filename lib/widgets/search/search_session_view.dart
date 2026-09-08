@@ -22,6 +22,36 @@ import 'results_view.dart';
 import 'search_composer.dart';
 import 'search_zero_state.dart';
 
+/// How far the Discover backdrop reaches below the status inset. The bloom
+/// is drawn over all of it and [_kDiscoverFadeOut] dissolves it before the
+/// bottom, so this is the bloom's reach and not an edge anything can see.
+const double _kDiscoverBackdropHeight = 340;
+
+/// The crimson bloom over the Discover root: off the top-right corner,
+/// rising behind the title bar and the status-bar inset.
+final _kDiscoverBloom = RadialGradient(
+  center: const Alignment(0.85, -0.75),
+  radius: 1.35,
+  colors: [
+    KalinkaColors.accent.withValues(alpha: 0.26),
+    KalinkaColors.accent.withValues(alpha: 0),
+  ],
+);
+
+/// What ends the bloom: the ground colour brought up over it just under the
+/// search entry, in about sixty pixels. The bloom is still tinted where its
+/// box stops, so without this it is clipped there and the cut reads as a
+/// line across the surface.
+final _kDiscoverFadeOut = LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  colors: [
+    KalinkaColors.background.withValues(alpha: 0),
+    KalinkaColors.background,
+  ],
+  stops: const [0.80, 0.98],
+);
+
 /// Full-screen search session surface. The search bar sits in a header strip
 /// at the top — back button on its left, connection dot on its right — with
 /// the scrollable content (zero state, then query blocks, newest on top)
@@ -327,6 +357,17 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
       });
     }
 
+    // A selection belongs to the listing it was gathered from: leaving that
+    // listing — for another catalog, the root, the results, or out of Find
+    // Music altogether — ends it rather than keeping a batch bar over rows
+    // nothing on screen still shows.
+    ref.listen(
+      searchSessionProvider.select(
+        (s) => (s.isOpen, s.activeView, s.catalogPage.id),
+      ),
+      (_, __) => ref.read(selectionStateProvider.notifier).exitSelectionMode(),
+    );
+
     // The shared tiles long-press into multi-select; surface the same batch
     // bar the old search feed used so the selection can be acted on.
     final selectionActive = ref.watch(
@@ -345,28 +386,30 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
         color: KalinkaColors.background,
         child: Stack(
           children: [
-            // Crimson bloom behind the Discover root — a single gradient
-            // fill, full surface width, rising behind the bar and status-bar
-            // inset. Cheap, unlike the blurred ring painter it replaced.
+            // The backdrop behind the Discover root, full surface width and
+            // rising behind the bar and the status-bar inset so the two read
+            // as one surface: the bloom, and over it the ground colour that
+            // ends it under the search entry.
             if (session.activeView == FindMusicView.catalogs &&
                 session.catalogPage.isRoot)
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                height: 340,
+                height:
+                    MediaQuery.paddingOf(context).top +
+                    _kDiscoverBackdropHeight,
                 child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        center: const Alignment(0.85, -0.75),
-                        radius: 1.35,
-                        colors: [
-                          KalinkaColors.accent.withValues(alpha: 0.26),
-                          KalinkaColors.accent.withValues(alpha: 0),
-                        ],
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(gradient: _kDiscoverBloom),
                       ),
-                    ),
+                      DecoratedBox(
+                        decoration: BoxDecoration(gradient: _kDiscoverFadeOut),
+                      ),
+                    ],
                   ),
                 ),
               ),

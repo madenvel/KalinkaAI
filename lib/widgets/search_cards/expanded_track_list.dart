@@ -268,9 +268,15 @@ class _InlineContainerTrackState extends ConsumerState<_InlineContainerTrack>
       rowBg = Colors.transparent;
     }
 
-    // Left-edge now-playing bar, drawn as an overlay so it doesn't push
-    // content right the way the selection Border does.
-    final Color? barColor = showNowPlaying ? KalinkaColors.accentBorder : null;
+    // The left-edge mark, for a selected row and for the playing one alike
+    // (never both — a selection hides the now-playing dress). It is drawn
+    // over the row rather than as a Border, which would push the artwork
+    // right by its own width.
+    final Color? barColor = selectionMode && inSelectionHighlight
+        ? KalinkaColors.accent
+        : showNowPlaying
+        ? KalinkaColors.accentBorder
+        : null;
 
     return SwipeToActRow(
       enabled: !selectionMode,
@@ -309,14 +315,7 @@ class _InlineContainerTrackState extends ConsumerState<_InlineContainerTrack>
               duration: const Duration(milliseconds: 180),
               // Right 8 lands the duration on the chevrons' right edge.
               padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-              decoration: BoxDecoration(
-                color: rowBg,
-                border: selectionMode && inSelectionHighlight
-                    ? const Border(
-                        left: BorderSide(color: KalinkaColors.accent, width: 2),
-                      )
-                    : null,
-              ),
+              decoration: BoxDecoration(color: rowBg),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

@@ -19,6 +19,7 @@ import 'package:kalinka/widgets/kalinka_button.dart';
 import 'package:kalinka/widgets/search_cards/action_pill_button.dart';
 import 'package:kalinka/widgets/search_cards/container_action_header.dart';
 import 'package:kalinka/widgets/search/search_session_view.dart';
+import 'package:kalinka/widgets/selection_overlay.dart';
 import 'package:kalinka/widgets/source_badge.dart';
 
 const _shelfId = 'kalinka:collections:catalog:collections';
@@ -326,6 +327,43 @@ void main() {
     expect(find.text('Play all'), findsOneWidget);
     expect(find.text('Enqueue'), findsOneWidget);
     expect(find.textContaining('2 selected'), findsOneWidget);
+  });
+
+  testWidgets('leaving the listing ends the selection gathered on it', (
+    tester,
+  ) async {
+    final container = await pumpSurface(tester, api: _ShelfApi());
+    final session = container.read(searchSessionProvider.notifier);
+    session.openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+    await hold(tester, find.text('Late Night Signals'));
+    await settle(tester);
+    expect(find.byType(MultiSelectBottomBar), findsOneWidget);
+
+    session.backToCatalogsRoot();
+    await settle(tester);
+
+    // The rows it held are not on screen any more, so neither is the bar.
+    expect(container.read(selectionStateProvider).isActive, isFalse);
+    expect(find.byType(MultiSelectBottomBar), findsNothing);
+  });
+
+  testWidgets('taking a track leaves the row where it was', (tester) async {
+    final container = await pumpSurface(tester, api: _ShelfApi());
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+    await tester.tap(find.text('Late Night Signals'));
+    await settle(tester);
+    final before = tester.getTopLeft(find.text('Night Drive'));
+
+    await hold(tester, find.text('Night Drive'));
+    await settle(tester);
+
+    expect(container.read(selectionStateProvider).isActive, isTrue);
+    // The mark is drawn over the row, not as a border that pushes it right.
+    expect(tester.getTopLeft(find.text('Night Drive')), before);
   });
 
   testWidgets('renaming an open collection sends the name it was given', (
