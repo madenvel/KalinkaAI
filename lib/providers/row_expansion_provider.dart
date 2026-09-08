@@ -37,6 +37,11 @@ class RowExpansionNotifier extends Notifier<RowExpansion> {
   void toggleUnrolled(String id) =>
       state = state.copyWith(unrolled: _toggled(state.unrolled, id));
 
+  /// Unrolls [id] whatever it was: opening a screen on one row must land it
+  /// open, not flip whatever the last visit left behind.
+  void unroll(String id) =>
+      state = state.copyWith(unrolled: {...state.unrolled, id});
+
   void toggleArtist(String id) =>
       state = state.copyWith(artists: _toggled(state.artists, id));
 

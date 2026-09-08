@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data_model/data_model.dart';
 import 'kalinka_player_api_provider.dart';
+import 'source_modules_provider.dart';
 
 const _kRefreshInterval = Duration(hours: 12);
 
@@ -19,6 +20,11 @@ const _kMaxCardsPerSource = 8;
 // (start/reconnect/refresh) so the attempt counter resets on the latter.
 int _artPolls = 0;
 bool _pollDriven = false;
+
+/// Opens a catalog page: which catalog, the source label to attribute it to,
+/// and — for a listing entered by one of its rows — the row to land on.
+typedef OpenCatalog =
+    void Function(CatalogCardPlan plan, String provider, {String? focusItemId});
 
 /// One advertisement card: a browsable category in a source's root catalog.
 class CatalogCardPlan {
@@ -46,6 +52,11 @@ class CatalogCardPlan {
   /// costs no extra round trip to learn what it holds.
   final List<BrowseItem> sections;
 
+  /// The server takes writes that change what this catalog holds, as the
+  /// shelf itself claimed. Carried into the page, which is where the actions
+  /// that make those writes live.
+  final bool canEdit;
+
   const CatalogCardPlan({
     required this.id,
     required this.title,
@@ -56,6 +67,7 @@ class CatalogCardPlan {
     this.artPath,
     this.filters = const [],
     this.sections = const [],
+    this.canEdit = false,
   });
 }
 
@@ -77,7 +89,9 @@ class CatalogCardGroup {
   });
 }
 
-String? _artPathOf(BrowseItem item) {
+/// The server-rendered art behind [item], unresolved, or null until the
+/// server has produced it.
+String? artPathOf(BrowseItem item) {
   final image = item.catalog?.image;
   if (image == null) return null;
   final path = image.large ?? image.small ?? image.thumbnail;
@@ -108,6 +122,10 @@ final catalogCardGroupsProvider = FutureProvider<List<CatalogCardGroup>>((
   if (!_pollDriven) _artPolls = 0;
   _pollDriven = false;
 
+  // The server's own sources hold the user's own lists; those are shown as
+  // such above, not offered here as catalogs to explore.
+  final builtin = ref.watch(builtinSourcesProvider);
+
   final api = ref.read(kalinkaProxyProvider);
   final root = await api.browse('', limit: 20);
 
@@ -115,13 +133,9 @@ final catalogCardGroupsProvider = FutureProvider<List<CatalogCardGroup>>((
   for (final module in root.items) {
     if (!module.canBrowse) continue;
 
-    String sourceName;
-    try {
-      sourceName = EntityId.fromString(module.id).source;
-    } catch (_) {
-      sourceName = module.name?.toLowerCase() ?? '';
-    }
-    if (sourceName.isEmpty) continue;
+    final sourceName =
+        sourceOfId(module.id) ?? module.name?.toLowerCase() ?? '';
+    if (sourceName.isEmpty || builtin.contains(sourceName)) continue;
 
     final children = await api.browse(module.id, limit: 20);
     final cards = <CatalogCardPlan>[];
@@ -140,7 +154,7 @@ final catalogCardGroupsProvider = FutureProvider<List<CatalogCardGroup>>((
           sourceName: sourceName,
           contentType: catalog.previewConfig?.contentType,
           icon: catalog.previewConfig?.icon,
-          artPath: _artPathOf(item),
+          artPath: artPathOf(item),
           filters: catalog.filters,
           sections: item.sections ?? const [],
         ),

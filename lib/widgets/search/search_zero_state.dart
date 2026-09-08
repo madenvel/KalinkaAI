@@ -8,14 +8,15 @@ import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
 import '../search_cards/browse_item_rows.dart';
 import 'catalog_cards_section.dart';
+import 'collections_section.dart';
 
 /// The Catalogs root body: the search invitation (passed in via [leading]),
-/// then an "OR EXPLORE CATALOGS" divider, the catalog cards, and recent
-/// favourites. Suggestions and recent searches live in the focused search
-/// overlay ([SearchSuggestionsList]), not here.
+/// your collections, then an "EXPLORE CATALOGS" divider, the catalog cards,
+/// and recent favourites. Suggestions and recent searches live in the focused
+/// search overlay ([SearchSuggestionsList]), not here.
 class SearchZeroState extends ConsumerWidget {
   /// Opens a catalog page directly (browse id + resolved provider label).
-  final void Function(CatalogCardPlan plan, String provider) onOpenCatalog;
+  final OpenCatalog onOpenCatalog;
 
   /// Widgets pinned to the top of the scroll — the "What shall we play?"
   /// heading, description and the search entry — so they scroll with the
@@ -35,12 +36,18 @@ class SearchZeroState extends ConsumerWidget {
     );
 
     return ListView(
+      // Coming back from a catalog returns to where the root was left, not
+      // to its top — the shelf you came from is where you look next.
+      key: const PageStorageKey('discoverRoot'),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
         ...leading,
 
-        // ── OR EXPLORE CATALOGS ─────────────────────────────────────────────
-        const _DividerLabel('OR EXPLORE CATALOGS'),
+        CollectionsSection(onOpenCatalog: onOpenCatalog),
+
+        // Not "OR": a section may sit between the entry and this rule, and
+        // the label has to read the same whether one does or not.
+        const _DividerLabel('EXPLORE CATALOGS'),
         const SizedBox(height: 26),
         CatalogCardsSection(onOpenCatalog: onOpenCatalog),
 
@@ -56,8 +63,8 @@ class SearchZeroState extends ConsumerWidget {
   }
 }
 
-/// A centred section label flanked by hairline rules — the "OR EXPLORE
-/// CATALOGS" separator between the AI search invitation and the catalog cards.
+/// A centred section label flanked by hairline rules — the "EXPLORE
+/// CATALOGS" separator between what is yours and what the sources offer.
 class _DividerLabel extends StatelessWidget {
   final String text;
 

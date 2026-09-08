@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/browse_filters.dart';
 import '../../providers/catalog_cards_provider.dart';
 import '../../providers/indexer_status_provider.dart';
+import '../../providers/row_expansion_provider.dart';
 import '../../providers/search_session_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../theme/app_theme.dart';
@@ -215,8 +216,17 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   }
 
   /// Open a catalog page directly from a card tap — deterministic browse, never
-  /// the AI router, and never recorded in search history.
-  void _openCatalog(CatalogCardPlan plan, String provider) {
+  /// the AI router, and never recorded in search history. With [focusItemId]
+  /// the page opens on that row, unrolled: a shortcut into a listing, not a
+  /// screen of its own.
+  void _openCatalog(
+    CatalogCardPlan plan,
+    String provider, {
+    String? focusItemId,
+  }) {
+    if (focusItemId != null) {
+      ref.read(rowExpansionProvider.notifier).unroll(focusItemId);
+    }
     ref
         .read(searchSessionProvider.notifier)
         .openCatalog(
@@ -227,6 +237,8 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
           artPath: plan.artPath,
           filters: plan.filters,
           sections: plan.sections,
+          canEdit: plan.canEdit,
+          focusItemId: focusItemId,
         );
   }
 
@@ -466,7 +478,7 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
               const SizedBox(width: 2),
               Expanded(child: _buildBreadcrumb(session, onResults)),
               // Only where there is something to narrow: the Catalogs root
-              // has no collection of its own.
+              // has no listing of its own.
               if (!_filterCapabilities(session).isEmpty)
                 SearchFilterButton(
                   activeCount: _appliedFilter(session).activeCount,
@@ -529,8 +541,9 @@ class _SearchSessionViewState extends ConsumerState<SearchSessionView>
   }
 
   /// The Catalogs root: one scroll holding the Playfair question, its
-  /// description, the resting search entry, then the "OR EXPLORE CATALOGS"
-  /// divider, catalog cards and favourites. Tapping the entry lifts the overlay.
+  /// description, the resting search entry, your collections, then the
+  /// "EXPLORE CATALOGS" divider, catalog cards and favourites. Tapping the
+  /// entry lifts the overlay.
   Widget _buildCatalogsRoot(SearchSessionState session) {
     return SearchZeroState(
       onOpenCatalog: _openCatalog,

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data_model/browse_filters.dart';
 import '../../data_model/data_model.dart';
+import '../../providers/collections_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_session_provider.dart';
 import '../../providers/url_resolver.dart';
@@ -12,9 +13,12 @@ import '../../theme/app_theme.dart';
 import '../browse_filters/active_filter_chips.dart';
 import '../browse_rows_shimmer.dart';
 import '../infinite_list_view.dart';
+import '../search_cards/action_pill_button.dart';
 import '../search_cards/browse_item_rows.dart';
 import '../source_badge.dart';
 import 'catalog_sections_view.dart';
+import 'collections_section.dart';
+import 'new_collection_sheet.dart';
 
 /// One selected catalog page — the single navigation level below the
 /// Catalogs root (back lives in the title bar). The banner scrolls away with
@@ -45,6 +49,9 @@ class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
     final query = ref.watch(
       searchSessionProvider.select((s) => s.catalogFilter),
     );
+    // A listing the server takes writes for can change under the page, so a
+    // write restarts it the way a filter does.
+    final revision = ref.watch(collectionsRevisionProvider);
     // Recomputed per chunk, not per row (O(n²) otherwise).
     final trackIdsMemo = _TrackIdsMemo();
 
@@ -74,7 +81,7 @@ class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
       key: ValueKey(page.id),
       // Only the facets the server honours restart the list, so touching an
       // inert placeholder never costs a refetch.
-      reloadKey: '${page.id}|${query.serverKey(capabilities)}',
+      reloadKey: '${page.id}|${query.serverKey(capabilities)}|$revision',
       // No horizontal list padding — the banner bleeds edge to edge; rows and
       // separators carry their own 16px inset instead.
       padding: const EdgeInsets.only(bottom: 24),
@@ -117,7 +124,7 @@ class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
         padding: EdgeInsets.symmetric(horizontal: 16),
         child: BrowseRowsShimmer(count: 3, leadingDivider: true),
       ),
-      emptyBuilder: (context) => _CatalogEmpty(filtered: !query.isEmpty),
+      emptyBuilder: (context) => _emptyState(page, filtered: !query.isEmpty),
       // The error state replaces only the rows, never the header — a filter
       // that failed has to stay reachable to be undone.
       errorBuilder: (context, _) => Column(
@@ -128,6 +135,24 @@ class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
         ],
       ),
     );
+  }
+
+  /// What stands where the rows would be. A filter that matched nothing says
+  /// so; a listing the server would take writes for — the collections screen
+  /// with none made yet — shows what a collection is; anything else is plain
+  /// empty.
+  Widget _emptyState(CatalogPage page, {required bool filtered}) {
+    if (filtered) return const _CatalogEmpty(filtered: true);
+    if (page.canEdit) {
+      return const Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: CollectionsEmptyCard(),
+        ),
+      );
+    }
+    return const _CatalogEmpty();
   }
 }
 
@@ -153,12 +178,50 @@ class _CatalogHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _CatalogBanner(page: page),
+        if (page.canEdit) const _CollectionsActions(),
         ActiveFilterChips(
           capabilities: capabilities,
           query: query,
           onChanged: onQueryChanged,
         ),
       ],
+    );
+  }
+}
+
+/// What the Collections screen does to the listing itself: make another one,
+/// or rearrange the ones there are. Editing is the screen's own mode — a
+/// collection is not a place you go to edit — and waits on the write API.
+///
+/// Neither treatment of berry applies: a fill commits a decision (Connect,
+/// Show results, Create) and an outline is one already made, shown as a
+/// receipt — which is what the applied-filter chips right below these are.
+/// A standing toolbar action is neither, so it is neutral.
+class _CollectionsActions extends ConsumerWidget {
+  const _CollectionsActions();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          ActionPillButton(
+            label: 'New',
+            icon: Icons.add,
+            onTap: () => showNewCollectionSheet(context, ref),
+            semanticsLabel: 'New collection',
+          ),
+          const ActionPillButton(
+            label: 'Edit',
+            icon: Icons.tune_rounded,
+            enabled: false,
+            semanticsLabel: 'Edit collections',
+          ),
+        ],
+      ),
     );
   }
 }

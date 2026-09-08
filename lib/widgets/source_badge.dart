@@ -7,18 +7,15 @@ import '../theme/app_theme.dart';
 enum SourceBadgeSize { standard, small }
 
 /// Whether a [SourceBadge] for [entityId] renders anything — false for a
-/// single source, an unparseable id, or the local library. Callers gate the
-/// badge's trailing spacer on this so no gap is left when it's hidden.
+/// single source, an unparseable id, the local library, or a source the
+/// server provides itself. Callers gate the badge's trailing spacer on this
+/// so no gap is left when it's hidden.
 bool sourceBadgeVisible(WidgetRef ref, String entityId) {
   if (ref.watch(sourceCountProvider) <= 1) return false;
-  final String source;
-  try {
-    source = EntityId.fromString(entityId).source;
-  } catch (_) {
-    return false;
-  }
-  if (isLocalSource(source)) return false;
-  return ref.watch(sourceDisplayInfoProvider)[source] != null;
+  final source = sourceOfId(entityId);
+  if (source == null || isLocalSource(source)) return false;
+  final info = ref.watch(sourceDisplayInfoProvider)[source];
+  return info != null && !info.builtin;
 }
 
 /// Displays a source attribution badge: a pill containing the first letter

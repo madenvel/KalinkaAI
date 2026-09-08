@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../data_model/data_model.dart';
 import '../../theme/app_theme.dart';
+import 'collection_row.dart';
 import 'search_album_row.dart';
 import 'search_artist_row.dart';
 import 'search_catalog_row.dart';
@@ -113,7 +114,11 @@ class BrowseItemRows extends StatelessWidget {
       case BrowseType.artist:
         return SearchArtistRow(item: item);
       case BrowseType.playlist:
-        return SearchPlaylistRow(item: item);
+        // A playlist the server will edit for you is a collection: it unrolls
+        // like any other, but says what it is made of and how to change it.
+        return item.canEdit
+            ? CollectionRow(item: item)
+            : SearchPlaylistRow(item: item);
       case BrowseType.catalog:
         return SearchCatalogRow(item: item);
       case BrowseType.unknown:

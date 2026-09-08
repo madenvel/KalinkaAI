@@ -74,6 +74,15 @@ class CatalogPage {
   /// empty for a category that is a single flat listing.
   final List<BrowseItem> sections;
 
+  /// The server accepts writes that change what this listing holds — the
+  /// collections screen. Its own actions manage the listing; each row carries
+  /// the ones that change what is inside it.
+  final bool canEdit;
+
+  /// The row the page was opened on, if any: it starts unrolled and the page
+  /// scrolls to it. Null when the page was opened at its top.
+  final String? focusItemId;
+
   const CatalogPage.root()
     : id = null,
       title = null,
@@ -81,7 +90,9 @@ class CatalogPage {
       description = null,
       artPath = null,
       filters = const [],
-      sections = const [];
+      sections = const [],
+      canEdit = false,
+      focusItemId = null;
 
   const CatalogPage.category({
     required this.id,
@@ -91,9 +102,24 @@ class CatalogPage {
     this.artPath,
     this.filters = const [],
     this.sections = const [],
+    this.canEdit = false,
+    this.focusItemId,
   });
 
   bool get isRoot => id == null;
+
+  /// The same page with its landing instruction spent — see
+  /// [SearchSessionNotifier.catalogFocusReached].
+  CatalogPage withoutFocus() => CatalogPage.category(
+    id: id,
+    title: title,
+    provider: provider,
+    description: description,
+    artPath: artPath,
+    filters: filters,
+    sections: sections,
+    canEdit: canEdit,
+  );
 
   /// The entity kinds this category holds, in the order its source listed
   /// them — one per section. Empty for a single-kind category, which is what
@@ -342,6 +368,8 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     String? artPath,
     List<FilterSpec> filters = const [],
     List<BrowseItem> sections = const [],
+    bool canEdit = false,
+    String? focusItemId,
   }) {
     state = state.copyWith(
       activeView: FindMusicView.catalogs,
@@ -353,9 +381,19 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
         artPath: artPath,
         filters: filters,
         sections: sections,
+        canEdit: canEdit,
+        focusItemId: focusItemId,
       ),
       catalogFilter: const BrowseFilterQuery(),
     );
+  }
+
+  /// The page has landed on the row it was opened by. Spending the focus
+  /// keeps a row that is scrolled away and built again from jumping the list
+  /// a second time.
+  void catalogFocusReached() {
+    if (state.catalogPage.focusItemId == null) return;
+    state = state.copyWith(catalogPage: state.catalogPage.withoutFocus());
   }
 
   /// Return from a catalog page to the Catalogs root (the search screen).
