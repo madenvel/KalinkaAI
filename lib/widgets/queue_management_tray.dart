@@ -6,9 +6,11 @@ import '../providers/app_state_provider.dart';
 import '../providers/kalinka_ws_api_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
+import 'kalinka_bottom_sheet.dart';
+import 'tap_highlight.dart';
 
 /// Actions that can be returned from the queue management tray.
-enum TrayAction { clearPlayed, clearAll }
+enum TrayAction { saveToCollection, clearPlayed, clearAll }
 
 /// Content body for the queue management tray — used directly by
 /// [showKalinkaBottomSheet] on phone, and by [TabletQueueManagementTray]
@@ -45,6 +47,7 @@ class QueueManagementTrayContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final queued = ref.watch(playQueueProvider).length;
     final playbackMode = ref.watch(playbackModeProvider);
     final isRepeatAll = playbackMode.repeatAll;
     final isRepeatOne = playbackMode.repeatSingle;
@@ -55,16 +58,11 @@ class QueueManagementTrayContent extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 16),
-        // Section: PLAYBACK
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-          child: Text('PLAYBACK', style: KalinkaTextStyles.traySectionLabel),
-        ),
+        const SheetSectionLabel('PLAYBACK'),
 
-        // Shuffle row
-        _TrayRow(
+        SheetRow(
           icon: Icons.shuffle,
-          iconBgColor: KalinkaColors.surfaceOverlay,
+          iconBackground: KalinkaColors.surfaceOverlay,
           iconColor: KalinkaColors.textSecondary,
           label: 'Shuffle',
           sublabel: isShuffle
@@ -81,98 +79,64 @@ class QueueManagementTrayContent extends ConsumerWidget {
             },
           ),
         ),
-        // Divider between rows
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Divider(
-            color: Colors.white.withValues(alpha: 0.07),
-            height: 1,
-          ),
-        ),
-        // Repeat row — segmented control
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
-          child: Row(
-            children: [
-              // Icon container
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: KalinkaColors.surfaceOverlay,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  isRepeatOne ? Icons.repeat_one : Icons.repeat,
-                  size: 16,
-                  color: KalinkaColors.textSecondary,
-                ),
-              ),
-              const SizedBox(width: 14),
-              // Label
-              Text('Repeat', style: KalinkaTextStyles.trayRowLabel),
-              const Spacer(),
-              // Segmented control
-              _RepeatSegmentedControl(
-                repeatAll: isRepeatAll,
-                repeatOne: isRepeatOne,
-                onChanged: (repeatAll, repeatSingle) {
-                  _setRepeatMode(
-                    ref,
-                    repeatAll: repeatAll,
-                    repeatSingle: repeatSingle,
-                  );
-                },
-              ),
-            ],
+        const SheetDivider(),
+        SheetRow(
+          icon: isRepeatOne ? Icons.repeat_one : Icons.repeat,
+          iconBackground: KalinkaColors.surfaceOverlay,
+          iconColor: KalinkaColors.textSecondary,
+          label: 'Repeat',
+          trailing: _RepeatSegmentedControl(
+            repeatAll: isRepeatAll,
+            repeatOne: isRepeatOne,
+            onChanged: (repeatAll, repeatSingle) {
+              _setRepeatMode(
+                ref,
+                repeatAll: repeatAll,
+                repeatSingle: repeatSingle,
+              );
+            },
           ),
         ),
 
         const SizedBox(height: 8),
-        // Section divider
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Divider(
-            color: Colors.white.withValues(alpha: 0.07),
-            height: 1,
-          ),
-        ),
+        const SheetDivider(),
         const SizedBox(height: 12),
 
-        // Section: QUEUE
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-          child: Text('QUEUE', style: KalinkaTextStyles.traySectionLabel),
+        const SheetSectionLabel('QUEUE'),
+
+        _SaveRow(
+          queued: queued,
+          onTap: queued == 0
+              ? null
+              : () {
+                  KalinkaHaptics.mediumImpact();
+                  _emitAction(context, TrayAction.saveToCollection);
+                },
         ),
 
-        // Clear played row
-        _TrayRow(
+        const SizedBox(height: 8),
+        const SheetDivider(),
+        const SizedBox(height: 12),
+
+        SheetRow(
           icon: Icons.history,
-          iconBgColor: KalinkaColors.surfaceOverlay,
+          iconBackground: KalinkaColors.surfaceOverlay,
           iconColor: KalinkaColors.textSecondary,
           label: 'Clear played',
-          sublabel: 'Remove played tracks from history',
+          sublabel: 'Remove tracks from listening history',
           onTap: () {
             KalinkaHaptics.mediumImpact();
             _emitAction(context, TrayAction.clearPlayed);
           },
         ),
-        // Divider between rows
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Divider(
-            color: Colors.white.withValues(alpha: 0.07),
-            height: 1,
-          ),
-        ),
-        // Clear all row (danger)
-        _TrayRow(
+        const SheetDivider(),
+        SheetRow(
           icon: Icons.delete_outline,
-          iconBgColor: KalinkaColors.actionDelete.withValues(alpha: 0.12),
+          iconBackground: KalinkaColors.actionDelete.withValues(alpha: 0.12),
           iconColor: KalinkaColors.actionDelete,
-          label: 'Clear all',
-          sublabel: 'Remove everything from queue',
-          isDanger: true,
+          label: 'Clear queue',
+          sublabel: 'Remove current and upcoming tracks',
+          labelColor: KalinkaColors.actionDelete,
           onTap: () {
             KalinkaHaptics.heavyImpact();
             _emitAction(context, TrayAction.clearAll);
@@ -187,8 +151,9 @@ class QueueManagementTrayContent extends ConsumerWidget {
     required Color activeColor,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return TapHighlight(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeInOut,
@@ -353,68 +318,91 @@ class _TabletQueueManagementTrayState extends State<TabletQueueManagementTray>
   }
 }
 
-class _TrayRow extends StatelessWidget {
-  final IconData icon;
-  final Color iconBgColor;
-  final Color iconColor;
-  final String label;
-  final String sublabel;
-  final Widget? trailing;
+/// The one way forward in the tray: what is queued, kept. Drawn as a card
+/// among plain rows because it is the only thing here that makes something
+/// rather than unmaking it, and lettered in leaf green for the same reason —
+/// the palette's own colour for a positive action, against the red below.
+class _SaveRow extends StatelessWidget {
+  final int queued;
   final VoidCallback? onTap;
-  final bool isDanger;
 
-  const _TrayRow({
-    required this.icon,
-    required this.iconBgColor,
-    required this.iconColor,
-    required this.label,
-    required this.sublabel,
-    this.trailing,
-    this.onTap,
-    this.isDanger = false,
-  });
+  const _SaveRow({required this.queued, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap ?? (trailing != null ? null : () {}),
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
-        child: Row(
-          children: [
-            // Icon container
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: iconBgColor,
-                borderRadius: BorderRadius.circular(10),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: kSheetGutter),
+      child: Semantics(
+        button: true,
+        label: 'Save this queue to a collection',
+        child: TapHighlight(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: KalinkaColors.statusOnlineSurface,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.playlist_add_rounded,
+                  size: 16,
+                  color: KalinkaColors.statusOnlineLight,
+                ),
               ),
-              child: Icon(icon, size: 16, color: iconColor),
-            ),
-            const SizedBox(width: 14),
-            // Label + sublabel
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: isDanger
-                        ? KalinkaTextStyles.trayRowLabel.copyWith(
-                            color: KalinkaColors.actionDelete,
-                          )
-                        : KalinkaTextStyles.trayRowLabel,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(sublabel, style: KalinkaTextStyles.trayRowSublabel),
-                ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Save this queue',
+                      style: KalinkaTextStyles.trayRowLabel,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      queued == 0
+                          ? 'Nothing queued to save yet'
+                          : 'Choose a collection or create a new one',
+                      style: KalinkaTextStyles.trayRowSublabel,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            if (trailing != null) ...[const SizedBox(width: 12), trailing!],
-          ],
+              if (queued > 0) ...[
+                const SizedBox(width: 10),
+                _QueuedBadge(queued: queued),
+              ],
+              const SizedBox(width: 4),
+              const SheetChevron(),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// How much would be saved, said where the decision is made.
+class _QueuedBadge extends StatelessWidget {
+  final int queued;
+
+  const _QueuedBadge({required this.queued});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: KalinkaColors.surfaceOverlay,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$queued ${queued == 1 ? 'TRACK' : 'TRACKS'}',
+        style: KalinkaTextStyles.traySectionLabel,
       ),
     );
   }
@@ -469,11 +457,12 @@ class _RepeatSegmentedControl extends StatelessWidget {
     required bool isActive,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return TapHighlight(
       onTap: () {
         KalinkaHaptics.selectionClick();
         onTap();
       },
+      borderRadius: BorderRadius.circular(7),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeInOut,

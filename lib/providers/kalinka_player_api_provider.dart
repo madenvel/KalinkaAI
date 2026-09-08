@@ -85,6 +85,24 @@ abstract class KalinkaPlayerProxy {
   /// Gives a collection another name. Throws when the server refuses the
   /// name, cannot reach its file, or knows no such collection.
   Future<void> renameCollection(String id, String name);
+
+  /// Puts [itemIds] — tracks, or anything that holds them — at the end of a
+  /// collection, and answers with how many rows landed and how many it
+  /// already had. The server expands a container through its own source, so
+  /// a caller need not page one out first. Throws when it knows no such
+  /// collection or cannot reach its file.
+  Future<({int added, int alreadyThere})> addToCollection(
+    String id,
+    List<String> itemIds,
+  );
+
+  /// Makes a collection hold exactly [itemIds] and nothing it held before,
+  /// answering with what it now has and what was dropped to make room. Throws
+  /// on the same terms as [addToCollection].
+  Future<({int added, int dropped})> replaceCollection(
+    String id,
+    List<String> itemIds,
+  );
   Future<BrowseItemsList> getFavorite(
     SearchType queryType, {
     int offset = 0,
@@ -540,6 +558,44 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
     if (response.statusCode != 200) {
       throw Exception('Failed to rename collection, url=${response.realUri}');
     }
+  }
+
+  @override
+  Future<({int added, int alreadyThere})> addToCollection(
+    String id,
+    List<String> itemIds,
+  ) async {
+    final response = await client.post(
+      '/collections/$id/entries',
+      data: {'items': itemIds},
+      options: Options(contentType: Headers.jsonContentType),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to add to collection, url=${response.realUri}');
+    }
+    return (
+      added: response.data['added'] as int,
+      alreadyThere: response.data['already_there'] as int,
+    );
+  }
+
+  @override
+  Future<({int added, int dropped})> replaceCollection(
+    String id,
+    List<String> itemIds,
+  ) async {
+    final response = await client.put(
+      '/collections/$id/entries',
+      data: {'items': itemIds},
+      options: Options(contentType: Headers.jsonContentType),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to replace collection, url=${response.realUri}');
+    }
+    return (
+      added: response.data['added'] as int,
+      dropped: response.data['dropped'] as int,
+    );
   }
 
   @override

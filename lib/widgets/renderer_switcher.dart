@@ -12,11 +12,13 @@ import '../providers/renderer_provider.dart';
 import '../providers/renderer_settings_route_provider.dart';
 import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/click_cursor.dart';
 import '../utils/haptics.dart';
 import 'kalinka_bottom_sheet.dart';
 import 'kalinka_dialog.dart' show showKalinkaDialog;
 import 'renderer_upgrade_dialog.dart';
 import 'sheet_anchor.dart';
+import 'tap_highlight.dart';
 import 'transport_button.dart';
 
 /// One string for the chrome (tooltips, labels) and the sheet's empty note,
@@ -493,6 +495,10 @@ class _RendererRow extends StatelessWidget {
                           onIntent(RendererPickerIntent.upgrade);
                         }
                       : null,
+                  mouseCursor: clickCursor(
+                    interactive: canPlayHere || offerUpgrade,
+                  ),
+                  overlayColor: kalinkaOverlay,
                 ),
               ),
               Row(
@@ -636,6 +642,8 @@ class _UpgradeButton extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             customBorder: const CircleBorder(),
+            mouseCursor: clickCursor(interactive: true),
+            overlayColor: kalinkaOverlay,
             child: SizedBox(
               width: 48,
               height: 48,
@@ -678,6 +686,8 @@ class _GearButton extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             customBorder: const CircleBorder(),
+            mouseCursor: clickCursor(interactive: onTap != null),
+            overlayColor: kalinkaOverlay,
             child: SizedBox(
               width: 48,
               height: 48,

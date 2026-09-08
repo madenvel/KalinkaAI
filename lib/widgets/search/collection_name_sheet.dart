@@ -6,6 +6,7 @@ import '../../providers/collections_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/field_decoration.dart';
 import '../kalinka_bottom_sheet.dart';
 import '../kalinka_button.dart';
 
@@ -20,6 +21,20 @@ Future<String?> showNewCollectionSheet(
   BuildContext context,
   WidgetRef ref,
 ) async {
+  final made = await createCollectionByName(context, ref);
+  if (made == null) return null;
+  ref.read(toastProvider.notifier).show('${made.name} created');
+  return made.id;
+}
+
+/// Asks for a name and makes the collection, answering with it. Says nothing
+/// on success: a caller that goes on to do something with the new collection
+/// reports both at once rather than raising two toasts in a row. A refusal is
+/// reported here, since it ends the flow either way.
+Future<({String id, String name})?> createCollectionByName(
+  BuildContext context,
+  WidgetRef ref,
+) async {
   final name = await _askForName(
     context,
     heading: 'NEW COLLECTION',
@@ -29,14 +44,14 @@ Future<String?> showNewCollectionSheet(
   if (name == null || !context.mounted) return null;
 
   final api = ref.read(kalinkaProxyProvider);
-  final toast = ref.read(toastProvider.notifier);
   try {
     final id = await api.createCollection(name);
     ref.read(collectionsRevisionProvider.notifier).bump();
-    toast.show('$name created');
-    return id;
+    return (id: id, name: name);
   } catch (e) {
-    toast.show('Could not create the collection: $e', isError: true);
+    ref
+        .read(toastProvider.notifier)
+        .show('Could not create the collection: $e', isError: true);
     return null;
   }
 }
@@ -160,23 +175,7 @@ class _NameFormState extends State<_NameForm> {
               maxLength: 200,
               onSubmitted: (_) => _submit(),
               style: KalinkaTextStyles.cardTitle,
-              decoration: InputDecoration(
-                hintText: 'Name it',
-                counterText: '',
-                hintStyle: KalinkaTextStyles.trackRowSubtitle,
-                filled: true,
-                fillColor: KalinkaColors.surfaceElevated,
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: KalinkaColors.borderDefault,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: KalinkaColors.accent),
-                ),
-              ),
+              decoration: kalinkaFieldDecoration(hint: 'Name it'),
             ),
             const SizedBox(height: 18),
             Row(

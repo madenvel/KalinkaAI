@@ -122,10 +122,10 @@ void main() {
     // Open the queue management tray.
     await tester.tap(find.byIcon(Icons.more_vert).first);
     await tester.pumpAndSettle();
-    expect(find.text('Clear all'), findsOneWidget);
+    expect(find.text('Clear queue'), findsOneWidget);
 
-    // Pick "Clear all" → tray closes, 160ms delay, confirm dialog opens.
-    await tester.tap(find.text('Clear all'));
+    // Pick "Clear queue" → tray closes, 160ms delay, confirm dialog opens.
+    await tester.tap(find.text('Clear queue'));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
@@ -136,7 +136,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byType(ClearAllConfirmDialog),
-        matching: find.text('Clear all'),
+        matching: find.text('Clear queue'),
       ),
     );
     await tester.pump();

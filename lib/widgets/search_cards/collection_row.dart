@@ -2,23 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data_model/data_model.dart';
-import '../../providers/catalog_cards_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/row_expansion_provider.dart';
 import '../../providers/search_session_provider.dart';
 import '../../providers/selection_state_provider.dart';
 import '../../providers/toast_provider.dart';
-import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/click_cursor.dart';
 import '../../utils/haptics.dart';
-import '../collection_art_tile.dart';
 import '../search/collection_name_sheet.dart';
-import '../source_badge.dart';
 import 'action_pill_button.dart';
+import 'collection_identity.dart';
 import 'expand_chevron_button.dart';
 import 'expanded_track_list.dart';
-import 'long_press_ring_painter.dart';
 import 'track_row_support.dart';
 
 /// A collection on the Collections screen: its cover, what it holds, and its
@@ -289,19 +285,13 @@ class CollectionFace extends ConsumerWidget {
     this.onSelectPressStop,
   });
 
-  static const _thumb = 64.0;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playlist = item.playlist;
-    final title = playlist?.name ?? item.name ?? 'Unknown';
-    final artPath = artPathOf(item);
     final marked = raised || glow > 0 || selected;
-    final sources = item.catalog?.sources ?? const <String>[];
 
     return Semantics(
       button: true,
-      label: title,
+      label: item.playlist?.name ?? item.name ?? 'Unknown',
       child: GestureDetector(
         onTap: onTap,
         onLongPressStart: onSelectPressStart == null
@@ -340,78 +330,14 @@ class CollectionFace extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              SizedBox(
-                width: _thumb,
-                height: _thumb,
-                child: Stack(
-                  children: [
-                    CollectionCover(
-                      artUrl: artPath == null
-                          ? null
-                          : ref.read(urlResolverProvider).abs(artPath),
-                      trackCount: playlist?.trackCount,
-                      seed: item.id,
-                      size: _thumb,
-                      radius: 10,
-                    ),
-                    if (pressProgress > 0)
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: LongPressRingPainter(
-                            progress: pressProgress,
-                            color: KalinkaColors.accent,
-                          ),
-                        ),
-                      ),
-                    if (selected)
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: KalinkaColors.accent.withValues(alpha: 0.4),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            partial ? Icons.remove : Icons.check,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 14),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: KalinkaTextStyles.listName.copyWith(
-                        color: selected ? KalinkaColors.accentTint : null,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 5),
-                    Row(
-                      children: [
-                        for (final source in sources) ...[
-                          SourceLetter(source: source, size: 18),
-                          const SizedBox(width: 5),
-                        ],
-                        Expanded(
-                          child: Text(
-                            collectionSummary(item),
-                            style: KalinkaTextStyles.trackRowSubtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                child: CollectionIdentity(
+                  item: item,
+                  chosen: selected,
+                  coverMark: selected
+                      ? (partial ? Icons.remove : Icons.check)
+                      : null,
+                  pressProgress: pressProgress,
                 ),
               ),
               const SizedBox(width: 6),
@@ -422,19 +348,6 @@ class CollectionFace extends ConsumerWidget {
       ),
     );
   }
-}
-
-/// What a collection holds, in one line: how many tracks and how long it
-/// runs. Which sources they came from is said beside it, in their own
-/// colours. An empty collection says so instead of counting to zero.
-String collectionSummary(BrowseItem item) {
-  final count = item.playlist?.trackCount;
-  if (count == 0) return 'Empty collection';
-  final duration = item.playlist?.duration;
-  return [
-    if (count != null) '$count ${count == 1 ? 'track' : 'tracks'}',
-    if (duration != null && duration > 0) formatTotalDuration(duration),
-  ].join(' · ');
 }
 
 /// The one live action on a Discover collection card. Hover warms the circle
