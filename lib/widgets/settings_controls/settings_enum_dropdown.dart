@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../data_model/presentation_schema.dart' show OptionSpec;
 import '../../theme/app_theme.dart';
+import '../../utils/click_cursor.dart';
 import '../../utils/haptics.dart';
 import '../kalinka_bottom_sheet.dart';
+import '../tap_highlight.dart';
 import 'inline_markdown.dart';
 
 /// Dropdown control for enum-like settings whose option set is too
@@ -127,6 +129,8 @@ class _OptionPicker extends StatelessWidget {
                 KalinkaHaptics.selectionClick();
                 Navigator.of(ctx).pop(o.value);
               },
+              mouseCursor: clickCursor(interactive: true),
+              overlayColor: kalinkaOverlay,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'sheet_anchor.dart';
+import 'tap_highlight.dart';
 
 /// Shows a modal bottom sheet styled with the Kalinka visual identity.
 ///
@@ -89,4 +90,124 @@ Future<T?> showKalinkaBottomSheet<T>({
       );
     },
   );
+}
+
+/// The margin a sheet's rows keep: where their content starts, how far the
+/// rule between them runs, and where the mark under the pointer stops. All
+/// three read as one edge, so they are one number.
+const double kSheetGutter = 20;
+
+/// The hairline between two rows of a sheet. Every sheet's sections are ruled
+/// the same way.
+class SheetDivider extends StatelessWidget {
+  const SheetDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: kSheetGutter),
+    child: Divider(color: KalinkaColors.borderSubtle, height: 1),
+  );
+}
+
+/// What the rows under it have in common, over the first of them.
+class SheetSectionLabel extends StatelessWidget {
+  final String text;
+
+  const SheetSectionLabel(this.text, {super.key});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(kSheetGutter, 0, kSheetGutter, 8),
+    child: Text(text, style: KalinkaTextStyles.traySectionLabel),
+  );
+}
+
+/// A row in a sheet: a tinted glyph, what it does, and whatever sits at its
+/// end. Its content, the rule under it and the mark under the pointer all
+/// keep the same gutter, so the three read as one edge.
+class SheetRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconBackground;
+  final Color iconColor;
+  final String label;
+
+  /// A second line under the label. Empty leaves the row a single line.
+  final String sublabel;
+
+  /// Colours the label where the row is worth hesitating over. A row that
+  /// merely goes somewhere leaves it alone.
+  final Color? labelColor;
+
+  /// What sits at the row's end — a [SheetChevron] where it opens something
+  /// else, a badge, a switch.
+  final Widget? trailing;
+
+  final VoidCallback? onTap;
+
+  const SheetRow({
+    super.key,
+    required this.icon,
+    required this.iconBackground,
+    required this.iconColor,
+    required this.label,
+    this.sublabel = '',
+    this.labelColor,
+    this.trailing,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TapHighlight(
+      onTap: onTap,
+      inset: kSheetGutter,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: kSheetGutter,
+          vertical: 13,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconBackground,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 16, color: iconColor),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: KalinkaTextStyles.trayRowLabel.copyWith(
+                      color: labelColor,
+                    ),
+                  ),
+                  if (sublabel.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(sublabel, style: KalinkaTextStyles.trayRowSublabel),
+                  ],
+                ],
+              ),
+            ),
+            if (trailing != null) ...[const SizedBox(width: 12), trailing!],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The mark at the end of a row that opens something else.
+class SheetChevron extends StatelessWidget {
+  const SheetChevron({super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      const Icon(Icons.chevron_right, size: 18, color: KalinkaColors.textMuted);
 }

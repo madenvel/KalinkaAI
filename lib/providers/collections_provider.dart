@@ -90,3 +90,21 @@ final collectionsShelfProvider = FutureProvider<CollectionsShelf?>((ref) async {
   }
   return null;
 });
+
+/// How many collections a picker offers at once. Well past what one person
+/// makes, and a longer list is narrowed by typing rather than paged.
+const _kChoicesLimit = 200;
+
+/// Every collection something can be added to, most recently changed first.
+/// Empty on a server that has no collections source at all.
+///
+/// Follows the shelf, so it is refetched by the same write that refetches
+/// everything else showing collections.
+final collectionChoicesProvider = FutureProvider<List<BrowseItem>>((ref) async {
+  final shelf = await ref.watch(collectionsShelfProvider.future);
+  if (shelf == null) return const [];
+  final page = await ref
+      .read(kalinkaProxyProvider)
+      .browse(shelf.plan.id, limit: _kChoicesLimit);
+  return page.items;
+});

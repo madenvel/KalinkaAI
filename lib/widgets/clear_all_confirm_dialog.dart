@@ -33,7 +33,7 @@ class ClearAllConfirmDialog extends ConsumerWidget {
           onTap: () => Navigator.pop(context, false),
         ),
         KalinkaButton(
-          label: 'Clear all',
+          label: 'Clear queue',
           variant: KalinkaButtonVariant.accent,
           fullWidth: true,
           onTap: () async {

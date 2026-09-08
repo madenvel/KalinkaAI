@@ -32,6 +32,7 @@ import '../widgets/playback_error_dialog.dart';
 import '../widgets/queue_management_tray.dart';
 import '../widgets/queue_zone.dart';
 import '../widgets/renderer_switcher.dart' show rendererDisplayName;
+import '../widgets/search/add_to_collection_sheet.dart';
 import '../widgets/search/search_dock.dart';
 import '../widgets/search/search_session_view.dart';
 import '../widgets/server_sheet.dart';
@@ -232,6 +233,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
     );
     if (!mounted) return;
     switch (result) {
+      case TrayAction.saveToCollection:
+        await _saveQueueToCollection();
       case TrayAction.clearPlayed:
         await _clearPlayed();
       case TrayAction.clearAll:
@@ -249,6 +252,8 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   /// Tablet: act on the panel-level queue management tray's selection.
   Future<void> _onTabletTrayAction(TrayAction action) async {
     switch (action) {
+      case TrayAction.saveToCollection:
+        await _saveQueueToCollection();
       case TrayAction.clearPlayed:
         await _clearPlayed();
       case TrayAction.clearAll:
@@ -279,6 +284,20 @@ class _MusicPlayerScreenState extends ConsumerState<MusicPlayerScreen>
   // ---------------------------------------------------------------------------
   // Queue actions
   // ---------------------------------------------------------------------------
+
+  /// Opens the destination sheet on the queue as it stands; what becomes of
+  /// what the chosen collection already holds is decided in there.
+  Future<void> _saveQueueToCollection() async {
+    final tracks = ref.read(playQueueProvider);
+    if (tracks.isEmpty) {
+      ref.read(toastProvider.notifier).show('Nothing in the queue yet');
+      return;
+    }
+    await showAddToCollectionSheet(
+      context,
+      CollectionAddition.queue([for (final track in tracks) track.id]),
+    );
+  }
 
   Future<void> _clearPlayed() async {
     final queueState = ref.read(playQueueStateStoreProvider);

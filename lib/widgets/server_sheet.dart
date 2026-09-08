@@ -7,6 +7,7 @@ import '../providers/connection_state_provider.dart';
 import '../providers/server_info_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
+import 'kalinka_bottom_sheet.dart';
 
 /// Actions that can be returned from the server sheet.
 enum ServerSheetAction { openSettings, openDiscovery }
@@ -39,57 +40,45 @@ class ServerSheetContent extends ConsumerWidget {
         ),
         const SizedBox(height: 4),
         // Separator
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Divider(
-            color: Colors.white.withValues(alpha: 0.07),
-            height: 1,
-          ),
-        ),
+        const SheetDivider(),
         // Server settings row
-        _SheetRow(
+        SheetRow(
           icon: Icons.settings_outlined,
-          iconBgColor: KalinkaColors.surfaceOverlay,
+          iconBackground: KalinkaColors.surfaceOverlay,
           iconColor: KalinkaColors.textSecondary,
           label: 'Server settings',
           sublabel: 'Modules, audio, enrichment',
-          onTap: () => Navigator.pop(context, ServerSheetAction.openSettings),
+          trailing: const SheetChevron(),
+          onTap: () {
+            KalinkaHaptics.lightImpact();
+            Navigator.pop(context, ServerSheetAction.openSettings);
+          },
         ),
         // Web is bound to its serving origin — no discovery, no disconnect.
         if (!kIsWeb) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Divider(
-              color: Colors.white.withValues(alpha: 0.07),
-              height: 1,
-            ),
-          ),
+          const SheetDivider(),
           // Connect to different server
-          _SheetRow(
+          SheetRow(
             icon: Icons.language,
-            iconBgColor: KalinkaColors.surfaceOverlay,
+            iconBackground: KalinkaColors.surfaceOverlay,
             iconColor: KalinkaColors.textSecondary,
             label: 'Connect to different server',
             sublabel: 'Scan network for other instances',
-            onTap: () =>
-                Navigator.pop(context, ServerSheetAction.openDiscovery),
+            trailing: const SheetChevron(),
+            onTap: () {
+              KalinkaHaptics.lightImpact();
+              Navigator.pop(context, ServerSheetAction.openDiscovery);
+            },
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Divider(
-              color: Colors.white.withValues(alpha: 0.07),
-              height: 1,
-            ),
-          ),
+          const SheetDivider(),
           // Disconnect
-          _SheetRow(
+          SheetRow(
             icon: Icons.logout,
-            iconBgColor: KalinkaColors.accent.withValues(alpha: 0.14),
+            iconBackground: KalinkaColors.accent.withValues(alpha: 0.14),
             iconColor: KalinkaColors.accent,
             label: 'Disconnect',
-            sublabel: '',
-            isDanger: true,
             onTap: () async {
+              KalinkaHaptics.heavyImpact();
               await ref.read(connectionSettingsProvider.notifier).clearDevice();
               ref.read(connectionStateProvider.notifier).disconnected();
               if (context.mounted) Navigator.pop(context);
@@ -430,53 +419,42 @@ class _TabletServerSheetContent extends ConsumerWidget {
           serverInfo: serverInfo,
         ),
         const SizedBox(height: 4),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Divider(
-            color: Colors.white.withValues(alpha: 0.07),
-            height: 1,
-          ),
-        ),
-        _SheetRow(
+        const SheetDivider(),
+        SheetRow(
           icon: Icons.settings_outlined,
-          iconBgColor: KalinkaColors.surfaceOverlay,
+          iconBackground: KalinkaColors.surfaceOverlay,
           iconColor: KalinkaColors.textSecondary,
           label: 'Server settings',
           sublabel: 'Modules, audio, enrichment',
-          onTap: onOpenSettings,
+          trailing: const SheetChevron(),
+          onTap: () {
+            KalinkaHaptics.lightImpact();
+            onOpenSettings();
+          },
         ),
         // Web is bound to its serving origin — no discovery, no disconnect.
         if (!kIsWeb) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Divider(
-              color: Colors.white.withValues(alpha: 0.07),
-              height: 1,
-            ),
-          ),
-          _SheetRow(
+          const SheetDivider(),
+          SheetRow(
             icon: Icons.language,
-            iconBgColor: KalinkaColors.surfaceOverlay,
+            iconBackground: KalinkaColors.surfaceOverlay,
             iconColor: KalinkaColors.textSecondary,
             label: 'Connect to different server',
             sublabel: 'Scan network for other instances',
-            onTap: onOpenDiscovery,
+            trailing: const SheetChevron(),
+            onTap: () {
+              KalinkaHaptics.lightImpact();
+              onOpenDiscovery();
+            },
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Divider(
-              color: Colors.white.withValues(alpha: 0.07),
-              height: 1,
-            ),
-          ),
-          _SheetRow(
+          const SheetDivider(),
+          SheetRow(
             icon: Icons.logout,
-            iconBgColor: KalinkaColors.accent.withValues(alpha: 0.14),
+            iconBackground: KalinkaColors.accent.withValues(alpha: 0.14),
             iconColor: KalinkaColors.accent,
             label: 'Disconnect',
-            sublabel: '',
-            isDanger: true,
             onTap: () async {
+              KalinkaHaptics.heavyImpact();
               await ref.read(connectionSettingsProvider.notifier).clearDevice();
               ref.read(connectionStateProvider.notifier).disconnected();
               await onClose();
@@ -485,78 +463,6 @@ class _TabletServerSheetContent extends ConsumerWidget {
         ],
         const _AppVersionFooter(),
       ],
-    );
-  }
-}
-
-class _SheetRow extends StatelessWidget {
-  final IconData icon;
-  final Color iconBgColor;
-  final Color iconColor;
-  final String label;
-  final String sublabel;
-  final VoidCallback? onTap;
-  final bool isDanger;
-
-  const _SheetRow({
-    required this.icon,
-    required this.iconBgColor,
-    required this.iconColor,
-    required this.label,
-    required this.sublabel,
-    this.onTap,
-    this.isDanger = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap != null
-          ? () {
-              isDanger
-                  ? KalinkaHaptics.heavyImpact()
-                  : KalinkaHaptics.lightImpact();
-              onTap!();
-            }
-          : null,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
-        child: Row(
-          children: [
-            // Icon tile
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: iconBgColor,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 16, color: iconColor),
-            ),
-            const SizedBox(width: 14),
-            // Label + sublabel
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: KalinkaTextStyles.trayRowLabel),
-                  if (sublabel.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(sublabel, style: KalinkaTextStyles.trayRowSublabel),
-                  ],
-                ],
-              ),
-            ),
-            if (!isDanger)
-              Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: KalinkaColors.textMuted,
-              ),
-          ],
-        ),
-      ),
     );
   }
 }
