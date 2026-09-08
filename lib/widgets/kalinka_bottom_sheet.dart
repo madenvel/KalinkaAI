@@ -126,9 +126,12 @@ class SheetSectionLabel extends StatelessWidget {
 /// end. Its content, the rule under it and the mark under the pointer all
 /// keep the same gutter, so the three read as one edge.
 class SheetRow extends StatelessWidget {
-  final IconData icon;
-  final Color iconBackground;
-  final Color iconColor;
+  /// The tile at the row's head. Left out where the row reads as a setting
+  /// rather than a destination, and then the label starts at the gutter.
+  final IconData? icon;
+
+  final Color? iconBackground;
+  final Color? iconColor;
   final String label;
 
   /// A second line under the label. Empty leaves the row a single line.
@@ -146,15 +149,18 @@ class SheetRow extends StatelessWidget {
 
   const SheetRow({
     super.key,
-    required this.icon,
-    required this.iconBackground,
-    required this.iconColor,
+    this.icon,
+    this.iconBackground,
+    this.iconColor,
     required this.label,
     this.sublabel = '',
     this.labelColor,
     this.trailing,
     this.onTap,
-  });
+  }) : assert(
+         icon == null || (iconBackground != null && iconColor != null),
+         'an icon needs the tile it sits in',
+       );
 
   @override
   Widget build(BuildContext context) {
@@ -168,16 +174,18 @@ class SheetRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: iconBackground,
-                borderRadius: BorderRadius.circular(10),
+            if (icon != null) ...[
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: iconBackground,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 16, color: iconColor),
               ),
-              child: Icon(icon, size: 16, color: iconColor),
-            ),
-            const SizedBox(width: 14),
+              const SizedBox(width: 14),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
