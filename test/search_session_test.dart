@@ -411,13 +411,15 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
-            home: Scaffold(body: SearchZeroState(onOpenCatalog: (_, __) {})),
+            home: Scaffold(
+              body: SearchZeroState(onOpenCatalog: (_, __, {focusItemId}) {}),
+            ),
           ),
         ),
       );
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('OR EXPLORE CATALOGS'), findsOneWidget);
+      expect(find.text('EXPLORE CATALOGS'), findsOneWidget);
       expect(find.text('RECENTLY FAVOURITED'), findsOneWidget);
     });
   });

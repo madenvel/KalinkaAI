@@ -498,6 +498,10 @@ class Playlist {
   final String? description;
   final int? trackCount;
 
+  /// Total playing time in seconds, where the source knew it without
+  /// loading the tracks.
+  final int? duration;
+
   Playlist({
     required this.id,
     required this.name,
@@ -505,6 +509,7 @@ class Playlist {
     this.image,
     this.description,
     this.trackCount,
+    this.duration,
   });
 
   factory Playlist.fromJson(Map<String, dynamic> json) => Playlist(
@@ -514,6 +519,7 @@ class Playlist {
     image: json["image"] == null ? null : AlbumImage.fromJson(json["image"]),
     description: json["description"],
     trackCount: json["track_count"],
+    duration: json["duration"],
   );
 
   Map<String, dynamic> toJson() => {
@@ -523,6 +529,7 @@ class Playlist {
     "image": image?.toJson(),
     "description": description,
     "track_count": trackCount,
+    "duration": duration,
   };
 }
 
@@ -1020,6 +1027,12 @@ class BrowseItem {
   final String? subname;
   final bool canBrowse;
   final bool canAdd;
+
+  /// The server accepts writes that change what this item holds — a
+  /// collection's tracks, or which collections exist. Advisory: it lets a
+  /// client offer editing without knowing which source owns the item, and the
+  /// write API is the authority.
+  final bool canEdit;
   final int timestamp;
 
   final Track? track;
@@ -1039,6 +1052,7 @@ class BrowseItem {
     this.subname,
     required this.canBrowse,
     required this.canAdd,
+    this.canEdit = false,
     this.timestamp = 0,
     this.track,
     this.album,
@@ -1070,6 +1084,7 @@ class BrowseItem {
     String? subname,
     bool? canBrowse,
     bool? canAdd,
+    bool? canEdit,
     int? timestamp,
     Track? track,
     Album? album,
@@ -1084,6 +1099,7 @@ class BrowseItem {
       subname: subname ?? this.subname,
       canBrowse: canBrowse ?? this.canBrowse,
       canAdd: canAdd ?? this.canAdd,
+      canEdit: canEdit ?? this.canEdit,
       timestamp: timestamp ?? this.timestamp,
       track: track ?? this.track,
       album: album ?? this.album,
@@ -1162,6 +1178,7 @@ class BrowseItem {
     subname: unescapeHtmlOrNull(json["subname"]),
     canBrowse: json["can_browse"],
     canAdd: json["can_add"],
+    canEdit: json["can_edit"] ?? false,
     timestamp: json["timestamp"] ?? 0,
     track: json["track"] == null ? null : Track.fromJson(json["track"]),
     album: json["album"] == null ? null : Album.fromJson(json["album"]),
@@ -1184,6 +1201,7 @@ class BrowseItem {
     "subname": subname,
     "can_browse": canBrowse,
     "can_add": canAdd,
+    "can_edit": canEdit,
     "timestamp": timestamp,
     "track": track?.toJson(),
     "album": album?.toJson(),
@@ -1540,6 +1558,11 @@ class ModuleInfo {
   /// to queue a bootstrap-time install on next restart.
   final List<String> missingPackages;
 
+  /// Provided by the server itself rather than a plugin — collections. Has no
+  /// config, no packages, and is the user's own, so it goes unbadged like the
+  /// local library and its shelves are not catalogs to explore.
+  final bool builtin;
+
   ModuleInfo({
     required this.name,
     required this.title,
@@ -1547,6 +1570,7 @@ class ModuleInfo {
     required this.state,
     this.message,
     this.missingPackages = const [],
+    this.builtin = false,
   });
 
   factory ModuleInfo.fromJson(Map<String, dynamic> json) => ModuleInfo(
@@ -1560,6 +1584,7 @@ class ModuleInfo {
             ?.map((e) => e.toString())
             .toList() ??
         const [],
+    builtin: json["builtin"] ?? false,
   );
 
   Map<String, dynamic> toJson() => {
@@ -1569,6 +1594,7 @@ class ModuleInfo {
     "state": ModuleStateExtension.toValue(state),
     if (message != null) "error_message": message,
     "missing_packages": missingPackages,
+    "builtin": builtin,
   };
 }
 

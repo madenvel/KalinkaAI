@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kalinka/data_model/data_model.dart';
 import 'package:kalinka/providers/catalog_cards_provider.dart';
 import 'package:kalinka/providers/kalinka_player_api_provider.dart';
+import 'package:kalinka/providers/source_modules_provider.dart';
 
 BrowseItem _module(String source, String title) => BrowseItem(
   id: 'kalinka:$source:catalog:root',
@@ -49,9 +50,23 @@ class _RootApi implements KalinkaPlayerProxy {
       throw UnimplementedError('${invocation.memberName}');
 }
 
-Future<List<String>> _titles(_RootApi api) async {
+ModuleInfo _moduleInfo(String name, {bool builtin = false}) => ModuleInfo(
+  name: name,
+  title: name,
+  enabled: true,
+  state: ModuleState.ready,
+  builtin: builtin,
+);
+
+Future<List<String>> _titles(
+  _RootApi api, {
+  List<ModuleInfo> modules = const [],
+}) async {
   final container = ProviderContainer(
-    overrides: [kalinkaProxyProvider.overrideWithValue(api)],
+    overrides: [
+      kalinkaProxyProvider.overrideWithValue(api),
+      sourceModulesProvider.overrideWith((ref) => modules),
+    ],
   );
   addTearDown(container.dispose);
   final groups = await container.read(catalogCardGroupsProvider.future);
@@ -115,4 +130,34 @@ void main() {
 
     expect(await _titles(api), ['Alpha', 'Beta']);
   });
+
+  test(
+    'a source the server provides itself is not a catalog to explore',
+    () async {
+      final api = _RootApi(
+        [
+          _module('collections', 'Collections'),
+          _module('localfiles', 'Local files'),
+        ],
+        {
+          'kalinka:collections:catalog:root': [
+            _catalog('collections', 'Your collections', CatalogRole.library),
+          ],
+          'kalinka:localfiles:catalog:root': [
+            _catalog('localfiles', 'My Library', CatalogRole.library),
+          ],
+        },
+      );
+
+      final titles = await _titles(
+        api,
+        modules: [
+          _moduleInfo('localfiles'),
+          _moduleInfo('collections', builtin: true),
+        ],
+      );
+
+      expect(titles, ['Local files']);
+    },
+  );
 }

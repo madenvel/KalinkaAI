@@ -77,6 +77,10 @@ abstract class KalinkaPlayerProxy {
     String? filter,
   });
   Future<BrowseItem> getMetadata(String id);
+
+  /// Makes an empty collection and answers with the browse id to go to.
+  /// Throws when the server refuses the name or cannot reach its file.
+  Future<String> createCollection(String name, {String description = ''});
   Future<BrowseItemsList> getFavorite(
     SearchType queryType, {
     int offset = 0,
@@ -504,6 +508,22 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
 
       return BrowseItem.fromJson(response.data);
     });
+  }
+
+  @override
+  Future<String> createCollection(
+    String name, {
+    String description = '',
+  }) async {
+    final response = await client.post(
+      '/collections',
+      data: {'name': name, 'description': description},
+      options: Options(contentType: Headers.jsonContentType),
+    );
+    if (response.statusCode != 201) {
+      throw Exception('Failed to create collection, url=${response.realUri}');
+    }
+    return response.data['id'] as String;
   }
 
   @override

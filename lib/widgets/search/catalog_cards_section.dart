@@ -29,7 +29,7 @@ const double _kTextZoneWidth = 0.48;
 class CatalogCardsSection extends ConsumerWidget {
   /// Opens the tapped catalog page directly via its stable browse id — no AI
   /// routing. [provider] is the resolved source label for the page subtitle.
-  final void Function(CatalogCardPlan plan, String provider) onOpenCatalog;
+  final OpenCatalog onOpenCatalog;
 
   const CatalogCardsSection({super.key, required this.onOpenCatalog});
 

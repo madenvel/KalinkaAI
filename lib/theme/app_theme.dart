@@ -393,7 +393,9 @@ class KalinkaTextStyles {
     color: KalinkaColors.textSecondary,
   );
 
-  static TextStyle aiPlaylistName = KalinkaFonts.display(
+  /// The name of a list someone made — a collection in a row. The display
+  /// face separates it from the source rows around it, which are sans.
+  static TextStyle listName = KalinkaFonts.display(
     fontSize: KalinkaTypography.baseSize + 6,
     color: KalinkaColors.textPrimary,
   );

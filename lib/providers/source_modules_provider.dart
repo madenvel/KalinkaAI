@@ -11,11 +11,15 @@ class SourceDisplayInfo {
   final String abbreviation;
   final Color color;
 
+  /// The server's own source, unbadged like the local library.
+  final bool builtin;
+
   const SourceDisplayInfo({
     required this.name,
     required this.title,
     required this.abbreviation,
     required this.color,
+    this.builtin = false,
   });
 }
 
@@ -25,6 +29,15 @@ const kLocalSourceName = 'localfiles';
 /// Whether [name] is the on-device/local-files source. It's treated as the
 /// unmarked default and never shows a source badge.
 bool isLocalSource(String name) => name.toLowerCase() == kLocalSourceName;
+
+/// The source segment of an entity id, or null for an id that has none.
+String? sourceOfId(String entityId) {
+  try {
+    return EntityId.fromString(entityId).source;
+  } catch (_) {
+    return null;
+  }
+}
 
 /// Curated palette of muted colors for source badges on dark backgrounds.
 ///
@@ -71,9 +84,7 @@ final sourceModulesProvider = FutureProvider<List<ModuleInfo>>((ref) async {
 /// carry the previous value forward, so the selected count is stable across the
 /// transition and only changes when the module list actually does.
 final sourceCountProvider = Provider<int>((ref) {
-  return ref.watch(
-    sourceModulesProvider.select((m) => m.value?.length ?? 0),
-  );
+  return ref.watch(sourceModulesProvider.select((m) => m.value?.length ?? 0));
 });
 
 /// Maps source name -> display info (title, abbreviation, color).
@@ -93,7 +104,19 @@ final sourceDisplayInfoProvider = Provider<Map<String, SourceDisplayInfo>>((
       title: m.title,
       abbreviation: m.title.isNotEmpty ? m.title[0].toUpperCase() : '?',
       color: colorForSourceName(m.name),
+      builtin: m.builtin,
     );
   }
   return map;
+});
+
+/// The sources the server provides itself, as the module list declares them.
+/// Empty while the list loads. Their shelves are the user's own and are laid
+/// out as such, not among the catalogs to explore.
+final builtinSourcesProvider = Provider<Set<String>>((ref) {
+  final modules = ref.watch(sourceModulesProvider.select((m) => m.value));
+  return {
+    for (final m in modules ?? const <ModuleInfo>[])
+      if (m.builtin) m.name,
+  };
 });

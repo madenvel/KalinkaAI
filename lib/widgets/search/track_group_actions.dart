@@ -38,13 +38,18 @@ class TrackGroupActions extends ConsumerWidget {
   }
 }
 
-/// Play a whole section now: its tracks become the queue, starting from the
-/// first. The berry tint marks it as the default action; the additive
-/// add-all chip beside it stays neutral.
+/// Play these ids now: they become the queue, starting from the first. The
+/// berry tint marks it as the default action; the additive enqueue chip
+/// beside it stays neutral.
+///
+/// The ids are whatever the caller wants queued — a section's tracks, or the
+/// single id of a container the server expands. [trackCount] is how many
+/// tracks they stand for, where that is not simply their number.
 class PlayAllChip extends ConsumerStatefulWidget {
   final List<String> trackIds;
+  final int? trackCount;
 
-  const PlayAllChip({super.key, required this.trackIds});
+  const PlayAllChip({super.key, required this.trackIds, this.trackCount});
 
   @override
   ConsumerState<PlayAllChip> createState() => _PlayAllChipState();
@@ -58,15 +63,19 @@ class _PlayAllChipState extends ConsumerState<PlayAllChip> {
     setState(() => _busy = true);
     KalinkaHaptics.mediumImpact();
     final api = ref.read(kalinkaProxyProvider);
-    final n = widget.trackIds.length;
+    final expected = widget.trackCount ?? widget.trackIds.length;
     await runQueueActivity(
       pending: 'Starting playback…',
       action: () async {
         await api.clear();
-        await api.add(widget.trackIds);
+        final added = await api.add(widget.trackIds);
         await api.play(0);
+        return added;
       },
-      done: (_) => 'Playing $n track${n == 1 ? '' : 's'}',
+      done: (r) {
+        final n = r.count ?? expected;
+        return 'Playing $n track${n == 1 ? '' : 's'}';
+      },
       failed: (e) => 'Failed to play: $e',
     );
     if (mounted) setState(() => _busy = false);
@@ -91,8 +100,18 @@ enum _AddStatus { idle, busy, added }
 
 class AddAllChip extends ConsumerStatefulWidget {
   final List<String> trackIds;
+  final int? trackCount;
 
-  const AddAllChip({super.key, required this.trackIds});
+  /// What was enqueued, where the toast can name it — a container has a name,
+  /// a section of results is only "these tracks".
+  final String? name;
+
+  const AddAllChip({
+    super.key,
+    required this.trackIds,
+    this.trackCount,
+    this.name,
+  });
 
   @override
   ConsumerState<AddAllChip> createState() => _AddAllChipState();
@@ -116,11 +135,17 @@ class _AddAllChipState extends ConsumerState<AddAllChip> {
     KalinkaHaptics.mediumImpact();
     final api = ref.read(kalinkaProxyProvider);
     final toast = ref.read(toastProvider.notifier);
-    final n = widget.trackIds.length;
-    toast.beginQueueActivity('Adding $n track${n == 1 ? '' : 's'}…');
+    final expected = widget.trackCount ?? widget.trackIds.length;
+    toast.beginQueueActivity('Adding to queue…');
     try {
-      await api.add(widget.trackIds);
-      toast.endQueueActivity('$n track${n == 1 ? '' : 's'} added to queue');
+      final added = await api.add(widget.trackIds);
+      final n = added.count ?? expected;
+      final tracks = '$n track${n == 1 ? '' : 's'}';
+      toast.endQueueActivity(
+        widget.name == null
+            ? '$tracks added to queue'
+            : '${widget.name} — $tracks added to queue',
+      );
       if (!mounted) return;
       setState(() => _status = _AddStatus.added);
       _resetTimer?.cancel();
@@ -149,7 +174,7 @@ class _AddAllChipState extends ConsumerState<AddAllChip> {
           ? 'Added to queue'
           : _status == _AddStatus.busy
           ? 'Adding to queue'
-          : 'Add all to queue',
+          : 'Add ${widget.name ?? 'all'} to queue',
     );
   }
 }
