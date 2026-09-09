@@ -106,6 +106,9 @@ class KalinkaColors {
   static const accentBorder = Color(
     0x66C2394B,
   ); // 0.40 alpha · Focused inputs · selected cards
+  static const accentWash = Color(
+    0x1FC2394B,
+  ); // 0.12 alpha · Section wash — diffuse only, never an edge or a fill
 
   // ── Accent — Warm Brass ──────────────────────────────────────────────────
   // Secondary signal for streaming/external content — gold-plated connector

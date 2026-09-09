@@ -285,7 +285,7 @@ void main() {
     await _pump(tester, api);
     await tester.pump(_settle);
 
-    expect(find.text('INSPIRED BY YOUR REQUEST'), findsOneWidget);
+    expect(find.text('Inspired by your request'), findsOneWidget);
     expect(find.text('YOUR LIBRARY'), findsOneWidget);
     expect(find.text('QOBUZ'), findsOneWidget);
     // The library is the unmarked default; only the other source wears a
@@ -341,6 +341,29 @@ void main() {
     expect(find.text('Recommendations'), findsOneWidget);
     expect(find.text('Qobuz'), findsNothing);
     expect(find.text('Away Song 5'), findsOneWidget);
+  });
+
+  testWidgets('the inspired block leads in the display face, alone', (
+    tester,
+  ) async {
+    final api = _ScriptedApi(
+      inspired: {
+        'localfiles': [_track('localfiles', 'l1', 'Home Song')],
+      },
+    );
+    await _pump(tester, api);
+    await tester.pump(_settle);
+
+    // The block that answers in its own voice; the listing beside it stays a
+    // labelled shelf.
+    final headings = tester.widgetList<ShelfHeading>(find.byType(ShelfHeading));
+    expect({
+      for (final h in headings) h.title: h.face,
+    }, containsPair('Inspired by your request', ShelfTitleFace.display));
+    expect(
+      headings.where((h) => h.face == ShelfTitleFace.display),
+      hasLength(1),
+    );
   });
 
   testWidgets('nothing found says so', (tester) async {
