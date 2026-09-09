@@ -30,13 +30,13 @@ Pure white alpha — clean neutral separation.
 
 Near-white on near-black — maximum contrast.
 
-| Token | Hex | Contrast | Usage |
+| Token | Hex | On `background` | Usage |
 |---|---|---|---|
-| `textPrimary` | `#FAF5F0` | ~18:1 | Track titles · labels · values |
-| `textSecondary` | `#A3A3A3` | ~7:1 | Subtitles · metadata · chip labels |
-| `textMuted` | `#858585` | ~3.5:1 | Section chrome · drag handles · inactive icons |
-| `textSectionLabel` | `#B0B0B0` | ~5:1 | Queue section headers |
-| `frost` | `#EEEEEE` | — | Playfair Display headings only (titles) — not body/mono |
+| `textPrimary` | `#FAF5F0` | 18.5:1 | Track titles · labels · values |
+| `textSecondary` | `#A3A3A3` | 7.9:1 | Subtitles · metadata · chip labels |
+| `textMuted` | `#858585` | 5.4:1 | Section chrome · drag handles · inactive icons |
+| `textSectionLabel` | `#B0B0B0` | 9.2:1 | Queue section headers |
+| `frost` | `#EEEEEE` | 17.3:1 | Playfair Display headings only (titles) — not body/mono |
 
 ## Accent — Kalinka Berry
 

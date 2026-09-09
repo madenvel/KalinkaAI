@@ -105,7 +105,7 @@ class ActiveFilterChips extends ConsumerWidget {
             const SizedBox(width: 10),
             SizedBox(
               // Matches a chip so the label sits on the first row's centre
-              // line. Neutral, not crimson: it sits beside tinted chips.
+              // line. Grey, not berry: dropping filters destroys nothing.
               height: 34,
               child: Center(
                 child: HoverTextAction(
