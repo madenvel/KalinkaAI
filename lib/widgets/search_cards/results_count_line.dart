@@ -17,10 +17,20 @@ class ResultsCountLine extends StatelessWidget {
     final trackCount = counts[SearchType.track] ?? 0;
     final playlistCount = counts[SearchType.playlist] ?? 0;
 
-    if (artistCount > 0) parts.add('$artistCount artists');
-    if (albumCount > 0) parts.add('$albumCount albums');
-    if (trackCount > 0) parts.add('$trackCount tracks');
-    if (playlistCount > 0) parts.add('$playlistCount playlists');
+    if (artistCount > 0) {
+      parts.add('$artistCount ${artistCount == 1 ? 'artist' : 'artists'}');
+    }
+    if (albumCount > 0) {
+      parts.add('$albumCount ${albumCount == 1 ? 'album' : 'albums'}');
+    }
+    if (trackCount > 0) {
+      parts.add('$trackCount ${trackCount == 1 ? 'track' : 'tracks'}');
+    }
+    if (playlistCount > 0) {
+      parts.add(
+        '$playlistCount ${playlistCount == 1 ? 'playlist' : 'playlists'}',
+      );
+    }
 
     if (parts.isEmpty) return const SizedBox.shrink();
 
