@@ -82,10 +82,14 @@ class InspiredBlock extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   stops: [0, 0.3, 1],
+                  // Section chrome, not a signal: the bar marks where the
+                  // block starts, and berry in the app means a decision or
+                  // one in effect. Grey keeps it from competing with the
+                  // selection edge, which is berry and does mean something.
                   colors: [
-                    KalinkaColors.accent,
-                    KalinkaColors.accent,
-                    Color(0x00C2394B),
+                    KalinkaColors.textMuted,
+                    KalinkaColors.textMuted,
+                    Color(0x00858585),
                   ],
                 ),
               ),

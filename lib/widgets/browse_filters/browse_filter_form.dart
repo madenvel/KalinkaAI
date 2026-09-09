@@ -540,8 +540,9 @@ String filterTypeLabel(SearchType type) {
 /// A solid fill because that is what a chosen value looks like everywhere else
 /// in the app — the settings segmented control, a toggle that is on, the
 /// primary button. Crimson *outlines* are reserved for things that are
-/// accent-flavoured without being a value: inline actions, the current-item
-/// row tint, the applied-filter chips.
+/// accent-flavoured without being a value: the action a set leads with, the
+/// current-item row tint. What a choice leaves behind — the chips above the
+/// listing — is grey.
 class FilterPill extends StatefulWidget {
   final String label;
   final bool selected;

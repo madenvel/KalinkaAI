@@ -37,33 +37,20 @@ class _SearchFilterButtonState extends State<SearchFilterButton> {
 
   @override
   Widget build(BuildContext context) {
-    final lit = widget.open || widget.activeCount > 0;
-
-    // Hover lightens the edge — borderDefault is a very dark grey, so a mid
-    // grey reads clearly without going near-white. The fill steps up to the
-    // shared hover tint behind it, but that is only ~2% on a near-black bar;
-    // the border is the cue. Crimson stays reserved for a pill that is
-    // actually holding a filter, so an unlit pill hovers grey.
-    final Color bg;
-    final Color border;
-    final Color fg;
-    if (lit) {
-      bg = _hovering
-          ? KalinkaColors.accent.withValues(alpha: 0.18)
-          : KalinkaColors.accentSubtle;
-      border = _hovering
-          ? KalinkaColors.accentTint
-          : KalinkaColors.accentBorder;
-      fg = KalinkaColors.accentTint;
-    } else {
-      bg = _hovering
-          ? KalinkaColors.surfaceOverlay
-          : KalinkaColors.surfaceElevated;
-      border = _hovering
-          ? KalinkaColors.textMuted
-          : KalinkaColors.borderDefault;
-      fg = KalinkaColors.textPrimary;
-    }
+    // The badge is what says a filter is on, and it is the only berry here:
+    // the pill itself stays grey however many are applied, so crimson in the
+    // bar keeps meaning one thing. Hover lightens the edge — borderDefault is
+    // a very dark grey, so a mid grey reads clearly without going near-white;
+    // the fill lift is only ~2% on a near-black bar. An open overlay holds
+    // that same step up, the pill being engaged for as long as it is up.
+    final engaged = widget.open || _hovering;
+    final bg = engaged
+        ? KalinkaColors.surfaceOverlay
+        : KalinkaColors.surfaceElevated;
+    final border = engaged
+        ? KalinkaColors.textMuted
+        : KalinkaColors.borderDefault;
+    const fg = KalinkaColors.textPrimary;
 
     return Semantics(
       button: true,
