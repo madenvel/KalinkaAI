@@ -1542,6 +1542,14 @@ class ModuleStateExtension {
   }
 }
 
+/// Capability names as the server spells them, for [ModuleInfo.can].
+abstract final class ModuleCapability {
+  /// Natural-language search over the source's own audio — the `/ai_search`
+  /// leg. A source without it has nothing of its own to suggest, so asking
+  /// would only buy an empty answer and a row that waits for it.
+  static const aiSearch = 'ai_search';
+}
+
 class ModuleInfo {
   final String name;
   final String title;
@@ -1563,6 +1571,12 @@ class ModuleInfo {
   /// local library and its shelves are not catalogs to explore.
   final bool builtin;
 
+  /// The optional calls this source answers, by name — `ai_search` so far.
+  /// Browsing and matching a name are what make a source a source and are
+  /// not listed. Read it to decide what to ask for rather than asking and
+  /// reading an empty answer.
+  final List<String> capabilities;
+
   ModuleInfo({
     required this.name,
     required this.title,
@@ -1571,7 +1585,10 @@ class ModuleInfo {
     this.message,
     this.missingPackages = const [],
     this.builtin = false,
+    this.capabilities = const [],
   });
+
+  bool can(String capability) => capabilities.contains(capability);
 
   factory ModuleInfo.fromJson(Map<String, dynamic> json) => ModuleInfo(
     name: json["name"],
@@ -1585,6 +1602,9 @@ class ModuleInfo {
             .toList() ??
         const [],
     builtin: json["builtin"] ?? false,
+    capabilities:
+        (json["capabilities"] as List?)?.map((e) => e.toString()).toList() ??
+        const [],
   );
 
   Map<String, dynamic> toJson() => {
@@ -1595,6 +1615,7 @@ class ModuleInfo {
     if (message != null) "error_message": message,
     "missing_packages": missingPackages,
     "builtin": builtin,
+    "capabilities": capabilities,
   };
 }
 

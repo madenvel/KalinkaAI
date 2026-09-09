@@ -42,10 +42,11 @@ class InspiredGroup {
 
 /// Everything a search has heard back, source by source.
 ///
-/// Both legs are asked of every source separately, so each can land, fail
-/// and be retried on its own. The name matches of every source merge into
-/// one list by the tier and score the server put on each hit; the
-/// recommendations stay grouped by the source that made them.
+/// Each leg is asked of each source separately, so each can land, fail and be
+/// retried on its own — but only of a source that can answer it: one with no
+/// audio of its own to suggest is asked for names alone. The name matches of
+/// every source merge into one list by the tier and score the server put on
+/// each hit; the recommendations stay grouped by the source that made them.
 class SearchResults {
   final String query;
 
@@ -63,9 +64,17 @@ class SearchResults {
   });
 
   /// Nothing heard yet from anyone.
-  SearchResults.pending(this.query, this.sources)
+  ///
+  /// [suggesting] names the sources an AI-search leg was asked of; null waits
+  /// on all of them. A source that was never asked holds no leg here, so it
+  /// is never shown waiting for an answer that is not coming.
+  SearchResults.pending(this.query, this.sources, {Set<String>? suggesting})
     : matches = {for (final s in sources) s.name: const LegLoading()},
-      inspired = {for (final s in sources) s.name: const LegLoading()};
+      inspired = {
+        for (final s in sources)
+          if (suggesting == null || suggesting.contains(s.name))
+            s.name: const LegLoading(),
+      };
 
   List<String> get sourceNames => [for (final s in sources) s.name];
 
@@ -141,14 +150,12 @@ class SearchResults {
     return [for (final entry in entries) entry.item];
   }
 
-  /// One group per source, in display order, whatever its standing.
+  /// One group per source that was asked, in display order, whatever its
+  /// standing.
   List<InspiredGroup> get inspiredGroups => [
     for (final source in sourceNames)
-      InspiredGroup(
-        source: source,
-        state: inspired[source] ?? const LegLoading(),
-        tracks: _tracksOf(inspired[source]),
-      ),
+      if (inspired[source] case final state?)
+        InspiredGroup(source: source, state: state, tracks: _tracksOf(state)),
   ];
 
   static List<BrowseItem> _tracksOf(LegState? state) {

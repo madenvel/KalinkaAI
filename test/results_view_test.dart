@@ -108,18 +108,21 @@ class _FixedConnection extends ConnectionStateNotifier {
   ConnectionStatus build() => ConnectionStatus.connected;
 }
 
+// Both suggest: this file is about how their suggestions are laid out.
 final _modules = <ModuleInfo>[
   ModuleInfo(
     name: 'qobuz',
     title: 'Qobuz',
     enabled: true,
     state: ModuleState.ready,
+    capabilities: const [ModuleCapability.aiSearch],
   ),
   ModuleInfo(
     name: 'localfiles',
     title: 'Local files',
     enabled: true,
     state: ModuleState.ready,
+    capabilities: const [ModuleCapability.aiSearch],
   ),
 ];
 
