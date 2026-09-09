@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:kalinka/data_model/browse_filters.dart';
 import 'package:kalinka/data_model/data_model.dart';
 import 'package:kalinka/providers/app_state_provider.dart';
 import 'package:kalinka/providers/connection_settings_provider.dart';
@@ -12,6 +13,7 @@ import 'package:kalinka/providers/connection_state_provider.dart';
 import 'package:kalinka/providers/kalinka_player_api_provider.dart';
 import 'package:kalinka/providers/search_session_provider.dart';
 import 'package:kalinka/providers/source_modules_provider.dart';
+import 'package:kalinka/widgets/browse_filters/browse_filter_form.dart';
 import 'package:kalinka/widgets/browse_rows_shimmer.dart';
 import 'package:kalinka/widgets/search/results_view.dart';
 import 'package:kalinka/widgets/search/inspired_block.dart';
@@ -374,6 +376,163 @@ void main() {
       findsNWidgets(2),
     );
     expect(find.textContaining('· 5'), findsNothing);
+  });
+
+  /// The block's own control: which of the sources that answered is being
+  /// read. It stands where the subtitle used to, and it is drawn from the
+  /// rows rather than from the module list.
+  group('the source pills', () {
+    Finder pill(String label) => find.descendant(
+      of: find.byType(FilterPill),
+      matching: find.text(label),
+    );
+
+    testWidgets('name only the sources the list actually holds', (
+      tester,
+    ) async {
+      final api = _ScriptedApi(
+        matches: {
+          'qobuz': [_artist('qobuz', '1', 'Q Act', MatchTier.exact)],
+          'localfiles': [_artist('localfiles', '1', 'L Act', MatchTier.exact)],
+        },
+      );
+      await _pump(tester, api);
+      await tester.pump(_settle);
+
+      expect(pill('ALL'), findsOneWidget);
+      expect(pill('Q'), findsOneWidget);
+      expect(pill('L'), findsOneWidget);
+    });
+
+    testWidgets('stay away when only one source found anything', (
+      tester,
+    ) async {
+      final api = _ScriptedApi(
+        matches: {
+          'qobuz': [_artist('qobuz', '1', 'Q Act', MatchTier.exact)],
+        },
+      );
+      await _pump(tester, api);
+      await tester.pump(_settle);
+
+      // Both sources answered; only one had something to say, so there is
+      // nothing to choose between.
+      expect(find.byType(FilterPill), findsNothing);
+      expect(find.text('Q Act'), findsOneWidget);
+    });
+
+    testWidgets('picking one reads that source alone, ALL brings them back', (
+      tester,
+    ) async {
+      final api = _ScriptedApi(
+        matches: {
+          'qobuz': [_artist('qobuz', '1', 'Q Act', MatchTier.exact)],
+          'localfiles': [_artist('localfiles', '1', 'L Act', MatchTier.exact)],
+        },
+      );
+      await _pump(tester, api);
+      await tester.pump(_settle);
+      expect(find.text('L Act'), findsOneWidget);
+
+      await tester.tap(pill('Q'));
+      await tester.pump();
+
+      expect(find.text('Q Act'), findsOneWidget);
+      expect(find.text('L Act'), findsNothing);
+      // The others stay offered — a pick that hid them could not be undone.
+      expect(pill('L'), findsOneWidget);
+      expect(find.textContaining('· 1'), findsOneWidget);
+
+      await tester.tap(pill('ALL'));
+      await tester.pump();
+
+      expect(find.text('L Act'), findsOneWidget);
+      expect(find.text('Q Act'), findsOneWidget);
+    });
+
+    testWidgets('offer nothing the screen filter has already excluded', (
+      tester,
+    ) async {
+      final api = _ScriptedApi(
+        matches: {
+          'qobuz': [_artist('qobuz', '1', 'Q Act', MatchTier.exact)],
+          'localfiles': [_artist('localfiles', '1', 'L Act', MatchTier.exact)],
+          'jamendo': [_artist('jamendo', '1', 'J Act', MatchTier.exact)],
+        },
+      );
+      final container = await _pump(
+        tester,
+        api,
+        modules: [
+          ..._modules,
+          ModuleInfo(
+            name: 'jamendo',
+            title: 'Jamendo',
+            enabled: true,
+            state: ModuleState.ready,
+            capabilities: const [ModuleCapability.aiSearch],
+          ),
+        ],
+      );
+      await tester.pump(_settle);
+      expect(pill('J'), findsOneWidget);
+
+      container
+          .read(searchSessionProvider.notifier)
+          .setResultsFilter(
+            const BrowseFilterQuery(sources: ['qobuz', 'localfiles']),
+          );
+      await tester.pump();
+
+      expect(pill('Q'), findsOneWidget);
+      expect(pill('L'), findsOneWidget);
+      expect(pill('J'), findsNothing);
+    });
+
+    testWidgets('a pick the screen filter rules out is dropped', (
+      tester,
+    ) async {
+      final api = _ScriptedApi(
+        matches: {
+          'qobuz': [_artist('qobuz', '1', 'Q Act', MatchTier.exact)],
+          'localfiles': [_artist('localfiles', '1', 'L Act', MatchTier.exact)],
+        },
+      );
+      final container = await _pump(tester, api);
+      await tester.pump(_settle);
+
+      await tester.tap(pill('Q'));
+      await tester.pump();
+      expect(container.read(searchSessionProvider).matchSource, 'qobuz');
+
+      container
+          .read(searchSessionProvider.notifier)
+          .setResultsFilter(const BrowseFilterQuery(sources: ['localfiles']));
+      await tester.pump();
+
+      expect(container.read(searchSessionProvider).matchSource, isNull);
+      expect(find.text('L Act'), findsOneWidget);
+    });
+
+    testWidgets('a new search starts on ALL again', (tester) async {
+      final api = _ScriptedApi(
+        matches: {
+          'qobuz': [_artist('qobuz', '1', 'Q Act', MatchTier.exact)],
+          'localfiles': [_artist('localfiles', '1', 'L Act', MatchTier.exact)],
+        },
+      );
+      final container = await _pump(tester, api);
+      await tester.pump(_settle);
+
+      await tester.tap(pill('Q'));
+      await tester.pump();
+      expect(container.read(searchSessionProvider).matchSource, 'qobuz');
+
+      container.read(searchSessionProvider.notifier).submit('blues');
+      await tester.pump(_settle);
+
+      expect(container.read(searchSessionProvider).matchSource, isNull);
+    });
   });
 
   testWidgets('nothing found says so', (tester) async {
