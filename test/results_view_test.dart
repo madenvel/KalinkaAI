@@ -13,7 +13,6 @@ import 'package:kalinka/providers/connection_state_provider.dart';
 import 'package:kalinka/providers/kalinka_player_api_provider.dart';
 import 'package:kalinka/providers/search_session_provider.dart';
 import 'package:kalinka/providers/source_modules_provider.dart';
-import 'package:kalinka/widgets/browse_filters/browse_filter_form.dart';
 import 'package:kalinka/widgets/browse_rows_shimmer.dart';
 import 'package:kalinka/widgets/search/results_view.dart';
 import 'package:kalinka/widgets/search/inspired_block.dart';
@@ -383,7 +382,7 @@ void main() {
   /// rows rather than from the module list.
   group('the source pills', () {
     Finder pill(String label) => find.descendant(
-      of: find.byType(FilterPill),
+      of: find.byType(SourceChoice),
       matching: find.text(label),
     );
 
@@ -417,7 +416,7 @@ void main() {
 
       // Both sources answered; only one had something to say, so there is
       // nothing to choose between.
-      expect(find.byType(FilterPill), findsNothing);
+      expect(find.byType(SourceChoice), findsNothing);
       expect(find.text('Q Act'), findsOneWidget);
     });
 

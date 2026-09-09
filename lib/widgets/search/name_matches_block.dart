@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/browse_filters.dart';
 import '../../data_model/search_results.dart';
 import '../../providers/source_modules_provider.dart';
-import '../browse_filters/browse_filter_form.dart';
 import '../browse_rows_shimmer.dart';
 import '../search_cards/browse_item_rows.dart';
 import '../shelf_heading.dart';
+import '../source_badge.dart';
 import 'source_unavailable_row.dart';
 
 /// What every source found by name, as one list — the best few, with the
@@ -109,7 +109,7 @@ class NameMatchesBlock extends StatelessWidget {
         ),
         if (settled && present.length > 1) ...[
           const SizedBox(height: 10),
-          _SourcePills(sources: present, picked: picked, onPick: onSource),
+          _SourceChoices(sources: present, picked: picked, onPick: onSource),
         ],
         const SizedBox(height: 10),
         if (!settled)
@@ -129,12 +129,12 @@ class NameMatchesBlock extends StatelessWidget {
 
 /// Which source's matches to read, each named by the letter it wears
 /// everywhere else. ALL is the one that is on when none is.
-class _SourcePills extends ConsumerWidget {
+class _SourceChoices extends ConsumerWidget {
   final List<String> sources;
   final String? picked;
   final ValueChanged<String?> onPick;
 
-  const _SourcePills({
+  const _SourceChoices({
     required this.sources,
     required this.picked,
     required this.onPick,
@@ -148,19 +148,22 @@ class _SourcePills extends ConsumerWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        FilterPill(
+        SourceChoice(
           label: 'ALL',
+          tint: null,
           selected: picked == null,
           onTap: () => onPick(null),
+          semanticsLabel: 'All sources',
         ),
         for (final source in sources)
-          FilterPill(
+          SourceChoice(
             label:
                 info[source]?.abbreviation ??
                 (source.isEmpty ? '?' : source[0].toUpperCase()),
             tint: info[source]?.color ?? colorForSourceName(source),
             selected: picked == source,
             onTap: () => onPick(source),
+            semanticsLabel: info[source]?.title ?? source,
           ),
       ],
     );

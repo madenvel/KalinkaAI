@@ -555,11 +555,6 @@ class FilterPill extends StatefulWidget {
   /// A mark ahead of the label, such as a source's letter tile.
   final Widget? leading;
 
-  /// Colours the label while the pill is off, for a pill that stands for
-  /// something already carrying a colour of its own — a source. Selection
-  /// still fills crimson: what is chosen reads the same everywhere.
-  final Color? tint;
-
   const FilterPill({
     super.key,
     required this.label,
@@ -567,7 +562,6 @@ class FilterPill extends StatefulWidget {
     this.muted = false,
     this.onTap,
     this.leading,
-    this.tint,
   });
 
   @override
@@ -601,14 +595,11 @@ class _FilterPillState extends State<FilterPill> {
       bg = Colors.transparent;
       border = KalinkaColors.borderSubtle;
     } else {
-      fg = widget.tint ?? KalinkaColors.textPrimary;
+      fg = KalinkaColors.textPrimary;
       bg = hovered
           ? KalinkaColors.surfaceOverlay
           : KalinkaColors.surfaceElevated;
-      border = hovered
-          ? (widget.tint ?? KalinkaColors.textMuted)
-          : (widget.tint?.withValues(alpha: 0.30) ??
-                KalinkaColors.borderDefault);
+      border = hovered ? KalinkaColors.textMuted : KalinkaColors.borderDefault;
     }
 
     // Sized by its padding, never by an alignment: a Container with one
