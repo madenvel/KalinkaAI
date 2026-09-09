@@ -15,10 +15,10 @@ import 'track_group_actions.dart';
 /// rankings are not comparable, so each group keeps its own order, its own
 /// batch actions and its own way of opening in full. Each group stands on
 /// its own answer — one still loading shimmers, one that failed says so,
-/// while the others show. The Discover mark on the heading, a bar on the page
-/// edge and a berry wash under the rule hold them together as the one section
-/// they are, and the display face gives the block a voice of its own: these
-/// are answers offered, not a listing of what a source holds.
+/// while the others show. A berry wash behind the heading holds them together
+/// as the one section they are, and the display face gives the block a voice
+/// of its own: these are answers offered, not a listing of what a source
+/// holds.
 class InspiredBlock extends StatelessWidget {
   final SearchResults results;
   final NarrowedResults narrowed;
@@ -35,12 +35,8 @@ class InspiredBlock extends StatelessWidget {
   /// How many of a group's tracks lead before VIEW ALL.
   static const previewCount = 3;
 
-  /// Solid through the title, gone before the first source.
-  static const _barHeight = 56.0;
-
-  /// How far the wash under the rule reaches before the groups begin. It runs
-  /// well past where it is still visible: the fade decides where it ends, not
-  /// the box.
+  /// How far the wash reaches before the groups begin. It runs well past
+  /// where it is still visible: the fade decides where it ends, not the box.
   static const _washHeight = 120.0;
 
   const InspiredBlock({
@@ -69,9 +65,7 @@ class InspiredBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final groups = narrowed.groups.where(_groupVisible).toList();
-    final total = narrowed.recommendationCount;
     final expanded = filter.kind == ResultKind.recommendations;
-    final loading = groups.any((g) => g.state is LegLoading);
 
     return Stack(
       clipBehavior: Clip.none,
@@ -83,42 +77,10 @@ class InspiredBlock extends StatelessWidget {
           height: _washHeight,
           child: const IgnorePointer(child: _HeadingWash()),
         ),
-        Positioned(
-          left: -gutter,
-          top: 0,
-          width: 4,
-          height: _barHeight,
-          child: const IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: [0, 0.3, 1],
-                  // Section chrome, not a signal: the bar marks where the
-                  // block starts, and berry in the app means a decision or
-                  // one in effect. Grey keeps it from competing with the
-                  // selection edge, which is berry and does mean something.
-                  colors: [
-                    KalinkaColors.textMuted,
-                    KalinkaColors.textMuted,
-                    Color(0x00858585),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ShelfHeading(
-              title: 'Inspired by your request',
-              icon: Icons.auto_awesome,
-              face: ShelfTitleFace.display,
-              count: loading ? null : total,
-              subtitle: 'Smart recommendations, kept by source',
-            ),
+            const _InspiredHeading(),
             for (final group in groups)
               _SourceGroup(
                 group: group,
@@ -134,27 +96,72 @@ class InspiredBlock extends StatelessWidget {
   }
 }
 
-/// The berry the block is allowed: a wash hanging off the heading's rule,
-/// spent almost entirely on the right where the rule is longest and gone
+/// The block's name and what it is, in the shape a page title takes: the
+/// display face over one quiet line, and nothing drawn through either.
+///
+/// No rule and no tally. A rule divides a heading from what follows, and this
+/// heading is not separate from its groups — the wash behind it is what says
+/// where the block begins. The count belonged to a shelf being opened in
+/// full; what a source happened to suggest is not a quantity anyone came for.
+class _InspiredHeading extends StatelessWidget {
+  const _InspiredHeading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Inspired by your request',
+          style: KalinkaFonts.display(
+            fontSize: KalinkaTypography.baseSize + 8,
+            fontWeight: FontWeight.w600,
+            color: KalinkaColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Row(
+          children: [
+            const Icon(
+              Icons.auto_awesome,
+              size: 14,
+              color: KalinkaColors.accentTint,
+            ),
+            const SizedBox(width: 7),
+            Text(
+              'Smart recommendations',
+              style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+                color: KalinkaColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// The berry the block is allowed: a wash behind the heading, spent almost
+/// entirely on the right where the name leaves the canvas empty, and gone
 /// again by the foot of the heading.
 ///
 /// Diffuse rather than drawn — a berry edge or fill would read as a decision,
 /// and this is atmosphere for the one section the app answers in its own
-/// voice. It is laid under the rule rather than behind the title so the name
-/// keeps the plain canvas behind it.
+/// voice. It is also the only thing marking where the block starts, now that
+/// nothing is ruled or barred.
 class _HeadingWash extends StatelessWidget {
   const _HeadingWash();
 
   @override
   Widget build(BuildContext context) {
     return ShaderMask(
-      // Nothing at the title's line, full just under the rule, gone by the
-      // foot of the subtitle — the box runs on, the wash does not.
+      // Full behind the name, gone by the foot of the heading — the box runs
+      // on into the groups, the wash does not.
       shaderCallback: (bounds) => const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        stops: [0.10, 0.26, 0.52],
-        colors: [Colors.transparent, Colors.white, Colors.transparent],
+        stops: [0.18, 0.46],
+        colors: [Colors.white, Colors.transparent],
       ).createShader(bounds),
       blendMode: BlendMode.dstIn,
       child: const DecoratedBox(
@@ -212,33 +219,16 @@ class _SourceGroup extends StatelessWidget {
           Row(
             children: [
               if (letter != null) ...[letter, const SizedBox(width: 10)],
-              // Name and count share the one flex slot, so the link takes
-              // the edge and only the name gives way.
               Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        isLocalSource(group.source)
-                            ? 'YOUR LIBRARY'
-                            : title.toUpperCase(),
-                        style: KalinkaTextStyles.sectionLabel.copyWith(
-                          color: KalinkaColors.textPrimary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (state is LegReady) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '· ${tracks.length}',
-                        style: KalinkaTextStyles.sectionLabel.copyWith(
-                          color: KalinkaColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ],
+                child: Text(
+                  isLocalSource(group.source)
+                      ? 'YOUR LIBRARY'
+                      : title.toUpperCase(),
+                  style: KalinkaTextStyles.sectionLabel.copyWith(
+                    color: KalinkaColors.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (more) ...[

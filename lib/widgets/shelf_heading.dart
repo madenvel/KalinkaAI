@@ -3,17 +3,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'hover_text_action.dart';
 
-/// Which face a heading's title takes.
-enum ShelfTitleFace {
-  /// The mono section label every shelf and results block is marked with.
-  label,
-
-  /// The display face, for the block that answers in its own voice rather
-  /// than listing what a source holds. It is the face the app gives a thing
-  /// with an identity — a page title, the name of a list someone made.
-  display,
-}
-
 /// A shelf's heading: its name, how many it holds, a rule, and the action
 /// that opens it in full. One shape for a library shelf and a results block,
 /// so the two read as the same thing.
@@ -21,8 +10,6 @@ class ShelfHeading extends StatelessWidget {
   /// Already in the case it should show in.
   final String title;
   final int? count;
-
-  final ShelfTitleFace face;
 
   /// One line under the title, saying what the shelf is made of.
   final String? subtitle;
@@ -39,12 +26,9 @@ class ShelfHeading extends StatelessWidget {
     this.count,
     this.subtitle,
     this.icon,
-    this.face = ShelfTitleFace.label,
     this.onViewAll,
     this.viewAllLabel = 'VIEW ALL',
   });
-
-  bool get _leading => face == ShelfTitleFace.display;
 
   @override
   Widget build(BuildContext context) {
@@ -54,24 +38,14 @@ class ShelfHeading extends StatelessWidget {
         Row(
           children: [
             if (icon != null) ...[
-              Icon(
-                icon,
-                size: _leading ? 17 : 15,
-                color: KalinkaColors.accentTint,
-              ),
+              Icon(icon, size: 15, color: KalinkaColors.accentTint),
               const SizedBox(width: 8),
             ],
             Text(
               title,
-              style: _leading
-                  ? KalinkaFonts.display(
-                      fontSize: KalinkaTypography.baseSize + 8,
-                      fontWeight: FontWeight.w600,
-                      color: KalinkaColors.textPrimary,
-                    )
-                  : KalinkaTextStyles.sectionLabel.copyWith(
-                      color: KalinkaColors.textPrimary,
-                    ),
+              style: KalinkaTextStyles.sectionLabel.copyWith(
+                color: KalinkaColors.textPrimary,
+              ),
             ),
             if (count != null) ...[
               const SizedBox(width: 8),
@@ -97,7 +71,7 @@ class ShelfHeading extends StatelessWidget {
           ],
         ),
         if (subtitle != null) ...[
-          SizedBox(height: _leading ? 5 : 4),
+          const SizedBox(height: 4),
           Text(
             subtitle!,
             style: KalinkaTextStyles.trackRowSubtitle.copyWith(
