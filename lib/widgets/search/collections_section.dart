@@ -9,6 +9,7 @@ import '../browse_rows_shimmer.dart';
 import '../collection_art_tile.dart';
 import '../kalinka_button.dart';
 import 'collection_name_sheet.dart';
+import '../search_cards/browse_item_rows.dart';
 import '../search_cards/collection_row.dart';
 import '../shelf_heading.dart';
 
@@ -39,7 +40,10 @@ class CollectionsSection extends ConsumerWidget {
     return shelfAsync.when(
       loading: () => _section(
         heading: const ShelfHeading(title: 'YOUR COLLECTIONS'),
-        body: const BrowseRowsShimmer(count: 3),
+        body: const BrowseRowsShimmer(
+          count: 3,
+          shape: ShimmerRowShape.collection,
+        ),
       ),
       // A shelf that failed to load is not worth a message on the root; the
       // catalogs below still work, and the next reload tries again.
@@ -64,10 +68,15 @@ class CollectionsSection extends ConsumerWidget {
             children: [
               for (var i = 0; i < shelf.items.length; i++) ...[
                 if (i > 0)
-                  const Divider(
-                    color: KalinkaColors.borderSubtle,
-                    thickness: 1,
-                    height: 1,
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: BrowseItemRows.textInsetOf(shelf.items[i - 1]),
+                    ),
+                    child: const Divider(
+                      color: KalinkaColors.borderSubtle,
+                      thickness: 1,
+                      height: 1,
+                    ),
                   ),
                 CollectionShelfRow(
                   item: shelf.items[i],

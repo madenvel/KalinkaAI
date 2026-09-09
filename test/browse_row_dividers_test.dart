@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kalinka/data_model/data_model.dart';
 import 'package:kalinka/providers/connection_settings_provider.dart';
+import 'package:kalinka/widgets/browse_rows_shimmer.dart';
 import 'package:kalinka/widgets/search_cards/browse_item_rows.dart';
+import 'package:kalinka/widgets/search_cards/collection_row.dart';
 
 const _title = 'Title Here';
 
@@ -58,18 +60,26 @@ void main() {
     prefs = await SharedPreferences.getInstance();
   });
 
-  Future<void> pumpRows(WidgetTester tester, List<BrowseItem> items) async {
+  Future<Rect> pumpSized(WidgetTester tester, Widget child) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
         child: MaterialApp(
           home: Scaffold(
-            body: SizedBox(width: 400, child: BrowseItemRows(items: items)),
+            // Content-sized, so a block's height is the block's own.
+            body: SingleChildScrollView(
+              child: SizedBox(width: 400, child: child),
+            ),
           ),
         ),
       ),
     );
     await tester.pump();
+    return tester.getRect(find.byWidget(child));
+  }
+
+  Future<void> pumpRows(WidgetTester tester, List<BrowseItem> items) async {
+    await pumpSized(tester, BrowseItemRows(items: items));
   }
 
   /// The table in [BrowseItemRows.textInsetOf] is a list of measurements, and
@@ -120,5 +130,68 @@ void main() {
     await pumpRows(tester, [_track(), _track(), _track()]);
 
     expect(find.byType(Divider), findsNWidgets(2));
+  });
+
+  /// A placeholder that does not occupy the same block as the rows it stands
+  /// in for makes the list jump when they land. These hold the shimmer's
+  /// shapes to the rows they were measured from.
+  group('a shimmer occupies the block its rows will fill', () {
+    testWidgets('the search row, side to side and top to bottom', (
+      tester,
+    ) async {
+      final rows = await pumpSized(tester, BrowseItemRows(items: [_track()]));
+      final shimmer = await pumpSized(
+        tester,
+        const BrowseRowsShimmer(count: 1),
+      );
+
+      expect(shimmer.height, rows.height);
+      expect(ShimmerRowShape.row.height, rows.height);
+      expect(
+        ShimmerRowShape.row.textInset,
+        BrowseItemRows.textInsetOf(_track()),
+      );
+    });
+
+    testWidgets('the taller row a collection takes on its shelf', (
+      tester,
+    ) async {
+      final row = await pumpSized(
+        tester,
+        CollectionShelfRow(item: _playlist(canEdit: true), onOpen: () {}),
+      );
+      final shimmer = await pumpSized(
+        tester,
+        const BrowseRowsShimmer(count: 1, shape: ShimmerRowShape.collection),
+      );
+
+      expect(shimmer.height, row.height);
+      expect(
+        ShimmerRowShape.collection.textInset,
+        BrowseItemRows.textInsetOf(_playlist(canEdit: true)),
+      );
+    });
+
+    testWidgets('a run of them, hairlines and all', (tester) async {
+      final rows = await pumpSized(
+        tester,
+        BrowseItemRows(items: [_track(), _track(), _track()]),
+      );
+      final shimmer = await pumpSized(
+        tester,
+        const BrowseRowsShimmer(count: 3),
+      );
+
+      expect(shimmer.height, rows.height);
+    });
+
+    testWidgets('its hairlines start where the rows\' will', (tester) async {
+      await pumpSized(tester, const BrowseRowsShimmer(count: 2));
+
+      expect(
+        tester.getTopLeft(find.byType(Divider)).dx,
+        ShimmerRowShape.row.textInset,
+      );
+    });
   });
 }
