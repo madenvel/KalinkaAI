@@ -78,7 +78,7 @@ void main() {
     // The server lists sources alphabetically by their internal key, which is
     // the order this arrives in.
     final api = _RootApi(
-      [_module('jamendo', 'Jamendo'), _module('localfiles', 'Local files')],
+      [_module('jamendo', 'Jamendo'), _module('localfiles', 'Local Library')],
       {
         'kalinka:jamendo:catalog:root': [
           _catalog('jamendo', 'New Releases', CatalogRole.discovery),
@@ -89,7 +89,7 @@ void main() {
       },
     );
 
-    expect(await _titles(api), ['Local files', 'Jamendo']);
+    expect(await _titles(api), ['Local Library', 'Jamendo']);
   });
 
   test(
@@ -137,7 +137,7 @@ void main() {
       final api = _RootApi(
         [
           _module('collections', 'Collections'),
-          _module('localfiles', 'Local files'),
+          _module('localfiles', 'Local Library'),
         ],
         {
           'kalinka:collections:catalog:root': [
@@ -157,7 +157,7 @@ void main() {
         ],
       );
 
-      expect(titles, ['Local files']);
+      expect(titles, ['Local Library']);
     },
   );
 }

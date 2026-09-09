@@ -263,20 +263,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
     required String mimeLabel,
     required String qualityLabel,
   }) {
-    String? source;
-    try {
-      source = EntityId.fromString(currentTrack.id).source;
-    } catch (_) {
-      source = null;
-    }
-    final bool isLocal = source != null && isLocalSource(source);
-
-    final List<String> parts = [];
-    if (isLocal) {
-      parts.add('My Files');
-    } else if (sourceInfo != null) {
-      parts.add(sourceInfo.title);
-    }
+    final List<String> parts = [if (sourceInfo != null) sourceInfo.title];
     final List<String> fmtParts = [
       if (mimeLabel.isNotEmpty) mimeLabel,
       if (qualityLabel.isNotEmpty) qualityLabel,
@@ -394,10 +381,7 @@ class _NowPlayingContentState extends ConsumerState<NowPlayingContent> {
             alignment: Alignment.centerRight,
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                StreamInfoButton(),
-                RendererSwitcherDropdown(),
-              ],
+              children: [StreamInfoButton(), RendererSwitcherDropdown()],
             ),
           ),
         ],

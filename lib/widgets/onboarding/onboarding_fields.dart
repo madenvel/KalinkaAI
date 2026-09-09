@@ -68,7 +68,7 @@ FieldSpec? moduleEnabledField(ModuleSpec m) {
   return null;
 }
 
-/// Whether the module is on. Local files has no meaningful off state — the
+/// Whether the module is on. Local Library has no meaningful off state — the
 /// server's library backend is built in — so it always reads enabled.
 bool inputModuleEnabled(SettingsState state, ModuleSpec m) {
   if (m.id == 'localfiles') return true;

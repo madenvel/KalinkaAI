@@ -198,7 +198,7 @@ class _IdleIndexer extends IndexerStatusNotifier {
 final _modules = [
   ModuleInfo(
     name: 'localfiles',
-    title: 'Local files',
+    title: 'Local Library',
     enabled: true,
     state: ModuleState.ready,
   ),

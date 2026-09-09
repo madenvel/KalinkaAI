@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../data_model/browse_filters.dart';
 import '../../data_model/search_results.dart';
-import '../../providers/source_modules_provider.dart';
 import '../../theme/app_theme.dart';
 import '../browse_rows_shimmer.dart';
 import '../search_cards/browse_item_rows.dart';
@@ -215,7 +214,6 @@ class _SourceGroup extends StatelessWidget {
     final tracks = group.tracks;
     final trackIds = [for (final item in tracks) item.id];
     final more = !expanded && tracks.length > InspiredBlock.previewCount;
-    final letter = sourceLetter(group.source);
     final shown = expanded
         ? tracks
         : tracks.take(InspiredBlock.previewCount).toList();
@@ -227,12 +225,11 @@ class _SourceGroup extends StatelessWidget {
         children: [
           Row(
             children: [
-              if (letter != null) ...[letter, const SizedBox(width: 10)],
+              SourceLetter(source: group.source),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  isLocalSource(group.source)
-                      ? 'YOUR LIBRARY'
-                      : title.toUpperCase(),
+                  title.toUpperCase(),
                   style: KalinkaTextStyles.sectionLabel.copyWith(
                     color: KalinkaColors.textPrimary,
                   ),

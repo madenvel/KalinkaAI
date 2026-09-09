@@ -119,7 +119,7 @@ final _modules = <ModuleInfo>[
   ),
   ModuleInfo(
     name: 'localfiles',
-    title: 'Local files',
+    title: 'Local Library',
     enabled: true,
     state: ModuleState.ready,
     capabilities: const [ModuleCapability.aiSearch],
@@ -286,11 +286,10 @@ void main() {
     await tester.pump(_settle);
 
     expect(find.text('Inspired by your request'), findsOneWidget);
-    expect(find.text('YOUR LIBRARY'), findsOneWidget);
+    expect(find.text('LOCAL LIBRARY'), findsOneWidget);
     expect(find.text('QOBUZ'), findsOneWidget);
-    // The library is the unmarked default; only the other source wears a
-    // letter.
-    expect(find.byType(SourceLetter), findsOneWidget);
+    // Every source is named and lettered, the listener's own included.
+    expect(find.byType(SourceLetter), findsNWidgets(2));
     expect(find.text('Play all'), findsNWidgets(2));
     expect(find.text('Away Song 3'), findsOneWidget);
     expect(find.text('Away Song 4'), findsNothing);
@@ -318,7 +317,7 @@ void main() {
     expect(find.text('Recommendations'), findsOneWidget);
     expect(find.text('Qobuz'), findsOneWidget);
     expect(find.text('Away Song 5'), findsOneWidget);
-    expect(find.text('YOUR LIBRARY'), findsNothing);
+    expect(find.text('LOCAL LIBRARY'), findsNothing);
     expect(find.text('MATCHES BY NAME'), findsNothing);
   });
 

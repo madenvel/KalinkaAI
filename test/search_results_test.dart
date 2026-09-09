@@ -87,7 +87,7 @@ BrowseItemsList _card(String source, List<BrowseItem> tracks) => _list([
 ]);
 
 const _sources = <SourceOption>[
-  (name: 'localfiles', title: 'Local files'),
+  (name: 'localfiles', title: 'Local Library'),
   (name: 'qobuz', title: 'Qobuz'),
 ];
 
