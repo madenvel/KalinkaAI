@@ -96,8 +96,8 @@ class InspiredBlock extends StatelessWidget {
   }
 }
 
-/// The block's name and what it is, in the shape a page title takes: the
-/// display face over one quiet line, and nothing drawn through either.
+/// What the block is and then its name, in the shape a page title takes: a
+/// quiet label over the display face, and nothing drawn through either.
 ///
 /// No rule and no tally. A rule divides a heading from what follows, and this
 /// heading is not separate from its groups — the wash behind it is what says
@@ -108,72 +108,81 @@ class _InspiredHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Inspired by your request',
-          style: KalinkaFonts.display(
-            fontSize: KalinkaTypography.baseSize + 8,
-            fontWeight: FontWeight.w600,
-            color: KalinkaColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 5),
-        Row(
-          children: [
-            const Icon(
-              Icons.auto_awesome,
-              size: 14,
-              color: KalinkaColors.accentTint,
-            ),
-            const SizedBox(width: 7),
-            Text(
-              'Smart recommendations',
-              style: KalinkaTextStyles.trackRowSubtitle.copyWith(
-                color: KalinkaColors.textSecondary,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome,
+                size: 14,
+                color: KalinkaColors.accentTint,
               ),
-            ),
-          ],
-        ),
-      ],
+              const SizedBox(width: 7),
+              Text(
+                'SMART RECOMMENDATIONS',
+                style: KalinkaTextStyles.sectionLabel.copyWith(
+                  color: KalinkaColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Inspired by your request',
+            style: KalinkaTextStyles.dialogTitle,
+          ),
+        ],
+      ),
     );
   }
 }
 
-/// The berry the block is allowed: a wash behind the heading, spent almost
-/// entirely on the right where the name leaves the canvas empty, and gone
-/// again by the foot of the heading.
+/// The berry the block is allowed: the Discover root's bloom at a section's
+/// scale — off the top-right, dissolved into the ground before its box ends.
 ///
-/// Diffuse rather than drawn — a berry edge or fill would read as a decision,
-/// and this is atmosphere for the one section the app answers in its own
-/// voice. It is also the only thing marking where the block starts, now that
-/// nothing is ruled or barred.
+/// Diffuse rather than drawn. A berry edge or fill would read as a decision,
+/// and this is atmosphere for the one section that answers in its own voice.
+/// It is also the only thing marking where the block starts, now that nothing
+/// there is ruled or barred.
 class _HeadingWash extends StatelessWidget {
   const _HeadingWash();
 
+  /// Off to the right and high, so the glow sits in the canvas the heading
+  /// leaves empty rather than behind the words.
+  static final _bloom = RadialGradient(
+    center: const Alignment(0.85, -0.5),
+    radius: 1.35,
+    colors: [
+      KalinkaColors.accentWash,
+      KalinkaColors.accentWash.withValues(alpha: 0),
+    ],
+  );
+
+  /// What ends it: the ground brought up over the bloom a little past the
+  /// foot of the heading. The bloom is still tinted where its box stops, so
+  /// without this it is clipped there and the cut reads as a line across the
+  /// results.
+  static final _fadeOut = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      KalinkaColors.background.withValues(alpha: 0),
+      KalinkaColors.background,
+    ],
+    stops: const [0.35, 0.62],
+  );
+
   @override
   Widget build(BuildContext context) {
-    return ShaderMask(
-      // Full behind the name, gone by the foot of the heading — the box runs
-      // on into the groups, the wash does not.
-      shaderCallback: (bounds) => const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        stops: [0.18, 0.46],
-        colors: [Colors.white, Colors.transparent],
-      ).createShader(bounds),
-      blendMode: BlendMode.dstIn,
-      child: const DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            stops: [0.25, 1],
-            colors: [Color(0x00C2394B), KalinkaColors.accentWash],
-          ),
-        ),
-      ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(decoration: BoxDecoration(gradient: _bloom)),
+        DecoratedBox(decoration: BoxDecoration(gradient: _fadeOut)),
+      ],
     );
   }
 }

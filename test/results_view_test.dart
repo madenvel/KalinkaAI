@@ -357,7 +357,7 @@ void main() {
     await tester.pump(_settle);
 
     expect(find.text('Inspired by your request'), findsOneWidget);
-    expect(find.text('Smart recommendations'), findsOneWidget);
+    expect(find.text('SMART RECOMMENDATIONS'), findsOneWidget);
     // Its own heading, not the labelled shelf the name matches take.
     final headings = tester.widgetList<ShelfHeading>(find.byType(ShelfHeading));
     expect(
