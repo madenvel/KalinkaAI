@@ -26,13 +26,16 @@ class TrackGroupActions extends ConsumerWidget {
     final selectionMode = ref.watch(
       selectionStateProvider.select((s) => s.isActive),
     );
-    if (selectionMode) return SelectAllButton(trackIds: trackIds);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        PlayAllChip(trackIds: trackIds),
-        const SizedBox(width: 8),
-        AddAllChip(trackIds: trackIds),
+        if (selectionMode) ...[
+          SelectAllButton(trackIds: trackIds),
+        ] else ...[
+          PlayAllChip(trackIds: trackIds),
+          const SizedBox(width: 8),
+          AddAllChip(trackIds: trackIds),
+        ],
       ],
     );
   }
@@ -181,6 +184,10 @@ class _AddAllChipState extends ConsumerState<AddAllChip> {
 
 /// Select / clear all of a card's tracks (including any hidden behind "show
 /// more"), surfacing the multi-select toolbar for play now / play next / add.
+///
+/// Grey while nothing is selected — selecting is one option among the rows'
+/// own taps; crimson once the whole group is selected, where clearing it is
+/// the action the heading leads with, the slot "Play all" holds otherwise.
 class SelectAllButton extends ConsumerWidget {
   final List<String> trackIds;
 
@@ -193,10 +200,12 @@ class SelectAllButton extends ConsumerWidget {
         (s) => trackIds.every(s.selectedIds.contains),
       ),
     );
-    return Semantics(
-      label: allSelected ? 'Clear selection' : 'Select all tracks',
-      button: true,
-      child: GestureDetector(
+    // Same 44px slot as the Play all / Enqueue pills it replaces, so the
+    // header height doesn't jump when selection mode toggles.
+    return Center(
+      child: ActionPillButton(
+        label: allSelected ? 'Clear' : 'Select all',
+        accent: allSelected,
         onTap: () {
           KalinkaHaptics.lightImpact();
           final notifier = ref.read(selectionStateProvider.notifier);
@@ -206,39 +215,7 @@ class SelectAllButton extends ConsumerWidget {
             notifier.selectTracks(trackIds);
           }
         },
-        behavior: HitTestBehavior.opaque,
-        // Same 44px slot as the Play all / Add all chips it replaces, so the
-        // header height doesn't jump when selection mode toggles.
-        child: SizedBox(
-          height: 44,
-          child: Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: allSelected
-                    ? KalinkaColors.accentSubtle
-                    : KalinkaColors.surfaceElevated,
-                border: Border.all(
-                  color: allSelected
-                      ? KalinkaColors.accentBorder
-                      : KalinkaColors.borderDefault,
-                  width: 1,
-                ),
-              ),
-              child: Text(
-                allSelected ? 'Clear' : 'Select all',
-                style: KalinkaFonts.sans(
-                  fontSize: KalinkaTypography.baseSize + 1,
-                  fontWeight: FontWeight.w600,
-                  color: allSelected
-                      ? KalinkaColors.accentTint
-                      : KalinkaColors.textPrimary,
-                ),
-              ),
-            ),
-          ),
-        ),
+        semanticsLabel: allSelected ? 'Clear selection' : 'Select all tracks',
       ),
     );
   }
