@@ -57,11 +57,13 @@ Berry has two treatments, and which one a control gets is not a matter of taste.
 
 **Fill** — `accent` background, `textPrimary` label — marks *where the decision is being made*: the active `SettingsEnumPills` segment, a selected chip inside the filter card, `SettingsToggle` on, the primary `KalinkaButton`. Fill is what makes one chip findable among twenty.
 
-**Outline** — `accentSubtle` fill, `accentBorder` edge, `accentTint` label — marks *the trace of a decision made elsewhere*: applied-filter chips above a listing, the lit search-and-filters button, `ActionPillButton(accent:)`, the now-playing row tint. It reads as "in effect", not "pick me".
+**Outline** — `accentSubtle` fill, `accentBorder` edge, `accentTint` label — marks *the one a set leads with*, or the thing the app is doing right now: `ActionPillButton(accent:)`'s Play all beside a plain Enqueue, the now-playing row tint. It reads as "this one", not "pick me".
 
-The same value takes both treatments depending on where it is drawn, and that is the rule working rather than an inconsistency: a genre chip is filled inside the filter card, where you are choosing it, and outlined in the header of the listing it produced, where it is a receipt.
+**A receipt is grey.** What a decision left behind is chrome, not signal — applied-filter chips above a listing, the search-and-filters pill while filters are on — and it gets `surfaceElevated` fill, `borderDefault` edge, `textPrimary` label, lightening to `surfaceOverlay` / `textMuted` under the pointer. The one thing a receipt may carry in berry is a **count**: the filter pill's badge is a number, which says how many rather than merely that there are any, and a number is too small to shout. (Revised 2026-09-09: the chips and the lit pill were both outlined, and three berry-edged things in one title bar left berry meaning nothing in particular.)
 
-Duration settles what the first test leaves open. Berry is loud — a surface you look at for four seconds while choosing can afford it; chrome that stays on screen for a whole session cannot. That is why the lit filter button is outlined despite holding genuine state.
+The same value takes both treatments depending on where it is drawn, and that is the rule working rather than an inconsistency: a genre chip is filled inside the filter card, where you are choosing it, and grey in the header of the listing it produced, where it is a receipt you keep looking at.
+
+Duration settles what the first test leaves open. Berry is loud — a surface you look at for four seconds while choosing can afford it; chrome that stays on screen for a whole session cannot. That is why the filter pill holds genuine state and is still grey.
 
 **The budget:** a screen at rest carries at most one crimson fill. A decision surface — a filter card, a dialog — is not at rest, and inside it fill is the vocabulary of choosing.
 

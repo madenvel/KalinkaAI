@@ -134,9 +134,10 @@ class ActiveFilterChips extends ConsumerWidget {
   }
 }
 
-/// One applied filter, in the palette's outline treatment — subtle fill,
-/// berry edge and label — since it is the trace of a choice made in the
-/// card, not the place the choice is made.
+/// One applied filter, drawn as a receipt: grey, because it is the trace of a
+/// choice made in the card rather than the place the choice is made, and it
+/// stays on screen for as long as the listing does (PALETTE.md, *A receipt is
+/// grey*).
 class ActiveFilterChip extends StatefulWidget {
   final String label;
   final VoidCallback onRemove;
@@ -186,13 +187,13 @@ class _ActiveFilterChipState extends State<ActiveFilterChip> {
             padding: const EdgeInsets.only(left: 14, right: 10),
             decoration: BoxDecoration(
               color: _hovering
-                  ? KalinkaColors.accent.withValues(alpha: 0.22)
-                  : KalinkaColors.accentSubtle,
+                  ? KalinkaColors.surfaceOverlay
+                  : KalinkaColors.surfaceElevated,
               borderRadius: BorderRadius.circular(17),
               border: Border.all(
                 color: _hovering
-                    ? KalinkaColors.accentTint
-                    : KalinkaColors.accentBorder,
+                    ? KalinkaColors.textMuted
+                    : KalinkaColors.borderDefault,
                 width: 1,
               ),
             ),
@@ -200,7 +201,11 @@ class _ActiveFilterChipState extends State<ActiveFilterChip> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (widget.icon != null) ...[
-                  Icon(widget.icon, size: 14, color: KalinkaColors.accentTint),
+                  Icon(
+                    widget.icon,
+                    size: 14,
+                    color: KalinkaColors.textSecondary,
+                  ),
                   const SizedBox(width: 7),
                 ],
                 Text(
@@ -208,7 +213,7 @@ class _ActiveFilterChipState extends State<ActiveFilterChip> {
                   style: KalinkaFonts.sans(
                     fontSize: KalinkaTypography.baseSize + 1,
                     fontWeight: FontWeight.w500,
-                    color: KalinkaColors.accentTint,
+                    color: KalinkaColors.textPrimary,
                   ),
                 ),
                 const SizedBox(width: 6),

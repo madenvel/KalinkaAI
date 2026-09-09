@@ -218,6 +218,26 @@ void main() {
     expect((pillDecoration().border as Border).top.color, restingEdge);
   });
 
+  testWidgets('a filtered button says so with its badge, not its edge', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: SearchFilterButton(activeCount: 3, onTap: () {})),
+      ),
+    );
+
+    final pill =
+        tester
+                .widget<AnimatedContainer>(find.byType(AnimatedContainer))
+                .decoration
+            as BoxDecoration;
+    // Berry in the bar means one thing, and it is the count.
+    expect((pill.border as Border).top.color, KalinkaColors.borderDefault);
+    expect(pill.color, KalinkaColors.surfaceElevated);
+    expect(find.text('3'), findsOneWidget);
+  });
+
   testWidgets('an unfiltered button carries no badge', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
