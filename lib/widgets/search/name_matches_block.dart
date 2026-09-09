@@ -144,28 +144,30 @@ class _SourceChoices extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final info = ref.watch(sourceDisplayInfoProvider);
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        SourceChoice(
-          label: 'ALL',
-          tint: null,
-          selected: picked == null,
-          onTap: () => onPick(null),
-          semanticsLabel: 'All sources',
-        ),
-        for (final source in sources)
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        spacing: 8,
+        children: [
           SourceChoice(
-            label:
-                info[source]?.abbreviation ??
-                (source.isEmpty ? '?' : source[0].toUpperCase()),
-            tint: info[source]?.color ?? colorForSourceName(source),
-            selected: picked == source,
-            onTap: () => onPick(source),
-            semanticsLabel: info[source]?.title ?? source,
+            label: 'ALL',
+            tint: null,
+            selected: picked == null,
+            onTap: () => onPick(null),
+            semanticsLabel: 'All sources',
           ),
-      ],
+          for (final source in sources)
+            SourceChoice(
+              label:
+                  info[source]?.abbreviation ??
+                  (source.isEmpty ? '?' : source[0].toUpperCase()),
+              tint: info[source]?.color ?? colorForSourceName(source),
+              selected: picked == source,
+              onTap: () => onPick(source),
+              semanticsLabel: info[source]?.title ?? source,
+            ),
+        ],
+      ),
     );
   }
 }

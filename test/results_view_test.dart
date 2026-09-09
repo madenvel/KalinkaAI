@@ -420,6 +420,35 @@ void main() {
       expect(find.text('Q Act'), findsOneWidget);
     });
 
+    /// The layout as the block builds it. A Container given an alignment
+    /// expands to whatever it is handed, so this once came out as a column
+    /// of full-width slabs — measured here rather than assumed.
+    testWidgets('sit on one line, each no wider than its label', (
+      tester,
+    ) async {
+      final api = _ScriptedApi(
+        matches: {
+          'qobuz': [_artist('qobuz', '1', 'Q Act', MatchTier.exact)],
+          'localfiles': [_artist('localfiles', '1', 'L Act', MatchTier.exact)],
+        },
+      );
+      await _pump(tester, api);
+      await tester.pump(_settle);
+
+      final rects = [
+        for (var i = 0; i < 3; i++)
+          tester.getRect(find.byType(SourceChoice).at(i)),
+      ];
+
+      expect(rects.map((r) => r.top).toSet(), hasLength(1));
+      // The two letters are squares; only ALL is wider, and none of them has
+      // taken the line.
+      expect(rects[1].width, SourceChoice.side);
+      expect(rects[2].width, SourceChoice.side);
+      final line = tester.getSize(find.byType(ResultsView)).width;
+      expect(rects[0].width, lessThan(line / 2));
+    });
+
     testWidgets('picking one reads that source alone, ALL brings them back', (
       tester,
     ) async {

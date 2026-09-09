@@ -134,6 +134,49 @@ void main() {
     expect(roundness(choice.decoration!, SourceChoice.side), lessThan(0.3));
   });
 
+  /// A lone letter is squared up to the height, so the control and the badge
+  /// are the same shape and not merely the same corner radius.
+  testWidgets('a letter choice is square, a word only as wide as its word', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sourceModulesProvider.overrideWith((ref) => _twoSources)],
+        child: MaterialApp(
+          home: Scaffold(
+            body: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SourceChoice(
+                  label: 'J',
+                  tint: const Color(0xFF5B8DEF),
+                  selected: false,
+                  onTap: () {},
+                  semanticsLabel: 'Jamendo',
+                ),
+                SourceChoice(
+                  label: 'ALL',
+                  tint: null,
+                  selected: true,
+                  onTap: () {},
+                  semanticsLabel: 'All sources',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final letter = tester.getRect(find.byType(SourceChoice).at(0));
+    final word = tester.getRect(find.byType(SourceChoice).at(1));
+
+    expect(letter.size, const Size(SourceChoice.side, SourceChoice.side));
+    expect(word.height, SourceChoice.side);
+    expect(word.width, greaterThan(SourceChoice.side));
+  });
+
   /// The palette gives a screen at rest one crimson fill at most, and this
   /// row is chrome that stays up for the session. ALL is on by default, so a
   /// filled ALL would spend that budget on "nothing has been chosen".

@@ -147,6 +147,11 @@ class SourceChoice extends StatefulWidget {
   /// Side of a single-letter choice, and the height of every one of them.
   static const side = 44.0;
 
+  /// Breathing room either side of the label. A lone letter is squared up to
+  /// [side] against these two.
+  static const _padding = 12.0;
+  static const _border = 1.0;
+
   const SourceChoice({
     super.key,
     required this.label,
@@ -211,20 +216,30 @@ class _SourceChoiceState extends State<SourceChoice> {
             duration: const Duration(milliseconds: 130),
             curve: Curves.easeOut,
             height: SourceChoice.side,
-            constraints: const BoxConstraints(minWidth: SourceChoice.side),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(
+              horizontal: SourceChoice._padding,
+            ),
             decoration: BoxDecoration(
               color: bg,
-              border: Border.all(color: border, width: 1),
+              border: Border.all(color: border, width: SourceChoice._border),
               // SourceLetter's 5-on-22, so the two are the same shape.
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Text(
-              widget.label,
-              style: KalinkaTextStyles.sourceBadgeLetter.copyWith(
-                fontSize: 13,
-                color: fg,
+            // Sized by its padding and this floor, never by an alignment —
+            // a Container given one expands to fill whatever it is handed.
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minWidth:
+                    SourceChoice.side -
+                    2 * (SourceChoice._padding + SourceChoice._border),
+              ),
+              child: Text(
+                widget.label,
+                textAlign: TextAlign.center,
+                style: KalinkaTextStyles.sourceBadgeLetter.copyWith(
+                  fontSize: 13,
+                  color: fg,
+                ),
               ),
             ),
           ),
