@@ -168,10 +168,6 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              if (sourceBadgeVisible(ref, widget.item.id)) ...[
-                                SourceBadge(entityId: widget.item.id),
-                                const SizedBox(width: 6),
-                              ],
                               Flexible(
                                 child: Text(
                                   name,
@@ -183,10 +179,19 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
                               ),
                             ],
                           ),
-                          Text.rich(
-                            entityTypeSubtitle('Artist', stats),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (sourceBadgeVisible(ref, widget.item.id)) ...[
+                                SourceBadge(entityId: widget.item.id),
+                                const SizedBox(width: 6),
+                              ],
+                              Text.rich(
+                                entityTypeSubtitle('Artist', stats),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
                         ],
                       ),
