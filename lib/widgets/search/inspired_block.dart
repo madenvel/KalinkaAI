@@ -257,11 +257,7 @@ class _SourceGroup extends StatelessWidget {
           else
             // Tapping a track plays the group from it: the group is the
             // queue, which gives it a coherent identity.
-            BrowseItemRows(
-              items: shown,
-              dividers: false,
-              queueContextIds: trackIds,
-            ),
+            BrowseItemRows(items: shown, queueContextIds: trackIds),
         ],
       ),
     );

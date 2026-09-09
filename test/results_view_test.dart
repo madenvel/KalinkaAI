@@ -364,14 +364,15 @@ void main() {
       headings.map((h) => h.title),
       isNot(contains(startsWith('Inspired'))),
     );
-    // Nothing ruled through it, and no tally on the block or on the source
-    // under it — five suggested tracks say so by being five rows.
+    // Nothing is ruled through the heading. The only hairlines in the block
+    // are the ones between its rows — three shown of five, so two — and no
+    // tally on the block or on the source under it.
     expect(
       find.descendant(
         of: find.byType(InspiredBlock),
         matching: find.byType(Divider),
       ),
-      findsNothing,
+      findsNWidgets(2),
     );
     expect(find.textContaining('· 5'), findsNothing);
   });

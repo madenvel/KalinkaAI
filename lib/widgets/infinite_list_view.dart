@@ -31,15 +31,14 @@ class InfiniteListView<T> extends StatefulWidget {
   /// Builds one row. [loaded] is every item scrolled in so far, so builders
   /// that need list context (e.g. "play this whole list from here") can use
   /// it without the list threading state back out.
-  final Widget Function(
-    BuildContext context,
-    T item,
-    int index,
-    List<T> loaded,
-  ) itemBuilder;
+  final Widget Function(BuildContext context, T item, int index, List<T> loaded)
+  itemBuilder;
 
-  /// Divider/gap drawn *before* each item after the first. Omit for no gaps.
-  final IndexedWidgetBuilder? separatorBuilder;
+  /// Divider/gap drawn *before* each item after the first, given the item it
+  /// follows — a separator that has to line up with the row above it can only
+  /// do that if it knows which row that is. Omit for no gaps.
+  final Widget Function(BuildContext context, int index, T above)?
+  separatorBuilder;
 
   /// How many items to request per chunk.
   final int chunkSize;
@@ -269,7 +268,10 @@ class _InfiniteListViewState<T> extends State<InfiniteListView<T>> {
           if (widget.separatorBuilder != null && i > 0) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [widget.separatorBuilder!(context, i - 1), item],
+              children: [
+                widget.separatorBuilder!(context, i - 1, _items[i - 1]),
+                item,
+              ],
             );
           }
           return item;

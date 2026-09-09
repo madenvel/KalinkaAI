@@ -80,8 +80,7 @@ class ResultsView extends ConsumerWidget {
           onRetry: (source) => notifier.retry(ResultsLeg.matches, source),
         ),
       if (matches && inspired) const SizedBox(height: 28),
-      if (inspired) ...[
-        const Divider(),
+      if (inspired)
         InspiredBlock(
           results: results,
           narrowed: narrowed,
@@ -96,7 +95,6 @@ class ResultsView extends ConsumerWidget {
           onRetry: (source) => notifier.retry(ResultsLeg.inspired, source),
           gutter: _gutter,
         ),
-      ],
     ];
   }
 }

@@ -144,7 +144,7 @@ class _CatalogExpansion extends ConsumerWidget {
               ),
             );
           }
-          return BrowseItemRows(items: list.items, dividers: false);
+          return BrowseItemRows(items: list.items);
         },
         loading: () => const Padding(
           padding: EdgeInsets.all(16),
