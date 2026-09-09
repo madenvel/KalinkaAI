@@ -114,7 +114,7 @@ ModuleInfo _module(String name, String title, {bool builtin = false}) =>
     );
 
 final _withCollections = [
-  _module('localfiles', 'Local files'),
+  _module('localfiles', 'Local Library'),
   _module('jamendo', 'Jamendo'),
   _module('qobuz', 'Qobuz'),
   _module('collections', 'Collections', builtin: true),
@@ -123,7 +123,7 @@ final _withCollections = [
 _Api _serverWith(List<BrowseItem> collections, {int total = 0}) => _Api(
   roots: [
     _root('collections', 'Collections'),
-    _root('localfiles', 'Local files'),
+    _root('localfiles', 'Local Library'),
   ],
   children: {
     'kalinka:collections:catalog:root': [_shelf()],

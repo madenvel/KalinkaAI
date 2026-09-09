@@ -53,7 +53,7 @@ watches it out of the box, and it is writable by everyone — just copy your
 files in (locally, over SFTP, however you like) and skip to step 3.
 
 To use a collection that already lives somewhere else (USB drive, NAS
-mount, a folder in your home), point the **Local files** module at it in
+mount, a folder in your home), point the **Local Library** module at it in
 step 3 instead. One thing to know: the server runs as the unprivileged
 system user `kalusr`, so the files must be **readable by `kalusr`** —
 world-readable (`o+rX`) or group-readable with `kalusr` in the group.
@@ -75,7 +75,7 @@ by other users (`ls -l`), and fix with `chmod -R o+rX <mount>/music` if not.
 1. Install the Kalinka app ([releases](https://github.com/madenvel/KalinkaAI/releases)) on a phone on the same network.
 2. On first launch the setup wizard scans the network and lists every Kalinka server it finds — pick yours and tap **Connect**. (No server found? See [Troubleshooting](#troubleshooting).)
 3. The wizard walks you through the rest of the first-run configuration in seven steps: your music sources and their settings (including the **Music folders** to scan and **AI search**), the **audio output** to play through, an **amplifier or receiver** to hand volume and power to, and a **sound test** to confirm it all works. It finishes by restarting the server so the settings take effect.
-4. To change any of this later: tap the **server chip** (top-right, with the green status dot) → **Server settings**. Music folders live in the **Input Modules** tab under **Local files**; advanced options are behind the **EXPERT** toggle (top-right). Audio outputs are behind the cast icon in the player.
+4. To change any of this later: tap the **server chip** (top-right, with the green status dot) → **Server settings**. Music folders live in the **Input Modules** tab under **Local Library**; advanced options are behind the **EXPERT** toggle (top-right). Audio outputs are behind the cast icon in the player.
 
 The indexer picks up the folder within the scan interval (15 minutes by
 default) and additionally watches for file changes; a freshly added

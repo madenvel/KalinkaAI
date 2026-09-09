@@ -11,7 +11,8 @@ class SourceDisplayInfo {
   final String abbreviation;
   final Color color;
 
-  /// The server's own source, unbadged like the local library.
+  /// The server's own source, which wears no badge: it is the app itself
+  /// speaking, not somewhere the music came from.
   final bool builtin;
 
   const SourceDisplayInfo({
@@ -26,8 +27,8 @@ class SourceDisplayInfo {
 /// Backend identifier for the local-files source.
 const kLocalSourceName = 'localfiles';
 
-/// Whether [name] is the on-device/local-files source. It's treated as the
-/// unmarked default and never shows a source badge.
+/// Whether [name] is the on-device/local-files source. It is attributed like
+/// any other source; this only says which one comes first in a list.
 bool isLocalSource(String name) => name.toLowerCase() == kLocalSourceName;
 
 /// The source segment of an entity id, or null for an id that has none.

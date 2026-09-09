@@ -304,7 +304,7 @@ class _CatalogBanner extends StatelessWidget {
 
   Widget _buildBanner(double scale) {
     // One attribution line, not two: the provider name and the description
-    // said much the same thing ("Local library" over "Recently added
+    // said much the same thing ("Local Library" over "Recently added
     // tracks"). The badge keeps the attribution; the description carries the
     // words, and only stands in for itself when there is none.
     final description = page.description?.trim() ?? '';

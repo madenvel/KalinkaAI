@@ -375,7 +375,7 @@ class _SourceGroup extends StatelessWidget {
         for (final source in capabilities.sources)
           FilterPill(
             label: source.title,
-            leading: sourceLetter(source.name),
+            leading: SourceLetter(source: source.name),
             selected: selected.contains(source.name),
             onTap: () => onChanged(
               selected.contains(source.name)

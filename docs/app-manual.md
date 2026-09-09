@@ -61,7 +61,7 @@ it later. From the server sheet tap **Server settings**:
 <img src="images/manual/settings-general.png" width="260">
 
 1. Switch to the **Input Modules** tab.
-2. Open **Local files**.
+2. Open **Local Library**.
 3. Add your collection path(s) under **Music folders** — e.g.
    `/srv/kalinka/music` (see the [initial setup
    guide](initial-setup.md#2-put-your-music-where-the-server-can-see-it)

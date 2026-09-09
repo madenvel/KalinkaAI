@@ -21,12 +21,12 @@ class SourceUnavailableRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final letter = sourceLetter(source);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
-          if (letter != null) ...[letter, const SizedBox(width: 10)],
+          SourceLetter(source: source),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               '$title · Source unavailable',

@@ -7,13 +7,13 @@ import '../theme/app_theme.dart';
 enum SourceBadgeSize { standard, small }
 
 /// Whether a [SourceBadge] for [entityId] renders anything — false for a
-/// single source, an unparseable id, the local library, or a source the
-/// server provides itself. Callers gate the badge's trailing spacer on this
-/// so no gap is left when it's hidden.
+/// single source, an unparseable id, or a source the server provides itself.
+/// Callers gate the badge's trailing spacer on this so no gap is left when
+/// it's hidden.
 bool sourceBadgeVisible(WidgetRef ref, String entityId) {
   if (ref.watch(sourceCountProvider) <= 1) return false;
   final source = sourceOfId(entityId);
-  if (source == null || isLocalSource(source)) return false;
+  if (source == null) return false;
   final info = ref.watch(sourceDisplayInfoProvider)[source];
   return info != null && !info.builtin;
 }
@@ -21,8 +21,8 @@ bool sourceBadgeVisible(WidgetRef ref, String entityId) {
 /// Displays a source attribution badge: a pill containing the first letter
 /// of the source name, uppercase, in the source colour.
 ///
-/// Automatically hides when only one source is configured, and always hides
-/// for the local-files source (the unmarked default).
+/// Automatically hides when only one source is configured — with nothing to
+/// tell apart, a badge is noise.
 ///
 /// [size.standard]: 11dp font, 5dp h-padding, 2dp v-padding (list rows, now-playing)
 /// [size.small]:    10dp font, 4dp h-padding, 1.5dp v-padding (queue rows, tiles)
@@ -78,16 +78,8 @@ class SourceBadge extends ConsumerWidget {
   }
 }
 
-/// The letter tile for [source] where a results group or a filter pill
-/// names its source, or nothing for the local library: it is the unmarked
-/// default here as everywhere.
-Widget? sourceLetter(String source) =>
-    isLocalSource(source) ? null : SourceLetter(source: source);
-
-/// The letter tile that stands for a source in a results group or a filter
-/// pill. Reached through [sourceLetter], which keeps the library unmarked —
-/// and directly where the library is one of the sources being named, as on a
-/// collection drawn from several.
+/// The letter tile that stands for a source where a results group, a filter
+/// pill or a collection drawn from several names the sources it holds.
 class SourceLetter extends ConsumerWidget {
   final String source;
 

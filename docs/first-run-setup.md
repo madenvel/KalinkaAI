@@ -23,7 +23,7 @@ The app looks for Kalinka servers on your network and lists what it finds, with 
 
 Choose what fills your library. You need at least one source.
 
-- **Local files** — the music stored on the server itself. This is always on and cannot be turned off.
+- **Local Library** — the music stored on the server itself. This is always on and cannot be turned off.
 - **Jamendo** — a free streaming catalogue of independent artists. Turn it on if you want it.
 
 Other sources appear here too if their plugins are installed on the server. You can always add or remove sources later in Settings.
@@ -34,7 +34,7 @@ Other sources appear here too if their plugins are installed on the server. You 
 
 Each source you enabled asks only for what it needs.
 
-### Local files
+### Local Library
 
 - **Music folders** — the folders on the server that Kalinka scans for music. This is the important one: if it points at the wrong place, your library stays empty.
 
@@ -52,7 +52,7 @@ Each source you enabled asks only for what it needs.
 - **Mood / AI search** — turn this **on** to search Jamendo by mood or description as well. The data it needs is downloaded automatically the first time.
 - **Audio quality** — the streaming format. FLAC is only available for tracks whose artist allowed lossless download, and falls back to MP3 for the rest.
 
-> **To get smart search everywhere, turn AI search on for both Local files and Jamendo.** The two settings are separate: switching it off for one source does not affect the other. If you leave both off, search still works, but only by matching names.
+> **To get smart search everywhere, turn AI search on for both Local Library and Jamendo.** The two settings are separate: switching it off for one source does not affect the other. If you leave both off, search still works, but only by matching names.
 
 ## Step 4 — Audio output
 

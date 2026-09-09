@@ -83,8 +83,7 @@ class CatalogCardsSection extends ConsumerWidget {
   }
 
   /// The provider label shown as the opened catalog page's subtitle.
-  String _providerFor(CatalogCardGroup group) =>
-      isLocalSource(group.sourceName) ? 'Local library' : group.sourceTitle;
+  String _providerFor(CatalogCardGroup group) => group.sourceTitle;
 }
 
 Color _tintFor(String sourceName) => colorForSourceName(sourceName);
@@ -118,8 +117,7 @@ IconData? _iconForId(String? id) {
   }
 }
 
-/// Source attribution header: letter badge + tinted title; local-files is the
-/// unmarked default (no badge, generic title).
+/// Source attribution header: letter badge + tinted title.
 class _SourceGroupHeader extends StatelessWidget {
   final CatalogCardGroup group;
 
@@ -127,13 +125,12 @@ class _SourceGroupHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLocal = isLocalSource(group.sourceName);
     final tint = _tintFor(group.sourceName);
-    final title = isLocal ? 'Local library' : group.sourceTitle;
+    final title = group.sourceTitle;
 
     return Row(
       children: [
-        if (!isLocal && title.isNotEmpty) ...[
+        if (title.isNotEmpty) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
             decoration: BoxDecoration(
