@@ -17,6 +17,7 @@ import 'package:kalinka/providers/selection_state_provider.dart';
 import 'package:kalinka/providers/source_modules_provider.dart';
 import 'package:kalinka/widgets/kalinka_button.dart';
 import 'package:kalinka/widgets/search_cards/action_pill_button.dart';
+import 'package:kalinka/widgets/search_cards/collection_row.dart';
 import 'package:kalinka/widgets/search_cards/container_action_header.dart';
 import 'package:kalinka/widgets/search/search_session_view.dart';
 import 'package:kalinka/widgets/selection_overlay.dart';
@@ -93,6 +94,12 @@ class _EmptyApi implements KalinkaPlayerProxy {
 class _ShelfApi extends _EmptyApi {
   final List<String> created = [];
   final List<(String, String)> renamed = [];
+  final List<String> deleted = [];
+
+  @override
+  Future<void> deleteCollection(String id) async {
+    deleted.add(id);
+  }
 
   @override
   Future<String> createCollection(
@@ -106,6 +113,20 @@ class _ShelfApi extends _EmptyApi {
   @override
   Future<void> renameCollection(String id, String name) async {
     renamed.add((id, name));
+  }
+
+  /// Only the collections source has anything for this name, which is the
+  /// point: a collection is found by searching, like anything else.
+  @override
+  Future<BrowseItemsList> searchMatches(
+    String query, {
+    List<String>? sources,
+  }) async {
+    if (sources?.single != 'collections') {
+      return BrowseItemsList(0, 10, 0, const []);
+    }
+    final hit = _collection(_c1, 'Late Night Signals', 2);
+    return BrowseItemsList(0, 1, 1, [hit]);
   }
 
   @override
@@ -220,6 +241,22 @@ void main() {
     }
   }
 
+  testWidgets('a collection is found by name among the search results', (
+    tester,
+  ) async {
+    final container = await pumpSurface(tester, api: _ShelfApi());
+
+    container.read(searchSessionProvider.notifier).submit('signals');
+    // Past the floor the loading state is held for, so the legs have landed.
+    await tester.pump(const Duration(milliseconds: 700));
+    await settle(tester);
+
+    // Its own row, not a plain playlist's: a collection says what it is made
+    // of wherever it is listed.
+    expect(find.byType(CollectionRow), findsOneWidget);
+    expect(find.text('Late Night Signals'), findsOneWidget);
+  });
+
   testWidgets('the collections screen with none yet shows the invitation', (
     tester,
   ) async {
@@ -230,8 +267,8 @@ void main() {
     await settle(tester);
 
     expect(find.text('No collections yet'), findsOneWidget);
-    // Making one is the screen's own action and is live; rearranging what is
-    // there waits on the rest of the write API.
+    // Making one is what an empty screen is for; rearranging is dead, having
+    // nothing to rearrange.
     final pills = tester
         .widgetList<ActionPillButton>(find.byType(ActionPillButton))
         .toList();
@@ -243,6 +280,24 @@ void main() {
     final invitation = tester.widget<KalinkaButton>(find.byType(KalinkaButton));
     expect(invitation.label, 'CREATE COLLECTION');
     expect(invitation.variant, KalinkaButtonVariant.accent);
+  });
+
+  testWidgets('editing comes alive once there are collections to edit', (
+    tester,
+  ) async {
+    final container = await pumpSurface(tester, api: _ShelfApi());
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+
+    final edit = tester.widget<ActionPillButton>(
+      find.ancestor(
+        of: find.text('Edit'),
+        matching: find.byType(ActionPillButton),
+      ),
+    );
+    expect(edit.enabled, isTrue);
   });
 
   testWidgets('a source catalog with nothing in it stays plain', (
@@ -378,7 +433,9 @@ void main() {
     await tester.tap(find.text('Sunday Morning'));
     await settle(tester);
 
-    await tester.tap(find.byIcon(Icons.edit_rounded));
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await settle(tester);
+    await tester.tap(find.text('Rename'));
     await settle(tester);
     await tester.enterText(find.byType(TextField), 'Sunday Mornings');
     await tester.pump();
@@ -386,7 +443,7 @@ void main() {
     await settle(tester);
 
     expect(api.renamed, [(_c2, 'Sunday Mornings')]);
-    // Renaming is the same control as the pair beside it, not a taller one.
+    // The overflow is the same control as the pair beside it, not a taller one.
     expect(
       find.descendant(
         of: find.byType(ContainerActionHeader),
@@ -397,6 +454,55 @@ void main() {
     // The confirmation toast retires itself on a timer the container
     // outlives; left pending, it fails the test after the tree is gone.
     await tester.pump(const Duration(seconds: 30));
+  });
+
+  testWidgets('deleting names what goes with it before it goes', (
+    tester,
+  ) async {
+    final api = _ShelfApi();
+    final container = await pumpSurface(tester, api: api);
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+    await tester.tap(find.text('Sunday Morning'));
+    await settle(tester);
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await settle(tester);
+    await tester.tap(find.text('Delete'));
+    await settle(tester);
+
+    expect(find.text('Delete Sunday Morning?'), findsOneWidget);
+    expect(find.textContaining('Its 1 track'), findsOneWidget);
+    expect(api.deleted, isEmpty);
+
+    await tester.tap(find.text('Delete'));
+    await settle(tester);
+
+    expect(api.deleted, [_c2]);
+    await tester.pump(const Duration(seconds: 30));
+  });
+
+  testWidgets('a delete that is called off writes nothing', (tester) async {
+    final api = _ShelfApi();
+    final container = await pumpSurface(tester, api: api);
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+    await tester.tap(find.text('Sunday Morning'));
+    await settle(tester);
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await settle(tester);
+    await tester.tap(find.text('Delete'));
+    await settle(tester);
+    await tester.tap(find.text('Cancel'));
+    await settle(tester);
+
+    expect(api.deleted, isEmpty);
+    expect(find.text('Sunday Morning'), findsWidgets);
   });
 
   testWidgets('making a collection names it and reloads the listing', (

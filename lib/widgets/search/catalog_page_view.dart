@@ -13,12 +13,11 @@ import '../../theme/app_theme.dart';
 import '../browse_filters/active_filter_chips.dart';
 import '../browse_rows_shimmer.dart';
 import '../infinite_list_view.dart';
-import '../search_cards/action_pill_button.dart';
 import '../search_cards/browse_item_rows.dart';
 import '../source_badge.dart';
 import 'catalog_sections_view.dart';
+import 'collections_edit_bar.dart';
 import 'collections_section.dart';
-import 'collection_name_sheet.dart';
 
 /// One selected catalog page — the single navigation level below the
 /// Catalogs root (back lives in the title bar). The banner scrolls away with
@@ -42,6 +41,15 @@ class CatalogPageView extends ConsumerStatefulWidget {
 }
 
 class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
+  /// How many rows the listing has, as the list last reported it; -1 until it
+  /// has said. What the head needs to know is only whether there are any —
+  /// an action on the listing has nothing to act on when there are not.
+  int _rows = -1;
+
+  void _countRows(int rows) {
+    if (rows != _rows) setState(() => _rows = rows);
+  }
+
   @override
   Widget build(BuildContext context) {
     final page = widget.page;
@@ -63,6 +71,7 @@ class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
       capabilities: capabilities,
       query: query,
       onQueryChanged: setQuery,
+      hasRows: _rows > 0,
     );
 
     // A catalog made of shelves shows them until a kind is chosen; choosing
@@ -82,6 +91,7 @@ class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
       // Only the facets the server honours restart the list, so touching an
       // inert placeholder never costs a refetch.
       reloadKey: '${page.id}|${query.serverKey(capabilities)}|$revision',
+      onLoadedCount: _countRows,
       // No horizontal list padding — the banner bleeds edge to edge; rows and
       // separators carry their own 16px inset instead.
       padding: const EdgeInsets.only(bottom: 24),
@@ -165,11 +175,15 @@ class _CatalogHeader extends StatelessWidget {
   final BrowseFilterQuery query;
   final ValueChanged<BrowseFilterQuery> onQueryChanged;
 
+  /// Whether the listing under it has anything in it.
+  final bool hasRows;
+
   const _CatalogHeader({
     required this.page,
     required this.capabilities,
     required this.query,
     required this.onQueryChanged,
+    required this.hasRows,
   });
 
   @override
@@ -178,50 +192,13 @@ class _CatalogHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _CatalogBanner(page: page),
-        if (page.canEdit) const _CollectionsActions(),
+        if (page.canEdit) CollectionsActions(hasRows: hasRows),
         ActiveFilterChips(
           capabilities: capabilities,
           query: query,
           onChanged: onQueryChanged,
         ),
       ],
-    );
-  }
-}
-
-/// What the Collections screen does to the listing itself: make another one,
-/// or rearrange the ones there are. Editing is the screen's own mode — a
-/// collection is not a place you go to edit — and waits on the write API.
-///
-/// Neither treatment of berry applies: a fill commits a decision (Connect,
-/// Show results, Create) and an outline is one already made, shown as a
-/// receipt — which is what the applied-filter chips right below these are.
-/// A standing toolbar action is neither, so it is neutral.
-class _CollectionsActions extends ConsumerWidget {
-  const _CollectionsActions();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          ActionPillButton(
-            label: 'New',
-            icon: Icons.add,
-            onTap: () => showNewCollectionSheet(context, ref),
-            semanticsLabel: 'New collection',
-          ),
-          const ActionPillButton(
-            label: 'Edit',
-            icon: Icons.tune_rounded,
-            enabled: false,
-            semanticsLabel: 'Edit collections',
-          ),
-        ],
-      ),
     );
   }
 }
