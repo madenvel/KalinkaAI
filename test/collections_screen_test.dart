@@ -27,15 +27,21 @@ const _shelfId = 'kalinka:collections:catalog:collections';
 const _c1 = 'kalinka:collections:playlist:c1';
 const _c2 = 'kalinka:collections:playlist:c2';
 
-BrowseItem _collection(String id, String name, int tracks) => BrowseItem(
-  id: id,
-  name: name,
-  canBrowse: true,
-  canAdd: true,
-  canEdit: true,
-  playlist: Playlist(id: id, name: name, trackCount: tracks),
-  catalog: Catalog(id: id, title: name, sources: const ['localfiles']),
-);
+BrowseItem _collection(String id, String name, int tracks, {int? seconds}) =>
+    BrowseItem(
+      id: id,
+      name: name,
+      canBrowse: true,
+      canAdd: true,
+      canEdit: true,
+      playlist: Playlist(
+        id: id,
+        name: name,
+        trackCount: tracks,
+        duration: seconds,
+      ),
+      catalog: Catalog(id: id, title: name, sources: const ['localfiles']),
+    );
 
 BrowseItem _track(String id, String title) => BrowseItem(
   id: id,
@@ -146,6 +152,30 @@ class _ShelfApi extends _EmptyApi {
       _ => const <BrowseItem>[],
     };
     return BrowseItemsList(offset, limit, items.length, items);
+  }
+}
+
+/// A collection longer than one browse: 99 tracks held, two of them served.
+class _PagedApi extends _ShelfApi {
+  static const held = 99;
+  static const seconds = 22680; // 6 hr 18 min
+
+  @override
+  Future<BrowseItemsList> browse(
+    String id, {
+    int offset = 0,
+    int limit = 10,
+    String? filter,
+  }) async {
+    if (id == _shelfId) {
+      final rows = [
+        _collection(_c1, 'Late Night Signals', held, seconds: seconds),
+      ];
+      return BrowseItemsList(offset, limit, rows.length, rows);
+    }
+    if (id != _c1) return BrowseItemsList(offset, limit, 0, const []);
+    final page = [_track('t1', 'Night Drive'), _track('t2', 'Signals')];
+    return BrowseItemsList(offset, limit, held, page);
   }
 }
 
@@ -274,9 +304,10 @@ void main() {
         .toList();
     expect(pills.map((b) => b.label), ['New', 'Edit']);
     expect(pills.map((b) => b.enabled), [true, false]);
-    // Berry marks a commit or a receipt; a standing action is neither.
-    expect(pills.every((b) => !b.accent), isTrue);
-    // The one fill a screen at rest may carry is the empty state's call.
+    // New leads the pair with the outline, Edit follows it plainly.
+    expect(pills.map((b) => b.accent), [true, false]);
+    // The one fill a screen at rest may carry is the empty state's call, and
+    // the outline above it is the same call at a lower weight.
     final invitation = tester.widget<KalinkaButton>(find.byType(KalinkaButton));
     expect(invitation.label, 'CREATE COLLECTION');
     expect(invitation.variant, KalinkaButtonVariant.accent);
@@ -298,6 +329,72 @@ void main() {
       ),
     );
     expect(edit.enabled, isTrue);
+  });
+
+  testWidgets('New leads the pair, and Edit does not wear the filters glyph', (
+    tester,
+  ) async {
+    final container = await pumpSurface(tester, api: _ShelfApi());
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+
+    final pills = {
+      for (final pill in tester.widgetList<ActionPillButton>(
+        find.byType(ActionPillButton),
+      ))
+        pill.label: pill,
+    };
+    expect(pills['New']!.accent, isTrue);
+    expect(pills['Edit']!.accent, isFalse);
+    expect(pills['Edit']!.icon, isNot(Icons.tune_rounded));
+  });
+
+  testWidgets('an unrolled page counts the collection, not the page', (
+    tester,
+  ) async {
+    final container = await pumpSurface(tester, api: _PagedApi());
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+    await tester.tap(find.text('Late Night Signals'));
+    await settle(tester);
+
+    // Play all sends the collection's id, so the line counts what will play
+    // rather than the two rows that arrived.
+    final header = tester.widget<ContainerActionHeader>(
+      find.byType(ContainerActionHeader),
+    );
+    expect(header.totalTracks, 99);
+    expect(header.trackIds.length, 2);
+    expect(
+      find.text('99 tracks · 6 hr 18 min · tap a track to play from there'),
+      findsOneWidget,
+    );
+    // The row that unrolled and the header under it now say the same number,
+    // which is the whole complaint.
+    expect(find.textContaining('99 tracks · 6 hr 18 min'), findsNWidgets(2));
+    expect(find.textContaining('Showing the first 2 of 99'), findsOneWidget);
+  });
+
+  testWidgets('a collection that arrived whole says nothing about pages', (
+    tester,
+  ) async {
+    final container = await pumpSurface(tester, api: _ShelfApi());
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+    await tester.tap(find.text('Late Night Signals'));
+    await settle(tester);
+
+    final header = tester.widget<ContainerActionHeader>(
+      find.byType(ContainerActionHeader),
+    );
+    expect(header.totalTracks, 2);
+    expect(find.textContaining('Showing the first'), findsNothing);
   });
 
   testWidgets('a source catalog with nothing in it stays plain', (

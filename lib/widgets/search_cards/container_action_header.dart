@@ -25,6 +25,11 @@ class ContainerActionHeader extends ConsumerWidget {
   /// running selection has taken.
   final List<String> trackIds;
 
+  /// How many the container holds, where the rows under it are only a page of
+  /// it. Play all sends the container's id and the server expands the lot, so
+  /// the line has to count what will play rather than what is on screen.
+  final int? totalTracks;
+
   final int? totalDurationSeconds;
 
   /// An action on the container itself rather than on its music, set apart at
@@ -35,6 +40,7 @@ class ContainerActionHeader extends ConsumerWidget {
     super.key,
     required this.item,
     required this.trackIds,
+    this.totalTracks,
     this.totalDurationSeconds,
     this.trailing,
   });
@@ -51,7 +57,7 @@ class ContainerActionHeader extends ConsumerWidget {
       selectionStateProvider.select((s) => s.selectedWithin(item.id, trackIds)),
     );
 
-    final count = trackIds.length;
+    final count = totalTracks ?? trackIds.length;
     final duration = totalDurationSeconds;
     final info = <String>[
       '$count ${count == 1 ? 'track' : 'tracks'}',
@@ -64,7 +70,7 @@ class ContainerActionHeader extends ConsumerWidget {
       // whatever column holds it rather than starting where the tracks do.
       width: double.infinity,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+        padding: const EdgeInsets.fromLTRB(12, 10, 4, 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
