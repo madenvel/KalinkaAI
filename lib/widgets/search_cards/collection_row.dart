@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data_model/data_model.dart';
+import '../../providers/collection_edit_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/row_expansion_provider.dart';
 import '../../providers/search_session_provider.dart';
@@ -10,9 +11,10 @@ import '../../providers/toast_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/click_cursor.dart';
 import '../../utils/haptics.dart';
-import '../search/collection_name_sheet.dart';
+import '../search/collection_menu_sheet.dart';
 import 'action_pill_button.dart';
 import 'collection_identity.dart';
+import 'editable_track_list.dart';
 import 'expand_chevron_button.dart';
 import 'expanded_track_list.dart';
 import 'track_row_support.dart';
@@ -85,6 +87,13 @@ class _CollectionRowState extends ConsumerState<CollectionRow>
     final expanded = ref.watch(
       rowExpansionProvider.select((s) => s.unrolled.contains(widget.item.id)),
     );
+    // An editing session takes the row's gestures over: what a tap and a long
+    // press mean while one is running is decided by the session, not by
+    // whatever selection was going on before it.
+    final editing = ref.watch(collectionEditProvider.select((s) => s.active));
+    final changes = ref.watch(
+      collectionEditProvider.select((s) => s.of(widget.item.id)?.changes ?? 0),
+    );
     // Scoped watches so unrelated selection changes don't rebuild the row.
     final selecting = ref.watch(
       selectionStateProvider.select((s) => s.isActive),
@@ -107,15 +116,24 @@ class _CollectionRowState extends ConsumerState<CollectionRow>
           item: widget.item,
           raised: expanded,
           glow: _glow.isAnimating ? 1 - _glow.value : 0,
-          selected: selected,
+          selected: selected && !editing,
           partial: partial,
           pressProgress: longPressing ? longPressProgress : 0,
-          onTap: selecting ? _select : _toggle,
-          onSelectPressStart: selecting
+          nameAction: editing && widget.item.canEdit
+              ? _CollectionMenuButton(item: widget.item)
+              : null,
+          onTap: selecting && !editing ? _select : _toggle,
+          onSelectPressStart: selecting || editing
               ? null
               : () => startLongPressRing(_select),
-          onSelectPressStop: selecting ? null : cancelLongPressRing,
-          trailing: ExpandChevronButton(isExpanded: expanded, onTap: _toggle),
+          onSelectPressStop: selecting || editing ? null : cancelLongPressRing,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (editing && changes > 0) _ChangesChip(count: changes),
+              ExpandChevronButton(isExpanded: expanded, onTap: _toggle),
+            ],
+          ),
         ),
         AnimatedCrossFade(
           firstChild: const SizedBox.shrink(),
@@ -130,13 +148,15 @@ class _CollectionRowState extends ConsumerState<CollectionRow>
                       ),
                     ),
                   ),
-                  child: ExpandedContainerTracks(
-                    item: widget.item,
-                    emptyLabel: 'Nothing in this collection yet',
-                    headerAction: widget.item.canEdit
-                        ? _RenameButton(item: widget.item)
-                        : null,
-                  ),
+                  child: editing
+                      ? EditableTrackList(item: widget.item)
+                      : ExpandedContainerTracks(
+                          item: widget.item,
+                          emptyLabel: 'Nothing in this collection yet',
+                          headerAction: widget.item.canEdit
+                              ? _CollectionMenuButton(item: widget.item)
+                              : null,
+                        ),
                 )
               : const SizedBox.shrink(),
           crossFadeState: expanded
@@ -152,20 +172,57 @@ class _CollectionRowState extends ConsumerState<CollectionRow>
   }
 }
 
-/// Renames the collection its header belongs to. It sits apart from Play all
-/// and Enqueue because it acts on the list rather than on its music.
-class _RenameButton extends ConsumerWidget {
+/// What a collection has staged, said on its row so a session's changes can
+/// be found without unrolling every collection. Amber rather than berry:
+/// nothing has happened yet, and amber is what this app already uses for
+/// something waiting to be applied.
+class _ChangesChip extends StatelessWidget {
+  final int count;
+
+  const _ChangesChip({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(right: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: KalinkaColors.statusPendingSurface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: KalinkaColors.statusPending.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Text(
+        count == 1 ? '1 CHANGE' : '$count CHANGES',
+        style: KalinkaFonts.mono(
+          fontSize: KalinkaTypography.baseSize - 3,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+          color: KalinkaColors.statusPendingLight,
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens what can be done to the collection itself rather than to its music:
+/// renaming it, and deleting it. At rest it sits at the trailing end of the
+/// unrolled action row, apart from Play all and Enqueue for that reason; while
+/// editing it moves up beside the name, that row having been given over to the
+/// tracks.
+class _CollectionMenuButton extends ConsumerWidget {
   final BrowseItem item;
 
-  const _RenameButton({required this.item});
+  const _CollectionMenuButton({required this.item});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ActionPillButton(
-      icon: Icons.edit_rounded,
+      icon: Icons.more_horiz_rounded,
       semanticsLabel:
-          'Rename ${item.playlist?.name ?? item.name ?? 'this collection'}',
-      onTap: () => showRenameCollectionSheet(context, ref, item),
+          'More for ${item.playlist?.name ?? item.name ?? 'this collection'}',
+      onTap: () => showCollectionMenuSheet(context, ref, item),
     );
   }
 }
@@ -271,6 +328,9 @@ class CollectionFace extends ConsumerWidget {
   final VoidCallback? onSelectPressStart;
   final VoidCallback? onSelectPressStop;
 
+  /// An action drawn beside the name, where the row carries one.
+  final Widget? nameAction;
+
   const CollectionFace({
     super.key,
     required this.item,
@@ -283,6 +343,7 @@ class CollectionFace extends ConsumerWidget {
     this.pressProgress = 0,
     this.onSelectPressStart,
     this.onSelectPressStop,
+    this.nameAction,
   });
 
   @override
@@ -334,6 +395,7 @@ class CollectionFace extends ConsumerWidget {
                 child: CollectionIdentity(
                   item: item,
                   chosen: selected,
+                  nameAction: nameAction,
                   coverMark: selected
                       ? (partial ? Icons.remove : Icons.check)
                       : null,

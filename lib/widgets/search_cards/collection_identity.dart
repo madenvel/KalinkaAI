@@ -28,12 +28,18 @@ class CollectionIdentity extends ConsumerWidget {
   /// How far a long press that would take it has run, 0 when none is.
   final double pressProgress;
 
+  /// An action on the name itself, drawn right after it. Editing puts the
+  /// rename pencil here, where the action row it usually sits on is given
+  /// over to the tracks.
+  final Widget? nameAction;
+
   const CollectionIdentity({
     super.key,
     required this.item,
     this.chosen = false,
     this.coverMark,
     this.pressProgress = 0,
+    this.nameAction,
   });
 
   static const _thumb = 64.0;
@@ -88,13 +94,20 @@ class CollectionIdentity extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                playlist?.name ?? item.name ?? 'Unknown',
-                style: KalinkaTextStyles.listName.copyWith(
-                  color: chosen ? KalinkaColors.accentTint : null,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      playlist?.name ?? item.name ?? 'Unknown',
+                      style: KalinkaTextStyles.listName.copyWith(
+                        color: chosen ? KalinkaColors.accentTint : null,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (nameAction != null) nameAction!,
+                ],
               ),
               const SizedBox(height: 5),
               Row(

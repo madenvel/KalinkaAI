@@ -64,6 +64,11 @@ class InfiniteListView<T> extends StatefulWidget {
   /// Changing this restarts from the top (alternative to re-keying).
   final Object? reloadKey;
 
+  /// Told how many items are loaded once a fetch settles, so a page can shape
+  /// chrome it draws outside the list — a header action with nothing to act
+  /// on. Never called during a build.
+  final ValueChanged<int>? onLoadedCount;
+
   const InfiniteListView({
     super.key,
     required this.fetchChunk,
@@ -78,6 +83,7 @@ class InfiniteListView<T> extends StatefulWidget {
     this.errorBuilder,
     this.prefetchExtent = 600,
     this.reloadKey,
+    this.onLoadedCount,
   });
 
   @override
@@ -147,6 +153,7 @@ class _InfiniteListViewState<T> extends State<InfiniteListView<T>> {
         _reachedShortChunk = chunk.items.length < widget.chunkSize;
         _initialLoading = false;
       });
+      widget.onLoadedCount?.call(_items.length);
       _maybeFillViewport();
     } catch (e) {
       if (!mounted || gen != _generation) return;
@@ -154,6 +161,8 @@ class _InfiniteListViewState<T> extends State<InfiniteListView<T>> {
         _initialError = e;
         _initialLoading = false;
       });
+      // A listing that failed holds nothing, whatever it held before.
+      widget.onLoadedCount?.call(0);
     }
   }
 
@@ -170,6 +179,7 @@ class _InfiniteListViewState<T> extends State<InfiniteListView<T>> {
         if (chunk.items.length < widget.chunkSize) _reachedShortChunk = true;
         _loadingMore = false;
       });
+      widget.onLoadedCount?.call(_items.length);
       _maybeFillViewport();
     } catch (_) {
       if (!mounted || gen != _generation) return;
@@ -222,13 +232,17 @@ class _InfiniteListViewState<T> extends State<InfiniteListView<T>> {
     }
 
     if (_items.isEmpty) {
-      final empty = widget.emptyBuilder?.call(context) ?? const SizedBox.shrink();
+      final empty =
+          widget.emptyBuilder?.call(context) ?? const SizedBox.shrink();
       // Empty state doesn't scroll; a Center-based placeholder needs bounded
       // height, so stack (not ListView) the optional header above it.
       if (widget.header == null) return empty;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [widget.header!, Expanded(child: empty)],
+        children: [
+          widget.header!,
+          Expanded(child: empty),
+        ],
       );
     }
 

@@ -7,14 +7,48 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data_model/data_model.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/toast_provider.dart';
+import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
 import '../../utils/play_next.dart';
+import '../procedural_album_art.dart';
 
 /// Shared behaviour for the search-result row widgets (album / artist /
 /// playlist / track). These rows were originally copy-pasted per entity type;
 /// the genuinely identical logic lives here so the per-type widgets only carry
 /// what actually differs (their layout).
+
+/// The cover a track row leads with: what the item carries, and the
+/// generated stand-in where it carries none or the fetch fails.
+class TrackThumb extends ConsumerWidget {
+  final BrowseItem item;
+  final double size;
+
+  const TrackThumb({super.key, required this.item, this.size = 44});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final path =
+        item.image?.small ?? item.image?.thumbnail ?? item.image?.large;
+    final stand = ProceduralAlbumArt(trackId: item.id, size: size);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: path == null
+          ? stand
+          : Image.network(
+              ref.read(urlResolverProvider).abs(path),
+              width: size,
+              height: size,
+              cacheWidth: (size * 3).round(),
+              cacheHeight: (size * 3).round(),
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              filterQuality: FilterQuality.low,
+              errorBuilder: (_, __, ___) => stand,
+            ),
+    );
+  }
+}
 
 /// The mark a name hit earns when it is the query itself, word for word.
 /// Shown above the title, so the eye lands on why this row leads.

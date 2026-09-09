@@ -28,6 +28,18 @@ import '../data_model/renderer_config.dart'
     show RendererConfigResult, RendererConfigSnapshot;
 import '../utils/renderer_fault_text.dart' show rendererSwitchRefusal;
 
+/// A collection was written to between an edit being staged and being sent,
+/// so the server refused the whole edit rather than apply it to a list the
+/// user was no longer looking at.
+class CollectionChangedException implements Exception {
+  final String collectionId;
+
+  const CollectionChangedException(this.collectionId);
+
+  @override
+  String toString() => 'Collection $collectionId changed since it was read';
+}
+
 abstract class KalinkaPlayerProxy {
   Future<StatusMessage> play([int? index]);
   Future<StatusMessage> next();
@@ -86,6 +98,10 @@ abstract class KalinkaPlayerProxy {
   /// name, cannot reach its file, or knows no such collection.
   Future<void> renameCollection(String id, String name);
 
+  /// Removes a collection and everything in it. Throws when it knows no such
+  /// collection or cannot reach its file.
+  Future<void> deleteCollection(String id);
+
   /// Puts [itemIds] — tracks, or anything that holds them — at the end of a
   /// collection, and answers with how many rows landed and how many it
   /// already had. The server expands a container through its own source, so
@@ -108,6 +124,18 @@ abstract class KalinkaPlayerProxy {
     String id,
     List<String> itemIds, {
     bool keepDuplicates = false,
+  });
+
+  /// Commits a staged edit in one write: drops the entries named in [remove]
+  /// and lays the rest out in [order], both by entry id, answering with what
+  /// went and how many of the rest the user moved. Between them the two lists
+  /// must name every entry the collection held when it was read — one that
+  /// has changed since throws [CollectionChangedException] rather than losing
+  /// what it gained.
+  Future<({int removed, int moved})> editCollection(
+    String id, {
+    required List<String> remove,
+    required List<String> order,
   });
   Future<BrowseItemsList> getFavorite(
     SearchType queryType, {
@@ -567,6 +595,14 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
   }
 
   @override
+  Future<void> deleteCollection(String id) async {
+    final response = await client.delete('/collections/$id');
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete collection, url=${response.realUri}');
+    }
+  }
+
+  @override
   Future<({int added, int alreadyThere})> addToCollection(
     String id,
     List<String> itemIds, {
@@ -603,6 +639,32 @@ class KalinkaPlayerProxyImpl implements KalinkaPlayerProxy {
     return (
       added: response.data['added'] as int,
       dropped: response.data['dropped'] as int,
+    );
+  }
+
+  @override
+  Future<({int removed, int moved})> editCollection(
+    String id, {
+    required List<String> remove,
+    required List<String> order,
+  }) async {
+    final Response response;
+    try {
+      response = await client.patch(
+        '/collections/$id/entries',
+        data: {'remove': remove, 'order': order},
+        options: Options(contentType: Headers.jsonContentType),
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 409) throw CollectionChangedException(id);
+      rethrow;
+    }
+    if (response.statusCode != 200) {
+      throw Exception('Failed to edit collection, url=${response.realUri}');
+    }
+    return (
+      removed: response.data['removed'] as int,
+      moved: response.data['moved'] as int,
     );
   }
 
