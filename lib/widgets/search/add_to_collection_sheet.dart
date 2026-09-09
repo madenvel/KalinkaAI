@@ -52,6 +52,17 @@ class CollectionAddition {
       createNote: 'Name it and add this queue',
     );
   }
+
+  /// What multi-select has taken: tracks, and whole albums or playlists the
+  /// server expands into the tracks they hold.
+  factory CollectionAddition.selection(List<String> itemIds) {
+    return CollectionAddition(
+      itemIds: itemIds,
+      heading: 'ADD SELECTION TO COLLECTION',
+      summary: '${_items(itemIds.length)} selected',
+      createNote: 'Name it and add the selection',
+    );
+  }
 }
 
 /// Asks which collection [addition] goes into, and how, then puts it there —
@@ -68,6 +79,8 @@ Future<bool> showAddToCollectionSheet(
 }
 
 String _tracks(int count) => '$count ${count == 1 ? 'track' : 'tracks'}';
+
+String _items(int count) => '$count ${count == 1 ? 'item' : 'items'}';
 
 String _nameOf(BrowseItem item) =>
     item.playlist?.name ?? item.name ?? 'the collection';
