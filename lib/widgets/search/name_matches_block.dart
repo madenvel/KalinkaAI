@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data_model/browse_filters.dart';
 import '../../data_model/search_results.dart';
+import '../../providers/source_modules_provider.dart';
+import '../browse_filters/browse_filter_form.dart';
 import '../browse_rows_shimmer.dart';
 import '../search_cards/browse_item_rows.dart';
 import '../shelf_heading.dart';
@@ -17,6 +20,12 @@ class NameMatchesBlock extends StatelessWidget {
   final SearchResults results;
   final NarrowedResults narrowed;
   final BrowseFilterQuery filter;
+
+  /// The one source being read, or null for the merged list. Ignored when it
+  /// names a source these results no longer hold.
+  final String? source;
+
+  final ValueChanged<String?> onSource;
   final VoidCallback onViewAll;
   final ValueChanged<String> onRetry;
 
@@ -28,6 +37,8 @@ class NameMatchesBlock extends StatelessWidget {
     required this.results,
     required this.narrowed,
     required this.filter,
+    required this.source,
+    required this.onSource,
     required this.onViewAll,
     required this.onRetry,
   });
@@ -53,13 +64,40 @@ class NameMatchesBlock extends StatelessWidget {
       if (filter.sources.isEmpty || filter.sources.contains(source)) source,
   ];
 
+  /// The sources the merged list actually holds, in display order.
+  ///
+  /// Read off the rows rather than off the module list, so a pill is never
+  /// offered for a source that found nothing — and never for one the filter
+  /// already excluded, since these rows have been through it. Computed
+  /// before [source] is applied, so picking one does not take the others
+  /// away.
+  List<String> get _present {
+    final held = {
+      for (final item in narrowed.matches) SearchResults.sourceOf(item),
+    };
+    return [
+      for (final option in results.sources)
+        if (held.contains(option.name)) option.name,
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final settled = results.matchesSettled;
-    final all = narrowed.matches;
+    final present = _present;
+    final picked = present.contains(source) ? source : null;
+    final all = picked == null
+        ? narrowed.matches
+        : [
+            for (final item in narrowed.matches)
+              if (SearchResults.sourceOf(item) == picked) item,
+          ];
     final expanded = filter.kind == ResultKind.nameMatches;
     final shown = expanded ? all : all.take(previewCount).toList();
-    final unavailable = _unavailable(results, filter);
+    final unavailable = [
+      for (final failed in _unavailable(results, filter))
+        if (picked == null || failed == picked) failed,
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -67,26 +105,64 @@ class NameMatchesBlock extends StatelessWidget {
         ShelfHeading(
           title: 'MATCHES BY NAME',
           count: settled ? all.length : null,
-          subtitle: _subtitle(),
           onViewAll: settled && shown.length < all.length ? onViewAll : null,
         ),
+        if (settled && present.length > 1) ...[
+          const SizedBox(height: 10),
+          _SourcePills(sources: present, picked: picked, onPick: onSource),
+        ],
         const SizedBox(height: 10),
         if (!settled)
           const BrowseRowsShimmer(count: previewCount)
         else
           BrowseItemRows(items: shown),
-        for (final source in unavailable)
+        for (final failed in unavailable)
           SourceUnavailableRow(
-            source: source,
-            title: results.sources.titleOf(source),
-            onRetry: () => onRetry(source),
+            source: failed,
+            title: results.sources.titleOf(failed),
+            onRetry: () => onRetry(failed),
           ),
       ],
     );
   }
+}
 
-  String _subtitle() {
-    if (filter.sources.isEmpty) return 'Separate results from every source';
-    return 'From ${filter.sources.map(results.sources.titleOf).join(', ')}';
+/// Which source's matches to read, each named by the letter it wears
+/// everywhere else. ALL is the one that is on when none is.
+class _SourcePills extends ConsumerWidget {
+  final List<String> sources;
+  final String? picked;
+  final ValueChanged<String?> onPick;
+
+  const _SourcePills({
+    required this.sources,
+    required this.picked,
+    required this.onPick,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final info = ref.watch(sourceDisplayInfoProvider);
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        FilterPill(
+          label: 'ALL',
+          selected: picked == null,
+          onTap: () => onPick(null),
+        ),
+        for (final source in sources)
+          FilterPill(
+            label:
+                info[source]?.abbreviation ??
+                (source.isEmpty ? '?' : source[0].toUpperCase()),
+            tint: info[source]?.color ?? colorForSourceName(source),
+            selected: picked == source,
+            onTap: () => onPick(source),
+          ),
+      ],
+    );
   }
 }

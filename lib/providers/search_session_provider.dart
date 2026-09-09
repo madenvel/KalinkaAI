@@ -195,6 +195,14 @@ class SearchSessionState {
   /// here — so nothing is refetched.
   final BrowseFilterQuery resultsFilter;
 
+  /// One source picked out of the name matches, or null for all of them.
+  ///
+  /// Narrower than [resultsFilter]'s source facet and subordinate to it: it
+  /// says which of the sources that survived the filter is being read right
+  /// now, and it reaches the name matches alone. Recommendations are already
+  /// a block per source, so there is nothing there to pick apart.
+  final String? matchSource;
+
   /// Root screen, or the one open catalog page. Its item data is fetched by the
   /// page view via `browseDetailProvider(id)` (cached across view switches).
   final CatalogPage catalogPage;
@@ -222,6 +230,7 @@ class SearchSessionState {
     this.searchLoading = false,
     this.searchError,
     this.resultsFilter = const BrowseFilterQuery(),
+    this.matchSource,
     this.catalogPage = const CatalogPage.root(),
     this.catalogFilter = const BrowseFilterQuery(),
     this.history = const [],
@@ -269,6 +278,8 @@ class SearchSessionState {
     String? searchError,
     bool clearError = false,
     BrowseFilterQuery? resultsFilter,
+    String? matchSource,
+    bool clearMatchSource = false,
     CatalogPage? catalogPage,
     BrowseFilterQuery? catalogFilter,
     List<String>? history,
@@ -285,6 +296,7 @@ class SearchSessionState {
       searchLoading: searchLoading ?? this.searchLoading,
       searchError: clearError ? null : (searchError ?? this.searchError),
       resultsFilter: resultsFilter ?? this.resultsFilter,
+      matchSource: clearMatchSource ? null : (matchSource ?? this.matchSource),
       catalogPage: catalogPage ?? this.catalogPage,
       catalogFilter: catalogFilter ?? this.catalogFilter,
       history: history ?? this.history,
@@ -335,6 +347,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
       searchLoading: false,
       clearError: true,
       resultsFilter: const BrowseFilterQuery(),
+      clearMatchSource: true,
       catalogPage: const CatalogPage.root(),
       catalogFilter: const BrowseFilterQuery(),
       history: _loadHistory(),
@@ -434,6 +447,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
       searchLoading: true,
       clearError: true,
       resultsFilter: const BrowseFilterQuery(),
+      clearMatchSource: true,
       history: _loadHistory(),
     );
     _runQuery(query, gen);
@@ -543,7 +557,23 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
   /// Narrow the results. The query itself is not a facet here — a changed
   /// query is a new search, which is [submit]'s job.
   void setResultsFilter(BrowseFilterQuery filter) {
-    state = state.copyWith(resultsFilter: filter.copyWith(text: ''));
+    final picked = state.matchSource;
+    final gone =
+        picked != null &&
+        filter.sources.isNotEmpty &&
+        !filter.sources.contains(picked);
+    state = state.copyWith(
+      resultsFilter: filter.copyWith(text: ''),
+      clearMatchSource: gone,
+    );
+  }
+
+  /// Read one source's name matches, or all of them again with null.
+  void setMatchSource(String? source) {
+    state = state.copyWith(
+      matchSource: source,
+      clearMatchSource: source == null,
+    );
   }
 
   /// Drop the search: no query, so no results, and back to Catalogs.
@@ -557,6 +587,7 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
       searchLoading: false,
       clearError: true,
       resultsFilter: const BrowseFilterQuery(),
+      clearMatchSource: true,
     );
   }
 

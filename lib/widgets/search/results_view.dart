@@ -54,7 +54,12 @@ class ResultsView extends ConsumerWidget {
             ),
           )
         else if (results != null)
-          ..._blocks(results, session.resultsFilter, notifier),
+          ..._blocks(
+            results,
+            session.resultsFilter,
+            session.matchSource,
+            notifier,
+          ),
       ],
     );
   }
@@ -62,6 +67,7 @@ class ResultsView extends ConsumerWidget {
   List<Widget> _blocks(
     SearchResults results,
     BrowseFilterQuery filter,
+    String? matchSource,
     SearchSessionNotifier notifier,
   ) {
     final narrowed = results.narrow(filter);
@@ -74,6 +80,8 @@ class ResultsView extends ConsumerWidget {
           results: results,
           narrowed: narrowed,
           filter: filter,
+          source: matchSource,
+          onSource: notifier.setMatchSource,
           onViewAll: () => notifier.setResultsFilter(
             filter.copyWith(kind: ResultKind.nameMatches),
           ),
