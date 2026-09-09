@@ -13,7 +13,9 @@ import 'package:kalinka/providers/connection_state_provider.dart';
 import 'package:kalinka/providers/kalinka_player_api_provider.dart';
 import 'package:kalinka/providers/search_session_provider.dart';
 import 'package:kalinka/providers/source_modules_provider.dart';
+import 'package:kalinka/theme/app_theme.dart';
 import 'package:kalinka/widgets/browse_rows_shimmer.dart';
+import 'package:kalinka/widgets/search_cards/action_pill_button.dart';
 import 'package:kalinka/widgets/search/results_view.dart';
 import 'package:kalinka/widgets/search/inspired_block.dart';
 import 'package:kalinka/widgets/shelf_heading.dart';
@@ -381,9 +383,11 @@ void main() {
   /// read. It stands where the subtitle used to, and it is drawn from the
   /// rows rather than from the module list.
   group('the source pills', () {
-    Finder pill(String label) => find.descendant(
-      of: find.byType(SourceChoice),
-      matching: find.text(label),
+    /// The pill carrying [label], wherever it sits — the block draws other
+    /// action pills too, so an index would be aiming blind.
+    Finder pill(String label) => find.ancestor(
+      of: find.text(label),
+      matching: find.byType(ActionPillButton),
     );
 
     testWidgets('name only the sources the list actually holds', (
@@ -398,9 +402,9 @@ void main() {
       await _pump(tester, api);
       await tester.pump(_settle);
 
-      expect(pill('ALL'), findsOneWidget);
-      expect(pill('Q'), findsOneWidget);
-      expect(pill('L'), findsOneWidget);
+      expect(pill('All'), findsOneWidget);
+      expect(pill('Qobuz'), findsOneWidget);
+      expect(pill('Local Library'), findsOneWidget);
     });
 
     testWidgets('stay away when only one source found anything', (
@@ -416,14 +420,14 @@ void main() {
 
       // Both sources answered; only one had something to say, so there is
       // nothing to choose between.
-      expect(find.byType(SourceChoice), findsNothing);
+      expect(find.byType(ActionPillButton), findsNothing);
       expect(find.text('Q Act'), findsOneWidget);
     });
 
-    /// The layout as the block builds it. A Container given an alignment
-    /// expands to whatever it is handed, so this once came out as a column
-    /// of full-width slabs — measured here rather than assumed.
-    testWidgets('sit on one line, each no wider than its label', (
+    /// The layout as the block builds it. A pill that sizes itself from
+    /// anything but its content once came out as a column of full-width
+    /// slabs, so this is measured rather than assumed.
+    testWidgets('sit on one line, each as wide as what it holds', (
       tester,
     ) async {
       final api = _ScriptedApi(
@@ -436,17 +440,53 @@ void main() {
       await tester.pump(_settle);
 
       final rects = [
-        for (var i = 0; i < 3; i++)
-          tester.getRect(find.byType(SourceChoice).at(i)),
+        for (final label in ['All', 'Qobuz', 'Local Library'])
+          tester.getRect(pill(label)),
       ];
 
       expect(rects.map((r) => r.top).toSet(), hasLength(1));
-      // The two letters are squares; only ALL is wider, and none of them has
-      // taken the line.
-      expect(rects[1].width, SourceChoice.side);
-      expect(rects[2].width, SourceChoice.side);
+      expect(rects.map((r) => r.height).toSet(), hasLength(1));
+      // A name behind a letter tile is wider than the bare word All, and
+      // none of them has taken the line.
+      expect(rects[1].width, greaterThan(rects[0].width));
       final line = tester.getSize(find.byType(ResultsView)).width;
-      expect(rects[0].width, lessThan(line / 2));
+      for (final rect in rects) {
+        expect(rect.width, lessThan(line / 2));
+      }
+    });
+
+    /// The palette gives a screen at rest one crimson fill, and this row is
+    /// chrome that stays up for the session — so the one being read is lit
+    /// the way Play all is, a wash inside an edge, not a fill.
+    testWidgets('light the one being read like a Play all, not a fill', (
+      tester,
+    ) async {
+      final api = _ScriptedApi(
+        matches: {
+          'qobuz': [_artist('qobuz', '1', 'Q Act', MatchTier.exact)],
+          'localfiles': [_artist('localfiles', '1', 'L Act', MatchTier.exact)],
+        },
+      );
+      await _pump(tester, api);
+      await tester.pump(_settle);
+
+      Color lit(String label) => tester
+          .widget<Material>(
+            find
+                .descendant(of: pill(label), matching: find.byType(Material))
+                .first,
+          )
+          .color!;
+
+      // All is on to start with.
+      expect(lit('All'), KalinkaColors.accentSubtle);
+      expect(lit('Qobuz'), KalinkaColors.surfaceElevated);
+
+      await tester.tap(pill('Qobuz'));
+      await tester.pump();
+
+      expect(lit('All'), KalinkaColors.surfaceElevated);
+      expect(lit('Qobuz'), KalinkaColors.accentSubtle);
     });
 
     testWidgets('picking one reads that source alone, ALL brings them back', (
@@ -462,16 +502,16 @@ void main() {
       await tester.pump(_settle);
       expect(find.text('L Act'), findsOneWidget);
 
-      await tester.tap(pill('Q'));
+      await tester.tap(pill('Qobuz'));
       await tester.pump();
 
       expect(find.text('Q Act'), findsOneWidget);
       expect(find.text('L Act'), findsNothing);
       // The others stay offered — a pick that hid them could not be undone.
-      expect(pill('L'), findsOneWidget);
+      expect(pill('Local Library'), findsOneWidget);
       expect(find.textContaining('· 1'), findsOneWidget);
 
-      await tester.tap(pill('ALL'));
+      await tester.tap(pill('All'));
       await tester.pump();
 
       expect(find.text('L Act'), findsOneWidget);
@@ -503,7 +543,7 @@ void main() {
         ],
       );
       await tester.pump(_settle);
-      expect(pill('J'), findsOneWidget);
+      expect(pill('Jamendo'), findsOneWidget);
 
       container
           .read(searchSessionProvider.notifier)
@@ -512,9 +552,9 @@ void main() {
           );
       await tester.pump();
 
-      expect(pill('Q'), findsOneWidget);
-      expect(pill('L'), findsOneWidget);
-      expect(pill('J'), findsNothing);
+      expect(pill('Qobuz'), findsOneWidget);
+      expect(pill('Local Library'), findsOneWidget);
+      expect(pill('Jamendo'), findsNothing);
     });
 
     testWidgets('a pick the screen filter rules out is dropped', (
@@ -529,7 +569,7 @@ void main() {
       final container = await _pump(tester, api);
       await tester.pump(_settle);
 
-      await tester.tap(pill('Q'));
+      await tester.tap(pill('Qobuz'));
       await tester.pump();
       expect(container.read(searchSessionProvider).matchSource, 'qobuz');
 
@@ -552,7 +592,7 @@ void main() {
       final container = await _pump(tester, api);
       await tester.pump(_settle);
 
-      await tester.tap(pill('Q'));
+      await tester.tap(pill('Qobuz'));
       await tester.pump();
       expect(container.read(searchSessionProvider).matchSource, 'qobuz');
 

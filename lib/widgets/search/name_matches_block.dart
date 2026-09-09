@@ -5,6 +5,7 @@ import '../../data_model/browse_filters.dart';
 import '../../data_model/search_results.dart';
 import '../../providers/source_modules_provider.dart';
 import '../browse_rows_shimmer.dart';
+import '../search_cards/action_pill_button.dart';
 import '../search_cards/browse_item_rows.dart';
 import '../shelf_heading.dart';
 import '../source_badge.dart';
@@ -127,8 +128,13 @@ class NameMatchesBlock extends StatelessWidget {
   }
 }
 
-/// Which source's matches to read, each named by the letter it wears
-/// everywhere else. ALL is the one that is on when none is.
+/// Which source's matches to read: each named in full behind the letter it
+/// wears on its rows, the one being read highlighted like a Play all beside
+/// a plain Enqueue. All is on when no source is.
+///
+/// A line that scrolls rather than wraps — the names are as long as the
+/// sources are, and a control that reflows as sources come and go is harder
+/// to aim at than one that runs off the edge.
 class _SourceChoices extends ConsumerWidget {
   final List<String> sources;
   final String? picked;
@@ -149,22 +155,20 @@ class _SourceChoices extends ConsumerWidget {
       child: Row(
         spacing: 8,
         children: [
-          SourceChoice(
-            label: 'ALL',
-            tint: null,
+          ActionPillButton(
+            label: 'All',
+            accent: picked == null,
             selected: picked == null,
             onTap: () => onPick(null),
             semanticsLabel: 'All sources',
           ),
           for (final source in sources)
-            SourceChoice(
-              label:
-                  info[source]?.abbreviation ??
-                  (source.isEmpty ? '?' : source[0].toUpperCase()),
-              tint: info[source]?.color ?? colorForSourceName(source),
+            ActionPillButton(
+              leading: SourceLetter(source: source, size: 18),
+              label: info[source]?.title ?? source,
+              accent: picked == source,
               selected: picked == source,
               onTap: () => onPick(source),
-              semanticsLabel: info[source]?.title ?? source,
             ),
         ],
       ),
