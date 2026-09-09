@@ -343,27 +343,37 @@ void main() {
     expect(find.text('Away Song 5'), findsOneWidget);
   });
 
-  testWidgets('the inspired block leads in the display face, alone', (
+  testWidgets('the inspired heading is a name and a line, nothing drawn', (
     tester,
   ) async {
     final api = _ScriptedApi(
       inspired: {
-        'localfiles': [_track('localfiles', 'l1', 'Home Song')],
+        'localfiles': [
+          for (var i = 1; i <= 5; i++) _track('localfiles', '$i', 'Song $i'),
+        ],
       },
     );
     await _pump(tester, api);
     await tester.pump(_settle);
 
-    // The block that answers in its own voice; the listing beside it stays a
-    // labelled shelf.
+    expect(find.text('Inspired by your request'), findsOneWidget);
+    expect(find.text('Smart recommendations'), findsOneWidget);
+    // Its own heading, not the labelled shelf the name matches take.
     final headings = tester.widgetList<ShelfHeading>(find.byType(ShelfHeading));
-    expect({
-      for (final h in headings) h.title: h.face,
-    }, containsPair('Inspired by your request', ShelfTitleFace.display));
     expect(
-      headings.where((h) => h.face == ShelfTitleFace.display),
-      hasLength(1),
+      headings.map((h) => h.title),
+      isNot(contains(startsWith('Inspired'))),
     );
+    // Nothing ruled through it, and no tally on the block or on the source
+    // under it — five suggested tracks say so by being five rows.
+    expect(
+      find.descendant(
+        of: find.byType(InspiredBlock),
+        matching: find.byType(Divider),
+      ),
+      findsNothing,
+    );
+    expect(find.textContaining('· 5'), findsNothing);
   });
 
   testWidgets('nothing found says so', (tester) async {
