@@ -7,18 +7,31 @@ import '../providers/toast_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/play_next.dart';
 import '../utils/haptics.dart';
+import 'search/add_to_collection_sheet.dart';
 import 'search_cards/action_icon_chip.dart';
 
-/// Bottom batch bar shown during multi-select mode. One row:
-/// ✕ cancel chip · "N selected / M tracks" summary · divider · the three
-/// batch actions as compact icon-over-label buttons (Play now crimson-filled
-/// like the section play-all chip, Play next, Queue).
-class MultiSelectBottomBar extends ConsumerWidget {
+/// Bottom batch bar shown during multi-select mode. One row, in two stages:
+/// what to do with the selection — play it now, queue it, keep it — and,
+/// behind `Queue…`, where in the queue it goes. Splitting the queueing in two
+/// is what leaves room for a third action; both stages stand the same height,
+/// so stepping between them moves nothing above the bar.
+class MultiSelectBottomBar extends ConsumerStatefulWidget {
   const MultiSelectBottomBar({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MultiSelectBottomBar> createState() =>
+      _MultiSelectBottomBarState();
+}
+
+class _MultiSelectBottomBarState extends ConsumerState<MultiSelectBottomBar> {
+  /// Whether the bar is asking where in the queue the selection lands. The bar
+  /// leaves the tree with the selection, so every selection starts over.
+  bool _placing = false;
+
+  @override
+  Widget build(BuildContext context) {
     final selection = ref.watch(selectionStateProvider);
+    final tally = _trackTally(selection);
 
     return AnimatedSlide(
       offset: selection.isActive ? Offset.zero : const Offset(0, 1),
@@ -44,73 +57,147 @@ class MultiSelectBottomBar extends ConsumerWidget {
           ),
           child: SafeArea(
             top: false,
-            child: Row(
-              children: [
-                ActionIconChip(
-                  icon: Icons.close,
-                  semanticsLabel: 'Cancel selection',
-                  onTap: () {
-                    KalinkaHaptics.lightImpact();
-                    ref
-                        .read(selectionStateProvider.notifier)
-                        .exitSelectionMode();
-                  },
-                ),
-                const SizedBox(width: 6),
-                Expanded(child: _SelectionSummary(selection: selection)),
-                const SizedBox(width: 8),
-                Container(
-                  width: 1,
-                  height: 30,
-                  color: KalinkaColors.borderDefault,
-                ),
-                const SizedBox(width: 8),
-                _BatchActionButton(
-                  icon: Icons.play_arrow_rounded,
-                  label: 'Play now',
-                  accent: true,
-                  onTap: selection.count > 0
-                      ? () {
-                          KalinkaHaptics.mediumImpact();
-                          _playNow(ref, selection);
-                        }
-                      : null,
-                ),
-                const SizedBox(width: 8),
-                _BatchActionButton(
-                  icon: Icons.arrow_upward_rounded,
-                  label: 'Play next',
-                  onTap: selection.count > 0
-                      ? () {
-                          KalinkaHaptics.mediumImpact();
-                          _playNext(ref, selection);
-                        }
-                      : null,
-                ),
-                const SizedBox(width: 8),
-                _BatchActionButton(
-                  icon: Icons.playlist_add_rounded,
-                  label: 'Queue',
-                  onTap: selection.count > 0
-                      ? () {
-                          KalinkaHaptics.mediumImpact();
-                          _appendToQueue(ref, selection);
-                        }
-                      : null,
-                ),
-              ],
-            ),
+            child: _placing
+                ? _placementRow(selection, tally)
+                : _actionsRow(selection, tally),
           ),
         ),
       ),
     );
   }
 
-  // Each action dismisses the panel immediately and reports progress via the
-  // shared spinner. `selection` is a tap-time snapshot, so its count stays
+  /// What can be done with the selection, and what it comes to.
+  Widget _actionsRow(SelectionState selection, String tally) {
+    final ready = selection.count > 0;
+    return Row(
+      children: [
+        ActionIconChip(
+          icon: Icons.close,
+          semanticsLabel: 'Cancel selection',
+          onTap: () {
+            KalinkaHaptics.lightImpact();
+            ref.read(selectionStateProvider.notifier).exitSelectionMode();
+          },
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _BarLabel(
+            title: '${selection.count} selected',
+            subtitle: tally,
+          ),
+        ),
+        const SizedBox(width: 8),
+        const _BarRule(),
+        const SizedBox(width: 8),
+        _BatchActionButton(
+          icon: Icons.play_arrow_rounded,
+          label: 'Play now',
+          look: _BatchLook.filled,
+          onTap: ready
+              ? () {
+                  KalinkaHaptics.mediumImpact();
+                  _playNow(selection);
+                }
+              : null,
+        ),
+        const SizedBox(width: 8),
+        _BatchActionButton(
+          icon: Icons.playlist_add_rounded,
+          label: 'Queue…',
+          onTap: ready
+              ? () {
+                  KalinkaHaptics.lightImpact();
+                  setState(() => _placing = true);
+                }
+              : null,
+        ),
+        const SizedBox(width: 8),
+        _BatchActionButton(
+          icon: Icons.library_add_rounded,
+          label: 'Collection',
+          onTap: ready ? _saveToCollection : null,
+        ),
+      ],
+    );
+  }
+
+  /// Where in the queue the selection lands. Wider buttons than the stage
+  /// before it: there are two of them, and nothing else to fit.
+  Widget _placementRow(SelectionState selection, String tally) {
+    return Row(
+      children: [
+        ActionIconChip(
+          icon: Icons.chevron_left_rounded,
+          semanticsLabel: 'Back to actions',
+          onTap: () {
+            KalinkaHaptics.lightImpact();
+            setState(() => _placing = false);
+          },
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          flex: 3,
+          child: _BarLabel(
+            title: 'QUEUE ${tally.toUpperCase()}',
+            titleStyle: KalinkaTextStyles.sectionLabel,
+            subtitle: 'Choose placement',
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 2,
+          child: _BatchActionButton(
+            icon: Icons.arrow_upward_rounded,
+            label: 'Play next',
+            look: _BatchLook.outlined,
+            width: null,
+            onTap: () {
+              KalinkaHaptics.mediumImpact();
+              _playNext(selection);
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 2,
+          child: _BatchActionButton(
+            icon: Icons.playlist_add_rounded,
+            label: 'Enqueue',
+            width: null,
+            onTap: () {
+              KalinkaHaptics.mediumImpact();
+              _appendToQueue(selection);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// How many tracks the selection comes to, in words. A container counts
+  /// through what it holds, so one still loading leaves the total open.
+  String _trackTally(SelectionState selection) {
+    int tracks = selection.selectedIds.length;
+    int unresolved = 0;
+    for (final containerId in selection.selectedContainerIds) {
+      final items = ref.watch(browseDetailProvider(containerId)).value?.items;
+      if (items == null) {
+        unresolved++;
+        continue;
+      }
+      final trackCount = items.where((i) => i.track != null).length;
+      final excluded = selection.containerExclusions[containerId]?.length ?? 0;
+      tracks += (trackCount - excluded).clamp(0, trackCount);
+    }
+    if (unresolved > 0) return tracks > 0 ? '$tracks+ tracks' : '…';
+    return '$tracks ${tracks == 1 ? 'track' : 'tracks'}';
+  }
+
+  // Each queue action dismisses the panel immediately and reports progress via
+  // the shared spinner. `selection` is a tap-time snapshot, so its count stays
   // valid after exitSelectionMode() as a fallback.
 
-  Future<void> _appendToQueue(WidgetRef ref, SelectionState selection) async {
+  Future<void> _appendToQueue(SelectionState selection) async {
     final api = ref.read(kalinkaProxyProvider);
     final toast = ref.read(toastProvider.notifier);
     final selectionNotifier = ref.read(selectionStateProvider.notifier);
@@ -129,7 +216,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
     }
   }
 
-  Future<void> _playNow(WidgetRef ref, SelectionState selection) async {
+  Future<void> _playNow(SelectionState selection) async {
     final api = ref.read(kalinkaProxyProvider);
     final toast = ref.read(toastProvider.notifier);
     final selectionNotifier = ref.read(selectionStateProvider.notifier);
@@ -149,7 +236,7 @@ class MultiSelectBottomBar extends ConsumerWidget {
     }
   }
 
-  Future<void> _playNext(WidgetRef ref, SelectionState selection) async {
+  Future<void> _playNext(SelectionState selection) async {
     final api = ref.read(kalinkaProxyProvider);
     final toast = ref.read(toastProvider.notifier);
     final selectionNotifier = ref.read(selectionStateProvider.notifier);
@@ -164,6 +251,19 @@ class MultiSelectBottomBar extends ConsumerWidget {
     } catch (e) {
       toast.endQueueActivity('Failed to add: $e', isError: true);
     }
+  }
+
+  /// Hands the selection to the destination sheet, which is where the
+  /// collection it joins and the terms it joins on are settled.
+  Future<void> _saveToCollection() async {
+    KalinkaHaptics.mediumImpact();
+    final selectionNotifier = ref.read(selectionStateProvider.notifier);
+    final landed = await showAddToCollectionSheet(
+      context,
+      CollectionAddition.selection(selectionNotifier.resolveIdsForApi()),
+    );
+    // A sheet closed without saving leaves the selection to try again.
+    if (landed) selectionNotifier.exitSelectionMode();
   }
 }
 
@@ -192,50 +292,67 @@ WidgetStateProperty<Color?> _accentOverlay() =>
       return null;
     });
 
-/// One of the three batch actions: icon-over-label button. All instances
-/// share the same fixed width so the trio reads as a set, leaving the spare
-/// width to the summary. [accent] fills it solid crimson with white icon and
-/// text, the KalinkaButton accent treatment. A null [onTap] renders it
-/// disabled.
+/// How a batch action is drawn: [filled] for the one that takes the queue
+/// over, [outlined] for the one a stage of two leads with, [plain] for the
+/// rest.
+enum _BatchLook { filled, outlined, plain }
+
+/// One batch action: an icon over its label. [width] fixes the footprint so a
+/// row of them reads as a set, leaving the spare width to the label beside
+/// them; a null one fills whatever it is given instead. A null [onTap]
+/// renders it disabled.
 class _BatchActionButton extends StatelessWidget {
-  // Fixed footprint: wide enough for the longest label ("Play next").
-  static const double _width = 72;
+  // Wide enough for the longest label of the set ("Collection").
+  static const double _defaultWidth = 72;
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final bool accent;
+  final _BatchLook look;
+  final double? width;
 
   const _BatchActionButton({
     required this.icon,
     required this.label,
     this.onTap,
-    this.accent = false,
+    this.look = _BatchLook.plain,
+    this.width = _defaultWidth,
   });
 
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    final Color fg = accent || enabled
-        ? KalinkaColors.textPrimary
-        : KalinkaColors.textMuted;
+    final Color fg = switch (look) {
+      _BatchLook.outlined => KalinkaColors.accentTint,
+      _BatchLook.filled => KalinkaColors.textPrimary,
+      _BatchLook.plain =>
+        enabled ? KalinkaColors.textPrimary : KalinkaColors.textMuted,
+    };
+    final Color background = switch (look) {
+      _BatchLook.filled => KalinkaColors.accent,
+      _BatchLook.outlined => KalinkaColors.accentSubtle,
+      _BatchLook.plain => KalinkaColors.surfaceElevated,
+    };
+    final Color border = look == _BatchLook.plain
+        ? KalinkaColors.borderDefault
+        : KalinkaColors.accent;
     return Opacity(
       opacity: enabled ? 1.0 : 0.5,
       child: Material(
-        color: accent ? KalinkaColors.accent : KalinkaColors.surfaceElevated,
+        color: background,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(
-            color: accent ? KalinkaColors.accent : KalinkaColors.borderDefault,
-          ),
+          side: BorderSide(color: border),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           // On the crimson fill an accent wash would vanish — use white.
-          overlayColor: accent ? _accentOverlay() : _batchOverlay(),
+          overlayColor: look == _BatchLook.filled
+              ? _accentOverlay()
+              : _batchOverlay(),
           child: SizedBox(
-            width: _width,
+            width: width,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Column(
@@ -263,53 +380,53 @@ class _BatchActionButton extends StatelessWidget {
   }
 }
 
-/// Two-line selection summary: "N selected" (items — tracks and whole
-/// albums/playlists), over the resolved track total those items expand to.
-/// Container track counts come from [browseDetailProvider] (minus exclusions);
-/// while one is still loading the total shows as "M+" ("…" if nothing else is
-/// resolved yet).
-class _SelectionSummary extends ConsumerWidget {
-  final SelectionState selection;
-
-  const _SelectionSummary({required this.selection});
+/// The upright rule that keeps the batch actions off the label beside them.
+class _BarRule extends StatelessWidget {
+  const _BarRule();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    int tracks = selection.selectedIds.length;
-    int unresolved = 0;
-    for (final containerId in selection.selectedContainerIds) {
-      final items = ref.watch(browseDetailProvider(containerId)).value?.items;
-      if (items == null) {
-        unresolved++;
-        continue;
-      }
-      final trackCount = items.where((i) => i.track != null).length;
-      final excluded = selection.containerExclusions[containerId]?.length ?? 0;
-      tracks += (trackCount - excluded).clamp(0, trackCount);
-    }
-    final tracksLabel = unresolved == 0
-        ? '$tracks ${tracks == 1 ? 'track' : 'tracks'}'
-        : tracks > 0
-        ? '$tracks+ tracks'
-        : '…';
+  Widget build(BuildContext context) =>
+      Container(width: 1, height: 30, color: KalinkaColors.borderDefault);
+}
 
+/// What the bar is about, over a line saying what it amounts to: the count of
+/// items taken over the tracks they come to, or the stage's own name over what
+/// it wants decided.
+class _BarLabel extends StatelessWidget {
+  final String title;
+  final String subtitle;
+
+  /// Overrides the plain title where a stage names itself the way a section
+  /// header does.
+  final TextStyle? titleStyle;
+
+  const _BarLabel({
+    required this.title,
+    required this.subtitle,
+    this.titleStyle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${selection.count} selected',
+          title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: KalinkaFonts.sans(
-            fontSize: KalinkaTypography.baseSize + 1,
-            fontWeight: FontWeight.w700,
-            color: KalinkaColors.textPrimary,
-          ),
+          style:
+              titleStyle ??
+              KalinkaFonts.sans(
+                fontSize: KalinkaTypography.baseSize + 1,
+                fontWeight: FontWeight.w700,
+                color: KalinkaColors.textPrimary,
+              ),
         ),
         const SizedBox(height: 1),
         Text(
-          tracksLabel,
+          subtitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: KalinkaFonts.sans(
