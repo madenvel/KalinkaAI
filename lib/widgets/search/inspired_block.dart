@@ -253,7 +253,7 @@ class _SourceGroup extends StatelessWidget {
           ],
           const SizedBox(height: 8),
           if (state is LegLoading)
-            const BrowseRowsShimmer(count: 2)
+            const BrowseRowsShimmer(count: InspiredBlock.previewCount)
           else
             // Tapping a track plays the group from it: the group is the
             // queue, which gives it a coherent identity.
