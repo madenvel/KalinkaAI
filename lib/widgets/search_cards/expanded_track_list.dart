@@ -52,19 +52,29 @@ class ExpandedContainerTracks extends ConsumerWidget {
             child: Text(emptyLabel, style: KalinkaTextStyles.trackRowSubtitle),
           );
         }
-        final totalSeconds = items.fold<int>(
-          0,
-          (sum, it) => sum + (it.track?.duration ?? 0),
-        );
+        // What the container holds, against what this page of it has: a
+        // browse answers with one page, and the row above already counts the
+        // whole thing.
+        final held = browseList.total > items.length
+            ? browseList.total
+            : items.length;
+        final paged = held > items.length;
+        // A page cannot be added up into the whole, so a partial one defers
+        // to the tally the source gave with the container itself.
+        final seconds = paged
+            ? item.playlist?.duration
+            : items.fold<int>(0, (sum, it) => sum + (it.track?.duration ?? 0));
         return Column(
           children: [
             ContainerActionHeader(
               item: item,
               trackIds: [for (final it in items) it.id],
-              totalDurationSeconds: totalSeconds > 0 ? totalSeconds : null,
+              totalTracks: held,
+              totalDurationSeconds: (seconds ?? 0) > 0 ? seconds : null,
               trailing: headerAction,
             ),
             _buildTrackList(items, ref),
+            if (paged) _PagedNote(shown: items.length, held: held),
           ],
         );
       },
@@ -105,6 +115,29 @@ class ExpandedContainerTracks extends ConsumerWidget {
             ),
         ],
       ],
+    );
+  }
+}
+
+/// Says so where the rows are one page of a longer container. Without it the
+/// header's count and the rows below it would disagree, and the shorter of
+/// the two numbers is the one that lies.
+class _PagedNote extends StatelessWidget {
+  final int shown;
+  final int held;
+
+  const _PagedNote({required this.shown, required this.held});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      child: Text(
+        'Showing the first $shown of $held · Play all takes them all',
+        style: KalinkaTextStyles.trackRowSubtitle.copyWith(
+          color: KalinkaColors.textMuted,
+        ),
+      ),
     );
   }
 }

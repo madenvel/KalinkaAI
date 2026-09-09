@@ -44,9 +44,10 @@ class CollectionsActions extends ConsumerWidget {
   }
 }
 
-/// Neither treatment of berry applies to a screen at rest: a fill commits a
-/// decision (Connect, Show results, Create) and an outline marks the one a set
-/// leads with. A standing toolbar action is neither, so it is neutral.
+/// New leads the pair, so it takes the outline berry that Play all takes over
+/// a plain Enqueue. Not a fill: a fill marks where a decision lands, and for
+/// New that is Create, inside the sheet this opens — spending berry on the
+/// doorway as well would flatten the two into one step.
 class _RestingActions extends ConsumerWidget {
   final bool hasRows;
 
@@ -61,12 +62,14 @@ class _RestingActions extends ConsumerWidget {
         ActionPillButton(
           label: 'New',
           icon: Icons.add,
+          accent: true,
           onTap: () => showNewCollectionSheet(context, ref),
           semanticsLabel: 'New collection',
         ),
         ActionPillButton(
           label: 'Edit',
-          icon: Icons.tune_rounded,
+          // Not tune_rounded: that is the filters glyph in the bar above it.
+          icon: Icons.edit_note_rounded,
           enabled: hasRows,
           semanticsLabel: 'Edit collections',
           onTap: () {
