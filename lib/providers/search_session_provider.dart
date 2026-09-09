@@ -447,9 +447,14 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
     }
 
     List<SourceOption> sources;
+    Set<String> suggesting;
     try {
       final modules = await ref.read(sourceModulesProvider.future);
       sources = _inDisplayOrder(modules);
+      suggesting = {
+        for (final module in modules)
+          if (module.can(ModuleCapability.aiSearch)) module.name,
+      };
     } catch (e) {
       _fail(gen, 'Could not reach the server: $e');
       return;
@@ -458,11 +463,14 @@ class SearchSessionNotifier extends Notifier<SearchSessionState> {
 
     state = state.copyWith(
       searchLoading: false,
-      results: SearchResults.pending(query, sources),
+      results: SearchResults.pending(query, sources, suggesting: suggesting),
     );
     for (final source in sources) {
-      for (final leg in ResultsLeg.values) {
-        _runLeg(gen, query, source.name, leg);
+      _runLeg(gen, query, source.name, ResultsLeg.matches);
+      // A source with no audio of its own — collections — would answer this
+      // empty, having held a row open while it did.
+      if (suggesting.contains(source.name)) {
+        _runLeg(gen, query, source.name, ResultsLeg.inspired);
       }
     }
   }

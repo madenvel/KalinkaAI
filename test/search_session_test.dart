@@ -154,6 +154,19 @@ final _modules = <ModuleInfo>[
     title: 'Qobuz',
     enabled: true,
     state: ModuleState.ready,
+    capabilities: const [ModuleCapability.aiSearch],
+  ),
+];
+
+/// A source that is searched by name but has no audio of its own to suggest —
+/// the shape collections has.
+final _nameOnlyModules = <ModuleInfo>[
+  ModuleInfo(
+    name: 'collections',
+    title: 'Collections',
+    enabled: true,
+    state: ModuleState.ready,
+    builtin: true,
   ),
 ];
 
@@ -169,12 +182,12 @@ void main() {
     prefs = await SharedPreferences.getInstance();
   });
 
-  ProviderContainer makeContainer(_FakeApi api) {
+  ProviderContainer makeContainer(_FakeApi api, {List<ModuleInfo>? modules}) {
     final container = ProviderContainer(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
         kalinkaProxyProvider.overrideWithValue(api),
-        sourceModulesProvider.overrideWith((ref) => _modules),
+        sourceModulesProvider.overrideWith((ref) => modules ?? _modules),
         connectionStateProvider.overrideWith(_FixedConnection.new),
         // The real provider opens the wire-event WebSocket (retry timer).
         playerStateProvider.overrideWithValue(PlaybackState.empty),
@@ -232,6 +245,22 @@ void main() {
         expect(api.aiSearchCalls, 1);
       },
     );
+
+    test('a source with nothing to suggest is asked once, not twice', () async {
+      final api = _FakeApi();
+      final container = makeContainer(api, modules: _nameOnlyModules);
+      final notifier = container.read(searchSessionProvider.notifier);
+      notifier.open();
+
+      notifier.submit('night');
+      await Future.delayed(const Duration(milliseconds: 900));
+
+      final results = container.read(searchSessionProvider).results!;
+      expect(api.matchCalls, 1);
+      expect(api.aiSearchCalls, 0);
+      // No leg was asked of it, so it holds no row waiting for one.
+      expect(results.inspiredGroups, isEmpty);
+    });
 
     test('a new submit replaces the previous query', () async {
       final api = _FakeApi();
