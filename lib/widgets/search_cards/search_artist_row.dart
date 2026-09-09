@@ -186,10 +186,12 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
                                 SourceBadge(entityId: widget.item.id),
                                 const SizedBox(width: 6),
                               ],
-                              Text.rich(
-                                entityTypeSubtitle('Artist', stats),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              Expanded(
+                                child: Text.rich(
+                                  entityTypeSubtitle('Artist', stats),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                           ),
