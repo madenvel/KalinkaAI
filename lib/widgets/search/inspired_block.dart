@@ -15,9 +15,10 @@ import 'track_group_actions.dart';
 /// rankings are not comparable, so each group keeps its own order, its own
 /// batch actions and its own way of opening in full. Each group stands on
 /// its own answer — one still loading shimmers, one that failed says so,
-/// while the others show. The Discover mark on the heading and a bar on the
-/// page edge, fading out in the height of the heading, hold them together
-/// as the one section they are.
+/// while the others show. The Discover mark on the heading, a bar on the page
+/// edge and a berry wash under the rule hold them together as the one section
+/// they are, and the display face gives the block a voice of its own: these
+/// are answers offered, not a listing of what a source holds.
 class InspiredBlock extends StatelessWidget {
   final SearchResults results;
   final NarrowedResults narrowed;
@@ -36,6 +37,11 @@ class InspiredBlock extends StatelessWidget {
 
   /// Solid through the title, gone before the first source.
   static const _barHeight = 56.0;
+
+  /// How far the wash under the rule reaches before the groups begin. It runs
+  /// well past where it is still visible: the fade decides where it ends, not
+  /// the box.
+  static const _washHeight = 120.0;
 
   const InspiredBlock({
     super.key,
@@ -72,6 +78,13 @@ class InspiredBlock extends StatelessWidget {
       children: [
         Positioned(
           left: -gutter,
+          right: -gutter,
+          top: 0,
+          height: _washHeight,
+          child: const IgnorePointer(child: _HeadingWash()),
+        ),
+        Positioned(
+          left: -gutter,
           top: 0,
           width: 4,
           height: _barHeight,
@@ -100,8 +113,9 @@ class InspiredBlock extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ShelfHeading(
-              title: 'INSPIRED BY YOUR REQUEST',
+              title: 'Inspired by your request',
               icon: Icons.auto_awesome,
+              face: ShelfTitleFace.display,
               count: loading ? null : total,
               subtitle: 'Smart recommendations, kept by source',
             ),
@@ -116,6 +130,43 @@ class InspiredBlock extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// The berry the block is allowed: a wash hanging off the heading's rule,
+/// spent almost entirely on the right where the rule is longest and gone
+/// again by the foot of the heading.
+///
+/// Diffuse rather than drawn — a berry edge or fill would read as a decision,
+/// and this is atmosphere for the one section the app answers in its own
+/// voice. It is laid under the rule rather than behind the title so the name
+/// keeps the plain canvas behind it.
+class _HeadingWash extends StatelessWidget {
+  const _HeadingWash();
+
+  @override
+  Widget build(BuildContext context) {
+    return ShaderMask(
+      // Nothing at the title's line, full just under the rule, gone by the
+      // foot of the subtitle — the box runs on, the wash does not.
+      shaderCallback: (bounds) => const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        stops: [0.10, 0.26, 0.52],
+        colors: [Colors.transparent, Colors.white, Colors.transparent],
+      ).createShader(bounds),
+      blendMode: BlendMode.dstIn,
+      child: const DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            stops: [0.25, 1],
+            colors: [Color(0x00C2394B), KalinkaColors.accentWash],
+          ),
+        ),
+      ),
     );
   }
 }

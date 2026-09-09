@@ -50,6 +50,7 @@ Primary interactive accent — deep natural red of guelder-rose berries. Active 
 | `accentBright` | `#F59299` | Text/icons on `accentFaded` only |
 | `accentSubtle` | `rgba(194,57,75,0.08)` | Now-playing row · active pill bg |
 | `accentBorder` | `rgba(194,57,75,0.40)` | Focused inputs · selected cards |
+| `accentWash` | `rgba(194,57,75,0.12)` | Section wash — diffuse only, never an edge or a fill |
 
 ### Fill or outline
 
@@ -60,6 +61,8 @@ Berry has two treatments, and which one a control gets is not a matter of taste.
 **Outline** — `accentSubtle` fill, `accentBorder` edge, `accentTint` label — marks *the one a set leads with*, or the thing the app is doing right now: `ActionPillButton(accent:)`'s Play all beside a plain Enqueue, the now-playing row tint. It reads as "this one", not "pick me".
 
 **A receipt is grey.** What a decision left behind is chrome, not signal — applied-filter chips above a listing, the search-and-filters pill while filters are on — and it gets `surfaceElevated` fill, `borderDefault` edge, `textPrimary` label, lightening to `surfaceOverlay` / `textMuted` under the pointer. The one thing a receipt may carry in berry is a **count**: the filter pill's badge is a number, which says how many rather than merely that there are any, and a number is too small to shout. (Revised 2026-09-09: the chips and the lit pill were both outlined, and three berry-edged things in one title bar left berry meaning nothing in particular.)
+
+**Atmosphere is not a mark.** A berry *wash* — diffuse, at or under 12% alpha, dying inside the height of the thing it hangs off — is neither fill nor outline. It colours a region instead of marking a control, so it can say *this part of the page answers in a different voice* without claiming a decision. The Inspired block's heading carries the only one: it hangs off the rule, spends itself on the right where the rule is longest, and is gone by the foot of the heading. Anything with an edge you can point at is a mark, and takes the two rules above instead.
 
 The same value takes both treatments depending on where it is drawn, and that is the rule working rather than an inconsistency: a genre chip is filled inside the filter card, where you are choosing it, and grey in the header of the listing it produced, where it is a receipt you keep looking at.
 
