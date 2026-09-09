@@ -69,7 +69,9 @@ class _SearchArtistRowState extends ConsumerState<SearchArtistRow> {
         : null;
 
     final statsParts = <String>[];
-    if (albumCount != null) statsParts.add('$albumCount albums');
+    if (albumCount != null) {
+      statsParts.add('$albumCount ${albumCount == 1 ? 'album' : 'albums'}');
+    }
     final stats = statsParts.join(' \u00B7 ');
 
     return Column(
@@ -314,7 +316,7 @@ class _ArtistExpansionContent extends ConsumerWidget {
                       vertical: 12,
                     ),
                     child: Text(
-                      '\u00B7\u00B7\u00B7 $moreCount more albums',
+                      '\u00B7\u00B7\u00B7 $moreCount more ${moreCount == 1 ? 'album' : 'albums'}',
                       style: KalinkaTextStyles.showMoreLabel,
                     ),
                   ),
@@ -888,7 +890,7 @@ class _SinglesSectionState extends ConsumerState<_SinglesSection>
                   vertical: 10,
                 ),
                 child: Text(
-                  '\u00B7\u00B7\u00B7 $moreCount more tracks',
+                  '\u00B7\u00B7\u00B7 $moreCount more ${moreCount == 1 ? 'track' : 'tracks'}',
                   style: KalinkaTextStyles.showMoreLabel,
                 ),
               ),
