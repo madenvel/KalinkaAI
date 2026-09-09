@@ -13,7 +13,18 @@ class ActionPillButton extends StatelessWidget {
   /// height as the pills beside it, for an action its glyph already names.
   final String? label;
   final IconData? icon;
+
+  /// A mark ahead of the label, where a glyph will not do — a source's
+  /// letter tile. Takes the place of [icon], not a second thing beside it.
+  final Widget? leading;
+
+  /// Crimson-highlighted rather than grey: the one a set leads with, or the
+  /// one being read. See the palette's outline treatment.
   final bool accent;
+
+  /// Reported to a screen reader for a pill that stands for a choice rather
+  /// than an action. Null leaves it unsaid.
+  final bool? selected;
   final bool enabled;
   final VoidCallback? onTap;
 
@@ -27,7 +38,9 @@ class ActionPillButton extends StatelessWidget {
     super.key,
     this.label,
     this.icon,
+    this.leading,
     this.accent = false,
+    this.selected,
     this.enabled = true,
     this.onTap,
     this.foregroundOverride,
@@ -62,8 +75,10 @@ class ActionPillButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (leading != null) leading!,
               if (icon != null) Icon(icon, size: 16, color: fg),
-              if (icon != null && label != null) const SizedBox(width: 5),
+              if ((icon != null || leading != null) && label != null)
+                const SizedBox(width: 5),
               if (label != null)
                 Text(
                   label!,
@@ -86,6 +101,7 @@ class ActionPillButton extends StatelessWidget {
       label: semanticsLabel ?? label,
       button: true,
       enabled: enabled,
+      selected: selected,
       child: button,
     );
   }
