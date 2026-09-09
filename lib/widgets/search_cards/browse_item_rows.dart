@@ -12,8 +12,10 @@ import 'search_track_row.dart';
 import 'show_more_row.dart';
 
 /// Renders a list of [BrowseItem]s as stacked rows, dispatching to the correct
-/// Search*Row widget by [BrowseItem.browseType]. Rows are separated by hairline
-/// dividers unless [dividers] is false, in which case they simply stack.
+/// Search*Row widget by [BrowseItem.browseType]. Rows are separated by
+/// hairline dividers — every list of rows in the app is, whether its rows are
+/// independent hits or a set that plays as one queue, so there is no flag to
+/// turn them off with.
 ///
 /// When [visibleLimit] is set and [items.length] exceeds it, the list is
 /// truncated and a [ShowMoreRow] is appended that toggles [isExpanded] via
@@ -28,10 +30,6 @@ class BrowseItemRows extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback? onToggleExpand;
 
-  /// Draw a hairline divider between adjacent rows. Off for the search-result
-  /// sections, where the only divider is between sections, not their rows.
-  final bool dividers;
-
   /// When set, tapping a track row plays this whole list as the queue,
   /// starting from the tapped track, instead of playing the track alone.
   final List<String>? queueContextIds;
@@ -42,7 +40,6 @@ class BrowseItemRows extends StatelessWidget {
     this.visibleLimit,
     this.isExpanded = false,
     this.onToggleExpand,
-    this.dividers = true,
     this.queueContextIds,
   });
 
@@ -67,12 +64,17 @@ class BrowseItemRows extends StatelessWidget {
           child: buildRow(displayed[i], queueContextIds: queueContextIds),
         ),
       );
-      if (dividers && i < displayed.length - 1) {
+      if (i < displayed.length - 1) {
+        // Inset by the row above it: the hairline is that row's bottom edge,
+        // so it starts where that row's words do.
         children.add(
-          const Divider(
-            color: KalinkaColors.borderSubtle,
-            thickness: 1,
-            height: 14,
+          Padding(
+            padding: EdgeInsets.only(left: textInsetOf(displayed[i])),
+            child: const Divider(
+              color: KalinkaColors.borderSubtle,
+              thickness: 1,
+              height: 14,
+            ),
           ),
         );
       }
@@ -100,6 +102,21 @@ class BrowseItemRows extends StatelessWidget {
       children: children,
     );
   }
+
+  /// Where a row's text column begins, so a hairline drawn under it starts
+  /// past the artwork instead of cutting the column of thumbnails in two.
+  ///
+  /// A table rather than one number: the rows are built five different ways
+  /// and their artwork runs from 44 to 64, so no single offset both clears
+  /// every thumbnail and stays against every text column. Measured, and held
+  /// to the measurement by a test — a row that changes its leading geometry
+  /// has to say so here.
+  static double textInsetOf(BrowseItem item) => switch (item.browseType) {
+    BrowseType.track => 57,
+    BrowseType.album || BrowseType.artist || BrowseType.catalog => 75,
+    BrowseType.playlist => item.canEdit ? 81 : 71,
+    BrowseType.unknown => 57,
+  };
 
   /// Maps a single [BrowseItem] to its Search*Row widget. Public so lazy
   /// lists (e.g. paged/infinite-scroll surfaces) can build one row at a time

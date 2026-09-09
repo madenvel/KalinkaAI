@@ -106,9 +106,14 @@ class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
         );
         return ItemChunk(items: list.items, total: list.total);
       },
-      separatorBuilder: (context, _) => const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16),
-        child: Divider(
+      // Inset past the artwork of the row it follows, so the thumbnails read
+      // as one uninterrupted column down the page.
+      separatorBuilder: (context, _, above) => Padding(
+        padding: EdgeInsets.only(
+          left: 16 + BrowseItemRows.textInsetOf(above),
+          right: 16,
+        ),
+        child: const Divider(
           color: KalinkaColors.borderSubtle,
           thickness: 1,
           height: 14,
