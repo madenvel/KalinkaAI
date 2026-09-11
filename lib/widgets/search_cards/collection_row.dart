@@ -11,6 +11,7 @@ import '../../providers/toast_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/click_cursor.dart';
 import '../../utils/haptics.dart';
+import '../search/add_queue_chip.dart';
 import '../search/collection_menu_sheet.dart';
 import 'action_pill_button.dart';
 import 'collection_identity.dart';
@@ -155,6 +156,9 @@ class _CollectionRowState extends ConsumerState<CollectionRow>
                           emptyLabel: 'Nothing in this collection yet',
                           headerAction: widget.item.canEdit
                               ? _CollectionMenuButton(item: widget.item)
+                              : null,
+                          emptyAction: widget.item.canEdit
+                              ? AddQueueChip(item: widget.item)
                               : null,
                         ),
                 )

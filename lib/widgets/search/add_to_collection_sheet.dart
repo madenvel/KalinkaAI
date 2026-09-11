@@ -221,7 +221,10 @@ class _AddToCollectionSheetState extends ConsumerState<_AddToCollectionSheet> {
       ids,
       keepDuplicates: _keepDuplicates,
     );
-    return (outcome.added, _report(name, outcome, created: created));
+    return (
+      outcome.added,
+      collectionAddReport(name, outcome, created: created),
+    );
   }
 
   @override
@@ -357,8 +360,9 @@ class _AddToCollectionSheetState extends ConsumerState<_AddToCollectionSheet> {
 }
 
 /// What the add came to, in one line. A fresh collection had nothing to
-/// already hold, so it is reported as made and filled in one breath.
-String _report(
+/// already hold, so it is reported as made and filled in one breath. Shared
+/// by every way of adding, so one event is told in one set of words.
+String collectionAddReport(
   String name,
   ({int added, int alreadyThere}) outcome, {
   required bool created,
