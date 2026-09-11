@@ -63,6 +63,10 @@ class InfiniteListView<T> extends StatefulWidget {
   /// Changing this restarts from the top (alternative to re-keying).
   final Object? reloadKey;
 
+  /// Changing this refetches what is loaded and swaps it in place, the rows
+  /// staying up, where a restart would drop them to the placeholder.
+  final Object? refreshKey;
+
   /// Told how many items are loaded once a fetch settles, so a page can shape
   /// chrome it draws outside the list — a header action with nothing to act
   /// on. Never called during a build.
@@ -82,6 +86,7 @@ class InfiniteListView<T> extends StatefulWidget {
     this.errorBuilder,
     this.prefetchExtent = 600,
     this.reloadKey,
+    this.refreshKey,
     this.onLoadedCount,
   });
 
@@ -116,6 +121,8 @@ class _InfiniteListViewState<T> extends State<InfiniteListView<T>> {
     super.didUpdateWidget(old);
     if (old.reloadKey != widget.reloadKey) {
       _restart();
+    } else if (old.refreshKey != widget.refreshKey) {
+      _refresh();
     }
   }
 
@@ -163,6 +170,39 @@ class _InfiniteListViewState<T> extends State<InfiniteListView<T>> {
       // A listing that failed holds nothing, whatever it held before.
       widget.onLoadedCount?.call(0);
     }
+  }
+
+  /// Refetches the loaded range and swaps it in whole. A failed chunk leaves
+  /// what was there: a refresh has no error state of its own.
+  Future<void> _refresh() async {
+    if (_initialLoading || _initialError != null) return _restart();
+    final gen = ++_generation;
+    final loaded = _items.length;
+    final fresh = <T>[];
+    var total = _total;
+    var short = false;
+    try {
+      while (fresh.length < loaded && !short) {
+        final chunk = await widget.fetchChunk(fresh.length, widget.chunkSize);
+        if (!mounted || gen != _generation) return;
+        fresh.addAll(chunk.items);
+        total = chunk.total;
+        short = chunk.items.length < widget.chunkSize;
+      }
+    } catch (_) {
+      return;
+    }
+    setState(() {
+      _items
+        ..clear()
+        ..addAll(fresh);
+      _total = total;
+      _reachedShortChunk = short;
+      _loadingMore = false;
+      _loadMoreFailed = false;
+    });
+    widget.onLoadedCount?.call(_items.length);
+    _maybeFillViewport();
   }
 
   Future<void> _loadMore() async {
