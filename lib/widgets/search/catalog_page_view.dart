@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -5,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data_model/browse_filters.dart';
 import '../../data_model/data_model.dart';
+import '../../providers/catalog_cards_provider.dart';
 import '../../providers/collections_provider.dart';
 import '../../providers/kalinka_player_api_provider.dart';
 import '../../providers/search_session_provider.dart';
+import '../../providers/source_modules_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../browse_filters/active_filter_chips.dart';
@@ -50,6 +53,42 @@ class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
     if (rows != _rows) setState(() => _rows = rows);
   }
 
+  /// See [_pollWhileComposing].
+  static const _artPollInterval = Duration(seconds: 4);
+  static const _maxArtPolls = 8;
+  int _artRefresh = 0;
+  int _artPolls = 0;
+  Timer? _artTimer;
+
+  /// The server composes a collection's cover in the background after the
+  /// first listing that shows it with tracks, and nothing announces it. So
+  /// while a collection is listed with tracks and no cover, ask again every
+  /// few seconds, refreshing in place — bounded like the Discover cards' art
+  /// poll, and renewed by each write.
+  void _pollWhileComposing(List<BrowseItem> items) {
+    if (!mounted) return;
+    _artTimer?.cancel();
+    final builtin = ref.read(builtinSourcesProvider);
+    final composing = items.any(
+      (item) =>
+          ownedByServer(builtin, item.id) &&
+          (item.playlist?.trackCount ?? 0) > 0 &&
+          artPathOf(item) == null,
+    );
+    if (!composing || _artPolls >= _maxArtPolls) return;
+    _artTimer = Timer(_artPollInterval, () {
+      if (!mounted) return;
+      _artPolls++;
+      setState(() => _artRefresh++);
+    });
+  }
+
+  @override
+  void dispose() {
+    _artTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final page = widget.page;
@@ -60,6 +99,7 @@ class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
     // A listing the server takes writes for can change under the page, so a
     // write restarts it the way a filter does.
     final revision = ref.watch(collectionsRevisionProvider);
+    ref.listen(collectionsRevisionProvider, (_, __) => _artPolls = 0);
     // Recomputed per chunk, not per row (O(n²) otherwise).
     final trackIdsMemo = _TrackIdsMemo();
 
@@ -91,6 +131,7 @@ class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
       // Only the facets the server honours restart the list, so touching an
       // inert placeholder never costs a refetch.
       reloadKey: '${page.id}|${query.serverKey(capabilities)}|$revision',
+      refreshKey: _artRefresh,
       onLoadedCount: _countRows,
       // No horizontal list padding — the banner bleeds edge to edge; rows and
       // separators carry their own 16px inset instead.
@@ -104,6 +145,7 @@ class _CatalogPageViewState extends ConsumerState<CatalogPageView> {
           limit: limit,
           filter: query.encoded(capabilities),
         );
+        _pollWhileComposing(list.items);
         return ItemChunk(items: list.items, total: list.total);
       },
       // Inset past the artwork of the row it follows, so the thumbnails read

@@ -27,21 +27,26 @@ const _shelfId = 'kalinka:collections:catalog:collections';
 const _c1 = 'kalinka:collections:playlist:c1';
 const _c2 = 'kalinka:collections:playlist:c2';
 
-BrowseItem _collection(String id, String name, int tracks, {int? seconds}) =>
-    BrowseItem(
-      id: id,
-      name: name,
-      canBrowse: true,
-      canAdd: true,
-      canEdit: true,
-      playlist: Playlist(
-        id: id,
-        name: name,
-        trackCount: tracks,
-        duration: seconds,
-      ),
-      catalog: Catalog(id: id, title: name, sources: const ['localfiles']),
-    );
+BrowseItem _collection(
+  String id,
+  String name,
+  int tracks, {
+  int? seconds,
+  String? art,
+}) => BrowseItem(
+  id: id,
+  name: name,
+  canBrowse: true,
+  canAdd: true,
+  canEdit: true,
+  playlist: Playlist(id: id, name: name, trackCount: tracks, duration: seconds),
+  catalog: Catalog(
+    id: id,
+    title: name,
+    sources: const ['localfiles'],
+    image: art == null ? null : AlbumImage(small: art, large: art),
+  ),
+);
 
 BrowseItem _track(String id, String title) => BrowseItem(
   id: id,
@@ -208,6 +213,35 @@ class _FreshApi extends _ShelfApi {
       _ => const <BrowseItem>[],
     };
     return BrowseItemsList(offset, limit, items.length, items);
+  }
+}
+
+/// A collection whose cover the server is still composing: the first
+/// listings carry no art.
+class _ComposingApi extends _ShelfApi {
+  static const readyAfter = 3;
+  int listings = 0;
+
+  @override
+  Future<BrowseItemsList> browse(
+    String id, {
+    int offset = 0,
+    int limit = 10,
+    String? filter,
+  }) async {
+    if (id != _shelfId) {
+      return super.browse(id, offset: offset, limit: limit, filter: filter);
+    }
+    listings++;
+    final rows = [
+      _collection(
+        _c1,
+        'Late Night Signals',
+        2,
+        art: listings >= readyAfter ? '/catalog/art/late.jpg' : null,
+      ),
+    ];
+    return BrowseItemsList(offset, limit, rows.length, rows);
   }
 }
 
@@ -765,6 +799,41 @@ void main() {
     await tester.tap(find.text('Fresh Start'));
     await settle(tester);
     expect(find.text('Arrived Meanwhile'), findsOneWidget);
+  });
+
+  testWidgets('a cover composed after the listing arrives without reopening', (
+    tester,
+  ) async {
+    final api = _ComposingApi();
+    final container = await pumpSurface(tester, api: api);
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+
+    final cover = find.descendant(
+      of: find.byType(CollectionRow),
+      matching: find.byType(Image),
+    );
+    expect(cover, findsNothing);
+    expect(api.listings, 1);
+
+    // Asked again a few seconds later, refreshed in place.
+    await tester.pump(const Duration(seconds: 4));
+    await settle(tester);
+    expect(api.listings, 2);
+    expect(cover, findsNothing);
+    expect(find.text('Late Night Signals'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 4));
+    await settle(tester);
+    expect(api.listings, 3);
+    expect(cover, findsOneWidget);
+
+    // And not again once it is there.
+    await tester.pump(const Duration(seconds: 4));
+    await settle(tester);
+    expect(api.listings, 3);
   });
 
   testWidgets('with nothing queued, an empty collection makes no offer', (
