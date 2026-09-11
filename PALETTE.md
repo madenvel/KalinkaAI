@@ -17,6 +17,8 @@ Six-step depth scale — each level sits above the previous. Use the shallowest 
 | `surfaceElevated` | `#1C1C1A` | Pills (unselected) · toggle off · nested |
 | `surfaceOverlay` | `#222220` | Hover · pressed · active row tint |
 
+A surface may also be spread as a *wash*: a gradient that lifts a region out of the canvas and dies inside it, marking where a section begins without a rule or a box. See *Atmosphere is neutral* under [Fill or outline](#fill-or-outline).
+
 ## Borders
 
 Pure white alpha — clean neutral separation.
@@ -50,7 +52,6 @@ Primary interactive accent — deep natural red of guelder-rose berries. Active 
 | `accentBright` | `#F59299` | Text/icons on `accentFaded` only |
 | `accentSubtle` | `rgba(194,57,75,0.08)` | Now-playing row · active pill bg |
 | `accentBorder` | `rgba(194,57,75,0.40)` | Focused inputs · selected cards |
-| `accentWash` | `rgba(194,57,75,0.12)` | Section wash — diffuse only, never an edge or a fill |
 
 ### Fill or outline
 
@@ -62,7 +63,7 @@ Berry has two treatments, and which one a control gets is not a matter of taste.
 
 **A receipt is grey.** What a decision left behind is chrome, not signal — applied-filter chips above a listing, the search-and-filters pill while filters are on — and it gets `surfaceElevated` fill, `borderDefault` edge, `textPrimary` label, lightening to `surfaceOverlay` / `textMuted` under the pointer. The one thing a receipt may carry in berry is a **count**: the filter pill's badge is a number, which says how many rather than merely that there are any, and a number is too small to shout. (Revised 2026-09-09: the chips and the lit pill were both outlined, and three berry-edged things in one title bar left berry meaning nothing in particular.)
 
-**Atmosphere is not a mark.** A berry *wash* — diffuse, at or under 12% alpha, dying inside the height of the thing it hangs off — is neither fill nor outline. It colours a region instead of marking a control, so it can say *this part of the page answers in a different voice* without claiming a decision. The Inspired block's heading carries the only one: it stands behind the name, spends itself on the right where the name leaves the canvas empty, and is gone by the foot of the heading — the only thing marking where that block begins, since nothing there is ruled or barred. Anything with an edge you can point at is a mark, and takes the two rules above instead.
+**Atmosphere is neutral.** A *wash* — a surface colour spread as a gradient and dissolved back into the canvas inside the height of the thing it hangs off — colours a region instead of marking a control, so it can say *a different kind of section starts here* without claiming a decision. It is drawn in the depth scale, never in berry: the Inspired block's heading sits on `surfaceElevated` rising out of `background` and gone by the heading's foot, edge to edge, the only thing marking where that block begins. Its voice comes from typography, and its link to the search entry is the sparkle, not a hue. The one berry atmosphere is the Discover root's bloom, on the surface where the app is being asked. (Revised 2026-09-11: the heading carried that bloom at a section's scale, two rows above the berry now-playing row, and the two read as one signal. The wash went grey; berry is back to two treatments.) Anything with an edge you can point at is a mark, and takes the two rules above instead.
 
 The same value takes both treatments depending on where it is drawn, and that is the rule working rather than an inconsistency: a genre chip is filled inside the filter card, where you are choosing it, and grey in the header of the listing it produced, where it is a receipt you keep looking at.
 

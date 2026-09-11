@@ -27,7 +27,16 @@ class SearchTrackRow extends ConsumerStatefulWidget {
   /// search section). Null → tapping plays just this track.
   final List<String>? queueContextIds;
 
-  const SearchTrackRow({super.key, required this.item, this.queueContextIds});
+  /// Whether the second line leads with "Track" and the source badge. Off
+  /// under a heading that already says both.
+  final bool labelled;
+
+  const SearchTrackRow({
+    super.key,
+    required this.item,
+    this.queueContextIds,
+    this.labelled = true,
+  });
 
   @override
   ConsumerState<SearchTrackRow> createState() => _SearchTrackRowState();
@@ -249,7 +258,8 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              if (sourceBadgeVisible(ref, widget.item.id)) ...[
+              if (widget.labelled &&
+                  sourceBadgeVisible(ref, widget.item.id)) ...[
                 SourceBadge(
                   entityId: widget.item.id,
                   size: SourceBadgeSize.standard,
@@ -257,11 +267,18 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
                 const SizedBox(width: 6),
               ],
               Expanded(
-                child: Text.rich(
-                  entityTypeSubtitle('Track', subtitle),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                child: widget.labelled
+                    ? Text.rich(
+                        entityTypeSubtitle('Track', subtitle),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : Text(
+                        subtitle,
+                        style: KalinkaTextStyles.trackRowSubtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
               ),
             ],
           ),

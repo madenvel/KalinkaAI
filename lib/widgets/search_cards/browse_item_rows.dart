@@ -34,6 +34,10 @@ class BrowseItemRows extends StatelessWidget {
   /// starting from the tapped track, instead of playing the track alone.
   final List<String>? queueContextIds;
 
+  /// Whether each row names its kind and source. Off under a heading that
+  /// already does (a source's group of tracks). Only the track row reads it.
+  final bool labelled;
+
   const BrowseItemRows({
     super.key,
     required this.items,
@@ -41,6 +45,7 @@ class BrowseItemRows extends StatelessWidget {
     this.isExpanded = false,
     this.onToggleExpand,
     this.queueContextIds,
+    this.labelled = true,
   });
 
   @override
@@ -61,7 +66,11 @@ class BrowseItemRows extends StatelessWidget {
       // outer ListView child (BASED ON NOW PLAYING, RECENTLY FAVOURITED).
       children.add(
         RepaintBoundary(
-          child: buildRow(displayed[i], queueContextIds: queueContextIds),
+          child: buildRow(
+            displayed[i],
+            queueContextIds: queueContextIds,
+            labelled: labelled,
+          ),
         ),
       );
       if (i < displayed.length - 1) {
@@ -122,10 +131,18 @@ class BrowseItemRows extends StatelessWidget {
   /// lists (e.g. paged/infinite-scroll surfaces) can build one row at a time
   /// while keeping the exact same dispatch, tap-to-play, and expansion
   /// behavior as the stacked [BrowseItemRows] Column.
-  static Widget buildRow(BrowseItem item, {List<String>? queueContextIds}) {
+  static Widget buildRow(
+    BrowseItem item, {
+    List<String>? queueContextIds,
+    bool labelled = true,
+  }) {
     switch (item.browseType) {
       case BrowseType.track:
-        return SearchTrackRow(item: item, queueContextIds: queueContextIds);
+        return SearchTrackRow(
+          item: item,
+          queueContextIds: queueContextIds,
+          labelled: labelled,
+        );
       case BrowseType.album:
         return SearchAlbumRow(item: item);
       case BrowseType.artist:
