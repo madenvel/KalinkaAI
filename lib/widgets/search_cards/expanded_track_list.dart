@@ -9,6 +9,7 @@ import '../../providers/selection_state_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
+import '../now_playing_bars.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
 import '../swipe_to_act_row.dart';
@@ -460,8 +461,13 @@ class _InlineContainerTrackState extends ConsumerState<_InlineContainerTrack>
                       ],
                     ),
                   ),
-                  if (!selectionMode && duration != null)
-                    Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
+                  if (!selectionMode) ...[
+                    if (isCurrentTrack) const NowPlayingBars(),
+                    if (isCurrentTrack && duration != null)
+                      const SizedBox(width: 8),
+                    if (duration != null)
+                      Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
+                  ],
                 ],
               ),
             ),
