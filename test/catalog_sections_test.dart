@@ -130,8 +130,14 @@ Future<_Harness> _pump(
   WidgetTester tester, {
   Map<String, List<BrowseItem>> catalogs = const {},
   Completer<void>? gate,
+  List<BrowseItem>? sections,
 }) async {
-  final page = _libraryPage;
+  final page = CatalogPage.category(
+    id: 'kalinka:localfiles:catalog:library',
+    title: 'My Library',
+    filters: const [_textField, _typeField, _genreField],
+    sections: sections ?? _sections,
+  );
   final api = _ScriptedBrowseApi(catalogs, gate: gate);
   final container = ProviderContainer(
     overrides: [
@@ -203,6 +209,29 @@ void main() {
       expect(
         query.encoded(_libraryPage.filterCapabilities),
         '{"type":{"any":["album"]}}',
+      );
+    });
+
+    test('a query is honoured only where each of its answers is live', () {
+      final byNameOnly = BrowseFilterCapabilities.fromSpecs(const [
+        _textField,
+      ], catalogId: 'kalinka:localfiles:catalog:artists');
+
+      expect(const BrowseFilterQuery().isHonouredBy(byNameOnly), isTrue);
+      expect(
+        const BrowseFilterQuery(text: 'moon').isHonouredBy(byNameOnly),
+        isTrue,
+      );
+      expect(
+        const BrowseFilterQuery(genreIds: ['jazz']).isHonouredBy(byNameOnly),
+        isFalse,
+      );
+      expect(
+        const BrowseFilterQuery(
+          text: 'moon',
+          genreIds: ['jazz'],
+        ).isHonouredBy(byNameOnly),
+        isFalse,
       );
     });
   });
@@ -299,6 +328,84 @@ void main() {
       expect(harness.api.calls.map((c) => c.filter).toSet(), {
         '{"q":{"contains":"moon"}}',
       });
+    });
+  });
+
+  group('a shelf the filter cannot reach', () {
+    final artistsByName = _section(
+      id: 'kalinka:localfiles:catalog:artists',
+      name: 'Artists',
+      contentType: PreviewContentType.artist,
+      filters: const [_textField],
+    );
+    final albumsByName = _section(
+      id: 'kalinka:localfiles:catalog:albums',
+      name: 'Albums',
+      contentType: PreviewContentType.album,
+      filters: const [_textField],
+    );
+    final catalogs = {
+      'kalinka:localfiles:catalog:artists': [_album('a1', 'Air')],
+      'kalinka:localfiles:catalog:albums': [_album('b1', 'Moon Safari')],
+    };
+
+    testWidgets('is left out rather than listed unfiltered', (tester) async {
+      final harness = await _pump(
+        tester,
+        sections: [artistsByName, _sections[1]],
+        catalogs: catalogs,
+      );
+      harness.api.calls.clear();
+
+      harness.container
+          .read(searchSessionProvider.notifier)
+          .setCatalogFilter(const BrowseFilterQuery(genreIds: ['jazz']));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ARTISTS'), findsNothing);
+      expect(find.text('ALBUMS'), findsOneWidget);
+      // Not fetched and hidden — never asked for.
+      expect(harness.api.calls.map((c) => c.id), [
+        'kalinka:localfiles:catalog:albums',
+      ]);
+    });
+
+    testWidgets('is back once that filter is cleared', (tester) async {
+      final harness = await _pump(
+        tester,
+        sections: [artistsByName, _sections[1]],
+        catalogs: catalogs,
+      );
+      final session = harness.container.read(searchSessionProvider.notifier);
+
+      session.setCatalogFilter(const BrowseFilterQuery(genreIds: ['jazz']));
+      await tester.pumpAndSettle();
+      session.setCatalogFilter(const BrowseFilterQuery(text: 'air'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ARTISTS'), findsOneWidget);
+      expect(find.text('ALBUMS'), findsOneWidget);
+    });
+
+    testWidgets('leaves the page saying nothing matches when none is left', (
+      tester,
+    ) async {
+      final harness = await _pump(
+        tester,
+        sections: [artistsByName, albumsByName],
+        catalogs: catalogs,
+      );
+      harness.api.calls.clear();
+
+      harness.container
+          .read(searchSessionProvider.notifier)
+          .setCatalogFilter(const BrowseFilterQuery(genreIds: ['jazz']));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ARTISTS'), findsNothing);
+      expect(find.text('ALBUMS'), findsNothing);
+      expect(find.text('Nothing matches these filters'), findsOneWidget);
+      expect(harness.api.calls, isEmpty);
     });
   });
 }

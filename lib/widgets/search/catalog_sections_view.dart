@@ -18,13 +18,17 @@ const _defaultPreviewLimit = 5;
 ///
 /// The page shows this only while no kind is chosen; choosing one narrows the
 /// catalog itself to a flat list, which is the same listing a shelf shows.
-/// Shelves load independently, so a slow one never holds up the rest.
+/// Shelves load independently, so a slow one never holds up the rest, and a
+/// shelf that cannot honour the page's filter is not shown at all.
 class CatalogSectionsView extends StatelessWidget {
   final CatalogPage page;
   final BrowseFilterQuery query;
 
   /// The page banner and its active-filter chips, scrolling with the shelves.
   final Widget header;
+
+  /// What stands under the header when the query leaves no shelf to show.
+  final Widget empty;
 
   /// Opens one shelf in full, by narrowing the page to that kind.
   final ValueChanged<SearchType> onViewAll;
@@ -34,19 +38,32 @@ class CatalogSectionsView extends StatelessWidget {
     required this.page,
     required this.query,
     required this.header,
+    required this.empty,
     required this.onViewAll,
   });
 
   @override
   Widget build(BuildContext context) {
+    final shelves = [
+      for (final section in page.sections)
+        if (_plan(section, query) case final shelf?) shelf,
+    ];
+    if (shelves.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header,
+          Expanded(child: empty),
+        ],
+      );
+    }
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 24),
-      itemCount: page.sections.length + 1,
+      itemCount: shelves.length + 1,
       itemBuilder: (context, index) {
         if (index == 0) return header;
-        final section = page.sections[index - 1];
         return _SectionShelf(
-          section: section,
+          shelf: shelves[index - 1],
           query: query,
           onViewAll: onViewAll,
         );
@@ -55,33 +72,49 @@ class CatalogSectionsView extends StatelessWidget {
   }
 }
 
+/// One shelf the page shows: its section, and what that shelf can be asked.
+typedef _ShelfPlan = ({
+  BrowseItem section,
+  Catalog catalog,
+  BrowseFilterCapabilities capabilities,
+});
+
+/// Null for a section that is no catalog, and for one the query would reach
+/// only in part: a shelf that dropped a constraint would list unfiltered,
+/// which reads as filtered and is not, so it stays off the page instead.
+_ShelfPlan? _plan(BrowseItem section, BrowseFilterQuery query) {
+  final catalog = section.catalog;
+  if (catalog == null) return null;
+  // Built from what this shelf declared, never the page's: a constraint the
+  // shelf cannot honour is dropped here rather than refused by its source.
+  final capabilities = BrowseFilterCapabilities.fromSpecs(
+    catalog.filters,
+    catalogId: section.id,
+  );
+  if (!query.isHonouredBy(capabilities)) return null;
+  return (section: section, catalog: catalog, capabilities: capabilities);
+}
+
 class _SectionShelf extends ConsumerWidget {
-  final BrowseItem section;
+  final _ShelfPlan shelf;
   final BrowseFilterQuery query;
   final ValueChanged<SearchType> onViewAll;
 
   const _SectionShelf({
-    required this.section,
+    required this.shelf,
     required this.query,
     required this.onViewAll,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final catalog = section.catalog;
-    if (catalog == null) return const SizedBox.shrink();
-
-    // Built from what this shelf declared, never the page's: a constraint the
-    // shelf cannot honour is dropped here rather than refused by its source.
-    final capabilities = BrowseFilterCapabilities.fromSpecs(
-      catalog.filters,
-      catalogId: section.id,
-    );
+    final section = shelf.section;
+    final catalog = shelf.catalog;
     final limit = catalog.previewConfig?.itemsCount ?? _defaultPreviewLimit;
     final preview = ref.watch(
       catalogSectionProvider((
         id: section.id,
-        filter: query.encoded(capabilities),
+        filter: query.encoded(shelf.capabilities),
         limit: limit,
       )),
     );

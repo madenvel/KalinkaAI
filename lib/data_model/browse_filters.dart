@@ -223,6 +223,18 @@ class BrowseFilterQuery {
       sources.length +
       (order == NameMatchOrder.relevance ? 0 : 1);
 
+  /// Whether every answer this query carries is live under [capabilities].
+  /// False means a surface built on them would list as if unfiltered: the
+  /// look of a filter with none of its effect.
+  bool isHonouredBy(BrowseFilterCapabilities capabilities) =>
+      (text.isEmpty || capabilities.text == FacetSupport.supported) &&
+      (type == null || capabilities.type == FacetSupport.supported) &&
+      (genreIds.isEmpty || capabilities.genre == FacetSupport.supported) &&
+      (kind == null || capabilities.kind == FacetSupport.supported) &&
+      (sources.isEmpty || capabilities.source == FacetSupport.supported) &&
+      (order == NameMatchOrder.relevance ||
+          capabilities.order == FacetSupport.supported);
+
   BrowseFilterQuery copyWith({
     String? text,
     SearchType? type,
