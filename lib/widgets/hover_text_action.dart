@@ -21,6 +21,9 @@ class HoverTextAction extends StatefulWidget {
   final double fontSize;
   final EdgeInsetsGeometry padding;
 
+  /// A glyph after the label (the arrow on VIEW ALL), coloured with it.
+  final IconData? trailingIcon;
+
   const HoverTextAction({
     super.key,
     required this.label,
@@ -30,6 +33,7 @@ class HoverTextAction extends StatefulWidget {
     this.semanticsLabel,
     this.fontSize = KalinkaTypography.baseSize,
     this.padding = EdgeInsets.zero,
+    this.trailingIcon,
   });
 
   @override
@@ -46,6 +50,7 @@ class _HoverTextActionState extends State<HoverTextAction> {
 
   @override
   Widget build(BuildContext context) {
+    final target = _hovering ? widget.hoverColor : widget.color;
     return Semantics(
       button: true,
       label: widget.semanticsLabel ?? widget.label,
@@ -62,16 +67,32 @@ class _HoverTextActionState extends State<HoverTextAction> {
           behavior: HitTestBehavior.opaque,
           child: Padding(
             padding: widget.padding,
-            child: AnimatedDefaultTextStyle(
+            child: TweenAnimationBuilder<Color?>(
+              tween: ColorTween(begin: target, end: target),
               duration: const Duration(milliseconds: 130),
               curve: Curves.easeOut,
-              style: KalinkaFonts.mono(
-                fontSize: widget.fontSize,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.4,
-                color: _hovering ? widget.hoverColor : widget.color,
+              builder: (context, colour, _) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.label,
+                    style: KalinkaFonts.mono(
+                      fontSize: widget.fontSize,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.4,
+                      color: colour,
+                    ),
+                  ),
+                  if (widget.trailingIcon != null) ...[
+                    const SizedBox(width: 2),
+                    Icon(
+                      widget.trailingIcon,
+                      size: widget.fontSize + 2,
+                      color: colour,
+                    ),
+                  ],
+                ],
               ),
-              child: Text(widget.label),
             ),
           ),
         ),

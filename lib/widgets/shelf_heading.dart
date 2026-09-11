@@ -86,7 +86,7 @@ class ShelfHeading extends StatelessWidget {
 
 /// The action that opens a shelf or a group in full. Mono and unfilled like
 /// RESET ALL, so it reads as the heading's action rather than a control of
-/// its own.
+/// its own. The arrow marks it as a link.
 class ViewAllAction extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
@@ -101,6 +101,7 @@ class ViewAllAction extends StatelessWidget {
       onTap: onTap,
       color: KalinkaColors.accentTint,
       hoverColor: KalinkaColors.textPrimary,
+      trailingIcon: Icons.arrow_forward_rounded,
     );
   }
 }

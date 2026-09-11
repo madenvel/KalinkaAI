@@ -18,6 +18,7 @@ import 'package:kalinka/widgets/browse_rows_shimmer.dart';
 import 'package:kalinka/widgets/search_cards/action_pill_button.dart';
 import 'package:kalinka/widgets/search/results_view.dart';
 import 'package:kalinka/widgets/search/inspired_block.dart';
+import 'package:kalinka/widgets/search_cards/search_track_row.dart';
 import 'package:kalinka/widgets/shelf_heading.dart';
 import 'package:kalinka/widgets/source_badge.dart';
 
@@ -31,18 +32,22 @@ BrowseItem _artist(String source, String id, String name, MatchTier tier) =>
       match: NameMatch(tier: tier, score: tier == MatchTier.exact ? 100 : 60),
     );
 
-BrowseItem _track(String source, String id, String title) => BrowseItem(
-  id: 'kalinka:$source:track:$id',
-  canBrowse: false,
-  canAdd: true,
-  track: Track(
-    id: 'kalinka:$source:track:$id',
-    title: title,
-    duration: 200,
-    album: Album(id: 'kalinka:$source:album:al', title: 'An Album'),
-    performer: Artist(id: 'kalinka:$source:artist:ar', name: 'Someone'),
-  ),
-);
+BrowseItem _track(String source, String id, String title, {MatchTier? tier}) =>
+    BrowseItem(
+      id: 'kalinka:$source:track:$id',
+      canBrowse: false,
+      canAdd: true,
+      track: Track(
+        id: 'kalinka:$source:track:$id',
+        title: title,
+        duration: 200,
+        album: Album(id: 'kalinka:$source:album:al', title: 'An Album'),
+        performer: Artist(id: 'kalinka:$source:artist:ar', name: 'Someone'),
+      ),
+      match: tier == null
+          ? null
+          : NameMatch(tier: tier, score: tier == MatchTier.exact ? 100 : 60),
+    );
 
 BrowseItemsList _list(List<BrowseItem> items) =>
     BrowseItemsList(0, items.length, items.length, items);
@@ -294,6 +299,9 @@ void main() {
     // Every source is named and lettered, the listener's own included.
     expect(find.byType(SourceLetter), findsNWidgets(2));
     expect(find.text('Play all'), findsNWidgets(2));
+    // Each source's heading counts what it suggested, as MATCHES BY NAME does.
+    expect(find.text('· 5'), findsOneWidget);
+    expect(find.text('· 1'), findsOneWidget);
     expect(find.text('Away Song 3'), findsOneWidget);
     expect(find.text('Away Song 4'), findsNothing);
     // Only the group holding more than its preview offers to open in full,
@@ -320,6 +328,7 @@ void main() {
     expect(find.text('Recommendations'), findsOneWidget);
     expect(find.text('Qobuz'), findsOneWidget);
     expect(find.text('Away Song 5'), findsOneWidget);
+    expect(find.text('· 5'), findsOneWidget);
     expect(find.text('LOCAL LIBRARY'), findsNothing);
     expect(find.text('MATCHES BY NAME'), findsNothing);
   });
@@ -366,9 +375,9 @@ void main() {
       headings.map((h) => h.title),
       isNot(contains(startsWith('Inspired'))),
     );
-    // Nothing is ruled through the heading. The only hairlines in the block
-    // are the ones between its rows — three shown of five, so two — and no
-    // tally on the block or on the source under it.
+    // Nothing is ruled through the heading; the only hairlines are between
+    // its rows (three shown of five, so two). The tally is the source's, not
+    // the block's.
     expect(
       find.descendant(
         of: find.byType(InspiredBlock),
@@ -376,7 +385,153 @@ void main() {
       ),
       findsNWidgets(2),
     );
-    expect(find.textContaining('· 5'), findsNothing);
+    expect(find.text('· 5'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find
+            .ancestor(of: find.text('· 5'), matching: find.byType(Row))
+            .first,
+        matching: find.text('LOCAL LIBRARY'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  /// The name leads in the display face over a quiet eyebrow, on a wash that
+  /// is grey: a berry one beside the berry now-playing row read as one signal.
+  testWidgets('the inspired heading leads with its name on a neutral wash', (
+    tester,
+  ) async {
+    final api = _ScriptedApi(
+      inspired: {
+        'localfiles': [
+          for (var i = 1; i <= 5; i++) _track('localfiles', '$i', 'Song $i'),
+        ],
+      },
+    );
+    await _pump(tester, api);
+    await tester.pump(_settle);
+
+    final title = tester.widget<Text>(find.text('Inspired by your request'));
+    final eyebrow = tester.widget<Text>(find.text('SMART RECOMMENDATIONS'));
+    final shelf = tester.widget<Text>(find.text('LOCAL LIBRARY'));
+    expect(title.style!.fontFamily, KalinkaFonts.displayFamily);
+    expect(title.style!.fontSize!, greaterThan(2 * eyebrow.style!.fontSize!));
+    // Quieter than the shelf labels under it.
+    expect(eyebrow.style!.fontSize!, lessThan(shelf.style!.fontSize!));
+    expect(
+      eyebrow.style!.fontWeight!.value,
+      lessThan(shelf.style!.fontWeight!.value),
+    );
+    expect(eyebrow.style!.color, KalinkaColors.textSecondary);
+
+    // One wash, and no colour in it leans red.
+    final washes = find.descendant(
+      of: find.byType(InspiredBlock),
+      matching: find.byWidgetPredicate(
+        (w) =>
+            w is DecoratedBox &&
+            w.decoration is BoxDecoration &&
+            (w.decoration as BoxDecoration).gradient != null,
+      ),
+    );
+    expect(washes, findsOneWidget);
+    final gradient =
+        (tester.widget<DecoratedBox>(washes).decoration as BoxDecoration)
+            .gradient!;
+    for (final c in gradient.colors) {
+      expect(c.r - c.g, lessThan(0.05));
+    }
+    // Edge to edge, and gone before the first group's name.
+    final wash = tester.getRect(washes);
+    final block = tester.getRect(find.byType(InspiredBlock));
+    expect(wash.left, lessThan(block.left));
+    expect(wash.right, greaterThan(block.right));
+    expect(wash.top, closeTo(block.top, 0.5));
+    expect(
+      wash.bottom,
+      lessThanOrEqualTo(tester.getTopLeft(find.text('LOCAL LIBRARY')).dy),
+    );
+  });
+
+  /// Under a heading that names the source, in a group that is all tracks,
+  /// "Track" and the source badge would only repeat it. The mixed name
+  /// matches keep both.
+  testWidgets('a source\'s rows say the artist and album, not the kind again', (
+    tester,
+  ) async {
+    final api = _ScriptedApi(
+      matches: {
+        'qobuz': [_track('qobuz', 'm', 'Named Song', tier: MatchTier.exact)],
+      },
+      inspired: {
+        'qobuz': [
+          for (var i = 1; i <= 5; i++) _track('qobuz', '$i', 'Away Song $i'),
+        ],
+      },
+    );
+    await _pump(tester, api);
+    await tester.pump(_settle);
+
+    final inspired = find.byType(InspiredBlock);
+    expect(
+      find.descendant(of: inspired, matching: find.text('Someone · An Album')),
+      findsNWidgets(3),
+    );
+    expect(
+      find.descendant(of: inspired, matching: find.textContaining('Track ·')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: inspired, matching: find.byType(SourceBadge)),
+      findsNothing,
+    );
+    expect(find.textContaining('Track · Someone · An Album'), findsOneWidget);
+  });
+
+  /// A later source stands further off the rows above it than rows stand off
+  /// each other; the first hangs closer, off the block's heading.
+  testWidgets('a later source stands further off than the rows do', (
+    tester,
+  ) async {
+    final api = _ScriptedApi(
+      inspired: {
+        'localfiles': [
+          _track('localfiles', '1', 'Home Song 1'),
+          _track('localfiles', '2', 'Home Song 2'),
+        ],
+        'qobuz': [_track('qobuz', '1', 'Away Song 1')],
+      },
+    );
+    await _pump(tester, api);
+    await tester.pump(_settle);
+
+    // The heading row, found from its letter tile (the title is in a nested
+    // row).
+    Finder heading(String source) => find
+        .ancestor(
+          of: find.byWidgetPredicate(
+            (w) => w is SourceLetter && w.source == source,
+          ),
+          matching: find.byType(Row),
+        )
+        .first;
+    Finder row(String title) => find.ancestor(
+      of: find.text(title),
+      matching: find.byType(SearchTrackRow),
+    );
+
+    final title = tester.getRect(find.text('Inspired by your request'));
+    final rowGap =
+        tester.getRect(row('Home Song 2')).top -
+        tester.getRect(row('Home Song 1')).bottom;
+    final afterTitle = tester.getRect(heading('localfiles')).top - title.bottom;
+    final betweenSources =
+        tester.getRect(heading('qobuz')).top -
+        tester.getRect(row('Home Song 2')).bottom;
+
+    expect(betweenSources, greaterThanOrEqualTo(2 * rowGap));
+    expect(betweenSources, greaterThan(afterTitle));
   });
 
   /// The block's own control: which of the sources that answered is being

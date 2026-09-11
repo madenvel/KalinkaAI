@@ -14,10 +14,9 @@ import 'track_group_actions.dart';
 /// rankings are not comparable, so each group keeps its own order, its own
 /// batch actions and its own way of opening in full. Each group stands on
 /// its own answer — one still loading shimmers, one that failed says so,
-/// while the others show. A berry wash behind the heading holds them together
-/// as the one section they are, and the display face gives the block a voice
-/// of its own: these are answers offered, not a listing of what a source
-/// holds.
+/// while the others show. The heading holds them together as the one section
+/// they are, and the display face gives the block a voice of its own: these
+/// are answers offered, not a listing of what a source holds.
 class InspiredBlock extends StatelessWidget {
   final SearchResults results;
   final NarrowedResults narrowed;
@@ -27,16 +26,12 @@ class InspiredBlock extends StatelessWidget {
   final ValueChanged<String> onViewAll;
   final ValueChanged<String> onRetry;
 
-  /// How far the page edge lies left of the block. The bar sits on the edge,
-  /// as the queue's now-playing bar does, not in the text column.
+  /// How far the page edge lies left of the block: the heading's wash runs
+  /// out to it.
   final double gutter;
 
   /// How many of a group's tracks lead before VIEW ALL.
   static const previewCount = 3;
-
-  /// How far the wash reaches before the groups begin. It runs well past
-  /// where it is still visible: the fade decides where it ends, not the box.
-  static const _washHeight = 120.0;
 
   const InspiredBlock({
     super.key,
@@ -66,6 +61,35 @@ class InspiredBlock extends StatelessWidget {
     final groups = narrowed.groups.where(_groupVisible).toList();
     final expanded = filter.kind == ResultKind.recommendations;
 
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _InspiredHeading(gutter: gutter),
+        for (final (i, group) in groups.indexed)
+          _SourceGroup(
+            group: group,
+            title: results.sources.titleOf(group.source),
+            expanded: expanded,
+            first: i == 0,
+            onViewAll: () => onViewAll(group.source),
+            onRetry: () => onRetry(group.source),
+          ),
+      ],
+    );
+  }
+}
+
+/// What the block is and then its name, in the shape a page title takes: an
+/// eyebrow over the display face, nothing ruled through either. The eyebrow
+/// is quieter than the shelf labels so the name leads; the sparkle is the
+/// Discover mark. No tally here: each source carries its own.
+class _InspiredHeading extends StatelessWidget {
+  final double gutter;
+
+  const _InspiredHeading({required this.gutter});
+
+  @override
+  Widget build(BuildContext context) {
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -73,123 +97,75 @@ class InspiredBlock extends StatelessWidget {
           left: -gutter,
           right: -gutter,
           top: 0,
-          height: _washHeight,
+          bottom: 0,
           child: const IgnorePointer(child: _HeadingWash()),
         ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const _InspiredHeading(),
-            for (final group in groups)
-              _SourceGroup(
-                group: group,
-                title: results.sources.titleOf(group.source),
-                expanded: expanded,
-                onViewAll: () => onViewAll(group.source),
-                onRetry: () => onRetry(group.source),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// What the block is and then its name, in the shape a page title takes: a
-/// quiet label over the display face, and nothing drawn through either.
-///
-/// No rule and no tally. A rule divides a heading from what follows, and this
-/// heading is not separate from its groups — the wash behind it is what says
-/// where the block begins. The count belonged to a shelf being opened in
-/// full; what a source happened to suggest is not a quantity anyone came for.
-class _InspiredHeading extends StatelessWidget {
-  const _InspiredHeading();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        Padding(
+          // The wash rises through the air above the eyebrow.
+          padding: const EdgeInsets.only(top: 14, bottom: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.auto_awesome,
-                size: 14,
-                color: KalinkaColors.accentTint,
+              Row(
+                children: [
+                  const Icon(
+                    Icons.auto_awesome,
+                    size: 14,
+                    color: KalinkaColors.accentTint,
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    'SMART RECOMMENDATIONS',
+                    style: KalinkaTextStyles.blockEyebrow,
+                  ),
+                ],
               ),
-              const SizedBox(width: 7),
+              const SizedBox(height: 6),
               Text(
-                'SMART RECOMMENDATIONS',
-                style: KalinkaTextStyles.sectionLabel.copyWith(
-                  color: KalinkaColors.textPrimary,
-                ),
+                'Inspired by your request',
+                style: KalinkaTextStyles.blockTitle,
               ),
             ],
           ),
-          const SizedBox(height: 5),
-          Text(
-            'Inspired by your request',
-            style: KalinkaTextStyles.dialogTitle,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The berry the block is allowed: the Discover root's bloom at a section's
-/// scale — off the top-right, dissolved into the ground before its box ends.
-///
-/// Diffuse rather than drawn. A berry edge or fill would read as a decision,
-/// and this is atmosphere for the one section that answers in its own voice.
-/// It is also the only thing marking where the block starts, now that nothing
-/// there is ruled or barred.
-class _HeadingWash extends StatelessWidget {
-  const _HeadingWash();
-
-  /// Off to the right and high, so the glow sits in the canvas the heading
-  /// leaves empty rather than behind the words.
-  static final _bloom = RadialGradient(
-    center: const Alignment(0.85, -0.5),
-    radius: 1.35,
-    colors: [
-      KalinkaColors.accentWash,
-      KalinkaColors.accentWash.withValues(alpha: 0),
-    ],
-  );
-
-  /// What ends it: the ground brought up over the bloom a little past the
-  /// foot of the heading. The bloom is still tinted where its box stops, so
-  /// without this it is clipped there and the cut reads as a line across the
-  /// results.
-  static final _fadeOut = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [
-      KalinkaColors.background.withValues(alpha: 0),
-      KalinkaColors.background,
-    ],
-    stops: const [0.35, 0.62],
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        DecoratedBox(decoration: BoxDecoration(gradient: _bloom)),
-        DecoratedBox(decoration: BoxDecoration(gradient: _fadeOut)),
+        ),
       ],
     );
   }
 }
 
+/// A neutral lift of the ground behind the heading, edge to edge, peaking
+/// just above the name and gone by the heading's foot. Not berry: a berry
+/// wash beside the berry now-playing row read as the same signal twice.
+class _HeadingWash extends StatelessWidget {
+  const _HeadingWash();
+
+  static final _lift = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      KalinkaColors.surfaceElevated.withValues(alpha: 0),
+      KalinkaColors.surfaceElevated,
+      KalinkaColors.surfaceElevated.withValues(alpha: 0),
+    ],
+    stops: const [0, 0.4, 1],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(decoration: BoxDecoration(gradient: _lift));
+  }
+}
+
+/// One source's answer: its name and tally, the actions over the whole of
+/// it, and a preview of its rows.
 class _SourceGroup extends StatelessWidget {
   final InspiredGroup group;
   final String title;
   final bool expanded;
+
+  /// Whether this group follows the block's heading; later ones stand
+  /// further off the rows above them.
+  final bool first;
   final VoidCallback onViewAll;
   final VoidCallback onRetry;
 
@@ -197,6 +173,7 @@ class _SourceGroup extends StatelessWidget {
     required this.group,
     required this.title,
     required this.expanded,
+    required this.first,
     required this.onViewAll,
     required this.onRetry,
   });
@@ -214,12 +191,14 @@ class _SourceGroup extends StatelessWidget {
     final tracks = group.tracks;
     final trackIds = [for (final item in tracks) item.id];
     final more = !expanded && tracks.length > InspiredBlock.previewCount;
+    // The tally MATCHES BY NAME carries too: it says a preview is a preview.
+    final count = state is LegLoading ? null : tracks.length;
     final shown = expanded
         ? tracks
         : tracks.take(InspiredBlock.previewCount).toList();
 
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: EdgeInsets.only(top: first ? 16 : 30),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -228,13 +207,28 @@ class _SourceGroup extends StatelessWidget {
               SourceLetter(source: group.source),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  title.toUpperCase(),
-                  style: KalinkaTextStyles.sectionLabel.copyWith(
-                    color: KalinkaColors.textPrimary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title.toUpperCase(),
+                        style: KalinkaTextStyles.sectionLabel.copyWith(
+                          color: KalinkaColors.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (count != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '· $count',
+                        style: KalinkaTextStyles.sectionLabel.copyWith(
+                          color: KalinkaColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               if (more) ...[
@@ -253,8 +247,13 @@ class _SourceGroup extends StatelessWidget {
             const BrowseRowsShimmer(count: InspiredBlock.previewCount)
           else
             // Tapping a track plays the group from it: the group is the
-            // queue, which gives it a coherent identity.
-            BrowseItemRows(items: shown, queueContextIds: trackIds),
+            // queue, which gives it a coherent identity. The heading already
+            // names the source and the kind.
+            BrowseItemRows(
+              items: shown,
+              queueContextIds: trackIds,
+              labelled: false,
+            ),
         ],
       ),
     );

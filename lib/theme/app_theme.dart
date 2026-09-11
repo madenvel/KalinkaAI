@@ -106,9 +106,6 @@ class KalinkaColors {
   static const accentBorder = Color(
     0x66C2394B,
   ); // 0.40 alpha · Focused inputs · selected cards
-  static const accentWash = Color(
-    0x1FC2394B,
-  ); // 0.12 alpha · Section wash — diffuse only, never an edge or a fill
 
   // ── Accent — Warm Brass ──────────────────────────────────────────────────
   // Secondary signal for streaming/external content — gold-plated connector
@@ -421,6 +418,19 @@ class KalinkaTextStyles {
     fontWeight: FontWeight.w600,
     letterSpacing: 1.5,
     color: KalinkaColors.textSectionLabel,
+  );
+
+  // A block's own heading: a quiet eyebrow over a display-face title.
+  static TextStyle blockEyebrow = KalinkaFonts.mono(
+    fontSize: KalinkaTypography.baseSize,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 1.5,
+    color: KalinkaColors.textSecondary,
+  );
+
+  static TextStyle blockTitle = KalinkaFonts.display(
+    fontSize: KalinkaTypography.baseSize + 14,
+    color: KalinkaColors.frost,
   );
 
   static TextStyle trackRowTitle = KalinkaFonts.sans(
