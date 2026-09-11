@@ -31,11 +31,16 @@ class ExpandedContainerTracks extends ConsumerWidget {
   /// header row.
   final Widget? headerAction;
 
+  /// An offer to fill the container while it holds nothing (a collection is
+  /// offered the queue).
+  final Widget? emptyAction;
+
   const ExpandedContainerTracks({
     super.key,
     required this.item,
     this.emptyLabel = 'No tracks in this playlist',
     this.headerAction,
+    this.emptyAction,
   });
 
   String get containerId => item.id;
@@ -45,12 +50,15 @@ class ExpandedContainerTracks extends ConsumerWidget {
     final tracksAsync = ref.watch(browseDetailProvider(containerId));
 
     return tracksAsync.when(
+      // A write reloads a collection under the row; keep its rows up meanwhile.
+      skipLoadingOnReload: true,
       data: (browseList) {
         final items = browseList.items;
         if (items.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text(emptyLabel, style: KalinkaTextStyles.trackRowSubtitle),
+          return _EmptyState(
+            label: emptyLabel,
+            action: emptyAction,
+            trailing: headerAction,
           );
         }
         // What the container holds, against what this page of it has: a
@@ -116,6 +124,51 @@ class ExpandedContainerTracks extends ConsumerWidget {
             ),
         ],
       ],
+    );
+  }
+}
+
+/// The empty state: the label alone, or with the offer to fill the container
+/// and the container's own action, in the header's shape.
+class _EmptyState extends StatelessWidget {
+  final String label;
+  final Widget? action;
+  final Widget? trailing;
+
+  const _EmptyState({required this.label, this.action, this.trailing});
+
+  @override
+  Widget build(BuildContext context) {
+    if (action == null && trailing == null) {
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Text(label, style: KalinkaTextStyles.trackRowSubtitle),
+      );
+    }
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 4, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: KalinkaTextStyles.trackRowSubtitle),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [if (action != null) action!],
+                  ),
+                ),
+                if (trailing != null) trailing!,
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

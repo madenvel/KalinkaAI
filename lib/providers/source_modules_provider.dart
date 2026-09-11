@@ -121,3 +121,10 @@ final builtinSourcesProvider = Provider<Set<String>>((ref) {
       if (m.builtin) m.name,
   };
 });
+
+/// Whether [entityId] comes from a source the server keeps for the listener
+/// (a collection), which is written to and so may change between reads.
+bool ownedByServer(Set<String> builtinSources, String entityId) {
+  final source = sourceOfId(entityId);
+  return source != null && builtinSources.contains(source);
+}

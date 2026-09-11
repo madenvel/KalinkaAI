@@ -179,6 +179,38 @@ class _PagedApi extends _ShelfApi {
   }
 }
 
+/// One empty collection; what is added to it is listed from then on.
+class _FreshApi extends _ShelfApi {
+  final List<BrowseItem> held = [];
+  final List<(String, List<String>)> added = [];
+
+  @override
+  Future<({int added, int alreadyThere})> addToCollection(
+    String id,
+    List<String> itemIds, {
+    bool keepDuplicates = false,
+  }) async {
+    added.add((id, itemIds));
+    held.addAll([for (final id in itemIds) _track(id, 'Queued $id')]);
+    return (added: itemIds.length, alreadyThere: 0);
+  }
+
+  @override
+  Future<BrowseItemsList> browse(
+    String id, {
+    int offset = 0,
+    int limit = 10,
+    String? filter,
+  }) async {
+    final items = switch (id) {
+      _shelfId => [_collection(_c1, 'Fresh Start', held.length)],
+      _c1 => [...held],
+      _ => const <BrowseItem>[],
+    };
+    return BrowseItemsList(offset, limit, items.length, items);
+  }
+}
+
 class _FixedConnection extends ConnectionStateNotifier {
   @override
   ConnectionStatus build() => ConnectionStatus.connected;
@@ -226,11 +258,13 @@ void main() {
   Future<ProviderContainer> pumpSurface(
     WidgetTester tester, {
     KalinkaPlayerProxy? api,
+    List<Track> queue = const [],
   }) async {
     final container = ProviderContainer(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
         kalinkaProxyProvider.overrideWithValue(api ?? _EmptyApi()),
+        playQueueProvider.overrideWithValue(queue),
         sourceModulesProvider.overrideWith((ref) => _modules),
         connectionStateProvider.overrideWith(_FixedConnection.new),
         playerStateProvider.overrideWithValue(PlaybackState.empty),
@@ -649,5 +683,102 @@ void main() {
     final page = container.read(searchSessionProvider).catalogPage;
     expect(page.focusItemId, isNull);
     expect(page.canEdit, isTrue);
+  });
+
+  testWidgets('an empty collection offers the queue, and takes it in place', (
+    tester,
+  ) async {
+    final api = _FreshApi();
+    final container = await pumpSurface(
+      tester,
+      api: api,
+      queue: [
+        Track(id: 'q1', title: 'First', duration: 100),
+        Track(id: 'q2', title: 'Second', duration: 100),
+      ],
+    );
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+    await tester.tap(find.text('Fresh Start'));
+    await settle(tester);
+
+    expect(find.text('Nothing in this collection yet'), findsOneWidget);
+    // Nothing to play yet, but the collection's own menu is reachable.
+    expect(find.text('Play all'), findsNothing);
+    expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
+
+    await tester.tap(find.text('Add 2 tracks from the queue'));
+    await settle(tester);
+
+    // The whole queue, in playing order, into this collection: no sheet.
+    expect(api.added.single.$1, _c1);
+    expect(api.added.single.$2, ['q1', 'q2']);
+    // The rows land where the offer stood, the row still unrolled.
+    expect(find.text('Queued q1'), findsOneWidget);
+    expect(find.text('Queued q2'), findsOneWidget);
+    expect(find.textContaining('from the queue'), findsNothing);
+    expect(find.text('Play all'), findsOneWidget);
+    // Let the confirmation toast's timer run out.
+    await tester.pump(const Duration(seconds: 30));
+  });
+
+  testWidgets('an unrolled collection follows a write made elsewhere', (
+    tester,
+  ) async {
+    final api = _FreshApi();
+    final container = await pumpSurface(tester, api: api);
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+    await tester.tap(find.text('Fresh Start'));
+    await settle(tester);
+    expect(find.text('Nothing in this collection yet'), findsOneWidget);
+
+    // A write from elsewhere (the tray, say) bumps the revision.
+    api.held.add(_track('x1', 'Landed Elsewhere'));
+    container.read(collectionsRevisionProvider.notifier).bump();
+    await settle(tester);
+
+    expect(find.text('Landed Elsewhere'), findsOneWidget);
+    expect(find.text('Nothing in this collection yet'), findsNothing);
+  });
+
+  testWidgets('a collection is reread each time it is opened', (tester) async {
+    final api = _FreshApi();
+    final container = await pumpSurface(tester, api: api);
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+    await tester.tap(find.text('Fresh Start'));
+    await settle(tester);
+    expect(find.text('Nothing in this collection yet'), findsOneWidget);
+
+    // Rolled up, and changed from somewhere this app never hears of.
+    await tester.tap(find.text('Fresh Start'));
+    await settle(tester);
+    api.held.add(_track('x2', 'Arrived Meanwhile'));
+
+    await tester.tap(find.text('Fresh Start'));
+    await settle(tester);
+    expect(find.text('Arrived Meanwhile'), findsOneWidget);
+  });
+
+  testWidgets('with nothing queued, an empty collection makes no offer', (
+    tester,
+  ) async {
+    final container = await pumpSurface(tester, api: _FreshApi());
+    container
+        .read(searchSessionProvider.notifier)
+        .openCatalog(id: _shelfId, title: 'Your collections', canEdit: true);
+    await settle(tester);
+    await tester.tap(find.text('Fresh Start'));
+    await settle(tester);
+
+    expect(find.text('Nothing in this collection yet'), findsOneWidget);
+    expect(find.textContaining('from the queue'), findsNothing);
   });
 }
