@@ -49,12 +49,7 @@ class ShelfHeading extends StatelessWidget {
             ),
             if (count != null) ...[
               const SizedBox(width: 8),
-              Text(
-                '· $count',
-                style: KalinkaTextStyles.sectionLabel.copyWith(
-                  color: KalinkaColors.textMuted,
-                ),
-              ),
+              ShelfTally(count!),
             ],
             const SizedBox(width: 12),
             const Expanded(
@@ -80,6 +75,24 @@ class ShelfHeading extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// How many a shelf or a group holds, after its name: muted, so the name
+/// stays the heading.
+class ShelfTally extends StatelessWidget {
+  final int count;
+
+  const ShelfTally(this.count, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '· $count',
+      style: KalinkaTextStyles.sectionLabel.copyWith(
+        color: KalinkaColors.textMuted,
+      ),
     );
   }
 }

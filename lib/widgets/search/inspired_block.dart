@@ -65,15 +65,18 @@ class InspiredBlock extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _InspiredHeading(gutter: gutter),
-        for (final (i, group) in groups.indexed)
+        // A later source stands further off the rows above it than rows
+        // stand off each other, so it reads as a group, not the next row.
+        for (final (i, group) in groups.indexed) ...[
+          if (i > 0) const SizedBox(height: 14),
           _SourceGroup(
             group: group,
             title: results.sources.titleOf(group.source),
             expanded: expanded,
-            first: i == 0,
             onViewAll: () => onViewAll(group.source),
             onRetry: () => onRetry(group.source),
           ),
+        ],
       ],
     );
   }
@@ -88,6 +91,20 @@ class _InspiredHeading extends StatelessWidget {
 
   const _InspiredHeading({required this.gutter});
 
+  /// A neutral lift of the ground behind the heading, edge to edge, peaking
+  /// just above the name and gone by the heading's foot. Not berry: a berry
+  /// wash beside the berry now-playing row read as the same signal twice.
+  static final _wash = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      KalinkaColors.surfaceElevated.withValues(alpha: 0),
+      KalinkaColors.surfaceElevated,
+      KalinkaColors.surfaceElevated.withValues(alpha: 0),
+    ],
+    stops: const [0, 0.4, 1],
+  );
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -98,7 +115,9 @@ class _InspiredHeading extends StatelessWidget {
           right: -gutter,
           top: 0,
           bottom: 0,
-          child: const IgnorePointer(child: _HeadingWash()),
+          child: IgnorePointer(
+            child: DecoratedBox(decoration: BoxDecoration(gradient: _wash)),
+          ),
         ),
         Padding(
           // The wash rises through the air above the eyebrow.
@@ -133,39 +152,12 @@ class _InspiredHeading extends StatelessWidget {
   }
 }
 
-/// A neutral lift of the ground behind the heading, edge to edge, peaking
-/// just above the name and gone by the heading's foot. Not berry: a berry
-/// wash beside the berry now-playing row read as the same signal twice.
-class _HeadingWash extends StatelessWidget {
-  const _HeadingWash();
-
-  static final _lift = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [
-      KalinkaColors.surfaceElevated.withValues(alpha: 0),
-      KalinkaColors.surfaceElevated,
-      KalinkaColors.surfaceElevated.withValues(alpha: 0),
-    ],
-    stops: const [0, 0.4, 1],
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(decoration: BoxDecoration(gradient: _lift));
-  }
-}
-
 /// One source's answer: its name and tally, the actions over the whole of
 /// it, and a preview of its rows.
 class _SourceGroup extends StatelessWidget {
   final InspiredGroup group;
   final String title;
   final bool expanded;
-
-  /// Whether this group follows the block's heading; later ones stand
-  /// further off the rows above them.
-  final bool first;
   final VoidCallback onViewAll;
   final VoidCallback onRetry;
 
@@ -173,7 +165,6 @@ class _SourceGroup extends StatelessWidget {
     required this.group,
     required this.title,
     required this.expanded,
-    required this.first,
     required this.onViewAll,
     required this.onRetry,
   });
@@ -198,7 +189,7 @@ class _SourceGroup extends StatelessWidget {
         : tracks.take(InspiredBlock.previewCount).toList();
 
     return Padding(
-      padding: EdgeInsets.only(top: first ? 16 : 30),
+      padding: const EdgeInsets.only(top: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -221,12 +212,7 @@ class _SourceGroup extends StatelessWidget {
                     ),
                     if (count != null) ...[
                       const SizedBox(width: 8),
-                      Text(
-                        '· $count',
-                        style: KalinkaTextStyles.sectionLabel.copyWith(
-                          color: KalinkaColors.textMuted,
-                        ),
-                      ),
+                      ShelfTally(count),
                     ],
                   ],
                 ),
