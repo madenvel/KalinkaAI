@@ -175,7 +175,10 @@ class _InfiniteListViewState<T> extends State<InfiniteListView<T>> {
   /// Refetches the loaded range and swaps it in whole. A failed chunk leaves
   /// what was there: a refresh has no error state of its own.
   Future<void> _refresh() async {
-    if (_initialLoading || _initialError != null) return _restart();
+    if (_initialLoading || _initialError != null) {
+      _restart();
+      return;
+    }
     final gen = ++_generation;
     final loaded = _items.length;
     final fresh = <T>[];

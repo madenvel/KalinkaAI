@@ -11,6 +11,7 @@ import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/haptics.dart';
 import '../../utils/play_next.dart';
+import '../now_playing_bars.dart';
 import '../procedural_album_art.dart';
 
 /// Shared behaviour for the search-result row widgets (album / artist /
@@ -73,6 +74,32 @@ class MatchBadge extends StatelessWidget {
           color: KalinkaColors.accentTint,
         ),
       ),
+    );
+  }
+}
+
+/// A track row's trailing end: the now-playing bars when this is the track
+/// in the player, then the duration.
+class TrackRowTrailing extends StatelessWidget {
+  final String? duration;
+  final bool current;
+
+  const TrackRowTrailing({
+    super.key,
+    required this.duration,
+    required this.current,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (current) const NowPlayingBars(),
+        if (current && duration != null) const SizedBox(width: 8),
+        if (duration != null)
+          Text(duration!, style: KalinkaTextStyles.trackRowSubtitle),
+      ],
     );
   }
 }

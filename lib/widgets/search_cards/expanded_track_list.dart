@@ -9,7 +9,6 @@ import '../../providers/selection_state_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
-import '../now_playing_bars.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
 import '../swipe_to_act_row.dart';
@@ -157,10 +156,9 @@ class _EmptyState extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [if (action != null) action!],
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: action ?? const SizedBox.shrink(),
                   ),
                 ),
                 if (trailing != null) trailing!,
@@ -514,13 +512,11 @@ class _InlineContainerTrackState extends ConsumerState<_InlineContainerTrack>
                       ],
                     ),
                   ),
-                  if (!selectionMode) ...[
-                    if (isCurrentTrack) const NowPlayingBars(),
-                    if (isCurrentTrack && duration != null)
-                      const SizedBox(width: 8),
-                    if (duration != null)
-                      Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
-                  ],
+                  if (!selectionMode)
+                    TrackRowTrailing(
+                      duration: duration,
+                      current: isCurrentTrack,
+                    ),
                 ],
               ),
             ),

@@ -7,7 +7,6 @@ import '../../providers/selection_state_provider.dart';
 import '../../providers/toast_provider.dart';
 import '../../providers/url_resolver.dart';
 import '../../theme/app_theme.dart';
-import '../now_playing_bars.dart';
 import '../procedural_album_art.dart';
 import '../source_badge.dart';
 import '../swipe_to_act_row.dart';
@@ -288,15 +287,7 @@ class _SearchTrackRowState extends ConsumerState<SearchTrackRow>
         ],
       ),
       trailing: duration != null || showBars
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (showBars) const NowPlayingBars(),
-                if (showBars && duration != null) const SizedBox(width: 8),
-                if (duration != null)
-                  Text(duration, style: KalinkaTextStyles.trackRowSubtitle),
-              ],
-            )
+          ? TrackRowTrailing(duration: duration, current: showBars)
           : null,
     );
 
