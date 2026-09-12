@@ -113,7 +113,19 @@ class CollectionsSection extends ConsumerWidget {
 class CollectionsEmptyCard extends ConsumerWidget {
   const CollectionsEmptyCard({super.key});
 
-  static const _tileSize = 128.0;
+  /// The tile at its roomiest; it shrinks with the card down to [_minTile].
+  @visibleForTesting
+  static const tileSize = 128.0;
+  static const _minTile = 84.0;
+
+  /// Below this the button no longer fits beside the tile, so it moves under
+  /// the row. The tile stays next to the words either way — stacking those
+  /// turns the card into a banner that owns the screen.
+  static const _inlineButtonWidth = 380.0;
+
+  /// How wide the button is allowed to grow beside the tile — a CTA stretched
+  /// across a desktop-width card reads as a banner.
+  static const _maxButtonWidth = 260.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -126,50 +138,65 @@ class CollectionsEmptyCard extends ConsumerWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final stacked = constraints.maxWidth < 380;
+          final width = constraints.maxWidth;
+          final tight = width < _inlineButtonWidth;
           final tile = CollectionArtTile(
             seed: 'collections',
-            size: _tileSize,
+            size: (width * 0.30).clamp(tight ? _minTile : 104.0, tileSize),
             radius: 14,
           );
+          // Full width either way, so the label ellipsizes instead of
+          // bursting the card when a translation or a large text scale runs
+          // past the room the words have.
+          final button = KalinkaButton(
+            label: 'CREATE COLLECTION',
+            leading: const Icon(Icons.add, size: 18),
+            size: tight ? KalinkaButtonSize.compact : KalinkaButtonSize.normal,
+            fullWidth: true,
+            onTap: () => showNewCollectionSheet(context, ref),
+          );
           final words = Column(
-            crossAxisAlignment: stacked
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 'No collections yet',
-                style: KalinkaTextStyles.emptyQueueTitle,
-                textAlign: stacked ? TextAlign.center : TextAlign.start,
+                style: tight
+                    ? KalinkaTextStyles.emptyQueueTitle.copyWith(
+                        fontSize: KalinkaTypography.baseSize + 8,
+                      )
+                    : KalinkaTextStyles.emptyQueueTitle,
               ),
               const SizedBox(height: 6),
               Text(
                 'Mix tracks from any source into your own ordered lists.',
-                style: KalinkaTextStyles.emptyQueueSubtitle,
-                textAlign: stacked ? TextAlign.center : TextAlign.start,
+                style: tight
+                    ? KalinkaTextStyles.emptyQueueSubtitle.copyWith(
+                        fontSize: KalinkaTypography.baseSize + 2,
+                      )
+                    : KalinkaTextStyles.emptyQueueSubtitle,
               ),
-              const SizedBox(height: 16),
-              KalinkaButton(
-                label: 'CREATE COLLECTION',
-                leading: const Icon(Icons.add, size: 18),
-                onTap: () => showNewCollectionSheet(context, ref),
-              ),
+              if (!tight) ...[
+                const SizedBox(height: 16),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: _maxButtonWidth),
+                  child: button,
+                ),
+              ],
             ],
           );
 
-          if (stacked) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [tile, const SizedBox(height: 16), words],
-            );
-          }
-          return Row(
+          final row = Row(
             children: [
               tile,
-              const SizedBox(width: 20),
+              SizedBox(width: tight ? 14 : 20),
               Expanded(child: words),
             ],
+          );
+          if (!tight) return row;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [row, const SizedBox(height: 14), button],
           );
         },
       ),

@@ -278,6 +278,45 @@ void main() {
     expect(button.enabled, isTrue);
   });
 
+  testWidgets('the invitation stays a row on a phone, button under it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await pump(tester, api: _serverWith(const []), modules: _withCollections);
+
+    final tile = tester.getRect(find.byType(CollectionArtTile));
+    final title = tester.getRect(find.text('No collections yet'));
+    final button = tester.getRect(find.byType(KalinkaButton));
+
+    // Tile beside the words, never over them — stacked, the card owns the
+    // screen. The button is what gives way, to its own line under the row.
+    expect(tile.right, lessThanOrEqualTo(title.left));
+    expect(tile.width, lessThan(CollectionsEmptyCard.tileSize));
+    expect(button.top, greaterThan(tile.bottom));
+    expect(button.width, greaterThan(title.width));
+  });
+
+  testWidgets('with room, the button sits beside the tile and stays bounded', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await pump(tester, api: _serverWith(const []), modules: _withCollections);
+
+    final tile = tester.getRect(find.byType(CollectionArtTile));
+    final button = tester.getRect(find.byType(KalinkaButton));
+
+    expect(tile.width, CollectionsEmptyCard.tileSize);
+    expect(button.left, greaterThan(tile.right));
+    // A CTA stretched across the card would read as a banner.
+    expect(button.width, lessThanOrEqualTo(260.0));
+  });
+
   testWidgets('a collection shows its collage; an empty one the tile', (
     tester,
   ) async {
